@@ -1,73 +1,136 @@
-# Welcome to your Lovable project
+# Beauty Hub Pro
 
-## Project info
+A multi-tenant salon and spa management platform for appointments, clients, staff, treatments, packages, waivers, and marketing.
 
-**URL**: https://lovable.dev/projects/a33e7eee-0779-48f9-8610-0bf7bf974a19
+**Live URL:** https://beauty-hub-pro-app.web.app
+**GitHub:** https://github.com/visionstudio1811/beauty-hub-pro-firebase
+**Firebase project:** `beauty-hub-pro-app`
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **Frontend:** React 18 + TypeScript + Vite
+- **UI:** shadcn/ui + Radix UI + Tailwind CSS
+- **Database:** Firebase Firestore
+- **Auth:** Firebase Auth (phone OTP via Twilio)
+- **Backend:** Firebase Cloud Functions v2 (Node.js 20)
+- **Hosting:** Firebase Hosting
+- **Email:** Resend API
+- **SMS/OTP:** Twilio Verify
+- **Scheduling sync:** Acuity Scheduling
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a33e7eee-0779-48f9-8610-0bf7bf974a19) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 20+
+- Firebase CLI: `npm install -g firebase-tools`
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Local setup
 
-Follow these steps:
+```bash
+# Clone the repo
+git clone https://github.com/visionstudio1811/beauty-hub-pro-firebase.git
+cd beauty-hub-pro-firebase
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install frontend dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install Cloud Functions dependencies
+cd functions && npm install && cd ..
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Copy env file and fill in your Firebase config
+cp .env.example .env
 ```
 
-**Edit a file directly in GitHub**
+Fill `.env` with values from [Firebase Console → Project Settings → Your apps](https://console.firebase.google.com/project/beauty-hub-pro-app/settings/general):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=beauty-hub-pro-app.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=beauty-hub-pro-app
+VITE_FIREBASE_STORAGE_BUCKET=beauty-hub-pro-app.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
 
-**Use GitHub Codespaces**
+### Run locally
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm run dev          # Frontend dev server → http://localhost:8080
+firebase emulators:start  # Firebase emulators (Auth, Firestore, Functions, Hosting)
+```
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Deployment
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+# Build frontend
+npm run build
 
-## How can I deploy this project?
+# Build Cloud Functions
+cd functions && npm run build && cd ..
 
-Simply open [Lovable](https://lovable.dev/projects/a33e7eee-0779-48f9-8610-0bf7bf974a19) and click on Share -> Publish.
+# Deploy everything
+firebase deploy
 
-## Can I connect a custom domain to my Lovable project?
+# Or deploy individually
+firebase deploy --only hosting
+firebase deploy --only functions
+firebase deploy --only firestore:rules
+```
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Cloud Function Secrets
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Set these once via the Firebase CLI (stored in Google Secret Manager):
+
+```bash
+firebase functions:secrets:set TWILIO_ACCOUNT_SID
+firebase functions:secrets:set TWILIO_AUTH_TOKEN
+firebase functions:secrets:set TWILIO_VERIFY_SERVICE_SID
+firebase functions:secrets:set RESEND_API_KEY
+firebase functions:secrets:set ACUITY_API_USER_ID   # optional
+firebase functions:secrets:set ACUITY_API_KEY        # optional
+```
+
+---
+
+## Project Structure
+
+```
+beauty-hub-pro-app/
+├── src/
+│   ├── components/       # UI components
+│   ├── contexts/         # React context providers (one per domain)
+│   ├── hooks/            # Data access hooks
+│   ├── lib/
+│   │   ├── firebase.ts   # Firebase client init
+│   │   ├── validation.ts # Zod schemas
+│   │   └── dataSanitization.ts
+│   ├── pages/            # Route-level page components
+│   ├── types/
+│   │   └── firestore.ts  # TypeScript interfaces for Firestore collections
+│   └── App.tsx
+├── functions/
+│   └── src/              # Cloud Functions (TypeScript)
+├── firebase.json         # Firebase config
+├── firestore.rules       # Firestore security rules
+├── firestore.indexes.json
+└── .env.example
+```
+
+---
+
+## Manual Firebase Console Steps
+
+Before first deploy, complete these in the [Firebase Console](https://console.firebase.google.com/project/beauty-hub-pro-app):
+
+1. **Enable Phone Authentication** → Authentication → Sign-in methods → Phone → Enable
+2. **Add authorized domains** → Authentication → Settings → Authorized domains
+3. **Register a web app** → Project Settings → Add app → Web → copy config into `.env`
