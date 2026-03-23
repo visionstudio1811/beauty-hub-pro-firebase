@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserOrg() {
+      return getUserData().organizationId;
+    }
+
+    function getUserRole() {
+      return getUserData().role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isStaff() {
+      return isAuthenticated() && getUserRole() in ['admin', 'staff'];
+    }
+
+    function isReception() {
+      return isAuthenticated() && getUserRole() in ['admin', 'staff', 'reception'];
+    }
+
+    function isBeautician() {
+      return isAuthenticated() && getUserRole() in ['admin', 'staff', 'reception', 'beautician'];
+    }
+
+    function belongsToOrg(orgId) {
+      return isAuthenticated() && getUserOrg() == orgId;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated() && belongsToOrg(orgId);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && belongsToOrg(orgId) && isAdmin();
+
+      match /clients/{clientId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isReception();
+      }
+
+      match /appointments/{appointmentId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isReception();
+      }
+
+      match /treatments/{treatmentId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isStaff();
+      }
+
+      match /staff/{staffId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /packages/{packageId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isStaff();
+      }
+
+      match /purchases/{purchaseId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isReception();
+      }
+
+      match /products/{productId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isStaff();
+      }
+
+      match /productAssignments/{assignmentId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isReception();
+      }
+
+      match /config/{configId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /businessHours/{docId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /schedulingConfig/{docId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /dropdownData/{docId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /waiverTemplates/{templateId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /clientWaivers/{waiverId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow write: if belongsToOrg(orgId) && isReception();
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow write: if false;
+      }
+
+      match /marketingCampaigns/{campaignId} {
+        allow read: if belongsToOrg(orgId) && isStaff();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /marketingTemplates/{templateId} {
+        allow read: if belongsToOrg(orgId) && isStaff();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /marketingAutomations/{automationId} {
+        allow read: if belongsToOrg(orgId) && isStaff();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /campaignRecipients/{recipientId} {
+        allow read: if belongsToOrg(orgId) && isStaff();
+        allow write: if false;
+      }
+
+      match /acuitySyncConfig/{docId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow write: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /clientCommunications/{commId} {
+        allow read: if belongsToOrg(orgId) && isStaff();
+        allow write: if belongsToOrg(orgId) && isStaff();
+      }
+    }
+
+    match /waiverTokens/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

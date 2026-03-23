@@ -1,0 +1,120 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 13% 13%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Monday.com indigo palette */
+    --primary: 231 97% 68%;           /* #6161FF bright indigo */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 231 80% 78%;      /* lighter indigo for gradients */
+
+    --secondary: 231 20% 96%;
+    --secondary-foreground: 220 13% 13%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 231 97% 95%;            /* very light indigo tint */
+    --accent-foreground: 231 60% 35%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 94%;
+    --ring: 231 97% 68%;
+
+    --radius: 0.5rem;
+
+    /* Shadows */
+    --shadow-card: 0 1px 3px 0 hsl(220 13% 13% / 0.08), 0 1px 2px -1px hsl(220 13% 13% / 0.06);
+    --shadow-elevated: 0 4px 12px 0 hsl(220 13% 13% / 0.1);
+
+    /* Animations */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Sidebar — dark navy like Monday.com */
+    --sidebar-background: 231 45% 16%;      /* deep navy */
+    --sidebar-foreground: 220 20% 72%;      /* muted light text */
+    --sidebar-primary: 231 97% 68%;         /* indigo for active */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 231 38% 24%;          /* slightly lighter navy for hover */
+    --sidebar-accent-foreground: 220 20% 92%;
+    --sidebar-border: 231 32% 22%;
+    --sidebar-ring: 231 97% 68%;
+  }
+
+  .dark {
+    --background: 220 15% 10%;
+    --foreground: 220 15% 92%;
+
+    --card: 220 15% 13%;
+    --card-foreground: 220 15% 92%;
+
+    --popover: 220 15% 13%;
+    --popover-foreground: 220 15% 92%;
+
+    --primary: 231 97% 68%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 231 80% 78%;
+
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 220 15% 85%;
+
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 231 40% 22%;
+    --accent-foreground: 231 80% 85%;
+
+    --destructive: 0 62.8% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 18%;
+    --ring: 231 97% 68%;
+
+    /* Sidebar keeps same dark navy in dark mode */
+    --sidebar-background: 231 45% 12%;
+    --sidebar-foreground: 220 20% 65%;
+    --sidebar-primary: 231 97% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 231 38% 20%;
+    --sidebar-accent-foreground: 220 20% 88%;
+    --sidebar-border: 231 32% 18%;
+    --sidebar-ring: 231 97% 68%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .card-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .smooth-transition {
+    transition: var(--transition-smooth);
+  }
+}

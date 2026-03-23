@@ -1,0 +1,178 @@
+
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Settings, Pencil } from 'lucide-react';
+import { useSupabaseBusinessInfo } from '@/hooks/useSupabaseBusinessInfo';
+
+interface BusinessInfoForm {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
+export const BusinessInfoEditor: React.FC = () => {
+  const { businessInfo, loading, updateBusinessInfo } = useSupabaseBusinessInfo();
+  const [formData, setFormData] = useState<BusinessInfoForm>({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    website: '',
+  });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Update form data when business info is loaded
+  useEffect(() => {
+    if (businessInfo) {
+      setFormData({
+        name: businessInfo.name || '',
+        address: businessInfo.address || '',
+        phone: businessInfo.phone || '',
+        email: businessInfo.email || '',
+        website: businessInfo.website || '',
+      });
+    }
+  }, [businessInfo]);
+
+  const handleSave = async () => {
+    await updateBusinessInfo(formData);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    // Reset form data to original values
+    if (businessInfo) {
+      setFormData({
+        name: businessInfo.name || '',
+        address: businessInfo.address || '',
+        phone: businessInfo.phone || '',
+        email: businessInfo.email || '',
+        website: businessInfo.website || '',
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (field: keyof BusinessInfoForm, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="text-sm text-gray-500">Loading business information...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full overflow-hidden">
+      <CardHeader>
+        <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+          <div className="flex items-center space-x-2 min-w-0">
+            <Settings className="h-5 w-5 text-purple-600 flex-shrink-0" />
+            <CardTitle className="truncate">Business Information</CardTitle>
+          </div>
+          {!isEditing && (
+            <Button 
+              onClick={() => setIsEditing(true)} 
+              size="sm" 
+              variant="ghost"
+              className="self-start sm:self-center"
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+        </div>
+        <CardDescription>
+          Manage your business details and contact information
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="overflow-x-hidden">
+        <div className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="business-name">Business Name</Label>
+            <Input
+              id="business-name"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              readOnly={!isEditing}
+              className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
+            />
+          </div>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="business-address">Address</Label>
+            <Textarea
+              id="business-address"
+              value={formData.address}
+              onChange={(e) => handleInputChange('address', e.target.value)}
+              readOnly={!isEditing}
+              className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
+              rows={2}
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="business-phone">Phone</Label>
+              <Input
+                id="business-phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                readOnly={!isEditing}
+                className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="business-email">Email</Label>
+              <Input
+                id="business-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                readOnly={!isEditing}
+                className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
+              />
+            </div>
+          </div>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="business-website">Website</Label>
+            <Input
+              id="business-website"
+              value={formData.website}
+              onChange={(e) => handleInputChange('website', e.target.value)}
+              readOnly={!isEditing}
+              className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
+            />
+          </div>
+          
+          {isEditing && (
+            <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 pt-4">
+              <Button onClick={handleSave} className="w-full sm:flex-1">
+                Save Changes
+              </Button>
+              <Button onClick={handleCancel} variant="outline" className="w-full sm:flex-1">
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
