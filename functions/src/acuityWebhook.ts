@@ -170,7 +170,9 @@ async function handleAppointmentWebhook(payload: WebhookPayload, organizationId:
   return { success: true, message: `Processed ${payload.action} for appointment ${payload.id}` };
 }
 
-export const acuityWebhook = onRequest(async (req, res) => {
+export const acuityWebhook = onRequest(
+  { secrets: ['ACUITY_API_KEY'] },
+  async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Headers', 'content-type');
@@ -250,4 +252,5 @@ export const acuityWebhook = onRequest(async (req, res) => {
     console.error('Webhook processing error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+  }
+);

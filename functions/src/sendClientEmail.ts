@@ -37,7 +37,9 @@ function renderTemplate(html: string, variables: Record<string, any>): string {
   return rendered;
 }
 
-export const sendClientEmail = onCall(async (request) => {
+export const sendClientEmail = onCall(
+  { secrets: ['RESEND_API_KEY'] },
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Unauthorized');
   }
@@ -158,4 +160,5 @@ export const sendClientEmail = onCall(async (request) => {
     messageId: emailResponse.data?.id,
     message: 'Email sent successfully',
   };
-});
+  }
+);

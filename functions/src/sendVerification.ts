@@ -27,7 +27,9 @@ function normalizePhoneNumber(phone: string, countryCode: string): string {
   return `${countryCode}${digitsOnly}`;
 }
 
-export const sendVerification = onCall(async (request) => {
+export const sendVerification = onCall(
+  { secrets: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'] },
+  async (request) => {
   const data = request.data as SendVerificationRequest;
   const { phoneNumber, countryCode, isSignUp } = data;
 
@@ -120,4 +122,5 @@ export const sendVerification = onCall(async (request) => {
     message: 'Verification code sent successfully',
     verificationSid: responseData.sid,
   };
-});
+  }
+);

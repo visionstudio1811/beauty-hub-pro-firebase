@@ -14,7 +14,9 @@ interface VerifyOtpRequest {
   fullName?: string;
 }
 
-export const verifyOtp = onCall(async (request) => {
+export const verifyOtp = onCall(
+  { secrets: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'] },
+  async (request) => {
   const data = request.data as VerifyOtpRequest;
   const { phoneNumber, code, isSignUp = false, fullName } = data;
 
@@ -100,4 +102,5 @@ export const verifyOtp = onCall(async (request) => {
     uid,
     message: 'Phone number verified successfully',
   };
-});
+  }
+);

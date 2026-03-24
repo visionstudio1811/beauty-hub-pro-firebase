@@ -15,7 +15,9 @@ interface SendWaiverRequest {
   siteUrl?: string;
 }
 
-export const sendWaiver = onCall(async (request) => {
+export const sendWaiver = onCall(
+  { secrets: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] },
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Unauthorized');
   }
@@ -154,4 +156,5 @@ export const sendWaiver = onCall(async (request) => {
     waiver_url: waiverUrl,
     sms_sid: twilioData.sid,
   };
-});
+  }
+);

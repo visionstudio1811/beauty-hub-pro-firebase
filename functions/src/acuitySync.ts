@@ -253,7 +253,9 @@ async function syncAppointmentsFromAcuity(config: AcuityConfig, organizationId: 
   return { success: true, count: appointments.length };
 }
 
-export const acuitySync = onCall(async (request) => {
+export const acuitySync = onCall(
+  { secrets: ['ACUITY_API_USER_ID', 'ACUITY_API_KEY'] },
+  async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Unauthorized');
     }
@@ -342,4 +344,5 @@ export const acuitySync = onCall(async (request) => {
     }
 
     throw new HttpsError('invalid-argument', `Unknown action: ${action}`);
-});
+  }
+);
