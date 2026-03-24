@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import { randomBytes } from 'crypto';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -17,6 +18,8 @@ interface CreateUserRequest {
   password?: string;
 }
 
+const VALID_ROLES = new Set(['admin', 'staff', 'reception', 'beautician']);
+
 export const adminCreateUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Unauthorized');
@@ -24,24 +27,36 @@ export const adminCreateUser = onCall(async (request) => {
 
   const data = request.data as CreateUserRequest;
 
+  // Input validation
+  if (!data.email || !data.phone || !data.fullName || !data.role || !data.organizationId) {
+    throw new HttpsError('invalid-argument', 'Missing required fields');
+  }
+  if (!VALID_ROLES.has(data.role)) {
+    throw new HttpsError('invalid-argument', `Invalid role. Must be one of: ${[...VALID_ROLES].join(', ')}`);
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    throw new HttpsError('invalid-argument', 'Invalid email address');
+  }
+
   const callerDoc = await db.collection('users').doc(request.auth.uid).get();
   if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
     throw new HttpsError('permission-denied', 'Admin access required');
   }
-
-  const callerOrgId = callerDoc.data()?.organizationId;
-  if (callerOrgId !== data.organizationId) {
+  if (callerDoc.data()?.organizationId !== data.organizationId) {
     throw new HttpsError('permission-denied', 'Organization mismatch');
   }
 
   const { email, phone, fullName, role, organizationId, organizationRole, password } = data;
 
   try {
+    // Use cryptographically secure random password if not provided
+    const securePassword = password || randomBytes(16).toString('hex');
+
     const userRecord = await admin.auth().createUser({
       email,
       phoneNumber: phone,
       displayName: fullName,
-      password: password || Math.random().toString(36).substring(2, 12),
+      password: securePassword,
       emailVerified: true,
     });
 
@@ -57,15 +72,14 @@ export const adminCreateUser = onCall(async (request) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log('Created user:', userRecord.uid, 'for organization:', organizationId);
-
-    return {
-      success: true,
-      uid: userRecord.uid,
-      message: 'User created successfully',
-    };
+    return { success: true, uid: userRecord.uid, message: 'User created successfully' };
   } catch (error: any) {
-    console.error('Error creating user:', error);
-    throw new HttpsError('internal', error.message || 'Failed to create user');
+    // Return safe error messages — don't leak internal details
+    const safeMessage = error.code === 'auth/email-already-exists'
+      ? 'A user with this email already exists'
+      : error.code === 'auth/phone-number-already-exists'
+      ? 'A user with this phone number already exists'
+      : 'Failed to create user account';
+    throw new HttpsError('internal', safeMessage);
   }
 });

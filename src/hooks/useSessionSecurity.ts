@@ -76,10 +76,10 @@ export const useSessionSecurity = () => {
   const setupSessionTracking = async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
-      const sessionToken = token.substring(0, 32);
+      // Use a cryptographically secure random session ID — never truncate auth tokens
+      const sessionToken = crypto.randomUUID();
 
-      // Check if session already exists
+      // Check if session already exists for this browser session
       const q = query(
         collection(db, 'users', user.uid, 'sessions'),
         where('session_token', '==', sessionToken)

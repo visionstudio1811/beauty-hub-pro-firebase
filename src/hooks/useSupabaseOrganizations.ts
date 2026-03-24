@@ -53,20 +53,25 @@ export const useFirebaseOrganizations = () => {
   const { user, profile } = useAuth();
 
   const fetchOrganizations = async () => {
+    // Only fetch the organization the current user belongs to.
+    // Never query all organizations — users must only see their own org.
+    if (!profile?.organizationId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const q = query(
-        collection(db, 'organizations'),
-        where('is_active', '==', true),
-        orderBy('name')
-      );
-      const snapshot = await getDocs(q);
-      const orgs = snapshot.docs.map(d => docToOrganization(d.id, d.data()));
-      setOrganizations(orgs);
+      const orgRef = doc(db, 'organizations', profile.organizationId);
+      const orgSnap = await getDoc(orgRef);
+      if (orgSnap.exists()) {
+        const org = docToOrganization(orgSnap.id, orgSnap.data());
+        setOrganizations([org]);
+      } else {
+        setOrganizations([]);
+      }
     } catch (error) {
-      console.error('Error fetching organizations:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load organizations',
+        description: 'Failed to load organization',
         variant: 'destructive',
       });
     } finally {

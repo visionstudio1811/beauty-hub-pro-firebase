@@ -42,12 +42,20 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if false;
+
+      // Session tracking sub-collection
+      match /sessions/{sessionId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        allow write: if isAuthenticated() && request.auth.uid == userId;
+      }
     }
 
     match /organizations/{orgId} {
       allow read: if isAuthenticated() && belongsToOrg(orgId);
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && belongsToOrg(orgId) && isAdmin();
+      allow delete: if false;
 
       match /clients/{clientId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
@@ -121,7 +129,7 @@ service cloud.firestore {
 
       match /auditLogs/{logId} {
         allow read: if belongsToOrg(orgId) && isAdmin();
-        allow write: if false;
+        allow write: if false; // Cloud Functions only
       }
 
       match /marketingCampaigns/{campaignId} {
@@ -141,7 +149,13 @@ service cloud.firestore {
 
       match /campaignRecipients/{recipientId} {
         allow read: if belongsToOrg(orgId) && isStaff();
-        allow write: if false;
+        allow write: if false; // Cloud Functions only
+      }
+
+      // Sensitive: API keys stored here — admin only
+      match /marketingIntegrations/{integrationId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow write: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /acuitySyncConfig/{docId} {
@@ -149,15 +163,28 @@ service cloud.firestore {
         allow write: if belongsToOrg(orgId) && isAdmin();
       }
 
+      match /acuitySyncLogs/{logId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow write: if false; // Cloud Functions only
+      }
+
       match /clientCommunications/{commId} {
         allow read: if belongsToOrg(orgId) && isStaff();
         allow write: if belongsToOrg(orgId) && isStaff();
       }
+
+      // Rate limiters — internal use only
+      match /rateLimits/{docId} {
+        allow read: if false;
+        allow write: if false;
+      }
     }
 
+    // Waiver tokens — require authentication to read
+    // Token value itself is the secret; require auth to prevent enumeration
     match /waiverTokens/{token} {
-      allow read: if true;
-      allow write: if false;
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only
     }
   }
 }

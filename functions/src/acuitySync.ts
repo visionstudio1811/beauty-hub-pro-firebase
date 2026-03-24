@@ -25,7 +25,7 @@ interface AcuityConfig {
 async function fetchFromAcuity(endpoint: string, userId: string, apiKey: string) {
   const credentials = Buffer.from(`${userId}:${apiKey}`).toString('base64');
   const url = `https://acuityscheduling.com/api/v1/${endpoint}`;
-  console.log(`Making request to Acuity API: ${url}`);
+  // request dispatched
 
   const response = await fetch(url, {
     headers: {
@@ -60,11 +60,11 @@ async function syncClientsFromAcuity(
   cursor = 0,
   batchSize = 200
 ) {
-  console.log('Starting client sync from Acuity...');
+  // client sync started
 
   if (cursor === 0) {
     await fetchFromAcuity('me', config.acuity_user_id, config.api_key_encrypted);
-    console.log('API connectivity test successful');
+    // connectivity ok
   }
 
   const acuityClients = await fetchFromAcuity(
@@ -131,6 +131,7 @@ async function syncClientsFromAcuity(
         await clientsRef.add({ ...clientData, deleted_at: null, created_at: admin.firestore.FieldValue.serverTimestamp() });
       }
 
+      // Log only non-PII metadata — never store full client records
       await db
         .collection('organizations')
         .doc(organizationId)
@@ -141,7 +142,7 @@ async function syncClientsFromAcuity(
           acuity_id: String(acuityClient.id ?? 'unknown'),
           action: existingId ? 'update' : 'create',
           status: 'success',
-          data_synced: { ...acuityClient, cursor },
+          cursor,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
@@ -163,7 +164,7 @@ async function syncClientsFromAcuity(
 }
 
 async function syncAppointmentsFromAcuity(config: AcuityConfig, organizationId: string) {
-  console.log('Starting appointment sync from Acuity...');
+  // appointment sync started
 
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 90);
@@ -249,7 +250,7 @@ async function syncAppointmentsFromAcuity(config: AcuityConfig, organizationId: 
     }
   }
 
-  console.log(`Synced ${appointments.length} appointments from Acuity`);
+  // appointment sync complete
   return { success: true, count: appointments.length };
 }
 
