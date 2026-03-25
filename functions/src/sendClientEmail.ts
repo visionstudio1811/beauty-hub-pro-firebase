@@ -135,6 +135,7 @@ export const sendClientEmail = onCall(
     }
 
     // All values in templateVariables must be strings (enforced by type)
+    const orgTimezone = orgData.timezone || 'America/New_York';
     const templateVariables: Record<string, string> = {
       subject,
       message: message.replace(/\n/g, '<br>'),
@@ -144,8 +145,8 @@ export const sendClientEmail = onCall(
       organization_address: String(orgData.address || ''),
       sender_name: fromName,
       from_email: fromEmail,
-      date: new Date().toLocaleDateString(),
-      datetime: new Date().toLocaleString(),
+      date: new Date().toLocaleDateString('en-US', { timeZone: orgTimezone }),
+      datetime: new Date().toLocaleString('en-US', { timeZone: orgTimezone }),
       ...Object.fromEntries(
         Object.entries(variables).map(([k, v]) => [k, String(v ?? '')])
       ),

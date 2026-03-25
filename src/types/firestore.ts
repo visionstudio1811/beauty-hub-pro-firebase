@@ -16,6 +16,7 @@ export interface Organization {
   name: string;
   slug: string;
   logoUrl?: string;
+  timezone: string; // IANA timezone e.g. "America/New_York"
   settings?: Record<string, any>;
   isActive: boolean;
   createdAt: any;

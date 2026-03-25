@@ -5,8 +5,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Settings, Pencil } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings, Pencil, Globe } from 'lucide-react';
 import { useSupabaseBusinessInfo } from '@/hooks/useSupabaseBusinessInfo';
+import { useOrganization } from '@/contexts/OrganizationContext';
+
+const COMMON_TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'America/Phoenix', label: 'Arizona (no DST)' },
+  { value: 'America/Toronto', label: 'Eastern Canada' },
+  { value: 'America/Vancouver', label: 'Pacific Canada' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Central Europe (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+  { value: 'Europe/Rome', label: 'Rome (CET)' },
+  { value: 'Europe/Madrid', label: 'Madrid (CET)' },
+  { value: 'Europe/Athens', label: 'Eastern Europe (EET)' },
+  { value: 'Asia/Jerusalem', label: 'Israel (IST)' },
+  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Tokyo', label: 'Japan (JST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'Australia/Melbourne', label: 'Melbourne (AEST)' },
+  { value: 'Pacific/Auckland', label: 'New Zealand (NZST)' },
+];
 
 interface BusinessInfoForm {
   name: string;
@@ -18,6 +46,7 @@ interface BusinessInfoForm {
 
 export const BusinessInfoEditor: React.FC = () => {
   const { businessInfo, loading, updateBusinessInfo } = useSupabaseBusinessInfo();
+  const { currentOrganization, updateOrganization } = useOrganization();
   const [formData, setFormData] = useState<BusinessInfoForm>({
     name: '',
     address: '',
@@ -25,6 +54,7 @@ export const BusinessInfoEditor: React.FC = () => {
     email: '',
     website: '',
   });
+  const [selectedTimezone, setSelectedTimezone] = useState('America/New_York');
   const [isEditing, setIsEditing] = useState(false);
 
   // Update form data when business info is loaded
@@ -40,8 +70,18 @@ export const BusinessInfoEditor: React.FC = () => {
     }
   }, [businessInfo]);
 
+  useEffect(() => {
+    if (currentOrganization?.timezone) {
+      setSelectedTimezone(currentOrganization.timezone);
+    }
+  }, [currentOrganization?.timezone]);
+
   const handleSave = async () => {
     await updateBusinessInfo(formData);
+    // Save timezone to the organization document
+    if (currentOrganization && selectedTimezone !== currentOrganization.timezone) {
+      await updateOrganization(currentOrganization.id, { timezone: selectedTimezone } as any);
+    }
     setIsEditing(false);
   };
 
@@ -160,7 +200,36 @@ export const BusinessInfoEditor: React.FC = () => {
               className={!isEditing ? "bg-gray-50 dark:bg-gray-800" : ""}
             />
           </div>
-          
+
+          <div className="grid gap-2">
+            <Label htmlFor="business-timezone" className="flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Timezone
+            </Label>
+            {isEditing ? (
+              <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+                <SelectTrigger id="business-timezone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={COMMON_TIMEZONES.find(tz => tz.value === selectedTimezone)?.label || selectedTimezone}
+                readOnly
+                className="bg-gray-50 dark:bg-gray-800"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Used for appointment scheduling, notifications, and expiry calculations.
+            </p>
+          </div>
+
           {isEditing && (
             <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 pt-4">
               <Button onClick={handleSave} className="w-full sm:flex-1">

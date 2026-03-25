@@ -1,290 +1,161 @@
 import { format, parseISO } from 'date-fns';
-import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
-
-// Business timezone configuration
-export const BUSINESS_TIMEZONE = 'America/Denver';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 
 /**
- * Aggressive pattern detection for malformed date strings
+ * Default timezone used when no organization timezone is available yet
+ * (e.g. before auth loads). Each org stores its own IANA timezone.
  */
-const detectMalformedPattern = (value: string): boolean => {
-  if (!value || typeof value !== 'string') return true;
-  
-  // Check for common malformed patterns
-  const malformedPatterns = [
-    '/0',      // Common pattern like "/049"
-    '/04',     // Specific pattern
-    '/049',    // Exact problematic pattern
-    'Invalid', // Invalid date text
-    'NaN',     // Not a number
-    'undefined', // Undefined as string
-    'null'     // Null as string
-  ];
-  
-  return malformedPatterns.some(pattern => value.includes(pattern)) || 
-         value.length === 0 || 
-         /^\d+$/.test(value); // Only numbers (suspicious)
-};
+export const DEFAULT_TIMEZONE = 'America/New_York';
 
 /**
- * Safe fallback date formatter that never fails
+ * @deprecated Use the timezone from the organization context instead.
+ * Kept for backward compatibility during migration.
  */
-const safeFallbackFormat = (date: Date, formatString: string): string => {
-  try {
-    // Try basic format first
-    const basicResult = format(date, formatString);
-    if (detectMalformedPattern(basicResult)) {
-      throw new Error('Basic format returned malformed result');
-    }
-    return basicResult;
-  } catch (error) {
-    console.warn('⚠️ Safe fallback format failed, using toLocaleDateString:', error);
-    
-    // Ultimate fallback - use native JS
-    if (formatString.includes('yyyy')) {
-      return date.toLocaleDateString();
-    } else if (formatString.includes('MMM')) {
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } else {
-      return date.toLocaleDateString();
-    }
-  }
-};
+export const BUSINESS_TIMEZONE = DEFAULT_TIMEZONE;
+
+// ── Pure helpers (no org dependency) ──────────────────────────────
 
 /**
- * Formats time from HH:MM:SS to HH:MM format
- * @param timeString - Time string in HH:MM:SS or HH:MM format
- * @returns Formatted time string in HH:MM format
+ * Formats time from HH:MM:SS to HH:MM format.
  */
 export const formatTimeDisplay = (timeString: string | null | undefined): string => {
   if (!timeString) return '';
-  
-  // If already in HH:MM format, return as is
-  if (timeString.length === 5 && timeString.includes(':')) {
-    return timeString;
-  }
-  
-  // If in HH:MM:SS format, extract HH:MM
-  if (timeString.length === 8 && timeString.includes(':')) {
-    return timeString.substring(0, 5);
-  }
-  
-  // Handle edge cases
+  if (timeString.length === 5 && timeString.includes(':')) return timeString;
+  if (timeString.length === 8 && timeString.includes(':')) return timeString.substring(0, 5);
   const parts = timeString.split(':');
-  if (parts.length >= 2) {
-    const hours = parts[0].padStart(2, '0');
-    const minutes = parts[1].padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }
-  
+  if (parts.length >= 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
   return timeString;
 };
 
 /**
- * Converts 24-hour time to 12-hour format with AM/PM
- * @param timeString - Time string in HH:MM or HH:MM:SS format
- * @returns Formatted time string in 12-hour format
+ * Converts 24-hour time to 12-hour format with AM/PM.
  */
 export const formatTime12Hour = (timeString: string | null | undefined): string => {
   const time24 = formatTimeDisplay(timeString);
   if (!time24) return '';
-  
   const [hours, minutes] = time24.split(':');
   const hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  
-  return `${hour12}:${minutes} ${ampm}`;
+  return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
 };
 
 /**
- * Validates if a date is within reasonable bounds (2020-2030)
- * @param date - Date to validate
- * @returns true if date is valid and within bounds
+ * Validates if a date falls within reasonable bounds.
  */
 export const isValidDateRange = (date: Date): boolean => {
-  if (!date || isNaN(date.getTime())) {
-    return false;
-  }
-  
+  if (!date || isNaN(date.getTime())) return false;
   const year = date.getFullYear();
   return year >= 2020 && year <= 2030;
 };
 
 /**
- * Enhanced date validation with aggressive error checking
+ * Parses and validates a Date or ISO string.  Returns null if invalid.
  */
 export const validateDate = (date: Date | string | null | undefined): Date | null => {
-  if (!date) {
-    console.warn('🚨 validateDate received null/undefined:', date);
-    return null;
-  }
-  
+  if (!date) return null;
   try {
     const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    
-    if (isNaN(dateObj.getTime())) {
-      console.warn('🚨 Invalid date detected in validateDate:', date);
-      return null;
-    }
-    
-    // Additional validation for reasonable date ranges
+    if (isNaN(dateObj.getTime())) return null;
     const year = dateObj.getFullYear();
-    if (year < 1900 || year > 2100) {
-      console.warn('🚨 Date out of reasonable range:', date, 'year:', year);
-      return null;
-    }
-    
-    console.log('✅ Date validation successful:', dateObj);
+    if (year < 1900 || year > 2100) return null;
     return dateObj;
-  } catch (error) {
-    console.error('❌ Date validation error:', error, 'for date:', date);
+  } catch {
     return null;
   }
 };
 
+// ── Timezone-aware functions ──────────────────────────────────────
+// Every function that previously used the hard-coded BUSINESS_TIMEZONE
+// now accepts an explicit `tz` parameter so the caller can pass the
+// organization's timezone.
+
 /**
- * Gets the current date and time in business timezone
- * @returns Date object representing now in business timezone
+ * Returns current Date in the given timezone.
  */
-export const getBusinessNow = (): Date => {
+export const getBusinessNow = (tz: string = DEFAULT_TIMEZONE): Date => {
   try {
-    return toZonedTime(new Date(), BUSINESS_TIMEZONE);
-  } catch (error) {
-    console.error('❌ Error getting business now:', error);
-    return new Date(); // Fallback to local time
+    return toZonedTime(new Date(), tz);
+  } catch {
+    return new Date();
   }
 };
 
 /**
- * Gets today's date in business timezone as YYYY-MM-DD string
- * @returns Today's date string in business timezone
+ * Returns today's date as YYYY-MM-DD in the given timezone.
  */
-export const getBusinessToday = (): string => {
+export const getBusinessToday = (tz: string = DEFAULT_TIMEZONE): string => {
   try {
-    const businessNow = getBusinessNow();
-    return format(businessNow, 'yyyy-MM-dd');
-  } catch (error) {
-    console.error('❌ Error getting business today:', error);
-    return format(new Date(), 'yyyy-MM-dd'); // Fallback to local date
+    return format(getBusinessNow(tz), 'yyyy-MM-dd');
+  } catch {
+    return format(new Date(), 'yyyy-MM-dd');
   }
 };
 
 /**
- * Converts a date to business timezone
- * @param date - Date to convert
- * @returns Date in business timezone
+ * Converts a date to the given timezone.
  */
-export const toBusinessTime = (date: Date | string): Date => {
+export const toBusinessTime = (date: Date | string, tz: string = DEFAULT_TIMEZONE): Date => {
+  const valid = validateDate(date);
+  if (!valid) return new Date();
   try {
-    const validDate = validateDate(date);
-    if (!validDate) {
-      console.warn('🚨 Invalid date for business time conversion:', date);
-      return new Date(); // Fallback to current date
-    }
-    return toZonedTime(validDate, BUSINESS_TIMEZONE);
-  } catch (error) {
-    console.error('❌ Error converting to business time:', error, 'for date:', date);
-    return new Date(); // Fallback to current date
+    return toZonedTime(valid, tz);
+  } catch {
+    return new Date();
   }
 };
 
 /**
- * ENHANCED: Aggressively safe date formatting with multiple fallback layers
+ * Formats a date in the given timezone using date-fns format tokens.
+ * Falls back through multiple layers so it never throws.
  */
-export const formatInBusinessTime = (date: Date | string, formatString: string): string => {
-  console.log('🔄 formatInBusinessTime called with:', { date, formatString });
-  
-  // Layer 1: Input validation
-  const validDate = validateDate(date);
-  if (!validDate) {
-    console.warn('🚨 Invalid date input, returning safe fallback');
-    return 'Invalid Date';
-  }
+export const formatInBusinessTime = (
+  date: Date | string,
+  formatString: string,
+  tz: string = DEFAULT_TIMEZONE,
+): string => {
+  const valid = validateDate(date);
+  if (!valid) return '';
 
-  // Layer 2: Try formatInTimeZone with aggressive error detection
+  // Layer 1 — formatInTimeZone (ideal)
   try {
-    const result = formatInTimeZone(validDate, BUSINESS_TIMEZONE, formatString);
-    console.log('🧪 formatInTimeZone raw result:', { result, type: typeof result, length: result?.length });
-    
-    // AGGRESSIVE PATTERN DETECTION
-    if (detectMalformedPattern(result)) {
-      console.error('🚨 MALFORMED PATTERN DETECTED in formatInTimeZone result:', result);
-      throw new Error(`Malformed pattern detected: ${result}`);
-    }
-    
-    console.log('✅ formatInTimeZone successful and validated:', result);
-    return result;
-  } catch (timezoneError) {
-    console.warn('⚠️ formatInTimeZone failed or returned malformed result:', timezoneError);
-  }
+    const result = formatInTimeZone(valid, tz, formatString);
+    if (result && !isMalformed(result)) return result;
+  } catch { /* fall through */ }
 
-  // Layer 3: Try toZonedTime + format
+  // Layer 2 — toZonedTime + format
   try {
-    const businessDate = toZonedTime(validDate, BUSINESS_TIMEZONE);
-    const result = format(businessDate, formatString);
-    
-    if (detectMalformedPattern(result)) {
-      console.error('🚨 MALFORMED PATTERN DETECTED in toZonedTime+format result:', result);
-      throw new Error(`Malformed pattern in fallback 1: ${result}`);
-    }
-    
-    console.log('✅ Fallback 1 successful (toZonedTime + format):', result);
-    return result;
-  } catch (fallback1Error) {
-    console.warn('⚠️ Fallback 1 failed:', fallback1Error);
-  }
+    const zoned = toZonedTime(valid, tz);
+    const result = format(zoned, formatString);
+    if (result && !isMalformed(result)) return result;
+  } catch { /* fall through */ }
 
-  // Layer 4: Safe fallback formatter
-  try {
-    const result = safeFallbackFormat(validDate, formatString);
-    
-    if (detectMalformedPattern(result)) {
-      console.error('🚨 MALFORMED PATTERN DETECTED in safe fallback:', result);
-      throw new Error(`Malformed pattern in safe fallback: ${result}`);
-    }
-    
-    console.log('✅ Safe fallback successful:', result);
-    return result;
-  } catch (fallbackError) {
-    console.error('❌ All formatting attempts failed:', fallbackError);
-  }
-
-  // Layer 5: Ultimate emergency fallback
-  const emergencyResult = validDate.toDateString();
-  console.log('🆘 Using emergency fallback:', emergencyResult);
-  return emergencyResult;
+  // Layer 3 — native fallback
+  return valid.toDateString();
 };
 
 /**
- * Checks if a date is today in business timezone
- * @param date - Date to check (string or Date)
- * @returns true if the date is today in business timezone
+ * Returns true if the given date is "today" in the given timezone.
  */
-export const isBusinessToday = (date: Date | string): boolean => {
-  try {
-    const validDate = validateDate(date);
-    if (!validDate) return false;
-    
-    const businessToday = getBusinessToday();
-    const dateString = formatInBusinessTime(validDate, 'yyyy-MM-dd');
-    return dateString === businessToday;
-  } catch (error) {
-    console.error('❌ Error checking if business today:', error);
-    return false;
-  }
+export const isBusinessToday = (date: Date | string, tz: string = DEFAULT_TIMEZONE): boolean => {
+  const valid = validateDate(date);
+  if (!valid) return false;
+  return formatInBusinessTime(valid, 'yyyy-MM-dd', tz) === getBusinessToday(tz);
 };
 
 /**
- * Creates a date string in business timezone from a local date
- * @param localDate - Local date
- * @returns Date string in business timezone (YYYY-MM-DD)
+ * Returns YYYY-MM-DD string for a date in the given timezone.
  */
-export const toBusinessDateString = (localDate: Date): string => {
+export const toBusinessDateString = (localDate: Date, tz: string = DEFAULT_TIMEZONE): string => {
   try {
-    return formatInBusinessTime(localDate, 'yyyy-MM-dd');
-  } catch (error) {
-    console.error('❌ Error converting to business date string:', error);
-    return format(localDate, 'yyyy-MM-dd'); // Fallback to local formatting
+    return formatInBusinessTime(localDate, 'yyyy-MM-dd', tz);
+  } catch {
+    return format(localDate, 'yyyy-MM-dd');
   }
 };
+
+// ── Internal ──────────────────────────────────────────────────────
+
+function isMalformed(value: string): boolean {
+  if (!value) return true;
+  const bad = ['/0', '/04', '/049', 'Invalid', 'NaN', 'undefined', 'null'];
+  return bad.some((p) => value.includes(p));
+}

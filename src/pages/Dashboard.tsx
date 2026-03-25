@@ -11,16 +11,18 @@ import { useClients } from '@/hooks/useClients';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { filterAppointments, getDateRangeText } from '@/utils/appointmentFilters';
 import { formatTimeDisplay, getBusinessToday, getBusinessNow, isBusinessToday } from '@/lib/timeUtils';
+import { useTimezone } from '@/hooks/useTimezone';
 
 const Dashboard = () => {
+  const tz = useTimezone();
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
-  
-  // Use business timezone for initial date state
-  const [selectedDate, setSelectedDate] = useState<Date>(getBusinessNow());
+
+  // Use org timezone for initial date state
+  const [selectedDate, setSelectedDate] = useState<Date>(getBusinessNow(tz));
   const [filterViewMode, setFilterViewMode] = useState<'day' | 'week' | 'month'>('day');
-  
-  // Filter states for AppointmentFilters - use business timezone for initial date
-  const [dateFilter, setDateFilter] = useState(getBusinessToday());
+
+  // Filter states - use org timezone for initial date
+  const [dateFilter, setDateFilter] = useState(getBusinessToday(tz));
   const [staffFilter, setStaffFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,8 +108,8 @@ const Dashboard = () => {
 
   // Calculate stats from filtered appointments using business timezone - ensure they're numbers
   const totalAppointments = Math.max(0, filteredAppointments?.length || 0);
-  const todayAppointments = Math.max(0, (transformedAppointments || []).filter(apt => 
-    isBusinessToday(apt.date)
+  const todayAppointments = Math.max(0, (transformedAppointments || []).filter(apt =>
+    isBusinessToday(apt.date, tz)
   ).length);
   const confirmedAppointments = Math.max(0, (filteredAppointments || []).filter(apt => apt.status === 'confirmed').length);
   const completedAppointments = Math.max(0, (filteredAppointments || []).filter(apt => apt.status === 'completed').length);

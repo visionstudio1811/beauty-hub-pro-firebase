@@ -14,26 +14,43 @@ const db = admin.firestore();
  * client. Also flips `has_membership` to false for any purchases that have
  * already expired or run out of sessions.
  */
+/**
+ * Returns "today" as YYYY-MM-DD in the given IANA timezone.
+ */
+function todayInTimezone(tz: string): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: tz }); // en-CA = YYYY-MM-DD
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00Z'); // noon UTC avoids DST edge
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
 export const packageExpiryNotifications = onSchedule(
   {
-    schedule: 'every day 09:00',
-    timeZone: 'UTC',
+    // Runs every hour so each org's "09:00 local" is handled regardless of timezone.
+    // The function skips orgs whose local time isn't ~09:00.
+    schedule: 'every 1 hours',
     secrets: ['RESEND_API_KEY'],
   },
   async () => {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    // 7-day lookahead window
-    const warningDate = new Date(today);
-    warningDate.setDate(warningDate.getDate() + 7);
-    const warningStr = warningDate.toISOString().split('T')[0];
-
     const orgsSnap = await db.collection('organizations').get();
 
     for (const orgDoc of orgsSnap.docs) {
       const orgId = orgDoc.id;
       const orgData = orgDoc.data();
+      const orgTz = orgData.timezone || 'America/New_York';
+
+      // Only process this org if it's currently ~09:00 in their timezone (08:30–09:30 window)
+      const localHour = parseInt(
+        new Date().toLocaleString('en-US', { timeZone: orgTz, hour: '2-digit', hour12: false }),
+        10,
+      );
+      if (localHour !== 9) continue;
+
+      const todayStr = todayInTimezone(orgTz);
+      const warningStr = addDays(todayStr, 7);
 
       // ── 1. Expire overdue purchases & sync membership ─────────
       await expireOverduePurchases(orgId, todayStr);
@@ -103,7 +120,7 @@ export const packageExpiryNotifications = onSchedule(
         }
 
         const daysLeft = Math.ceil(
-          (new Date(purchase.expiry_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+          (new Date(purchase.expiry_date + 'T12:00:00Z').getTime() - new Date(todayStr + 'T12:00:00Z').getTime()) / (1000 * 60 * 60 * 24),
         );
         const firstName = (client.name || '').split(' ')[0] || 'there';
 

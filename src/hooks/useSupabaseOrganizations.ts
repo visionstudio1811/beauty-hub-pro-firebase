@@ -23,6 +23,7 @@ export interface Organization {
   phone?: string | null;
   address?: string | null;
   logo_url?: string | null;
+  timezone: string; // IANA timezone identifier e.g. "America/New_York"
   settings?: any;
   is_active: boolean;
   created_at: string;
@@ -38,6 +39,7 @@ const docToOrganization = (id: string, data: any): Organization => ({
   phone: data.phone ?? null,
   address: data.address ?? null,
   logo_url: data.logo_url ?? null,
+  timezone: data.timezone || 'America/New_York',
   settings: data.settings ?? null,
   is_active: data.is_active ?? true,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
