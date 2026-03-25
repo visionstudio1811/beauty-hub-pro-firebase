@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Waiver PDFs — uploaded by the public (unauthenticated) waiver signing form.
+    // The token in the path is a cryptographically secure UUID, making the path
+    // unguessable. Authenticated users (admins) can download via the stored URL.
+    match /waivers/{token} {
+      allow write: if true;                   // Public waiver form uploads the PDF
+      allow read: if request.auth != null;    // Only authenticated staff can download
+    }
+
+    // All other paths deny by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

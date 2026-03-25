@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -131,15 +131,13 @@ export default function WaiverForm() {
 
     (async () => {
       try {
-        // Look up the token doc to find the waiver
-        const tokensSnap = await getDocs(
-          query(collection(db, 'waiverTokens'), where('token', '==', token))
-        );
-        if (tokensSnap.empty) { setNotFound(true); setLoading(false); return; }
+        // Token IS the document ID in waiverTokens
+        const tokenSnap = await getDoc(doc(db, 'waiverTokens', token));
+        if (!tokenSnap.exists()) { setNotFound(true); setLoading(false); return; }
 
-        const tokenData = tokensSnap.docs[0].data();
-        const waiverId: string = tokenData.waiver_id;
-        const orgId: string = tokenData.organization_id;
+        const tokenData = tokenSnap.data();
+        const waiverId: string = tokenData.waiverId;         // sendWaiver uses camelCase
+        const orgId: string = tokenData.organizationId;
 
         // Check if already signed
         if (tokenData.status === 'signed') { setAlreadySigned(true); setLoading(false); return; }
@@ -151,18 +149,17 @@ export default function WaiverForm() {
         const wd = waiverSnap.data();
 
         // Fetch the template to get blocks & title
-        const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.template_id));
+        const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
         const tpl = tplSnap.exists() ? tplSnap.data() : null;
 
         setWaiver({
           waiver_id: waiverId,
           template_title: tpl?.title ?? 'Waiver',
           template_blocks: tpl?.content ?? [],
-          client_name: wd.client_name ?? '',
+          client_name: wd.clientName ?? '',
         });
-        setSignerName(wd.client_name ?? '');
+        setSignerName(wd.clientName ?? '');
       } catch (err) {
-        console.error('Error loading waiver:', err);
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -204,13 +201,10 @@ export default function WaiverForm() {
       const pdfBlob = await buildPdf(waiver.template_title, signerName, waiver.template_blocks, answers, sigDataUrl);
       const pdfUrl  = await uploadPdf(pdfBlob, token!);
 
-      // Find token doc to get orgId and waiverId
-      const tokensSnap = await getDocs(
-        query(collection(db, 'waiverTokens'), where('token', '==', token))
-      );
-      if (tokensSnap.empty) throw new Error('Token not found');
-      const tokenDoc = tokensSnap.docs[0];
-      const { organization_id: orgId, waiver_id: waiverId } = tokenDoc.data();
+      // Re-read token doc by ID to get orgId and waiverId
+      const tokenSnap = await getDoc(doc(db, 'waiverTokens', token!));
+      if (!tokenSnap.exists()) throw new Error('Token not found');
+      const { organizationId: orgId, waiverId } = tokenSnap.data();
 
       // Update the waiver with signature data
       await updateDoc(doc(db, 'organizations', orgId, 'clientWaivers', waiverId), {
@@ -221,7 +215,7 @@ export default function WaiverForm() {
         signed_at: new Date().toISOString(),
       });
       // Mark token as used
-      await updateDoc(tokenDoc.ref, { status: 'signed' });
+      await updateDoc(doc(db, 'waiverTokens', token!), { status: 'signed' });
 
       setDone(true);
     } catch (err: unknown) {

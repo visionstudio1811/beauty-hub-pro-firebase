@@ -125,6 +125,12 @@ service cloud.firestore {
       match /clientWaivers/{waiverId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
         allow write: if belongsToOrg(orgId) && isReception();
+        // Unauthenticated waiver form: may only sign a pending waiver (add signature fields)
+        allow update: if request.auth == null
+                      && resource.data.status == 'pending'
+                      && request.resource.data.status == 'signed'
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['status', 'signer_name', 'answers', 'pdf_url', 'signed_at']);
       }
 
       match /auditLogs/{logId} {
@@ -180,11 +186,16 @@ service cloud.firestore {
       }
     }
 
-    // Waiver tokens — require authentication to read
-    // Token value itself is the secret; require auth to prevent enumeration
+    // Waiver tokens — public read (the UUID token IS the secret)
+    // Unauthenticated clients can read and mark as signed via the public waiver form
     match /waiverTokens/{token} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Cloud Functions only
+      allow read: if true;
+      allow create: if false; // Cloud Functions only
+      allow delete: if false;
+      // Only the waiver form can flip status pending → signed
+      allow update: if resource.data.status == 'pending'
+                    && request.resource.data.status == 'signed'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
   }
 }

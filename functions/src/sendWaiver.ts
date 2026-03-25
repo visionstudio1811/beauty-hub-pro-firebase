@@ -80,6 +80,7 @@ export const sendWaiver = onCall(
       .add({
         clientId,
         templateId,
+        clientName: client.name ?? '',
         status: 'pending',
         token,
         sentBy: uid,
