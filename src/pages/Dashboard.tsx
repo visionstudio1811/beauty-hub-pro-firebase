@@ -7,6 +7,7 @@ import AppointmentFilters from '../components/AppointmentFilters';
 import DashboardStats from '../components/dashboard/DashboardStats';
 
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
+import { useClients } from '@/hooks/useClients';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { filterAppointments, getDateRangeText } from '@/utils/appointmentFilters';
 import { formatTimeDisplay, getBusinessToday, getBusinessNow, isBusinessToday } from '@/lib/timeUtils';
@@ -29,6 +30,7 @@ const Dashboard = () => {
   const isMobile = useIsMobile();
 
   const { appointments, loading } = useSupabaseAppointments();
+  const { clients } = useClients();
 
   // Transform appointments to match FilterableAppointment interface for stats
   const transformedAppointments = useMemo(() => {
@@ -110,10 +112,15 @@ const Dashboard = () => {
   const confirmedAppointments = Math.max(0, (filteredAppointments || []).filter(apt => apt.status === 'confirmed').length);
   const completedAppointments = Math.max(0, (filteredAppointments || []).filter(apt => apt.status === 'completed').length);
 
+  const activeMembers = useMemo(
+    () => clients.filter(c => c.has_membership).length,
+    [clients],
+  );
+
   const statsData = {
     appointments: todayAppointments,
     newClients: 0,
-    activePackages: 0,
+    activePackages: activeMembers,
     pendingReviews: confirmedAppointments,
   };
 

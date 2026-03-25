@@ -32,7 +32,7 @@ const STAT_ITEMS = [
   },
   {
     key: 'activePackages' as const,
-    label: 'Active Packages',
+    label: 'Active Members',
     icon: Package,
     accent: 'border-violet-500',
     iconBg: 'bg-violet-50 dark:bg-violet-950/30',

@@ -317,12 +317,10 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const handleAssignment = async (client: Client, assignment: any) => {
-    console.log('Assignment:', assignment);
     await logSecurityEvent('PACKAGE_ASSIGNMENT', { clientId: client.id, assignment });
   };
 
   const handleBookAppointment = async (client: Client, appointmentData: any) => {
-    console.log('Book appointment:', appointmentData);
     await logSecurityEvent('APPOINTMENT_BOOKING', { clientId: client.id, appointmentData });
   };
 

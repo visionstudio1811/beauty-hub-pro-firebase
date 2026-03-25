@@ -11,6 +11,7 @@ import { useClients, Client } from '@/hooks/useClients';
 import { useClientPackages, ClientPackage } from '@/hooks/useClientPackages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
+import { syncMembershipStatus } from '@/hooks/useMembershipSync';
 
 
 interface AppointmentFormData {
@@ -305,8 +306,13 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     }
     await updateDoc(
       doc(db, 'organizations', profile.organizationId, 'purchases', pkg.id),
-      updates
+      updates,
     );
+
+    // If the last session was just consumed, re-evaluate membership status
+    if (newRemaining === 0 && selectedClient?.id) {
+      await syncMembershipStatus(profile.organizationId, selectedClient.id);
+    }
   };
 
   return {

@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { ClientPackage } from '@/hooks/useClientPackages';
+import { syncMembershipStatus } from '@/hooks/useMembershipSync';
 
 interface PurchaseManagementModalProps {
   client: Client | null;
@@ -121,8 +122,11 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         updateData.expiry_date = editValue.expiry;
       }
 
-      if (!currentOrganization?.id) return;
+      if (!currentOrganization?.id || !client) return;
       await updateDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId), updateData);
+
+      // Re-evaluate membership status after editing sessions/expiry
+      await syncMembershipStatus(currentOrganization.id, client.id);
 
       toast({
         title: "Package Updated",
@@ -130,8 +134,8 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
       });
 
       setEditingPackage(null);
-      fetchClientPackages(); // Refresh the data
-      onUpdate(); // Notify parent component
+      fetchClientPackages();
+      onUpdate();
     } catch (error) {
       console.error('Error updating package:', error);
       toast({
@@ -148,16 +152,19 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
     }
 
     try {
-      if (!currentOrganization?.id) return;
+      if (!currentOrganization?.id || !client) return;
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId));
+
+      // Re-evaluate membership — if this was the last active package, flip to false
+      await syncMembershipStatus(currentOrganization.id, client.id);
 
       toast({
         title: "Package Removed",
-        description: `${packageName} has been removed from ${client?.name}.`
+        description: `${packageName} has been removed from ${client.name}.`
       });
 
-      fetchClientPackages(); // Refresh the data
-      onUpdate(); // Notify parent component
+      fetchClientPackages();
+      onUpdate();
     } catch (error) {
       console.error('Error deleting package:', error);
       toast({

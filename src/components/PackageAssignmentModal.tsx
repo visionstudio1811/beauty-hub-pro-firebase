@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/hooks/useClients';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { syncMembershipStatus } from '@/hooks/useMembershipSync';
 import {
   collection,
   getDocs,
@@ -139,13 +140,8 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
       );
       const purchase = { id: purchaseRef.id };
 
-      // Update client membership status
-      try {
-        await updateDoc(doc(db, 'organizations', currentOrganization.id, 'clients', client.id), { has_membership: true });
-      } catch (clientError) {
-        console.error('Client update error:', clientError);
-        // Don't throw - main operation succeeded
-      }
+      // Update client membership status via shared sync logic
+      await syncMembershipStatus(currentOrganization.id, client.id);
 
       toast({
         title: "Package Assigned",
