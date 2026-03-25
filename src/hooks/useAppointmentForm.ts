@@ -1,5 +1,7 @@
 
 import { useState, useEffect } from 'react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useSupabaseBusinessHours } from '@/hooks/useSupabaseBusinessHours';
 import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
@@ -46,7 +48,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const [selectedPackage, setSelectedPackage] = useState<ClientPackage | null>(null);
   const [isBeautician, setIsBeautician] = useState(false);
 
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { validateUserRole } = useSecurityValidation();
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
   const { addAppointment, appointments } = useSupabaseAppointments();
@@ -97,38 +99,20 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   // Get applicable scheduling configuration for selected date and staff
   const getApplicableSchedulingConfig = () => {
     if (!formData.staffId || schedulingConfigLoading || schedulingConfigs.length === 0) {
-      console.log('No applicable config - missing staffId or loading:', { 
-        staffId: formData.staffId, 
-        loading: schedulingConfigLoading, 
-        configsCount: schedulingConfigs.length 
-      });
       return null;
     }
 
     const dayOfWeek = selectedDate.getDay();
     const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
-    console.log('Looking for scheduling config:', {
-      dayOfWeek: adjustedDayOfWeek,
-      staffId: formData.staffId,
-      availableConfigs: schedulingConfigs.map(c => ({
-        id: c.id,
-        day_of_week: c.day_of_week,
-        staff_ids: c.staff_ids,
-        max_concurrent: c.max_concurrent_appointments,
-        is_active: c.is_active
-      }))
-    });
-
-    const applicableConfig = schedulingConfigs.find(config => 
+    const applicableConfig = schedulingConfigs.find(config =>
       config.is_active &&
       config.day_of_week === adjustedDayOfWeek &&
-      (config.staff_ids === null || 
-       (Array.isArray(config.staff_ids) && config.staff_ids.length === 0) ||
-       (Array.isArray(config.staff_ids) && config.staff_ids.includes(formData.staffId)))
+      (!config.staff_ids ||
+       config.staff_ids.length === 0 ||
+       config.staff_ids.includes(formData.staffId))
     );
 
-    console.log('Found applicable config:', applicableConfig);
     return applicableConfig || null;
   };
 
@@ -160,15 +144,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
 
 
     const availableCount = Math.max(0, maxConcurrent - overlappingCount);
-    
-    console.log('Time slot availability check:', {
-      time,
-      maxConcurrent,
-      overlappingCount,
-      availableCount,
-      dayAppointments: dayAppointments.length
-    });
-    
+
     return {
       available: availableCount > 0,
       availableCount,
@@ -179,12 +155,6 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   // Generate available time slots with enhanced visual feedback
   const generateAvailableTimeSlots = (): TimeSlot[] => {
     if (!formData.staffId || !selectedTreatment || businessHoursLoading || schedulingConfigLoading) {
-      console.log('Cannot generate time slots - missing requirements:', {
-        staffId: formData.staffId,
-        selectedTreatment: !!selectedTreatment,
-        businessHoursLoading,
-        schedulingConfigLoading
-      });
       return [];
     }
 
@@ -211,25 +181,13 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     const endTime = dayHours.closeTime;
     const treatmentDuration = selectedTreatment.duration;
     
-    const timeInterval = schedulingConfig 
-      ? schedulingConfig.time_interval_minutes 
+    const timeInterval = schedulingConfig
+      ? schedulingConfig.time_interval_minutes
       : treatmentDuration;
-    
-    const maxConcurrent = schedulingConfig 
-      ? schedulingConfig.max_concurrent_appointments 
-      : 1;
 
-    console.log('Generating time slots with config:', {
-      schedulingConfig: schedulingConfig ? {
-        id: schedulingConfig.id,
-        maxConcurrent: schedulingConfig.max_concurrent_appointments,
-        timeInterval: schedulingConfig.time_interval_minutes,
-        startTime: schedulingConfig.start_time,
-        endTime: schedulingConfig.end_time
-      } : null,
-      finalMaxConcurrent: maxConcurrent,
-      dayHours
-    });
+    const maxConcurrent = schedulingConfig
+      ? schedulingConfig.max_concurrent_appointments
+      : 1;
 
     const [startHour, startMinute] = startTime.split(':').map(Number);
     const [endHour, endMinute] = endTime.split(':').map(Number);
@@ -276,7 +234,6 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
       return slotEndHour < endHour || (slotEndHour === endHour && finalEndMinute <= endMinute);
     });
 
-    console.log('Generated time slots:', validSlots.length, 'slots');
     return validSlots;
   };
 
@@ -331,6 +288,27 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
 
   const availableTimeSlots = generateAvailableTimeSlots();
 
+  /**
+   * Decrements sessions_remaining on the purchase document when an appointment
+   * is booked using a package. Marks the purchase as 'completed' when last
+   * session is consumed.
+   */
+  const decrementPurchaseSession = async (pkg: ClientPackage): Promise<void> => {
+    if (!profile?.organizationId) return;
+    const newRemaining = Math.max(0, pkg.sessions_remaining - 1);
+    const updates: Record<string, unknown> = {
+      sessions_remaining: newRemaining,
+      updated_at: serverTimestamp(),
+    };
+    if (newRemaining === 0) {
+      updates.payment_status = 'completed';
+    }
+    await updateDoc(
+      doc(db, 'organizations', profile.organizationId, 'purchases', pkg.id),
+      updates
+    );
+  };
+
   return {
     formData,
     setFormData,
@@ -347,6 +325,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     clientPackages,
     treatments,
     addAppointment,
+    decrementPurchaseSession,
     refreshPackages,
     getNextAvailableRoomId,
     validateAppointmentBooking,

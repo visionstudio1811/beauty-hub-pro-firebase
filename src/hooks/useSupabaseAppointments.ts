@@ -40,32 +40,29 @@ export interface SupabaseAppointment {
   organization_id?: string;
 }
 
-const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => {
-  console.log('Sanitizing appointment data:', id);
-  return {
-    id,
-    client_id: data.client_id,
-    client_name: sanitizeString(data.client_name, 'Unknown Client'),
-    client_phone: sanitizeString(data.client_phone, 'No Phone'),
-    client_email: sanitizeString(data.client_email, 'No Email'),
-    treatment_id: data.treatment_id,
-    treatment_name: sanitizeString(data.treatment_name, 'Unknown Treatment'),
-    staff_id: data.staff_id,
-    staff_name: sanitizeString(data.staff_name, 'Unknown Staff'),
-    appointment_date: sanitizeDateString(data.appointment_date),
-    appointment_time: sanitizeString(data.appointment_time, '09:00'),
-    duration: typeof data.duration === 'number' ? data.duration : 60,
-    status: (data.status as SupabaseAppointment['status']) || 'scheduled',
-    notes: data.notes ? sanitizeString(data.notes, '') : undefined,
-    created_at: data.created_at?.toDate?.()?.toISOString() ?? sanitizeDateString(data.created_at),
-    updated_at: data.updated_at?.toDate?.()?.toISOString() ?? sanitizeDateString(data.updated_at),
-    room_id: data.room_id ? sanitizeString(data.room_id) : undefined,
-    package_id: data.package_id,
-    purchase_id: data.purchase_id ?? undefined,
-    session_used: Boolean(data.session_used),
-    organization_id: data.organization_id,
-  };
-};
+const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
+  id,
+  client_id: data.client_id,
+  client_name: sanitizeString(data.client_name, 'Unknown Client'),
+  client_phone: sanitizeString(data.client_phone, 'No Phone'),
+  client_email: sanitizeString(data.client_email, 'No Email'),
+  treatment_id: data.treatment_id,
+  treatment_name: sanitizeString(data.treatment_name, 'Unknown Treatment'),
+  staff_id: data.staff_id,
+  staff_name: sanitizeString(data.staff_name, 'Unknown Staff'),
+  appointment_date: sanitizeDateString(data.appointment_date),
+  appointment_time: sanitizeString(data.appointment_time, '09:00'),
+  duration: typeof data.duration === 'number' ? data.duration : 60,
+  status: (data.status as SupabaseAppointment['status']) || 'scheduled',
+  notes: data.notes ? sanitizeString(data.notes, '') : undefined,
+  created_at: data.created_at?.toDate?.()?.toISOString() ?? sanitizeDateString(data.created_at),
+  updated_at: data.updated_at?.toDate?.()?.toISOString() ?? sanitizeDateString(data.updated_at),
+  room_id: data.room_id ? sanitizeString(data.room_id) : undefined,
+  package_id: data.package_id,
+  purchase_id: data.purchase_id ?? undefined,
+  session_used: Boolean(data.session_used),
+  organization_id: data.organization_id,
+});
 
 export const useSupabaseAppointments = () => {
   const [appointments, setAppointments] = useState<SupabaseAppointment[]>([]);
@@ -89,7 +86,6 @@ export const useSupabaseAppointments = () => {
       );
       const snapshot = await getDocs(q);
       const sanitized = snapshot.docs.map(d => sanitizeAppointmentData(d.id, d.data()));
-      console.log('Fetched and sanitized appointments:', sanitized.length);
       setAppointments(sanitized);
       await logSecurityEvent('APPOINTMENTS_FETCHED', { count: sanitized.length });
     } catch (error) {
@@ -119,8 +115,6 @@ export const useSupabaseAppointments = () => {
     if (!profile?.organizationId) throw new Error('User profile must be associated with an organization');
 
     try {
-      console.log('Adding appointment to database...', { appointmentData });
-
       const sanitizedData = {
         ...appointmentData,
         organization_id: profile.organizationId,
@@ -170,7 +164,6 @@ export const useSupabaseAppointments = () => {
   ): Promise<SupabaseAppointment> => {
     if (!profile?.organizationId) throw new Error('No organization');
     try {
-      console.log('Updating appointment in database...');
       const sanitizedUpdates = { ...updates };
       if (updates.client_name) sanitizedUpdates.client_name = sanitizeString(updates.client_name, 'Unknown Client');
       if (updates.treatment_name) sanitizedUpdates.treatment_name = sanitizeString(updates.treatment_name, 'Unknown Treatment');
@@ -199,7 +192,6 @@ export const useSupabaseAppointments = () => {
   const deleteAppointment = async (id: string) => {
     if (!profile?.organizationId) throw new Error('No organization');
     try {
-      console.log('Deleting appointment from database...');
       const appointmentRef = doc(db, 'organizations', profile.organizationId, 'appointments', id);
       await deleteDoc(appointmentRef);
 

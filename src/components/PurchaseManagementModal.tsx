@@ -16,6 +16,7 @@ import {
   query,
   where,
   getDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -113,7 +114,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
 
       const updateData: any = {
         sessions_remaining: editValue.sessions,
-        updated_at: new Date().toISOString()
+        updated_at: serverTimestamp(),
       };
 
       if (editValue.expiry) {

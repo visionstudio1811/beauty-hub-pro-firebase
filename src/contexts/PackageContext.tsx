@@ -5,10 +5,8 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   orderBy,
-  where,
   serverTimestamp,
   getDoc,
 } from 'firebase/firestore';
@@ -165,13 +163,15 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
   const deletePackage = async (id: string) => {
     if (!currentOrganization?.id) throw new Error('No organization selected');
     try {
+      // Soft-delete: deactivate rather than hard-delete so existing client purchases
+      // that reference this package keep their data intact.
       const pkgRef = doc(db, 'organizations', currentOrganization.id, 'packages', id);
-      await deleteDoc(pkgRef);
-      setPackages(prev => prev.filter(pkg => pkg.id !== id));
-      toast({ title: 'Package Deleted', description: 'Package has been deleted successfully.' });
+      await updateDoc(pkgRef, { is_active: false, updated_at: serverTimestamp() });
+      setPackages(prev => prev.map(pkg => (pkg.id === id ? { ...pkg, is_active: false } : pkg)));
+      toast({ title: 'Package Deactivated', description: 'Package has been deactivated successfully.' });
     } catch (err) {
-      console.error('Error deleting package:', err);
-      toast({ title: 'Error', description: 'Failed to delete package. Please try again.', variant: 'destructive' });
+      console.error('Error deactivating package:', err);
+      toast({ title: 'Error', description: 'Failed to deactivate package. Please try again.', variant: 'destructive' });
       throw err;
     }
   };

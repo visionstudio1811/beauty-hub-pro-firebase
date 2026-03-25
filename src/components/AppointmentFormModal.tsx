@@ -71,6 +71,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     staffProfiles,
     clientPackages,
     addAppointment,
+    decrementPurchaseSession,
     refreshPackages,
     getNextAvailableRoomId,
     validateAppointmentBooking,
@@ -196,14 +197,6 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     }
 
     try {
-      console.log('Submitting appointment with data:', {
-        client_id: selectedClient?.id || null,
-        staff_id: formData.staffId || null,
-        treatment_id: formData.treatmentId || null,
-        package_id: selectedPackage?.package_id || null,
-      });
-
-      // Create appointment
       await addAppointment({
         client_id: selectedClient?.id || null,
         client_name: formData.clientName,
@@ -221,11 +214,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         room_id: formData.roomId,
         package_id: selectedPackage?.package_id || null,
         purchase_id: selectedPackage?.id || undefined,
-        session_used: false
+        session_used: !!selectedPackage,
       });
 
-      // Refresh package data after successful appointment creation
-      if (selectedPackage && selectedClient) {
+      // Decrement sessions_remaining on the purchase when a package session is consumed
+      if (selectedPackage) {
+        await decrementPurchaseSession(selectedPackage);
         refreshPackages();
       }
 
@@ -244,7 +238,6 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setSelectedPackage(null);
       setSelectedDate(new Date());
     } catch (error) {
-      console.error('Error creating appointment:', error);
       toast({
         title: "Error",
         description: editAppointment ? "Failed to update appointment. Please try again." : "Failed to create appointment. Please try again.",

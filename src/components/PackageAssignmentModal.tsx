@@ -8,6 +8,7 @@ import { Package, Clock, Calendar, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/hooks/useClients';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import {
   collection,
   getDocs,
@@ -47,6 +48,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 }) => {
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
+  const { treatments } = useSupabaseTreatments();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -222,11 +224,14 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
                     <div>
                       <p className="text-sm font-medium mb-2">Includes:</p>
                       <div className="flex flex-wrap gap-1">
-                        {pkg.treatments.slice(0, 3).map((treatment, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {treatment}
-                          </Badge>
-                        ))}
+                        {pkg.treatments.slice(0, 3).map((treatmentId, index) => {
+                          const name = treatments.find(t => t.id === treatmentId)?.name ?? treatmentId;
+                          return (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {name}
+                            </Badge>
+                          );
+                        })}
                         {pkg.treatments.length > 3 && (
                           <Badge variant="outline" className="text-xs">
                             +{pkg.treatments.length - 3} more
