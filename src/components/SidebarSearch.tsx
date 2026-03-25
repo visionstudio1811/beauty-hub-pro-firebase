@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useClients } from '@/hooks/useClients';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
-import { useTreatments } from '@/contexts/TreatmentContext';
+import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { useNavigate } from 'react-router-dom';
 
 interface SearchResult {
@@ -25,7 +25,7 @@ export function SidebarSearch() {
   
   const { clients } = useClients();
   const { appointments } = useSupabaseAppointments();
-  const { treatments } = useTreatments();
+  const { treatments } = useSupabaseTreatments();
   
   const isCollapsed = state === 'collapsed';
 
@@ -65,7 +65,7 @@ export function SidebarSearch() {
     // Search treatments
     treatments.forEach(treatment => {
       if (treatment.name.toLowerCase().includes(searchTerm) ||
-          treatment.description.toLowerCase().includes(searchTerm)) {
+          (treatment.description ?? '').toLowerCase().includes(searchTerm)) {
         results.push({
           type: 'treatment',
           id: treatment.id,

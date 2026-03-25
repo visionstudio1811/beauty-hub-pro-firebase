@@ -23,9 +23,6 @@ import { ClientsProvider } from '@/contexts/ClientsContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { RoleProtectedRoute } from '@/components/RoleProtectedRoute';
 import { OrganizationProtectedRoute } from '@/components/OrganizationProtectedRoute';
-import { AppointmentProvider } from '@/contexts/AppointmentContext';
-import { StaffProvider } from '@/contexts/StaffContext';
-import { TreatmentProvider } from '@/contexts/TreatmentContext';
 import { BusinessHoursProvider } from '@/contexts/BusinessHoursContext';
 import { DropdownDataProvider } from '@/contexts/DropdownDataContext';
 import { PackageProvider } from '@/contexts/PackageContext';
@@ -55,12 +52,9 @@ function App() {
             <ClientsProvider>
             <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
               <DropdownDataProvider>
-              <StaffProvider>
-                <TreatmentProvider>
-                  <BusinessHoursProvider>
+              <BusinessHoursProvider>
                     <PackageProvider>
                       <SchedulingConfigProvider>
-                        <AppointmentProvider>
                           <Routes>
                             {/* Public routes */}
                             <Route path="/" element={<Index />} />
@@ -90,12 +84,9 @@ function App() {
                             <Route path="*" element={<NotFound />} />
                           </Routes>
                           <Toaster />
-                        </AppointmentProvider>
                       </SchedulingConfigProvider>
                     </PackageProvider>
-                  </BusinessHoursProvider>
-                </TreatmentProvider>
-              </StaffProvider>
+              </BusinessHoursProvider>
               </DropdownDataProvider>
             </ThemeProvider>
             </ClientsProvider>
