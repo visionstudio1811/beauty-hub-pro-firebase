@@ -122,6 +122,12 @@ service cloud.firestore {
         allow write: if belongsToOrg(orgId) && isAdmin();
       }
 
+      match /clients/{clientId}/membershipHistory/{entryId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow create: if belongsToOrg(orgId) && isReception();
+        allow update, delete: if false;
+      }
+
       match /clientWaivers/{waiverId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
         allow write: if belongsToOrg(orgId) && isReception();

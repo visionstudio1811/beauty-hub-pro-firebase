@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature } from 'lucide-react';
+import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDropdownData } from '@/contexts/DropdownDataContext';
 import { Client } from '@/hooks/useClients';
@@ -29,6 +29,7 @@ import { PurchaseManagementModal } from '@/components/PurchaseManagementModal';
 import { ProductAssignmentModal } from '@/components/ProductAssignmentModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
+import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab';
 
 interface DatabasePurchase {
   id: string;
@@ -297,6 +298,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     { value: 'details', label: 'Details', icon: User },
     { value: 'appointments', label: `Appointments (${appointments.length})`, icon: Calendar },
     { value: 'packages', label: `Packages (${purchases.length})`, icon: Package },
+    { value: 'membership', label: 'Membership', icon: History },
     { value: 'actions', label: 'Actions', icon: Settings },
     { value: 'documents', label: 'Documents', icon: FileSignature },
   ];
@@ -655,6 +657,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     </div>
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'membership' && (
+                <MembershipHistoryTab client={client} />
               )}
 
               {activeTab === 'actions' && (

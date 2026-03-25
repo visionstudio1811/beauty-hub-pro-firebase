@@ -21,7 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { ClientPackage } from '@/hooks/useClientPackages';
-import { syncMembershipStatus } from '@/hooks/useMembershipSync';
+import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
 
 interface PurchaseManagementModalProps {
   client: Client | null;
@@ -126,7 +126,12 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
       await updateDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId), updateData);
 
       // Re-evaluate membership status after editing sessions/expiry
-      await syncMembershipStatus(currentOrganization.id, client.id);
+      await syncMembershipStatus(currentOrganization.id, client.id, 'sessions_edited');
+      await logMembershipEvent(currentOrganization.id, client.id, 'sessions_edited', {
+        purchaseId: packageId,
+        newSessions: editValue.sessions,
+        newExpiry: editValue.expiry || null,
+      });
 
       toast({
         title: "Package Updated",
@@ -156,7 +161,11 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId));
 
       // Re-evaluate membership — if this was the last active package, flip to false
-      await syncMembershipStatus(currentOrganization.id, client.id);
+      await syncMembershipStatus(currentOrganization.id, client.id, 'package_removed');
+      await logMembershipEvent(currentOrganization.id, client.id, 'package_removed', {
+        purchaseId: packageId,
+        packageName,
+      });
 
       toast({
         title: "Package Removed",

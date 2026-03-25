@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/hooks/useClients';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
-import { syncMembershipStatus } from '@/hooks/useMembershipSync';
+import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
 import {
   collection,
   getDocs,
@@ -140,8 +140,16 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
       );
       const purchase = { id: purchaseRef.id };
 
-      // Update client membership status via shared sync logic
-      await syncMembershipStatus(currentOrganization.id, client.id);
+      // Update membership status + log assignment event
+      await syncMembershipStatus(currentOrganization.id, client.id, 'package_assigned');
+      await logMembershipEvent(currentOrganization.id, client.id, 'package_assigned', {
+        packageName: packageData.name,
+        packageId: packageData.id,
+        purchaseId: purchaseRef.id,
+        totalSessions: packageData.total_sessions,
+        price: packageData.price,
+        expiryDate: expiryDate.toISOString().split('T')[0],
+      });
 
       toast({
         title: "Package Assigned",

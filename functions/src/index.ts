@@ -5,3 +5,4 @@ export { sendWaiver } from './sendWaiver';
 export { acuityWebhook } from './acuityWebhook';
 export { acuitySync } from './acuitySync';
 export { adminCreateUser } from './adminCreateUser';
+export { packageExpiryNotifications } from './packageExpiryNotifications';
