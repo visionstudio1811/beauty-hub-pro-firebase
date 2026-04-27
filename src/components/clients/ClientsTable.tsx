@@ -11,8 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useState } from 'react';
-import { useClientRevenue } from '@/hooks/useClientRevenue';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { safeFormatters } from '@/lib/safeDateFormatter';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface ClientsTableProps {
@@ -40,9 +40,6 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
   const isMobile = useIsMobile();
   const [communicationClient, setCommunicationClient] = useState<Client | null>(null);
   const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
-  
-  // Get revenue data for total revenue only (simplified for now)
-  const { totalRevenue, loading: revenueLoading, error: revenueError } = useClientRevenue();
 
   const handleDeleteClient = (clientId: string, event?: React.MouseEvent) => {
     event?.preventDefault();
@@ -96,22 +93,14 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
   };
 
 
-  const renderRevenue = (client: Client) => {
-    if (revenueLoading) {
-      return <span className="text-gray-400">Loading...</span>;
-    }
-    
-    if (revenueError) {
-      return (
-        <span className="text-red-500 text-xs" title={revenueError}>
-          Error
-        </span>
-      );
-    }
-    
-    // For now, we'll show a placeholder since individual client revenue calculation is simplified
-    return <span className="font-medium">$0.00</span>;
-  };
+  const renderRevenue = (client: Client) => (
+    <span className="font-medium">
+      ${Number(client.totalRevenue || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    </span>
+  );
 
   const ActionButtons = ({ client }: { client: Client }) => (
     <>
@@ -252,7 +241,9 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                 </TableCell>
                 {!isMobile && (
                   <TableCell className="p-2 sm:p-4">
-                    <div className="truncate max-w-[80px] sm:max-w-[90px]">{client.lastVisit}</div>
+                    <div className="truncate max-w-[80px] sm:max-w-[90px]">
+                      {safeFormatters.shortDate(client.lastVisit) || '—'}
+                    </div>
                   </TableCell>
                 )}
                 {!isMobile && (

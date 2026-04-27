@@ -92,10 +92,18 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const staffProfiles = isBeautician ? getBeauticianProfiles() : getStaffProfiles();
   const selectedTreatment = treatments.find(t => t.id === formData.treatmentId);
 
-  // Filter treatments based on selected package
-  const availableTreatments = selectedPackage 
-    ? treatments.filter(t => selectedPackage.treatments.includes(t.id))
-    : treatments;
+  // Filter treatments based on selected package. For per-treatment packages we
+  // only allow treatments whose remaining slot is > 0; legacy single-pool packages
+  // allow any listed treatment until the overall sessions_remaining hits 0.
+  const availableTreatments = (() => {
+    if (!selectedPackage) return treatments;
+    const slots = selectedPackage.sessions_by_treatment;
+    if (slots && slots.length > 0) {
+      const allowed = new Set(slots.filter(s => s.remaining > 0).map(s => s.treatment_id));
+      return treatments.filter(t => allowed.has(t.id));
+    }
+    return treatments.filter(t => selectedPackage.treatments.includes(t.id));
+  })();
 
   // Get applicable scheduling configuration for selected date and staff
   const getApplicableSchedulingConfig = () => {
@@ -290,27 +298,45 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const availableTimeSlots = generateAvailableTimeSlots();
 
   /**
-   * Decrements sessions_remaining on the purchase document when an appointment
-   * is booked using a package. Marks the purchase as 'completed' when last
-   * session is consumed.
+   * Decrements session counts on the purchase document when a booking consumes
+   * one session. If the purchase has a per-treatment breakdown (sessions_by_treatment),
+   * only the matching treatment's slot is decremented and sessions_remaining is
+   * recomputed as the sum. Legacy purchases without the breakdown fall back to the
+   * single shared counter. Marks the purchase 'completed' once all sessions are spent.
    */
-  const decrementPurchaseSession = async (pkg: ClientPackage): Promise<void> => {
+  const decrementPurchaseSession = async (
+    pkg: ClientPackage,
+    treatmentId?: string | null,
+  ): Promise<void> => {
     if (!profile?.organizationId) return;
-    const newRemaining = Math.max(0, pkg.sessions_remaining - 1);
-    const updates: Record<string, unknown> = {
-      sessions_remaining: newRemaining,
-      updated_at: serverTimestamp(),
-    };
-    if (newRemaining === 0) {
+
+    const updates: Record<string, unknown> = { updated_at: serverTimestamp() };
+    let newTotal: number;
+
+    if (pkg.sessions_by_treatment && pkg.sessions_by_treatment.length > 0 && treatmentId) {
+      const slots = pkg.sessions_by_treatment.map(s => ({ ...s }));
+      const slot = slots.find(s => s.treatment_id === treatmentId);
+      if (slot && slot.remaining > 0) {
+        slot.remaining = Math.max(0, slot.remaining - 1);
+      }
+      newTotal = slots.reduce((sum, s) => sum + s.remaining, 0);
+      updates.sessions_by_treatment = slots;
+      updates.sessions_remaining = newTotal;
+    } else {
+      newTotal = Math.max(0, pkg.sessions_remaining - 1);
+      updates.sessions_remaining = newTotal;
+    }
+
+    if (newTotal === 0) {
       updates.payment_status = 'completed';
     }
+
     await updateDoc(
       doc(db, 'organizations', profile.organizationId, 'purchases', pkg.id),
       updates,
     );
 
-    // If the last session was just consumed, re-evaluate membership status
-    if (newRemaining === 0 && selectedClient?.id) {
+    if (newTotal === 0 && selectedClient?.id) {
       await syncMembershipStatus(profile.organizationId, selectedClient.id);
     }
   };

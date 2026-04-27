@@ -4,6 +4,12 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
+export interface SessionSlot {
+  treatment_id: string;
+  remaining: number;
+  total: number;
+}
+
 export interface ClientPackage {
   id: string;
   package_id: string;
@@ -14,7 +20,9 @@ export interface ClientPackage {
   expiry_date: string | null;
   payment_status: string;
   treatments: string[];
+  sessions_by_treatment?: SessionSlot[];
   price: number;
+  is_custom?: boolean;
 }
 
 export const useClientPackages = (clientId?: string) => {
@@ -61,6 +69,10 @@ export const useClientPackages = (clientId?: string) => {
           if (pkgSnap.exists()) pkgData = pkgSnap.data();
         }
 
+        const sessionsByTreatment = Array.isArray(purchase.sessions_by_treatment)
+          ? (purchase.sessions_by_treatment as SessionSlot[])
+          : undefined;
+
         transformedPackages.push({
           id: purchaseDoc.id,
           package_id: purchase.package_id || '',
@@ -71,7 +83,9 @@ export const useClientPackages = (clientId?: string) => {
           expiry_date: purchase.expiry_date || null,
           payment_status: purchase.payment_status || '',
           treatments: pkgData.treatments || [],
+          sessions_by_treatment: sessionsByTreatment,
           price: pkgData.price || 0,
+          is_custom: pkgData.is_custom ?? false,
         });
       }
 

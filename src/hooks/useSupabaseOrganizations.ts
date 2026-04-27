@@ -95,10 +95,16 @@ export const useFirebaseOrganizations = () => {
   };
 
   useEffect(() => {
-    fetchOrganizations();
-    if (user && profile) {
-      fetchCurrentOrganization();
+    if (!user || !profile) {
+      // Flush cached org state on sign-out so the next user on a shared device
+      // does not see the previous tenant's name/logo in the UI.
+      setOrganizations([]);
+      setCurrentOrganization(null);
+      setLoading(false);
+      return;
     }
+    fetchOrganizations();
+    fetchCurrentOrganization();
   }, [user, profile]);
 
   const createOrganization = async (
@@ -161,21 +167,17 @@ export const useFirebaseOrganizations = () => {
     }
   };
 
-  const switchOrganization = async (organizationId: string) => {
-    if (!user) return;
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { organizationId, updated_at: serverTimestamp() });
-
-      const newOrg = organizations.find(org => org.id === organizationId);
-      if (newOrg) {
-        setCurrentOrganization(newOrg);
-        toast({ title: 'Success', description: `Switched to ${newOrg.name}` });
-      }
-    } catch (error) {
-      console.error('Error switching organization:', error);
-      toast({ title: 'Error', description: 'Failed to switch organization', variant: 'destructive' });
-    }
+  const switchOrganization = async (_organizationId: string) => {
+    // Changing a user's organizationId is not allowed from the client — the
+    // Firestore rule on users/{uid} locks organizationId once it is set to
+    // prevent cross-tenant escalation. If multi-org membership is ever needed,
+    // add a Cloud Function that validates an invite/membership record.
+    toast({
+      title: 'Not available',
+      description: 'Organization switching must be performed by an administrator.',
+      variant: 'destructive',
+    });
+    throw new Error('Organization switching is disabled on the client.');
   };
 
   return {

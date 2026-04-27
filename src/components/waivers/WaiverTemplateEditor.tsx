@@ -49,6 +49,12 @@ import {
   Check,
   X,
   Loader2,
+  ImageUp,
+  Mail,
+  Phone,
+  PenLine,
+  Calendar,
+  Clock as ClockIcon,
 } from 'lucide-react';
 import type { BlockType, WaiverBlock } from '@/pages/WaiverForm';
 
@@ -58,6 +64,12 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: React.ElementType; de
   { type: 'checkbox',     label: 'Checkbox Agreement',   icon: CheckSquare,  description: 'A statement the client must tick to agree' },
   { type: 'yes_no',       label: 'Yes / No Question',    icon: ToggleLeft,   description: 'A binary question (Yes or No)' },
   { type: 'short_answer', label: 'Short Answer',         icon: MessageSquare,description: 'A free-text question' },
+  { type: 'email',        label: 'Email Address',        icon: Mail,         description: 'Collect an email (e.g. emergency contact)' },
+  { type: 'phone',        label: 'Phone Number',         icon: Phone,        description: 'Collect a phone number' },
+  { type: 'date',         label: 'Date',                 icon: Calendar,     description: 'Calendar date picker' },
+  { type: 'time',         label: 'Time',                 icon: ClockIcon,    description: 'Time-of-day picker' },
+  { type: 'signature',    label: 'Signature Pad',        icon: PenLine,      description: 'Client draws a signature (e.g. guardian or initial)' },
+  { type: 'image_upload', label: 'Image Upload',         icon: ImageUp,      description: 'Client uploads photos (e.g. affected area)' },
 ];
 
 const BADGE_COLORS: Record<BlockType, string> = {
@@ -65,6 +77,12 @@ const BADGE_COLORS: Record<BlockType, string> = {
   checkbox:     'bg-green-100 text-green-700',
   yes_no:       'bg-amber-100 text-amber-700',
   short_answer: 'bg-purple-100 text-purple-700',
+  email:        'bg-sky-100 text-sky-700',
+  phone:        'bg-teal-100 text-teal-700',
+  date:         'bg-orange-100 text-orange-700',
+  time:         'bg-yellow-100 text-yellow-700',
+  signature:    'bg-indigo-100 text-indigo-700',
+  image_upload: 'bg-pink-100 text-pink-700',
 };
 
 function newBlock(type: BlockType): WaiverBlock {
@@ -74,6 +92,7 @@ function newBlock(type: BlockType): WaiverBlock {
     value:    type === 'text' ? '' : undefined,
     label:    type !== 'text' ? '' : undefined,
     required: type !== 'text',
+    ...(type === 'image_upload' ? { maxImages: 5 } : {}),
   };
 }
 
@@ -152,7 +171,14 @@ function SortableBlock({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 className="text-sm"
-                placeholder={block.type === 'checkbox' ? 'Agreement statement…' : 'Question text…'}
+                placeholder={
+                  block.type === 'checkbox' ? 'Agreement statement…'
+                  : block.type === 'image_upload' ? 'e.g. Upload photos of affected area'
+                  : block.type === 'email' ? 'e.g. Emergency contact email'
+                  : block.type === 'phone' ? 'e.g. Emergency contact phone'
+                  : block.type === 'signature' ? 'e.g. Parent / guardian signature'
+                  : 'Question text…'
+                }
                 autoFocus
               />
             )}
@@ -215,7 +241,7 @@ function AddBlockPicker({ onAdd }: { onAdd: (type: BlockType) => void }) {
         <Plus className="h-4 w-4" /> Add Block
       </Button>
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-popover border border-border rounded-lg shadow-lg p-1 w-64">
+        <div className="absolute top-full mt-1 right-0 z-50 bg-popover border border-border rounded-lg shadow-lg p-1 w-64 max-h-96 overflow-y-auto">
           {BLOCK_TYPES.map(({ type, label, icon: Icon, description }) => (
             <button
               key={type}
@@ -223,9 +249,9 @@ function AddBlockPicker({ onAdd }: { onAdd: (type: BlockType) => void }) {
               onClick={() => { onAdd(type); setOpen(false); }}
             >
               <Icon className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium">{label}</p>
-                <p className="text-xs text-muted-foreground">{description}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{label}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{description}</p>
               </div>
             </button>
           ))}
@@ -236,16 +262,33 @@ function AddBlockPicker({ onAdd }: { onAdd: (type: BlockType) => void }) {
 }
 
 // ── Template item in sidebar ──────────────────────────────────
-type TemplateRow = { id: string; title: string; content: WaiverBlock[]; updated_at: string };
+type TemplateKind = 'waiver' | 'intake';
+type TemplateRow = {
+  id: string;
+  title: string;
+  headline: string;
+  sub_headline: string;
+  content: WaiverBlock[];
+  updated_at: string;
+  kind: TemplateKind;
+};
+
+const KIND_COPY: Record<TemplateKind, { title: string; newLabel: string; placeholder: string }> = {
+  waiver: { title: 'Waiver', newLabel: 'New Waiver', placeholder: 'e.g. General Consent Waiver' },
+  intake: { title: 'Intake Form', newLabel: 'New Intake Form', placeholder: 'e.g. New Client Intake Form' },
+};
 
 // ── Main editor ───────────────────────────────────────────────
-export function WaiverTemplateEditor() {
+export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind } = {}) {
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
+  const copy = KIND_COPY[kind];
 
   const [templates, setTemplates]       = useState<TemplateRow[]>([]);
   const [selected, setSelected]         = useState<TemplateRow | null>(null);
   const [title, setTitle]               = useState('');
+  const [headline, setHeadline]         = useState('');
+  const [subHeadline, setSubHeadline]   = useState('');
   const [blocks, setBlocks]             = useState<WaiverBlock[]>([]);
   const [loadingList, setLoadingList]   = useState(true);
   const [saving, setSaving]             = useState(false);
@@ -267,30 +310,38 @@ export function WaiverTemplateEditor() {
           orderBy('updated_at', 'desc')
         )
       );
-      setTemplates(snap.docs.map(d => ({
+      const all = snap.docs.map(d => ({
         id: d.id,
         title: d.data().title ?? '',
+        headline: d.data().headline ?? '',
+        sub_headline: d.data().sub_headline ?? '',
         content: d.data().content ?? [],
         updated_at: d.data().updated_at ?? '',
-      })));
+        kind: (d.data().kind as TemplateKind) ?? 'waiver',
+      }));
+      setTemplates(all.filter(t => t.kind === kind));
     } catch (err) {
-      console.error('Error loading waiver templates:', err);
+      console.error('Error loading templates:', err);
     } finally {
       setLoadingList(false);
     }
-  }, [currentOrganization]);
+  }, [currentOrganization, kind]);
 
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
   const selectTemplate = (t: TemplateRow) => {
     setSelected(t);
     setTitle(t.title);
+    setHeadline(t.headline ?? '');
+    setSubHeadline(t.sub_headline ?? '');
     setBlocks(t.content ?? []);
   };
 
   const createNew = () => {
     setSelected(null);
-    setTitle('New Waiver');
+    setTitle(copy.newLabel);
+    setHeadline('');
+    setSubHeadline('');
     setBlocks([]);
   };
 
@@ -315,19 +366,21 @@ export function WaiverTemplateEditor() {
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      const trimmedHeadline = headline.trim();
+      const trimmedSubHeadline = subHeadline.trim();
       if (selected) {
         await updateDoc(
           doc(db, 'organizations', currentOrganization.id, 'waiverTemplates', selected.id),
-          { title, content: blocks, updated_at: now, updated_at_ts: serverTimestamp() }
+          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, kind, updated_at: now, updated_at_ts: serverTimestamp() }
         );
       } else {
         const newRef = await addDoc(
           collection(db, 'organizations', currentOrganization.id, 'waiverTemplates'),
-          { title, content: blocks, organization_id: currentOrganization.id, created_at: now, updated_at: now, created_at_ts: serverTimestamp() }
+          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, kind, organization_id: currentOrganization.id, created_at: now, updated_at: now, created_at_ts: serverTimestamp() }
         );
-        setSelected({ id: newRef.id, title, content: blocks, updated_at: now });
+        setSelected({ id: newRef.id, title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, updated_at: now, kind });
       }
-      toast({ title: 'Waiver template saved' });
+      toast({ title: `${copy.title} template saved` });
       await loadTemplates();
     } catch (err: unknown) {
       toast({ title: 'Save failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
@@ -343,7 +396,7 @@ export function WaiverTemplateEditor() {
     try {
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'waiverTemplates', selected.id));
       toast({ title: 'Template deleted' });
-      setSelected(null); setTitle(''); setBlocks([]);
+      setSelected(null); setTitle(''); setHeadline(''); setSubHeadline(''); setBlocks([]);
       await loadTemplates();
     } catch (err: unknown) {
       toast({ title: 'Delete failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
@@ -357,7 +410,7 @@ export function WaiverTemplateEditor() {
       {/* Sidebar */}
       <div className="w-56 flex-shrink-0 flex flex-col gap-2">
         <Button size="sm" className="w-full gap-1.5" onClick={createNew}>
-          <Plus className="h-4 w-4" /> New Template
+          <Plus className="h-4 w-4" /> New {copy.title}
         </Button>
         <div className="flex-1 space-y-1 overflow-y-auto">
           {loadingList ? (
@@ -399,8 +452,33 @@ export function WaiverTemplateEditor() {
                 id="tpl-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. General Consent Waiver"
+                placeholder={copy.placeholder}
               />
+              <p className="text-xs text-muted-foreground">Internal name shown in the templates list.</p>
+            </div>
+
+            {/* Headline + Sub-headline (shown to clients on the form) */}
+            <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="space-y-1">
+                <Label htmlFor="tpl-headline" className="font-medium">Headline</Label>
+                <Input
+                  id="tpl-headline"
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value)}
+                  placeholder={kind === 'intake' ? 'e.g. Welcome — let’s get to know you' : 'e.g. Consent & Treatment Waiver'}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="tpl-subheadline" className="font-medium">Sub Headline</Label>
+                <Textarea
+                  id="tpl-subheadline"
+                  value={subHeadline}
+                  onChange={(e) => setSubHeadline(e.target.value)}
+                  placeholder="e.g. Please read carefully and complete all required fields."
+                  className="min-h-[60px]"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Shown at the top of the form your clients see. Falls back to the template title if left blank.</p>
             </div>
 
             {/* Blocks */}

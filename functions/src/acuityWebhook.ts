@@ -148,10 +148,9 @@ async function handleAppointmentWebhook(payload: WebhookPayload, organizationId:
 export const acuityWebhook = onRequest(
   { secrets: ['ACUITY_API_KEY'] },
   async (req, res) => {
+    // Acuity posts server-to-server — no browser, no CORS needed.
     if (req.method === 'OPTIONS') {
-      res.set('Access-Control-Allow-Origin', '*');
-      res.set('Access-Control-Allow-Headers', 'content-type');
-      res.status(204).send('');
+      res.status(405).send('');
       return;
     }
 

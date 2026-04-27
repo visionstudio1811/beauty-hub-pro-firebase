@@ -182,8 +182,8 @@ export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ clie
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <SummaryCard
           label="Status"
-          value={client.has_membership ? 'Active' : 'Inactive'}
-          color={client.has_membership ? 'text-green-600' : 'text-gray-500'}
+          value={activePurchasesCount > 0 ? 'Active' : 'Inactive'}
+          color={activePurchasesCount > 0 ? 'text-green-600' : 'text-gray-500'}
         />
         <SummaryCard
           label="Active Packages"

@@ -4,6 +4,11 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { PublicHome } from './PublicHome';
 
+// App-only hosts skip the Beauty Hub Pro marketing page and go straight to /auth.
+// Every white-label client gets a `crm.<their-brand>` domain — that prefix identifies them.
+const isAppOnlyHost = (hostname: string): boolean =>
+  hostname === 'app.beautyhubpro.com' || hostname.startsWith('crm.');
+
 const Index: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -15,12 +20,14 @@ const Index: React.FC = () => {
     );
   }
 
-  // If user is authenticated, redirect to admin dashboard
   if (user) {
     return <Navigate to="/admin" replace />;
   }
 
-  // Show public website for non-authenticated users
+  if (typeof window !== 'undefined' && isAppOnlyHost(window.location.hostname)) {
+    return <Navigate to="/auth" replace />;
+  }
+
   return <PublicHome />;
 };
 

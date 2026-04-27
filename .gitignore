@@ -31,3 +31,12 @@ dist-ssr
 
 # Cloud Functions compiled output
 functions/lib/
+
+# Firebase CLI state (deploy caches, emulator data, hosting cache)
+.firebase/
+
+# Local Claude Code settings
+.claude/
+
+# Local reference screenshots
+Vagaro-Manage-Customers-*.png

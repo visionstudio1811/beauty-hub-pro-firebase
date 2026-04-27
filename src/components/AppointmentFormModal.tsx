@@ -217,9 +217,10 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         session_used: !!selectedPackage,
       });
 
-      // Decrement sessions_remaining on the purchase when a package session is consumed
+      // Decrement sessions on the purchase when a package session is consumed.
+      // Pass the booked treatment id so per-treatment packages decrement the right slot.
       if (selectedPackage) {
-        await decrementPurchaseSession(selectedPackage);
+        await decrementPurchaseSession(selectedPackage, formData.treatmentId || null);
         refreshPackages();
       }
 

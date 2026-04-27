@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulators": "VITE_USE_EMULATORS=true vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "npm --prefix functions run build && npx firebase-tools@latest emulators:start",
+    "seed:emulators": "npm --prefix functions run seed:emulators"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

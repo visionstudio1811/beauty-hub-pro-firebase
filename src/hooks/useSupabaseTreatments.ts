@@ -70,6 +70,14 @@ export const useSupabaseTreatments = () => {
     fetchTreatments();
   }, [currentOrganization?.id]);
 
+  const stripUndefined = <T extends Record<string, any>>(obj: T): Partial<T> => {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) result[key] = value;
+    }
+    return result as Partial<T>;
+  };
+
   const addTreatment = async (
     treatmentData: Omit<Treatment, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Treatment> => {
@@ -77,7 +85,7 @@ export const useSupabaseTreatments = () => {
     try {
       const docRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'treatments'),
-        { ...treatmentData, created_at: serverTimestamp(), updated_at: serverTimestamp() }
+        { ...stripUndefined(treatmentData), created_at: serverTimestamp(), updated_at: serverTimestamp() }
       );
       const newTreatment = docToTreatment(docRef.id, {
         ...treatmentData,
@@ -98,7 +106,7 @@ export const useSupabaseTreatments = () => {
     if (!currentOrganization?.id) throw new Error('No organization selected');
     try {
       const treatmentRef = doc(db, 'organizations', currentOrganization.id, 'treatments', id);
-      await updateDoc(treatmentRef, { ...updates, updated_at: serverTimestamp() });
+      await updateDoc(treatmentRef, { ...stripUndefined(updates), updated_at: serverTimestamp() });
       const updatedTreatment = { ...treatments.find(t => t.id === id)!, ...updates };
       setTreatments(prev => prev.map(t => (t.id === id ? updatedTreatment : t)));
       toast({ title: 'Success', description: 'Treatment updated successfully' });

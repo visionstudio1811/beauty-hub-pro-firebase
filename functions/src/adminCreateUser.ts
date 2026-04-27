@@ -10,7 +10,7 @@ const db = admin.firestore();
 
 interface CreateUserRequest {
   email: string;
-  phone: string;
+  phone?: string;
   fullName: string;
   role: 'admin' | 'staff' | 'reception' | 'beautician';
   organizationId: string;
@@ -27,8 +27,7 @@ export const adminCreateUser = onCall(async (request) => {
 
   const data = request.data as CreateUserRequest;
 
-  // Input validation
-  if (!data.email || !data.phone || !data.fullName || !data.role || !data.organizationId) {
+  if (!data.email || !data.fullName || !data.role || !data.organizationId) {
     throw new HttpsError('invalid-argument', 'Missing required fields');
   }
   if (!VALID_ROLES.has(data.role)) {
@@ -49,20 +48,23 @@ export const adminCreateUser = onCall(async (request) => {
   const { email, phone, fullName, role, organizationId, organizationRole, password } = data;
 
   try {
-    // Use cryptographically secure random password if not provided
     const securePassword = password || randomBytes(16).toString('hex');
 
-    const userRecord = await admin.auth().createUser({
+    const createPayload: admin.auth.CreateRequest = {
       email,
-      phoneNumber: phone,
       displayName: fullName,
       password: securePassword,
       emailVerified: true,
-    });
+    };
+    if (phone) {
+      createPayload.phoneNumber = phone;
+    }
+
+    const userRecord = await admin.auth().createUser(createPayload);
 
     await db.collection('users').doc(userRecord.uid).set({
       email,
-      phone,
+      phone: phone || '',
       fullName,
       role,
       organizationId,
@@ -74,7 +76,6 @@ export const adminCreateUser = onCall(async (request) => {
 
     return { success: true, uid: userRecord.uid, message: 'User created successfully' };
   } catch (error: any) {
-    // Return safe error messages — don't leak internal details
     const safeMessage = error.code === 'auth/email-already-exists'
       ? 'A user with this email already exists'
       : error.code === 'auth/phone-number-already-exists'

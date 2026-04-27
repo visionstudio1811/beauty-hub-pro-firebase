@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History } from 'lucide-react';
+import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDropdownData } from '@/contexts/DropdownDataContext';
 import { Client } from '@/hooks/useClients';
@@ -18,18 +18,27 @@ import {
   orderBy,
   doc,
   getDoc,
+  updateDoc,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, functions, storage } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { formatTimeDisplay } from '@/lib/timeUtils';
+import { safeFormatters } from '@/lib/safeDateFormatter';
 import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useClientPackages } from '@/hooks/useClientPackages';
 import { useClientProducts } from '@/hooks/useClientProducts';
 import { PurchaseManagementModal } from '@/components/PurchaseManagementModal';
 import { ProductAssignmentModal } from '@/components/ProductAssignmentModal';
+import { CustomPackageModal } from '@/components/packages/CustomPackageModal';
+import { Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
 import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab';
+import { buildInvoicePdf } from '@/lib/invoicePdf';
+import { useInvoices } from '@/hooks/useInvoices';
+import type { Invoice } from '@/types/firestore';
 
 interface DatabasePurchase {
   id: string;
@@ -103,11 +112,14 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
   const [isManagePackagesModalOpen, setIsManagePackagesModalOpen] = useState(false);
+  const [isCustomPackageModalOpen, setIsCustomPackageModalOpen] = useState(false);
   const [isProductAssignModalOpen, setIsProductAssignModalOpen] = useState(false);
   
   // Use the client packages and products hooks for real data
   const { packages: clientPackages, refetch: refetchPackages } = useClientPackages(client?.id);
   const { products: clientProducts, refetch: refetchProducts } = useClientProducts(client?.id);
+  const { invoices } = useInvoices(client?.id);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   // Update form data when client changes
   useEffect(() => {
@@ -288,6 +300,84 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     fetchPurchases();
   };
 
+  const handleGenerateInvoice = async (purchaseId: string) => {
+    if (!currentOrganization?.id) return;
+    setGeneratingFor(purchaseId);
+    try {
+      const call = httpsCallable<
+        { organizationId: string; purchaseId: string },
+        { invoice: Invoice & { id: string }; reused: boolean }
+      >(functions, 'createInvoice');
+      const res = await call({ organizationId: currentOrganization.id, purchaseId });
+      const invoice = res.data.invoice;
+
+      // If a previous invoice is already fully issued with a PDF, just open it.
+      if (res.data.reused && invoice.pdf_url) {
+        window.open(invoice.pdf_url, '_blank');
+        toast({ title: 'Invoice', description: `Opened ${invoice.invoice_number}.` });
+        return;
+      }
+
+      const blob = await buildInvoicePdf(invoice);
+      const path = `invoices/${currentOrganization.id}/${invoice.id}.pdf`;
+      const ref = storageRef(storage, path);
+      await uploadBytes(ref, blob, {
+        contentType: 'application/pdf',
+        contentDisposition: `attachment; filename="${invoice.invoice_number}.pdf"`,
+      });
+      const url = await getDownloadURL(ref);
+
+      await updateDoc(
+        doc(db, 'organizations', currentOrganization.id, 'invoices', invoice.id),
+        { pdf_url: url, pdf_storage_path: path },
+      );
+
+      window.open(url, '_blank');
+      toast({
+        title: 'Invoice generated',
+        description: `${invoice.invoice_number} is ready.`,
+      });
+    } catch (err: any) {
+      const message =
+        err?.message?.includes('Daily generateInvoice limit')
+          ? 'Daily invoice limit reached for this organization.'
+          : err?.message ?? 'Failed to generate invoice';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
+
+  const handleOpenInvoice = (inv: Invoice) => {
+    if (inv.pdf_url) window.open(inv.pdf_url, '_blank');
+    else
+      toast({
+        title: 'PDF not ready',
+        description: 'This invoice does not yet have a PDF. Re-generate from the package row.',
+        variant: 'destructive',
+      });
+  };
+
+  const formatCents = (cents: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currency || 'USD',
+      }).format(cents / 100);
+    } catch {
+      return `${(cents / 100).toFixed(2)} ${currency}`;
+    }
+  };
+
+  const formatInvoiceDate = (ts: any) => {
+    const d = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
+    try {
+      return d.toLocaleDateString();
+    } catch {
+      return '';
+    }
+  };
+
   const handleProductManagementUpdate = () => {
     refetchProducts();
   };
@@ -300,7 +390,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     { value: 'packages', label: `Packages (${purchases.length})`, icon: Package },
     { value: 'membership', label: 'Membership', icon: History },
     { value: 'actions', label: 'Actions', icon: Settings },
-    { value: 'documents', label: 'Documents', icon: FileSignature },
+    { value: 'documents', label: 'Waivers', icon: FileSignature },
+    { value: 'intake', label: 'Intake Forms', icon: ClipboardList },
+    { value: 'invoices', label: `Invoices (${invoices.length})`, icon: Receipt },
   ];
 
   return (
@@ -474,9 +566,6 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     <div>Total Revenue: ${purchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0)}</div>
                     <div>Active Packages: {clientPackages.length}</div>
                     <div>Active Products: {clientProducts.length}</div>
-                    <div>Review: <span className={client.reviewReceived ? 'text-green-600' : 'text-yellow-600'}>
-                      {client.reviewReceived ? 'Received' : 'Pending'}
-                    </span></div>
                   </div>
                 </div>
               )}
@@ -540,10 +629,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   <div>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-medium">Assigned Packages</h3>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button onClick={handleManagePackages} size="sm" variant="outline">
                           <Settings className="h-4 w-4 mr-1" />
                           Manage Packages
+                        </Button>
+                        <Button
+                          onClick={() => setIsCustomPackageModalOpen(true)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Sparkles className="h-4 w-4 mr-1" />
+                          Custom Package
                         </Button>
                         <Button onClick={handleAssignPackage} size="sm">
                           <Package className="h-4 w-4 mr-1" />
@@ -576,7 +673,17 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                               </div>
                               <div className="text-right">
                                 <Badge variant="default">Active</Badge>
-                                <p className="text-sm text-muted-foreground mt-1">{purchase.purchase_date}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(purchase.purchase_date) || '—'}</p>
+                                <Button
+                                  onClick={() => handleGenerateInvoice(purchase.id)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2"
+                                  disabled={generatingFor === purchase.id}
+                                >
+                                  <Receipt className="h-4 w-4 mr-1" />
+                                  {generatingFor === purchase.id ? 'Generating…' : 'Generate Invoice'}
+                                </Button>
                               </div>
                             </div>
                             {purchase.packages && (
@@ -643,7 +750,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                 <Badge variant={productAssignment.status === 'delivered' ? 'default' : 'secondary'}>
                                   {productAssignment.status}
                                 </Badge>
-                                <p className="text-sm text-muted-foreground mt-1">{productAssignment.assigned_at}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(productAssignment.assigned_at) || '—'}</p>
                               </div>
                             </div>
                             {productAssignment.notes && (
@@ -744,7 +851,73 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               )}
 
               {activeTab === 'documents' && (
-                <ClientWaiversTab client={client} />
+                <ClientWaiversTab client={client} kind="waiver" />
+              )}
+
+              {activeTab === 'intake' && (
+                <ClientWaiversTab client={client} kind="intake" />
+              )}
+
+              {activeTab === 'invoices' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-medium">Invoices</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Generate invoices from the <strong>Packages</strong> tab.
+                    </p>
+                  </div>
+
+                  {invoices.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">No invoices issued yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {invoices.map((inv) => (
+                        <div
+                          key={inv.id}
+                          className="border rounded-lg p-3 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center space-x-3 min-w-0">
+                            <Receipt className="h-5 w-5 text-purple-600 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-mono font-medium truncate">
+                                {inv.invoice_number}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatInvoiceDate(inv.issued_at)} ·{' '}
+                                {inv.line_items[0]?.name ?? 'Package'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="font-medium">
+                                {formatCents(inv.total_cents, inv.currency)}
+                              </div>
+                              <Badge
+                                variant={inv.status === 'void' ? 'destructive' : 'default'}
+                                className="mt-0.5"
+                              >
+                                {inv.status}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenInvoice(inv)}
+                              disabled={!inv.pdf_url}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              <span className="hidden sm:inline">Download</span>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -781,6 +954,17 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         isOpen={isProductAssignModalOpen}
         onClose={() => setIsProductAssignModalOpen(false)}
         onAssign={handleProductManagementUpdate}
+      />
+
+      <CustomPackageModal
+        client={client}
+        isOpen={isCustomPackageModalOpen}
+        onClose={() => setIsCustomPackageModalOpen(false)}
+        onCreated={() => {
+          setIsCustomPackageModalOpen(false);
+          refetchPackages();
+          fetchPurchases();
+        }}
       />
     </>
   );

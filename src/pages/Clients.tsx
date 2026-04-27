@@ -146,7 +146,7 @@ const Clients = () => {
               <Button
                 variant="outline"
                 className="w-full sm:w-auto order-3 sm:order-1"
-                onClick={() => navigate('/clients/trash')}
+                onClick={() => navigate('/admin/clients/trash')}
               >
                 <Trash2 className="mr-2 h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Trash ({deletedCount})</span>
@@ -216,7 +216,7 @@ const Clients = () => {
               {deletedCount > 0 && (
                 <> •{' '}
                   <button
-                    onClick={() => navigate('/clients/trash')}
+                    onClick={() => navigate('/admin/clients/trash')}
                     className="text-destructive hover:underline"
                   >
                     {deletedCount} in trash

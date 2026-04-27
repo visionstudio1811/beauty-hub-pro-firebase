@@ -21,39 +21,66 @@ import { Label } from '@/components/ui/label';
 import {
   FileText,
   Download,
-  Send,
+  MessageSquare,
+  Mail,
+  Tablet,
   Loader2,
   Clock,
   CheckCircle2,
   FileSignature,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
+import { safeFormatters } from '@/lib/safeDateFormatter';
 
-interface WaiverTemplate { id: string; title: string }
+type TemplateKind = 'waiver' | 'intake';
+
+interface WaiverTemplate { id: string; title: string; kind: TemplateKind }
 interface WaiverRecord {
   id: string;
   token: string;
   status: string;
+  kind: TemplateKind;
   pdf_url: string | null;
   signer_name: string | null;
   signed_at: string | null;
-  created_at: string;
+  createdAt: string;
+  imageUrls: string[];
   waiver_templates: { title: string } | null;
 }
 
 interface Props {
   client: Client;
+  kind?: TemplateKind;
 }
 
-export function ClientWaiversTab({ client }: Props) {
+type SendMode = 'sms' | 'email' | 'device';
+
+const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; historyTitle: string; empty: string }> = {
+  waiver: {
+    singular: 'Waiver',
+    sendTitle: 'Send New Waiver',
+    historyTitle: 'Waiver History',
+    empty: 'No waivers sent yet.',
+  },
+  intake: {
+    singular: 'Intake Form',
+    sendTitle: 'Send New Intake Form',
+    historyTitle: 'Intake Form History',
+    empty: 'No intake forms sent yet.',
+  },
+};
+
+export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
+  const copy = KIND_COPY[kind];
 
   const [templates, setTemplates]       = useState<WaiverTemplate[]>([]);
   const [waivers, setWaivers]           = useState<WaiverRecord[]>([]);
   const [selectedTpl, setSelectedTpl]   = useState('');
   const [loading, setLoading]           = useState(true);
-  const [sending, setSending]           = useState(false);
+  const [sendingMode, setSendingMode]   = useState<SendMode | null>(null);
 
   const load = useCallback(async () => {
     if (!currentOrganization) return;
@@ -69,38 +96,62 @@ export function ClientWaiversTab({ client }: Props) {
         getDocs(
           query(
             collection(db, 'organizations', currentOrganization.id, 'clientWaivers'),
-            where('client_id', '==', client.id),
-            orderBy('created_at', 'desc')
+            where('clientId', '==', client.id),
+            orderBy('createdAt', 'desc')
           )
         ),
       ]);
 
-      const tpls: WaiverTemplate[] = tplSnap.docs.map(d => ({ id: d.id, title: d.data().title ?? '' }));
+      const allTpls: WaiverTemplate[] = tplSnap.docs.map(d => ({
+        id: d.id,
+        title: d.data().title ?? '',
+        kind: (d.data().kind as TemplateKind) ?? 'waiver',
+      }));
+      const tpls = allTpls.filter(t => t.kind === kind);
 
-      // Fetch template titles for waivers (join)
       const waiverList: WaiverRecord[] = await Promise.all(
         waiverSnap.docs.map(async (d) => {
           const data = d.data();
           let tplTitle: string | null = null;
-          if (data.template_id) {
-            const tplDoc = await getDoc(doc(db, 'organizations', currentOrganization.id, 'waiverTemplates', data.template_id));
-            tplTitle = tplDoc.exists() ? tplDoc.data().title ?? null : null;
+          let recordKind: TemplateKind = (data.kind as TemplateKind) ?? 'waiver';
+          if (data.templateId) {
+            const tplDoc = await getDoc(doc(db, 'organizations', currentOrganization.id, 'waiverTemplates', data.templateId));
+            if (tplDoc.exists()) {
+              tplTitle = tplDoc.data().title ?? null;
+              if (!data.kind) recordKind = (tplDoc.data().kind as TemplateKind) ?? 'waiver';
+            }
           }
+          const answers = (data.answers ?? {}) as Record<string, unknown>;
+          const imageUrls: string[] = [];
+          for (const v of Object.values(answers)) {
+            if (Array.isArray(v)) {
+              for (const item of v) {
+                if (typeof item === 'string' && /^https?:\/\//.test(item)) imageUrls.push(item);
+              }
+            }
+          }
+          const ca = data.createdAt;
+          const createdAt =
+            typeof ca === 'string'
+              ? ca
+              : ca?.toDate?.()?.toISOString?.() ?? new Date().toISOString();
           return {
             id: d.id,
             token: data.token ?? '',
             status: data.status ?? 'pending',
+            kind: recordKind,
             pdf_url: data.pdf_url ?? null,
             signer_name: data.signer_name ?? null,
             signed_at: data.signed_at ?? null,
-            created_at: data.created_at ?? new Date().toISOString(),
+            createdAt,
+            imageUrls,
             waiver_templates: tplTitle ? { title: tplTitle } : null,
           };
         })
       );
 
       setTemplates(tpls);
-      setWaivers(waiverList);
+      setWaivers(waiverList.filter(w => w.kind === kind));
       if (tpls.length && !selectedTpl) setSelectedTpl(tpls[0].id);
     } catch (err) {
       console.error('Error loading waivers:', err);
@@ -109,11 +160,11 @@ export function ClientWaiversTab({ client }: Props) {
     }
   }, [currentOrganization, client.id, selectedTpl]);
 
-  useEffect(() => { load(); }, [currentOrganization, client.id]);
+  useEffect(() => { load(); }, [currentOrganization, client.id, kind]);
 
-  const sendWaiver = async () => {
+  const sendWaiver = async (mode: SendMode) => {
     if (!selectedTpl || !currentOrganization) return;
-    setSending(true);
+    setSendingMode(mode);
     try {
       const sendWaiverFn = httpsCallable(functions, 'sendWaiver');
       const result = await sendWaiverFn({
@@ -121,12 +172,21 @@ export function ClientWaiversTab({ client }: Props) {
         organizationId: currentOrganization.id,
         templateId: selectedTpl,
         siteUrl: window.location.origin,
+        mode,
       });
 
-      const data = result.data as { success?: boolean; error?: string };
+      const data = result.data as { success?: boolean; error?: string; waiver_url?: string };
       if (!data?.success) throw new Error(data?.error ?? 'Unknown error');
 
-      toast({ title: 'Waiver sent', description: `SMS sent to ${client.phone ?? client.name}` });
+      if (mode === 'device' && data.waiver_url) {
+        // Open the waiver directly in a new tab for the client to fill in-store
+        window.open(data.waiver_url, '_blank');
+        toast({ title: 'Waiver ready', description: 'Hand the device to the client to fill out.' });
+      } else if (mode === 'email') {
+        toast({ title: 'Waiver sent', description: `Email sent to ${client.email}` });
+      } else {
+        toast({ title: 'Waiver sent', description: `SMS sent to ${client.phone}` });
+      }
       await load();
     } catch (err: unknown) {
       toast({
@@ -135,19 +195,18 @@ export function ClientWaiversTab({ client }: Props) {
         variant: 'destructive',
       });
     } finally {
-      setSending(false);
+      setSendingMode(null);
     }
   };
 
   const downloadPdf = async (waiver: WaiverRecord) => {
-    if (!waiver.pdf_url) return;
+    if (!waiver.pdf_url && !waiver.token) return;
     try {
       const storageRef = ref(storage, `waivers/${waiver.token}.pdf`);
       const url = await getDownloadURL(storageRef);
       window.open(url, '_blank');
     } catch {
-      // Fallback to stored URL
-      window.open(waiver.pdf_url, '_blank');
+      if (waiver.pdf_url) window.open(waiver.pdf_url, '_blank');
     }
   };
 
@@ -165,17 +224,17 @@ export function ClientWaiversTab({ client }: Props) {
       <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
         <h3 className="font-medium flex items-center gap-2 text-sm">
           <FileSignature className="h-4 w-4" />
-          Send New Waiver
+          {copy.sendTitle}
         </h3>
 
         {templates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No waiver templates found. Create one in{' '}
-            <span className="font-medium">Settings → Waivers</span>.
+            No {copy.singular.toLowerCase()} templates found. Create one in{' '}
+            <span className="font-medium">Settings → {kind === 'intake' ? 'Intake Forms' : 'Waivers'}</span>.
           </p>
         ) : (
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-1">
+          <>
+            <div className="space-y-1">
               <Label className="text-xs">Template</Label>
               <Select value={selectedTpl} onValueChange={setSelectedTpl}>
                 <SelectTrigger className="h-9">
@@ -188,32 +247,60 @@ export function ClientWaiversTab({ client }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              size="sm"
-              onClick={sendWaiver}
-              disabled={sending || !selectedTpl || !client.phone}
-              className="gap-1.5 h-9"
-              title={!client.phone ? 'Client has no phone number' : undefined}
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {sending ? 'Sending…' : 'Send via SMS'}
-            </Button>
-          </div>
-        )}
 
-        {!client.phone && (
-          <p className="text-xs text-destructive">This client has no phone number — SMS cannot be sent.</p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => sendWaiver('sms')}
+                disabled={sendingMode !== null || !selectedTpl || !client.phone}
+                className="gap-1.5 h-9"
+                title={!client.phone ? 'Client has no phone number' : undefined}
+              >
+                {sendingMode === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                Send via SMS
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => sendWaiver('email')}
+                disabled={sendingMode !== null || !selectedTpl || !client.email}
+                className="gap-1.5 h-9"
+                title={!client.email ? 'Client has no email on file' : undefined}
+              >
+                {sendingMode === 'email' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                Send via Email
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={() => sendWaiver('device')}
+                disabled={sendingMode !== null || !selectedTpl}
+                className="gap-1.5 h-9"
+              >
+                {sendingMode === 'device' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tablet className="h-4 w-4" />}
+                Fill now on this device
+              </Button>
+            </div>
+
+            {!client.phone && !client.email && (
+              <p className="text-xs text-destructive">
+                This client has no phone or email — use "Fill now on this device".
+              </p>
+            )}
+          </>
         )}
       </div>
 
       {/* Waiver history */}
       <div className="space-y-2">
-        <h3 className="font-medium text-sm">Waiver History</h3>
+        <h3 className="font-medium text-sm">{copy.historyTitle}</h3>
 
         {waivers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">No waivers sent yet.</p>
+            <p className="text-sm">{copy.empty}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -230,12 +317,15 @@ export function ClientWaiversTab({ client }: Props) {
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {w.waiver_templates?.title ?? 'Waiver'}
+                      {w.waiver_templates?.title ?? copy.singular}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Sent {new Date(w.created_at).toLocaleDateString()}
+                      Sent {safeFormatters.shortDate(w.createdAt) || '—'}
                       {w.status === 'signed' && w.signed_at && (
-                        <> · Signed {new Date(w.signed_at).toLocaleDateString()}</>
+                        <> · Signed {safeFormatters.shortDate(w.signed_at) || '—'}</>
+                      )}
+                      {w.imageUrls.length > 0 && (
+                        <> · {w.imageUrls.length} photo{w.imageUrls.length > 1 ? 's' : ''}</>
                       )}
                     </p>
                   </div>
@@ -251,15 +341,29 @@ export function ClientWaiversTab({ client }: Props) {
                     {w.status === 'signed' ? 'Signed' : 'Pending'}
                   </Badge>
 
-                  {w.status === 'signed' && w.pdf_url && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 text-xs"
-                      onClick={() => downloadPdf(w)}
-                    >
-                      <Download className="h-3.5 w-3.5" /> PDF
-                    </Button>
+                  {w.status === 'signed' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => downloadPdf(w)}
+                      >
+                        <Download className="h-3.5 w-3.5" /> PDF
+                      </Button>
+
+                      {w.imageUrls.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => w.imageUrls.forEach((u) => window.open(u, '_blank'))}
+                          title={`Open ${w.imageUrls.length} uploaded photo${w.imageUrls.length > 1 ? 's' : ''}`}
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" /> Photos
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Package, Clock } from 'lucide-react';
 import { ClientPackage } from '@/hooks/useClientPackages';
+import { safeFormatters } from '@/lib/safeDateFormatter';
+import { validateDate } from '@/lib/timeUtils';
 
 interface ClientPackageSelectorProps {
   packages: ClientPackage[];
@@ -36,15 +38,14 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
     );
   }
 
-  const formatExpiryDate = (dateString: string | null) => {
-    if (!dateString) return 'No expiry';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
+  const formatExpiryDate = (dateString: any) => {
+    const formatted = safeFormatters.shortDate(dateString);
+    return formatted || 'No expiry';
   };
 
-  const isExpiringSoon = (dateString: string | null) => {
-    if (!dateString) return false;
-    const expiryDate = new Date(dateString);
+  const isExpiringSoon = (dateString: any) => {
+    const expiryDate = validateDate(dateString);
+    if (!expiryDate) return false;
     const today = new Date();
     const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 30 && daysUntilExpiry > 0;

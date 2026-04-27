@@ -2,17 +2,20 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Settings as SettingsIcon, 
-  Users, 
-  Package, 
-  Calendar, 
-  Clock, 
+import {
+  Settings as SettingsIcon,
+  Users,
+  Package,
+  Calendar,
+  Clock,
   ShoppingBag,
   Tag,
   RefreshCw,
   Zap,
-  FileSignature
+  FileSignature,
+  ClipboardList,
+  Receipt,
+  FileText
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileSettingsTabs } from '@/components/settings/MobileSettingsTabs';
@@ -30,6 +33,8 @@ import { ProductCategoryManagement } from '@/components/ProductCategoryManagemen
 import { AcuityIntegration } from '@/components/AcuityIntegration';
 import { LogoManagement } from '@/components/LogoManagement';
 import { WaiverTemplateEditor } from '@/components/waivers/WaiverTemplateEditor';
+import { InvoiceSettingsEditor } from '@/components/InvoiceSettingsEditor';
+import { InvoiceHistoryViewer } from '@/components/InvoiceHistoryViewer';
 
 
 const Settings = () => {
@@ -45,6 +50,9 @@ const Settings = () => {
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'scheduling', label: 'Scheduling', icon: Clock },
     { id: 'waivers', label: 'Waivers', icon: FileSignature },
+    { id: 'intake', label: 'Intake Forms', icon: ClipboardList },
+    { id: 'invoice-settings', label: 'Invoice Settings', icon: Receipt },
+    { id: 'invoice-history', label: 'Invoice History', icon: FileText },
     { id: 'acuity', label: 'Acuity', icon: Zap }
   ];
 
@@ -219,10 +227,31 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <WaiverTemplateEditor />
+              <WaiverTemplateEditor kind="waiver" />
             </CardContent>
           </Card>
         );
+      case 'intake':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Intake Form Templates
+              </CardTitle>
+              <CardDescription>
+                Create and manage new-client intake forms — collect medical history, contact info, photos, etc.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WaiverTemplateEditor kind="intake" />
+            </CardContent>
+          </Card>
+        );
+      case 'invoice-settings':
+        return <InvoiceSettingsEditor />;
+      case 'invoice-history':
+        return <InvoiceHistoryViewer />;
       case 'acuity':
         return <AcuityIntegration />;
       default:
@@ -258,7 +287,7 @@ const Settings = () => {
           ) : (
             // Desktop: Traditional tabs
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-9">
+              <TabsList className="grid w-full grid-cols-11">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (

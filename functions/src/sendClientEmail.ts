@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
+import { consumeRateLimit } from './rateLimit';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -87,6 +88,9 @@ export const sendClientEmail = onCall(
     if (!['admin', 'staff'].includes(userData.role)) {
       throw new HttpsError('permission-denied', 'Staff or admin access required to send emails');
     }
+
+    // Per-org daily cap: blocks runaway loops and Resend spend abuse.
+    await consumeRateLimit(organizationId, 'clientEmail', 500);
 
     const configSnapshot = await db
       .collection('organizations')

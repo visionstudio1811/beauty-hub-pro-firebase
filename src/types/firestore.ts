@@ -153,3 +153,66 @@ export interface ClientWaiver {
   pdfUrl?: string;
   createdAt: any;
 }
+
+export interface InvoiceTreatmentLine {
+  treatment_id: string;
+  name: string;
+  quantity: number;
+  unit_price_cents: number;
+}
+
+export interface InvoiceLineItem {
+  type: 'package' | 'product';
+  name: string;
+  description: string;
+  package_id: string | null;
+  treatments?: InvoiceTreatmentLine[];
+  quantity: number;
+  unit_price_cents: number;
+  subtotal_cents: number;
+}
+
+export interface InvoiceClientSnapshot {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+export interface InvoiceBusinessSnapshot {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  logo_url: string;
+  tax_id: string;
+  payment_terms: string;
+  notes: string;
+  timezone: string;
+  invoice_template?: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoice_number: string;
+  invoice_number_int: number;
+  issued_at: any;
+  purchase_id: string;
+  client_id: string;
+  client_snapshot: InvoiceClientSnapshot;
+  business_snapshot: InvoiceBusinessSnapshot;
+  line_items: InvoiceLineItem[];
+  subtotal_cents: number;
+  tax_rate: number;
+  tax_amount_cents: number;
+  total_cents: number;
+  currency: string;
+  pdf_url: string | null;
+  pdf_storage_path: string | null;
+  status: 'issued' | 'void';
+  voided_at?: any;
+  voided_by?: string;
+  created_at: any;
+  created_by: string;
+}

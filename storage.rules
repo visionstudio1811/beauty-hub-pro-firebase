@@ -2,15 +2,36 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Waiver PDFs — uploaded by the public (unauthenticated) waiver signing form.
-    // The token in the path is a cryptographically secure UUID, making the path
-    // unguessable. Authenticated users (admins) can download via the stored URL.
-    match /waivers/{token} {
-      allow write: if true;                   // Public waiver form uploads the PDF
-      allow read: if request.auth != null;    // Only authenticated staff can download
+    // Waiver PDFs written by the public waiver form at path `waivers/{token}.pdf`.
+    // The UUID in the filename is the unguessable secret. Size + MIME checks
+    // keep the bucket from being abused for DoS or arbitrary file hosting.
+    match /waivers/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
     }
 
-    // All other paths deny by default
+    // Waiver photo uploads live at `waivers/{token}/photos/{filename}`.
+    match /waivers/{token}/photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.resource.size < 15 * 1024 * 1024
+                   && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
+    }
+
+    // Invoice PDFs live at `invoices/{orgId}/{invoiceId}.pdf`. Only admins of
+    // the org may read/write, and uploads must be PDF under 5MB.
+    match /invoices/{orgId}/{file} {
+      allow read: if request.auth != null
+                  && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.organizationId == orgId
+                  && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if request.auth != null
+                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.organizationId == orgId
+                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // Default deny.
     match /{allPaths=**} {
       allow read, write: if false;
     }

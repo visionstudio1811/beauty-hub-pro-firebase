@@ -1,5 +1,15 @@
 {
-  "projects": {},
-  "targets": {},
+  "projects": {
+    "default": "beauty-hub-pro-app"
+  },
+  "targets": {
+    "beauty-hub-pro-app": {
+      "hosting": {
+        "app": [
+          "beauty-hub-pro-app"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

@@ -5,95 +5,93 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 13% 13%;
+    /* Black / beige / cream / white — beautyhubpro by The Golden Circle Consulting */
+    --background: 30 20% 98%;             /* cream-white */
+    --foreground: 0 0% 10%;               /* near-black text */
 
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 13%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 13%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Monday.com indigo palette */
-    --primary: 231 97% 68%;           /* #6161FF bright indigo */
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 231 80% 78%;      /* lighter indigo for gradients */
+    --primary: 0 0% 10%;                  /* near-black */
+    --primary-foreground: 30 30% 95%;     /* cream on black */
+    --primary-glow: 0 0% 25%;             /* soft black for gradients */
 
-    --secondary: 231 20% 96%;
-    --secondary-foreground: 220 13% 13%;
+    --secondary: 30 22% 93%;              /* light beige surface */
+    --secondary-foreground: 0 0% 15%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 30 15% 95%;                  /* soft cream muted */
+    --muted-foreground: 0 0% 42%;
 
-    --accent: 231 97% 95%;            /* very light indigo tint */
-    --accent-foreground: 231 60% 35%;
+    --accent: 32 35% 85%;                 /* warm beige highlight */
+    --accent-foreground: 0 0% 12%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 70% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 94%;
-    --ring: 231 97% 68%;
+    --border: 30 15% 85%;
+    --input: 30 15% 92%;
+    --ring: 0 0% 20%;
 
     --radius: 0.5rem;
 
-    /* Shadows */
-    --shadow-card: 0 1px 3px 0 hsl(220 13% 13% / 0.08), 0 1px 2px -1px hsl(220 13% 13% / 0.06);
-    --shadow-elevated: 0 4px 12px 0 hsl(220 13% 13% / 0.1);
+    /* Warm neutral shadows */
+    --shadow-card: 0 1px 3px 0 hsl(30 15% 15% / 0.08), 0 1px 2px -1px hsl(30 15% 15% / 0.06);
+    --shadow-elevated: 0 4px 12px 0 hsl(30 15% 15% / 0.1);
 
-    /* Animations */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Sidebar — dark navy like Monday.com */
-    --sidebar-background: 231 45% 16%;      /* deep navy */
-    --sidebar-foreground: 220 20% 72%;      /* muted light text */
-    --sidebar-primary: 231 97% 68%;         /* indigo for active */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 231 38% 24%;          /* slightly lighter navy for hover */
-    --sidebar-accent-foreground: 220 20% 92%;
-    --sidebar-border: 231 32% 22%;
-    --sidebar-ring: 231 97% 68%;
+    /* Sidebar — near-black with warm beige accents */
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 30 22% 82%;
+    --sidebar-primary: 32 45% 72%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 16%;
+    --sidebar-accent-foreground: 30 25% 88%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 32 45% 72%;
   }
 
   .dark {
-    --background: 220 15% 10%;
-    --foreground: 220 15% 92%;
+    --background: 0 0% 8%;
+    --foreground: 30 25% 92%;
 
-    --card: 220 15% 13%;
-    --card-foreground: 220 15% 92%;
+    --card: 0 0% 12%;
+    --card-foreground: 30 25% 92%;
 
-    --popover: 220 15% 13%;
-    --popover-foreground: 220 15% 92%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 30 25% 92%;
 
-    --primary: 231 97% 68%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 231 80% 78%;
+    --primary: 30 30% 92%;                /* cream primary in dark */
+    --primary-foreground: 0 0% 10%;
+    --primary-glow: 32 40% 70%;
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 220 15% 85%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 30 22% 85%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 30 10% 60%;
 
-    --accent: 231 40% 22%;
-    --accent-foreground: 231 80% 85%;
+    --accent: 32 30% 25%;
+    --accent-foreground: 30 35% 88%;
 
-    --destructive: 0 62.8% 48%;
+    --destructive: 0 62% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 18%;
-    --ring: 231 97% 68%;
+    --border: 0 0% 20%;
+    --input: 0 0% 16%;
+    --ring: 30 30% 80%;
 
-    /* Sidebar keeps same dark navy in dark mode */
-    --sidebar-background: 231 45% 12%;
-    --sidebar-foreground: 220 20% 65%;
-    --sidebar-primary: 231 97% 68%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 231 38% 20%;
-    --sidebar-accent-foreground: 220 20% 88%;
-    --sidebar-border: 231 32% 18%;
-    --sidebar-ring: 231 97% 68%;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 30 22% 75%;
+    --sidebar-primary: 32 45% 72%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 30 25% 85%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 32 45% 72%;
   }
 }
 
@@ -116,5 +114,26 @@
 
   .smooth-transition {
     transition: var(--transition-smooth);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(0 0% 12%), hsl(32 40% 40%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .glow-effect {
+    box-shadow: 0 10px 30px -10px hsl(32 40% 30% / 0.25);
+  }
+
+  .card-elegant {
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
+    background: hsl(var(--card));
+  }
+
+  .subtle-gradient {
+    background: linear-gradient(180deg, hsl(30 20% 98%), hsl(30 25% 94%));
   }
 }

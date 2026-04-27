@@ -38,10 +38,35 @@ service cloud.firestore {
       return isAuthenticated() && getUserOrg() == orgId;
     }
 
+    // Returns true if the update keeps the named field unchanged (or absent on both sides).
+    function unchanged(field) {
+      return !(field in request.resource.data.diff(resource.data).affectedKeys());
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+
+      // User doc creation is done exclusively by the adminCreateUser Cloud Function
+      // via the Admin SDK (which bypasses these rules). Blocking self-creation
+      // prevents role self-assignment on first login.
+      allow create: if false;
+
+      // Self-update is allowed for profile fields only. Role, email, uid, createdAt
+      // are immutable. organizationId may only transition null -> non-null (first-org
+      // claim during OrganizationSetup); changing it afterwards must go through a
+      // Cloud Function. Cross-org admins cannot modify users in other orgs.
+      allow update: if isAuthenticated()
+                    && (request.auth.uid == userId
+                        || (isAdmin() && belongsToOrg(resource.data.organizationId)))
+                    && unchanged('role')
+                    && unchanged('email')
+                    && unchanged('uid')
+                    && unchanged('createdAt')
+                    && (unchanged('organizationId')
+                        || (resource.data.organizationId == null
+                            && request.resource.data.organizationId is string
+                            && get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.created_by == request.auth.uid));
+
       allow delete: if false;
 
       // Session tracking sub-collection
@@ -53,73 +78,125 @@ service cloud.firestore {
 
     match /organizations/{orgId} {
       allow read: if isAuthenticated() && belongsToOrg(orgId);
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && belongsToOrg(orgId) && isAdmin();
+
+      // Only users without an org can create their first org, and they must claim
+      // it as creator. Blocks attackers from creating orgs they then hop into.
+      allow create: if isAuthenticated()
+                    && getUserData().organizationId == null
+                    && request.resource.data.created_by == request.auth.uid;
+
+      allow update: if isAuthenticated() && belongsToOrg(orgId) && isAdmin()
+                    && unchanged('created_by')
+                    && unchanged('created_at');
       allow delete: if false;
 
       match /clients/{clientId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isReception();
+        allow create: if belongsToOrg(orgId) && isReception();
+        allow update: if belongsToOrg(orgId) && isReception();
+        // Hard-delete is denied — clients are soft-deleted via `deleted_at`.
+        allow delete: if false;
       }
 
       match /appointments/{appointmentId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isReception();
+        allow create: if belongsToOrg(orgId) && isReception();
+        allow update: if belongsToOrg(orgId) && isReception();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /treatments/{treatmentId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isStaff();
+        allow create, update: if belongsToOrg(orgId) && isStaff();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /staff/{staffId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /packages/{packageId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isStaff();
+        allow create, update: if belongsToOrg(orgId) && isStaff();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /purchases/{purchaseId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isReception();
+        allow create, update: if belongsToOrg(orgId) && isReception();
+        // Purchases are a financial audit trail — no deletes.
+        allow delete: if false;
       }
 
       match /products/{productId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isStaff();
+        allow create, update: if belongsToOrg(orgId) && isStaff();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /productCategories/{categoryId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow create, update: if belongsToOrg(orgId) && isStaff();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /productAssignments/{assignmentId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isReception();
+        allow create, update: if belongsToOrg(orgId) && isReception();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /config/{configId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        // invoiceCounter is managed exclusively by the createInvoice Cloud
+        // Function — client writes here would let an admin skip / duplicate
+        // invoice numbers and break the audit trail.
+        allow create, update: if belongsToOrg(orgId) && isAdmin()
+                              && configId != 'invoiceCounter';
+        allow delete: if false;
+      }
+
+      match /invoices/{invoiceId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        // Invoice records are created by the createInvoice Cloud Function
+        // (atomic counter + frozen snapshots + server-computed totals).
+        allow create: if false;
+        // The only client-side mutation allowed is attaching the PDF URL
+        // once, after the admin has uploaded it to Storage. All monetary and
+        // snapshot fields remain immutable.
+        allow update: if belongsToOrg(orgId) && isAdmin()
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['pdf_url', 'pdf_storage_path'])
+                      && resource.data.pdf_url == null;
+        // Financial audit trail — no deletes. Use status = 'void' via a
+        // future Cloud Function when reissue is needed.
+        allow delete: if false;
       }
 
       match /businessHours/{docId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /schedulingConfig/{docId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /dropdownData/{docId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /waiverTemplates/{templateId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /clients/{clientId}/membershipHistory/{entryId} {
@@ -130,13 +207,24 @@ service cloud.firestore {
 
       match /clientWaivers/{waiverId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow write: if belongsToOrg(orgId) && isReception();
-        // Unauthenticated waiver form: may only sign a pending waiver (add signature fields)
+        allow create, update: if belongsToOrg(orgId) && isReception();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+
+        // Unauthenticated waiver form: the signer must prove possession of a
+        // valid, pending, unexpired token that points at THIS exact waiver doc.
+        // This blocks orgId/waiverId enumeration attacks.
         allow update: if request.auth == null
                       && resource.data.status == 'pending'
                       && request.resource.data.status == 'signed'
                       && request.resource.data.diff(resource.data).affectedKeys()
-                           .hasOnly(['status', 'signer_name', 'answers', 'pdf_url', 'signed_at']);
+                           .hasOnly(['status', 'signer_name', 'signer_email', 'signer_phone', 'answers', 'pdf_url', 'signed_at'])
+                      && resource.data.token is string
+                      && exists(/databases/$(database)/documents/waiverTokens/$(resource.data.token))
+                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.status == 'pending'
+                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.waiverId == waiverId
+                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.organizationId == orgId
+                      && (!('expiresAt' in get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.keys())
+                          || get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time);
       }
 
       match /auditLogs/{logId} {
@@ -146,17 +234,20 @@ service cloud.firestore {
 
       match /marketingCampaigns/{campaignId} {
         allow read: if belongsToOrg(orgId) && isStaff();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /marketingTemplates/{templateId} {
         allow read: if belongsToOrg(orgId) && isStaff();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /marketingAutomations/{automationId} {
         allow read: if belongsToOrg(orgId) && isStaff();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /campaignRecipients/{recipientId} {
@@ -164,15 +255,19 @@ service cloud.firestore {
         allow write: if false; // Cloud Functions only
       }
 
-      // Sensitive: API keys stored here — admin only
+      // Stores third-party API keys (Resend, Twilio). Restricted to get-by-id
+      // for admins; list is denied to avoid bulk-dumping API keys.
       match /marketingIntegrations/{integrationId} {
-        allow read: if belongsToOrg(orgId) && isAdmin();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow get: if belongsToOrg(orgId) && isAdmin();
+        allow list: if false;
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /acuitySyncConfig/{docId} {
         allow read: if belongsToOrg(orgId) && isAdmin();
-        allow write: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /acuitySyncLogs/{logId} {
@@ -182,26 +277,38 @@ service cloud.firestore {
 
       match /clientCommunications/{commId} {
         allow read: if belongsToOrg(orgId) && isStaff();
-        allow write: if belongsToOrg(orgId) && isStaff();
+        allow create: if belongsToOrg(orgId) && isStaff();
+        // Communications are an audit record — no edits or deletes from clients.
+        allow update, delete: if false;
       }
 
-      // Rate limiters — internal use only
+      // Rate limiters — Cloud Functions only
       match /rateLimits/{docId} {
         allow read: if false;
         allow write: if false;
       }
     }
 
-    // Waiver tokens — public read (the UUID token IS the secret)
-    // Unauthenticated clients can read and mark as signed via the public waiver form
+    // Marketing quote-request leads — written exclusively by the submitQuoteRequest
+    // Cloud Function (Admin SDK). Contain PII (name, email, phone); never readable
+    // or writable from the client.
+    match /marketingLeads/{leadId} {
+      allow read, write: if false;
+    }
+
+    // Waiver tokens — unauthenticated clients fetch by known UUID to load their waiver.
+    // `get` is allowed (knowing the UUID proves identity), but `list` is denied
+    // so tokens cannot be enumerated. Updates are restricted to the pending→signed
+    // flip and also guarded by the clientWaivers rule above.
     match /waiverTokens/{token} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if false;
       allow create: if false; // Cloud Functions only
       allow delete: if false;
-      // Only the waiver form can flip status pending → signed
       allow update: if resource.data.status == 'pending'
                     && request.resource.data.status == 'signed'
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt'])
+                    && (!('expiresAt' in resource.data.keys()) || resource.data.expiresAt > request.time);
     }
   }
 }

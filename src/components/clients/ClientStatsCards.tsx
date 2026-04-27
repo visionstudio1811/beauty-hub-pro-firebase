@@ -12,7 +12,7 @@ interface ClientStatsCardsProps {
 export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({ clients, totalCount }) => {
   const totalClients = totalCount ?? clients.length;
   const newClients = clients.filter(client => client.status === 'New').length;
-  const vipClients = clients.filter(client => client.status === 'VIP').length;
+  const vipClients = clients.filter(client => client.has_membership).length;
   const totalRevenue = clients.reduce((sum, client) => sum + (client.totalRevenue || 0), 0);
 
   // Get clients who visited in the last 30 days
@@ -47,7 +47,7 @@ export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({ clients, tot
     },
     {
       title: 'Total Revenue',
-      value: `$${totalRevenue.toLocaleString()}`,
+      value: `$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100'

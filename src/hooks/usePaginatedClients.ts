@@ -3,8 +3,8 @@ import {
   collection,
   getDocs,
   query,
-  where,
   orderBy,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -24,6 +24,12 @@ interface UsePaginatedClientsResult {
   totalCount: number;
   loading: boolean;
   refetch: () => void;
+}
+
+interface ClientAggregates {
+  totalVisits: number;
+  totalRevenue: number;
+  lastVisit: string;
 }
 
 export const usePaginatedClients = ({
@@ -53,20 +59,63 @@ export const usePaginatedClients = ({
     const run = async () => {
       setLoading(true);
       try {
-        // Firestore doesn't support native full-text search, so we fetch all
-        // non-deleted clients and filter in memory (acceptable for typical salon scale)
-        let q = query(
-          collection(db, 'organizations', currentOrganization.id, 'clients'),
-          orderBy('created_at', 'desc')
-        );
+        const orgId = currentOrganization.id;
+        const orgPath = ['organizations', orgId] as const;
 
-        const snapshot = await getDocs(q);
+        // Parallel fetch: clients + appointments + purchases.
+        // Aggregates are computed in memory and joined by client_id.
+        const [clientsSnap, appointmentsSnap, purchasesSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, ...orgPath, 'clients'),
+            orderBy('created_at', 'desc'),
+          )),
+          getDocs(query(
+            collection(db, ...orgPath, 'appointments'),
+            where('status', '==', 'completed'),
+          )),
+          getDocs(query(
+            collection(db, ...orgPath, 'purchases'),
+            where('payment_status', 'in', ['completed', 'active']),
+          )),
+        ]);
+
         if (cancelled) return;
 
-        let allClients = snapshot.docs
+        const aggregates = new Map<string, ClientAggregates>();
+        const ensure = (id: string): ClientAggregates => {
+          let agg = aggregates.get(id);
+          if (!agg) {
+            agg = { totalVisits: 0, totalRevenue: 0, lastVisit: '' };
+            aggregates.set(id, agg);
+          }
+          return agg;
+        };
+
+        appointmentsSnap.forEach((d) => {
+          const data = d.data();
+          const clientId = data.client_id;
+          if (!clientId) return;
+          const agg = ensure(clientId);
+          agg.totalVisits += 1;
+          const apptDate: string = data.appointment_date ?? '';
+          if (apptDate && apptDate > agg.lastVisit) {
+            agg.lastVisit = apptDate;
+          }
+        });
+
+        purchasesSnap.forEach((d) => {
+          const data = d.data();
+          const clientId = data.client_id;
+          if (!clientId) return;
+          const agg = ensure(clientId);
+          agg.totalRevenue += Number(data.total_amount || 0);
+        });
+
+        let allClients = clientsSnap.docs
           .filter(d => !d.data().deleted_at)
           .map(d => {
             const data = d.data();
+            const agg = aggregates.get(d.id);
             return {
               id: d.id,
               name: data.name || '',
@@ -85,13 +134,13 @@ export const usePaginatedClients = ({
               deleted_at: data.deleted_at ?? undefined,
               deleted_by: data.deleted_by ?? undefined,
               status: data.has_membership ? 'Have Membership' : "Don't Have Membership",
-              lastVisit: data.created_at?.toDate?.()?.toISOString()?.split('T')[0] ?? '',
-              totalVisits: 0,
+              lastVisit: agg?.lastVisit || '',
+              totalVisits: agg?.totalVisits ?? 0,
               activePackage: null,
               reviewReceived: false,
               birthday: data.date_of_birth ?? '',
               purchases: [],
-              totalRevenue: 0,
+              totalRevenue: agg?.totalRevenue ?? 0,
               recentPurchases: [],
             } as Client;
           });

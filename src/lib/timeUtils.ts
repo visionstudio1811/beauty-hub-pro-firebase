@@ -48,12 +48,28 @@ export const isValidDateRange = (date: Date): boolean => {
 };
 
 /**
- * Parses and validates a Date or ISO string.  Returns null if invalid.
+ * Parses and validates a Date, ISO string, or Firestore Timestamp.
+ * Returns null if invalid.
  */
-export const validateDate = (date: Date | string | null | undefined): Date | null => {
-  if (!date) return null;
+export const validateDate = (date: Date | string | number | null | undefined | { toDate?: () => Date; seconds?: number }): Date | null => {
+  if (date == null) return null;
   try {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date;
+    let dateObj: Date;
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      dateObj = parseISO(date);
+    } else if (typeof date === 'number') {
+      dateObj = new Date(date);
+    } else if (typeof (date as any).toDate === 'function') {
+      // Firestore Timestamp
+      dateObj = (date as any).toDate();
+    } else if (typeof (date as any).seconds === 'number') {
+      // Raw Firestore Timestamp shape without toDate
+      dateObj = new Date((date as any).seconds * 1000);
+    } else {
+      return null;
+    }
     if (isNaN(dateObj.getTime())) return null;
     const year = dateObj.getFullYear();
     if (year < 1900 || year > 2100) return null;

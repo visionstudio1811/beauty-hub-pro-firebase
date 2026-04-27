@@ -1,8 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signOut as firebaseSignOut, signInWithCustomToken } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { auth, db, functions } from '@/lib/firebase';
+import {
+  User,
+  onAuthStateChanged,
+  signOut as firebaseSignOut,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
+import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
   uid: string;
@@ -20,6 +27,8 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -28,6 +37,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  signInWithGoogle: async () => {},
+  signInWithEmail: async () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -38,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   const loadProfile = async (uid: string): Promise<UserProfile | null> => {
     try {
@@ -74,13 +86,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return unsubscribe;
   }, []);
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
   const signOut = async () => {
     await firebaseSignOut(auth);
     setProfile(null);
+    // Flush React Query caches so the next user on a shared device cannot see
+    // the previous user's tenant data (clients, appointments, etc).
+    queryClient.clear();
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ user, profile, loading, signInWithGoogle, signInWithEmail, signOut, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );
