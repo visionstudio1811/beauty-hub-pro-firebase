@@ -300,6 +300,11 @@ service cloud.firestore {
     // `get` is allowed (knowing the UUID proves identity), but `list` is denied
     // so tokens cannot be enumerated. Updates are restricted to the pending→signed
     // flip and also guarded by the clientWaivers rule above.
+    // OTP secrets — Cloud Functions (Admin SDK) only. Never readable by clients.
+    match /otpCodes/{token} {
+      allow read, write: if false;
+    }
+
     match /waiverTokens/{token} {
       allow get: if true;
       allow list: if false;

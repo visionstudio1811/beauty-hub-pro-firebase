@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarketingIntegrations } from '@/components/marketing/MarketingIntegrations';
 import { CampaignCreationModal } from '@/components/marketing/CampaignCreationModal';
 import { AutomationCreationModal } from '@/components/marketing/AutomationCreationModal';
@@ -66,6 +66,9 @@ interface MarketingStats {
 }
 
 const Marketing = () => {
+  const [searchParams] = useSearchParams();
+  const activeSection = searchParams.get('section') || 'overview';
+
   // State management for marketing data
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
@@ -169,17 +172,8 @@ const Marketing = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-          <TabsTrigger value="integrations">
-            <Settings className="h-4 w-4 mr-2" />
-            Integrations
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
+      <div className="w-full">
+        {activeSection === 'overview' && <div className="space-y-6">
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -285,9 +279,9 @@ const Marketing = () => {
           </Card>
             </>
           )}
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="campaigns" className="space-y-6">
+        {activeSection === 'campaigns' && <div className="space-y-6">
           {/* Recent Campaigns */}
           <Card>
             <CardHeader>
@@ -363,12 +357,10 @@ const Marketing = () => {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>}
 
-        <TabsContent value="integrations">
-          <MarketingIntegrations />
-        </TabsContent>
-      </Tabs>
+        {activeSection === 'integrations' && <MarketingIntegrations />}
+      </div>
 
       {/* Modals */}
       <CampaignCreationModal

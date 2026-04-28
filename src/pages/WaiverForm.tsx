@@ -5,7 +5,8 @@ import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, storage, functions } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -223,6 +224,13 @@ export default function WaiverForm() {
   const [notFound, setNotFound] = useState(false);
   const [expired, setExpired] = useState(false);
   const [done, setDone] = useState(false);
+
+  // OTP state
+  const [needsOtp, setNeedsOtp]       = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpValue, setOtpValue]       = useState('');
+  const [otpError, setOtpError]       = useState('');
+  const [otpLoading, setOtpLoading]   = useState(false);
   const [signerName, setSignerName] = useState('');
   const [signerEmail, setSignerEmail] = useState('');
   const [signerPhone, setSignerPhone] = useState('');
@@ -249,6 +257,17 @@ export default function WaiverForm() {
 
         // Check if already signed
         if (tokenData.status === 'signed') { setAlreadySigned(true); setLoading(false); return; }
+
+        // OTP check
+        if (tokenData.requiresOtp === true) {
+          if (tokenData.otpVerified === true) {
+            setOtpVerified(true);
+          } else {
+            setNeedsOtp(true);
+            setLoading(false);
+            return; // don't load form until OTP verified
+          }
+        }
 
         // Reject expired tokens on the client for a friendly message — the
         // Firestore rule also enforces this server-side on submit.
@@ -287,6 +306,51 @@ export default function WaiverForm() {
       }
     })();
   }, [token]);
+
+  const handleVerifyOtp = async () => {
+    if (!token || otpValue.length !== 6) {
+      setOtpError('Please enter the 6-digit code from your SMS.');
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const verifyFn = httpsCallable(functions, 'verifyFormOtp');
+      await verifyFn({ token, otp: otpValue });
+      setOtpVerified(true);
+      setNeedsOtp(false);
+      // Now load the full form
+      setLoading(true);
+      const tokenSnap = await getDoc(doc(db, 'waiverTokens', token));
+      if (!tokenSnap.exists()) { setNotFound(true); setLoading(false); return; }
+      const tokenData = tokenSnap.data();
+      const waiverId: string = tokenData.waiverId;
+      const orgId: string = tokenData.organizationId;
+      const waiverSnap = await getDoc(doc(db, 'organizations', orgId, 'clientWaivers', waiverId));
+      if (!waiverSnap.exists()) { setNotFound(true); setLoading(false); return; }
+      const wd = waiverSnap.data();
+      const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
+      const tpl = tplSnap.exists() ? tplSnap.data() : null;
+      setWaiver({
+        waiver_id: waiverId,
+        template_title: tpl?.title ?? 'Form',
+        template_headline: tpl?.headline ?? '',
+        template_sub_headline: tpl?.sub_headline ?? '',
+        template_blocks: tpl?.content ?? [],
+        client_name: wd.clientName ?? '',
+        client_email: wd.clientEmail ?? '',
+        client_phone: wd.clientPhone ?? '',
+      });
+      setSignerName(wd.clientName ?? '');
+      setSignerEmail(wd.clientEmail ?? '');
+      setSignerPhone(wd.clientPhone ?? '');
+      setLoading(false);
+    } catch (err: unknown) {
+      setOtpError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   const setAnswer = (blockId: string, value: string | boolean | string[]) => {
     setAnswers((prev) => ({ ...prev, [blockId]: value }));
@@ -421,6 +485,40 @@ export default function WaiverForm() {
       <p className="text-sm text-muted-foreground mt-1">This waiver link has expired. Please contact the business for a new link.</p>
     </Screen>
   );
+  if (needsOtp && !otpVerified) return (
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center py-8 px-4">
+      <div className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="bg-primary px-6 py-5">
+          <h1 className="text-white text-xl font-bold">Verify your identity</h1>
+          <p className="text-primary-foreground/80 text-sm mt-1">Enter the 6-digit code sent to your phone.</p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="otp-input" className="font-medium">Verification Code</Label>
+            <Input
+              id="otp-input"
+              type="tel"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpValue}
+              onChange={(e) => { setOtpValue(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
+              placeholder="123456"
+              className={`text-center text-2xl tracking-[0.5em] font-bold ${otpError ? 'border-destructive' : ''}`}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleVerifyOtp(); }}
+            />
+            {otpError && <p className="text-xs text-destructive">{otpError}</p>}
+          </div>
+          <Button className="w-full" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length !== 6}>
+            {otpLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verifying…</> : 'Verify & Open Form'}
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Didn't receive a code? Contact the salon to resend the form.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   if (done) return (
     <Screen>
       <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />

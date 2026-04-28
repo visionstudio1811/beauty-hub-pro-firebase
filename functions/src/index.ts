@@ -8,3 +8,4 @@ export { packageExpiryNotifications } from './packageExpiryNotifications';
 export { createInvoice } from './createInvoice';
 export { voidInvoice } from './voidInvoice';
 export { submitQuoteRequest } from './submitQuoteRequest';
+export { verifyFormOtp } from './verifyFormOtp';

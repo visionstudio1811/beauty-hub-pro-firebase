@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Settings as SettingsIcon,
   Users,
@@ -17,8 +17,6 @@ import {
   Receipt,
   FileText
 } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileSettingsTabs } from '@/components/settings/MobileSettingsTabs';
 
 // Import components with named exports
 import { UserManagement } from '@/components/UserManagement';
@@ -38,23 +36,8 @@ import { InvoiceHistoryViewer } from '@/components/InvoiceHistoryViewer';
 
 
 const Settings = () => {
-  const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState('general');
-
-  const tabs = [
-    { id: 'general', label: 'General', icon: SettingsIcon },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'packages', label: 'Packages', icon: Package },
-    { id: 'treatments', label: 'Treatments', icon: Calendar },
-    { id: 'products', label: 'Products', icon: ShoppingBag },
-    { id: 'categories', label: 'Categories', icon: Tag },
-    { id: 'scheduling', label: 'Scheduling', icon: Clock },
-    { id: 'waivers', label: 'Waivers', icon: FileSignature },
-    { id: 'intake', label: 'Intake Forms', icon: ClipboardList },
-    { id: 'invoice-settings', label: 'Invoice Settings', icon: Receipt },
-    { id: 'invoice-history', label: 'Invoice History', icon: FileText },
-    { id: 'acuity', label: 'Acuity', icon: Zap }
-  ];
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get('section') || 'general';
 
   const renderTabContent = (tabId: string) => {
     switch (tabId) {
@@ -261,51 +244,15 @@ const Settings = () => {
 
   return (
     <div className="w-full max-w-none mx-auto px-2 sm:px-4 lg:px-6">
-      <div className="space-y-4 sm:space-y-6 w-full overflow-hidden">
-        {/* Header */}
+      <div className="space-y-6 w-full overflow-hidden">
         <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1">
             Manage your application settings and preferences
           </p>
         </div>
-
-        {/* Content */}
         <div className="w-full overflow-hidden">
-          {isMobile ? (
-            // Mobile: Dropdown-based navigation with boxed content
-            <div className="space-y-4">
-              <MobileSettingsTabs
-                tabs={tabs}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-              <div className="bg-background border rounded-lg p-4 shadow-sm">
-                {renderTabContent(activeTab)}
-              </div>
-            </div>
-          ) : (
-            // Desktop: Traditional tabs
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-11">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <TabsTrigger key={tab.id} value={tab.id} className="text-xs lg:text-sm">
-                      <Icon className="h-4 w-4 mr-1 lg:mr-2" />
-                      <span className="hidden sm:inline">{tab.label}</span>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-
-              {tabs.map((tab) => (
-                <TabsContent key={tab.id} value={tab.id} className="mt-6">
-                  {renderTabContent(tab.id)}
-                </TabsContent>
-              ))}
-            </Tabs>
-          )}
+          {renderTabContent(activeTab)}
         </div>
       </div>
     </div>

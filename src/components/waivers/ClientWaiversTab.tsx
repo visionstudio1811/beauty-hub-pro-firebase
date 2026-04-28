@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   FileText,
   Download,
@@ -29,6 +30,7 @@ import {
   CheckCircle2,
   FileSignature,
   Image as ImageIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { safeFormatters } from '@/lib/safeDateFormatter';
@@ -55,6 +57,7 @@ interface Props {
 }
 
 type SendMode = 'sms' | 'email' | 'device';
+type SmsProvider = 'twilio' | 'infobip';
 
 const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; historyTitle: string; empty: string }> = {
   waiver: {
@@ -81,6 +84,8 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
   const [selectedTpl, setSelectedTpl]   = useState('');
   const [loading, setLoading]           = useState(true);
   const [sendingMode, setSendingMode]   = useState<SendMode | null>(null);
+  const [smsProvider, setSmsProvider]   = useState<SmsProvider>('infobip');
+  const [requiresOtp, setRequiresOtp]   = useState(true);
 
   const load = useCallback(async () => {
     if (!currentOrganization) return;
@@ -173,6 +178,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
         templateId: selectedTpl,
         siteUrl: window.location.origin,
         mode,
+        ...(mode === 'sms' ? { smsProvider, requiresOtp } : {}),
       });
 
       const data = result.data as { success?: boolean; error?: string; waiver_url?: string };
@@ -248,6 +254,43 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
               </Select>
             </div>
 
+            {/* SMS provider + OTP options */}
+            <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">SMS Provider</Label>
+              <div className="flex gap-2">
+                {(['infobip', 'twilio'] as SmsProvider[]).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setSmsProvider(p)}
+                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors capitalize ${
+                      smsProvider === p
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                    }`}
+                  >
+                    {p === 'infobip' ? 'Infobip' : 'Twilio'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Switch
+                  id="otp-toggle"
+                  checked={requiresOtp}
+                  onCheckedChange={setRequiresOtp}
+                />
+                <Label htmlFor="otp-toggle" className="text-xs flex items-center gap-1.5 cursor-pointer">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  Require OTP verification
+                </Label>
+              </div>
+              {requiresOtp && (
+                <p className="text-xs text-muted-foreground">
+                  Client will receive a 6-digit code via SMS and must enter it before viewing the form.
+                </p>
+              )}
+            </div>
+
             <div className="flex flex-wrap gap-2 pt-1">
               <Button
                 size="sm"
@@ -258,7 +301,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                 title={!client.phone ? 'Client has no phone number' : undefined}
               >
                 {sendingMode === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                Send via SMS
+                Send via SMS {requiresOtp ? '+ OTP' : ''}
               </Button>
 
               <Button
