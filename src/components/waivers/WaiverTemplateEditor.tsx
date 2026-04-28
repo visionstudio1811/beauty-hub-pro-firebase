@@ -59,6 +59,7 @@ import {
   Heading2,
 } from 'lucide-react';
 import type { BlockType, WaiverBlock } from '@/pages/WaiverForm';
+import { TemplatePreviewModal } from './TemplatePreviewModal';
 
 // ── Block meta ───────────────────────────────────────────────
 // Presentational types store their content in `value` and never collect input.
@@ -539,10 +540,18 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
                   Delete Template
                 </Button>
               ) : <div />}
-              <Button onClick={save} disabled={saving} className="gap-1.5">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Save Template
-              </Button>
+              <div className="flex items-center gap-2">
+                <TemplatePreviewModal
+                  title={title}
+                  headline={headline}
+                  subHeadline={subHeadline}
+                  blocks={blocks}
+                />
+                <Button onClick={save} disabled={saving} className="gap-1.5">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Save Template
+                </Button>
+              </div>
             </div>
           </>
         )}

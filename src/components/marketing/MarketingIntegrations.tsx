@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TwilioIntegration } from './TwilioIntegration';
 import { ResendIntegration } from './ResendIntegration';
 import { EmailTemplateDesigner } from './EmailTemplateDesigner';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
@@ -31,10 +31,14 @@ export const MarketingIntegrations: React.FC = () => {
     if (!currentOrganization?.id) return;
 
     try {
-      const snap = await getDocs(
-        collection(db, 'organizations', currentOrganization.id, 'marketingIntegrations')
-      );
-      setIntegrations(snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketingIntegration)));
+      const [twilioSnap, resendSnap] = await Promise.all([
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'twilio')),
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend')),
+      ]);
+      const results: MarketingIntegration[] = [];
+      if (twilioSnap.exists()) results.push({ id: twilioSnap.id, ...twilioSnap.data() } as MarketingIntegration);
+      if (resendSnap.exists()) results.push({ id: resendSnap.id, ...resendSnap.data() } as MarketingIntegration);
+      setIntegrations(results);
     } catch (error: any) {
       toast({
         title: "Error loading integrations",

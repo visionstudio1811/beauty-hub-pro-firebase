@@ -6,9 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
-  collection,
-  addDoc,
-  updateDoc,
+  setDoc,
   doc,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -46,25 +44,19 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
         fromName: config.fromName
       };
 
-      if (integration?.id) {
-        await updateDoc(
-          doc(db, 'organizations', currentOrganization.id!, 'marketingIntegrations', integration.id),
-          { configuration: configData, is_enabled: config.isEnabled, status: 'disconnected', updated_at: new Date().toISOString() }
-        );
-      } else {
-        await addDoc(
-          collection(db, 'organizations', currentOrganization.id!, 'marketingIntegrations'),
-          {
-            organization_id: currentOrganization.id,
-            provider: 'resend',
-            configuration: configData,
-            is_enabled: config.isEnabled,
-            status: 'disconnected',
-            created_at: new Date().toISOString(),
-            created_at_ts: serverTimestamp(),
-          }
-        );
-      }
+      await setDoc(
+        doc(db, 'organizations', currentOrganization.id!, 'marketingIntegrations', 'resend'),
+        {
+          organization_id: currentOrganization.id,
+          provider: 'resend',
+          configuration: configData,
+          is_enabled: config.isEnabled,
+          status: 'disconnected',
+          updated_at: new Date().toISOString(),
+          updated_at_ts: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       toast({
         title: "Resend configuration saved",
@@ -84,7 +76,7 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
   };
 
   const handleTest = async () => {
-    if (!integration?.id) {
+    if (!integration) {
       toast({
         title: "Save configuration first",
         description: "Please save your Resend configuration before testing.",
@@ -96,7 +88,7 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
     setTesting(true);
     try {
       const testFn = httpsCallable(functions, 'testResendIntegration');
-      const result = await testFn({ integrationId: integration.id });
+      const result = await testFn({ integrationId: 'resend' });
       const data = result.data as { success?: boolean; error?: string };
 
       if (data.success) {
@@ -203,7 +195,7 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
             Save Configuration
           </Button>
           
-          {integration?.id && (
+          {integration && (
             <Button variant="outline" onClick={handleTest} disabled={testing}>
               {testing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
