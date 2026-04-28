@@ -22,6 +22,8 @@ import { CheckCircle2, Loader2, AlertCircle, RotateCcw, Upload, X as XIcon, Imag
 // ── Block types ──────────────────────────────────────────────
 export type BlockType =
   | 'text'
+  | 'heading'
+  | 'subheading'
   | 'checkbox'
   | 'yes_no'
   | 'short_answer'
@@ -142,6 +144,14 @@ async function buildPdf(
     if (block.type === 'text' && block.value) {
       addText(block.value, 10, false, '#333333');
       y += 4;
+    } else if (block.type === 'heading' && block.value) {
+      y += 6;
+      addText(block.value, 16, true, '#111111');
+      y += 4;
+    } else if (block.type === 'subheading' && block.value) {
+      y += 4;
+      addText(block.value, 12, true, '#333333');
+      y += 2;
     } else if (block.type === 'signature') {
       addText(block.label || 'Signature', 11, true);
       const dataUrl = typeof answers[block.id] === 'string' ? (answers[block.id] as string) : '';
@@ -297,7 +307,7 @@ export default function WaiverForm() {
     else if (!PHONE_RE.test(signerPhone.trim())) newErrors['__phone'] = 'Please enter a valid phone number.';
     if (!waiver) return newErrors;
     waiver.template_blocks.forEach((block) => {
-      if (block.type === 'text') return;
+      if (block.type === 'text' || block.type === 'heading' || block.type === 'subheading') return;
       if (block.type === 'image_upload') {
         if (!block.required) return;
         const files = imageFiles[block.id] ?? [];
@@ -606,6 +616,22 @@ function BlockRenderer({
       <div className="prose prose-sm max-w-none bg-muted/40 rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
         {block.value}
       </div>
+    );
+  }
+
+  if (block.type === 'heading') {
+    return (
+      <h2 className="text-xl font-semibold text-foreground tracking-tight pt-2">
+        {block.value}
+      </h2>
+    );
+  }
+
+  if (block.type === 'subheading') {
+    return (
+      <h3 className="text-base font-semibold text-foreground/90">
+        {block.value}
+      </h3>
     );
   }
 

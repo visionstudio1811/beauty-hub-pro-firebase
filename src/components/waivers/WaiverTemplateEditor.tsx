@@ -55,11 +55,19 @@ import {
   PenLine,
   Calendar,
   Clock as ClockIcon,
+  Heading1,
+  Heading2,
 } from 'lucide-react';
 import type { BlockType, WaiverBlock } from '@/pages/WaiverForm';
 
 // ── Block meta ───────────────────────────────────────────────
+// Presentational types store their content in `value` and never collect input.
+const PRESENTATIONAL_TYPES: BlockType[] = ['text', 'heading', 'subheading'];
+const isPresentational = (t: BlockType) => PRESENTATIONAL_TYPES.includes(t);
+
 const BLOCK_TYPES: { type: BlockType; label: string; icon: React.ElementType; description: string }[] = [
+  { type: 'heading',      label: 'Heading',              icon: Heading1,     description: 'A large section title' },
+  { type: 'subheading',   label: 'Sub Heading',          icon: Heading2,     description: 'A smaller section label below a heading' },
   { type: 'text',         label: 'Text Block',           icon: AlignLeft,    description: 'A paragraph of informational or legal text' },
   { type: 'checkbox',     label: 'Checkbox Agreement',   icon: CheckSquare,  description: 'A statement the client must tick to agree' },
   { type: 'yes_no',       label: 'Yes / No Question',    icon: ToggleLeft,   description: 'A binary question (Yes or No)' },
@@ -74,6 +82,8 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: React.ElementType; de
 
 const BADGE_COLORS: Record<BlockType, string> = {
   text:         'bg-blue-100 text-blue-700',
+  heading:      'bg-slate-200 text-slate-800',
+  subheading:   'bg-slate-100 text-slate-700',
   checkbox:     'bg-green-100 text-green-700',
   yes_no:       'bg-amber-100 text-amber-700',
   short_answer: 'bg-purple-100 text-purple-700',
@@ -86,12 +96,13 @@ const BADGE_COLORS: Record<BlockType, string> = {
 };
 
 function newBlock(type: BlockType): WaiverBlock {
+  const presentational = isPresentational(type);
   return {
     id:       crypto.randomUUID(),
     type,
-    value:    type === 'text' ? '' : undefined,
-    label:    type !== 'text' ? '' : undefined,
-    required: type !== 'text',
+    value:    presentational ? '' : undefined,
+    label:    presentational ? undefined : '',
+    required: !presentational,
     ...(type === 'image_upload' ? { maxImages: 5 } : {}),
   };
 }
@@ -126,7 +137,7 @@ function SortableBlock({
   const saveEdit = () => {
     const updated: WaiverBlock = {
       ...block,
-      ...(block.type === 'text' ? { value: draft } : { label: draft }),
+      ...(isPresentational(block.type) ? { value: draft } : { label: draft }),
       required,
     };
     onUpdate(updated);
@@ -151,7 +162,7 @@ function SortableBlock({
           <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${BADGE_COLORS[block.type]}`}>
             {meta.label}
           </span>
-          {block.required && block.type !== 'text' && (
+          {block.required && !isPresentational(block.type) && (
             <span className="text-xs text-muted-foreground">required</span>
           )}
         </div>
@@ -172,7 +183,9 @@ function SortableBlock({
                 onChange={(e) => setDraft(e.target.value)}
                 className="text-sm"
                 placeholder={
-                  block.type === 'checkbox' ? 'Agreement statement…'
+                  block.type === 'heading' ? 'e.g. Medical history'
+                  : block.type === 'subheading' ? 'e.g. Past treatments'
+                  : block.type === 'checkbox' ? 'Agreement statement…'
                   : block.type === 'image_upload' ? 'e.g. Upload photos of affected area'
                   : block.type === 'email' ? 'e.g. Emergency contact email'
                   : block.type === 'phone' ? 'e.g. Emergency contact phone'
@@ -182,7 +195,7 @@ function SortableBlock({
                 autoFocus
               />
             )}
-            {block.type !== 'text' && (
+            {!isPresentational(block.type) && (
               <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
