@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Beauty Hub Pro is a multi-tenant salon and spa management platform. It handles appointments, client records, staff, treatments, packages, products, waivers, marketing campaigns, and Acuity Scheduling sync.
+Beauty Hub Pro is a multi-tenant salon and spa management platform. It handles appointments, client records, staff, treatments, packages, products, waivers, marketing campaigns, Acuity Scheduling sync, and a white-label client portal PWA.
 
 This project was migrated from Supabase to Firebase. All data lives in Firestore; all backend logic runs in Cloud Functions.
 
@@ -25,6 +25,7 @@ This project was migrated from Supabase to Firebase. All data lives in Firestore
 - **Email:** Resend API (via Cloud Function)
 - **SMS:** Twilio REST API (credentials stored per-org in Firestore `marketingIntegrations`, not Secret Manager)
 - **Scheduling sync:** Acuity Scheduling API (via Cloud Function)
+- **Client portal:** installable PWA at `/client` on white-label CRM domains
 
 ---
 
@@ -86,6 +87,7 @@ beauty-hub-pro-app/
 │   │   ├── notifyOrgOnWaiverSigned.ts  # Firestore trigger on clientWaivers update
 │   │   ├── acuitySync.ts
 │   │   ├── acuityWebhook.ts
+│   │   ├── clientPortal.ts
 │   │   ├── packageExpiryNotifications.ts
 │   │   └── rateLimit.ts                # Shared per-org daily rate-limit helper
 │   ├── lib/              # Compiled JS output (git-ignored)
@@ -153,11 +155,14 @@ organizations/{orgId}                ← org document
   /campaignRecipients/{id}
   /marketingIntegrations/{id}        ← stores Resend/Twilio API keys (admin-only, get-only, no list)
   /acuitySyncConfig/{id}             ← includes per-org Acuity `webhook_secret`
+  /bookingRequests/{id}              ← client portal booking requests (CF-only create/update)
   /acuitySyncLogs/{id}
   /rateLimits/{action_YYYYMMDD}      ← Cloud-Function-only per-org daily counters
   /invoices/{id}                     ← immutable invoice records (CF-only create; admin one-time pdf_url update)
   /config/invoiceCounter             ← per-org sequential counter (CF-only writes)
 waiverTokens/{token}                 ← unauthenticated waiver signing (get-only, no list; 30-day TTL via expiresAt)
+clientPortalAccess/{uid}/organizations/{orgId}
+                                      ← client portal identity mapping (CF-only writes)
 ```
 
 ---
@@ -173,6 +178,42 @@ New user accounts are created exclusively by the `adminCreateUser` Cloud Functio
 
 Auth is in `src/contexts/AuthContext.tsx`. Use `useAuth()` for `user`, `profile`, `signOut`, `signInWithEmail`, `signInWithGoogle`, `refreshProfile`.
 
+### Client Portal Auth
+
+The client portal is separate from staff CRM access. The public routes are:
+
+- `/client` — preferred white-label URL; resolves the organization from `window.location.hostname`
+- `/client/:orgSlug` — explicit slug fallback
+
+For production white-label domains, share:
+
+```
+https://crm.lumiereut.com/client
+```
+
+The organization document should include:
+
+```js
+crm_domain: "crm.lumiereut.com"
+```
+
+Supported alternatives are `custom_domain`, `domain`, or `portal_domains: ["crm.lumiereut.com"]`. The resolver also falls back to slug candidates inferred from `crm.<brand>...`, but explicit `crm_domain` is the reliable setup.
+
+Portal users sign in with Google or Firebase phone OTP. The callable `linkClientPortalAccount` compares the signed-in email/phone to active `organizations/{orgId}/clients` records. On match it writes:
+
+```
+clientPortalAccess/{uid}/organizations/{orgId}
+```
+
+Firestore rules use that mapping to grant client-scoped reads only. Do not add client users to `users/{uid}` with staff roles.
+
+Portal booking is request-based:
+
+1. `createClientBookingRequest` validates the portal user, active purchase, treatment eligibility, and preferred slot.
+2. Staff review requests in `src/components/appointments/BookingRequestsPanel.tsx`.
+3. `updateClientBookingRequest` approves/rejects. Approval creates an appointment, decrements the package session, and attempts Acuity sync.
+4. Acuity sync requires `acuitySyncConfig.client_portal_acuity_mappings` with CRM treatment IDs mapped to Acuity appointment type IDs and CRM staff IDs mapped to Acuity calendar IDs.
+
 ---
 
 ## Role-Based Access Control
@@ -184,6 +225,8 @@ Permission matrix:
 - **staff** — clients, appointments, treatments, packages, products
 - **reception** — view clients/appointments, manage appointments
 - **beautician** — view clients, appointments, treatments
+
+Client portal users do not use these CRM roles. Their access is controlled by `clientPortalAccess` and narrower Firestore rules.
 
 Role is stored in `users/{uid}.role` in Firestore and enforced both:
 - **Client-side:** via `useSecurityValidation` hook and `RoleProtectedRoute`
