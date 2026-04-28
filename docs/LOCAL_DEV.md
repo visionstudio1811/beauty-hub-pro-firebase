@@ -125,6 +125,21 @@ Open http://localhost:8080.
 - See past + upcoming mix on the calendar
 - Book a new appointment via the booking flow
 - Verify Acuity sync button is present in Settings but fails without Acuity creds (expected)
+- Open Appointments → Client booking requests. Pending portal requests should appear there for staff/reception/admin approval.
+
+### Client portal
+- Open the explicit local portal URL:
+  ```
+  http://localhost:8080/client/test-salon
+  ```
+- Sign in with a seeded client identity that matches a client card email/phone. If using Auth emulator Google sign-in, use a test identity whose email matches a seeded client.
+- Confirm the portal shows only that client's active packages, products, invoices, appointments, and booking requests.
+- Submit a treatment request from an active package. Back in the CRM Appointments page, approve it and confirm an appointment is created and the package session count decrements.
+- For white-label host simulation, add `127.0.0.1 crm.lumiereut.com` to `/etc/hosts`, restart Vite, then open:
+  ```
+  http://crm.lumiereut.com:8080/client
+  ```
+  This resolves by organization domain fields first (`crm_domain`, `custom_domain`, `domain`, or `portal_domains`) and then falls back to slug candidates inferred from the host.
 
 ### Packages / Treatments / Products (Settings)
 - 6 treatments in list, "Legacy Treatment" shown as inactive
@@ -142,6 +157,33 @@ Open http://localhost:8080.
 ### Host gate / white-label
 - Visit http://localhost:8080 → shows `PublicHome` (marketing page) because `localhost` isn't in the app-only host list
 - Simulate `crm.lumiereut.com` locally: add `127.0.0.1 crm.lumiereut.com` to `/etc/hosts`, restart Vite, open http://crm.lumiereut.com:8080 → should redirect `/` to `/auth`
+- Client portal URL for white-label domains is `/client`, e.g. http://crm.lumiereut.com:8080/client. Production equivalent: `https://crm.lumiereut.com/client`.
+
+## White-label Client Portal Setup
+
+For each white-label spa, set a domain field on the organization document:
+
+```js
+crm_domain: "crm.lumiereut.com"
+```
+
+Supported alternatives are:
+
+```js
+custom_domain: "crm.lumiereut.com"
+domain: "crm.lumiereut.com"
+portal_domains: ["crm.lumiereut.com"]
+```
+
+Share one client link per spa:
+
+```
+https://crm.lumiereut.com/client
+```
+
+Clients authenticate with Google or phone OTP. The Cloud Function `linkClientPortalAccount` creates `clientPortalAccess/{uid}/organizations/{orgId}` only if the signed-in email or phone matches an active CRM client card. Firestore rules then allow that user to read only their own client card, active purchases, assigned products, issued invoices, appointments, and booking requests.
+
+Booking requests are created by `createClientBookingRequest` and reviewed by staff via the CRM Appointments page. Approval calls `updateClientBookingRequest`, creates the appointment, decrements package sessions, and attempts Acuity sync if mappings are configured.
 
 ## What does NOT work in emulator mode
 
@@ -152,6 +194,7 @@ Open http://localhost:8080.
   so SMS sends fail cleanly with "Twilio integration not configured".
 - **Acuity webhook** — Acuity can't reach `localhost:5001`. To test, run `ngrok http 5001` and set the tunnel URL as Acuity's webhook.
 - **Google sign-in** — Emulator Auth supplies a fake Google flow (popup picks a generated identity). Use email/password for realistic testing.
+- **Real Firebase phone OTP** — in emulator mode, phone auth uses the Auth emulator flow rather than sending production SMS.
 
 ## Resetting the emulator state
 

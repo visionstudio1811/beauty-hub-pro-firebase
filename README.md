@@ -22,6 +22,42 @@ A multi-tenant salon and spa management platform for appointments, clients, staf
 
 ---
 
+## Client Portal
+
+Each white-label spa has a client-facing PWA portal that clients can save to their phone home screen.
+
+For white-label CRM domains, use:
+
+```
+https://crm.CLIENTDOMAIN.com/client
+```
+
+Example:
+
+```
+https://crm.lumiereut.com/client
+```
+
+Fallback URL with an explicit organization slug:
+
+```
+https://crm.CLIENTDOMAIN.com/client/ORG-SLUG
+```
+
+The portal resolves the organization by domain first. For reliable white-label routing, set one of these fields on the organization document:
+
+```js
+crm_domain: "crm.lumiereut.com"
+```
+
+Supported alternatives are `custom_domain`, `domain`, or `portal_domains: ["crm.lumiereut.com"]`.
+
+Client access is not a staff CRM account. Clients sign in with Google or phone OTP, and the backend grants portal access only when the signed-in email or phone matches an active CRM client card in that organization. After matching, clients can view their own active packages, assigned products, issued invoices, appointments, and booking requests.
+
+Booking from the portal is request-based. A client submits a preferred slot and optional backup time; staff approve or reject the request in the CRM Appointments page. Only after approval does the system create the CRM appointment, decrement package sessions, and attempt Acuity sync.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -84,6 +120,13 @@ firebase deploy --only functions
 firebase deploy --only firestore:rules
 ```
 
+After client portal changes, deploy at least:
+
+```bash
+npm run build
+firebase deploy --only hosting,functions,firestore:rules
+```
+
 ---
 
 ## Cloud Function Secrets
@@ -132,5 +175,12 @@ beauty-hub-pro-app/
 Before first deploy, complete these in the [Firebase Console](https://console.firebase.google.com/project/beauty-hub-pro-app):
 
 1. **Enable Phone Authentication** → Authentication → Sign-in methods → Phone → Enable
-2. **Add authorized domains** → Authentication → Settings → Authorized domains
-3. **Register a web app** → Project Settings → Add app → Web → copy config into `.env`
+2. **Enable Google Authentication** → Authentication → Sign-in methods → Google → Enable
+3. **Add authorized domains** → Authentication → Settings → Authorized domains
+   - Add each white-label CRM host, e.g. `crm.lumiereut.com`
+   - Add the Firebase hosting host, e.g. `beauty-hub-pro-app.web.app`
+4. **Register a web app** → Project Settings → Add app → Web → copy config into `.env`
+5. **Set organization portal domain** → Firestore → `organizations/{orgId}`:
+   ```js
+   crm_domain: "crm.lumiereut.com"
+   ```
