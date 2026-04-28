@@ -32,9 +32,6 @@ export const filterAppointments = (
   appointments: FilterableAppointment[],
   filters: AppointmentFilterOptions
 ): FilterableAppointment[] => {
-  console.log('🔍 Filtering appointments with filters:', filters);
-  console.log('📅 Appointments to filter:', appointments.length);
-  
   return appointments.filter(appointment => {
     // Enhanced date filtering based on view mode using business timezone
     const appointmentDate = parseISO(appointment.date);
@@ -114,8 +111,6 @@ export const filterAppointments = (
  * Safe date range text with aggressive error detection
  */
 export const getDateRangeText = (viewMode: 'day' | 'week' | 'month', selectedDate: Date): string => {
-  console.log('📅 getDateRangeText called with:', { viewMode, selectedDate });
-  
   try {
     // Enhanced validation
     const validDate = validateDate(selectedDate);
@@ -126,7 +121,6 @@ export const getDateRangeText = (viewMode: 'day' | 'week' | 'month', selectedDat
 
     // Convert selectedDate to business timezone for display
     const businessDate = toBusinessTime(validDate);
-    console.log('🏢 Business date for range text:', businessDate);
     
     let result = '';
     
@@ -155,8 +149,6 @@ export const getDateRangeText = (viewMode: 'day' | 'week' | 'month', selectedDat
         break;
     }
     
-    console.log('✅ Date range text result:', result);
-    
     // Sanitize the result
     const sanitizedResult = sanitizeString(result, 'Date Error');
     
@@ -174,8 +166,6 @@ export const getDateRangeText = (viewMode: 'day' | 'week' | 'month', selectedDat
 };
 
 export const getDateRangeDescription = (viewMode: 'day' | 'week' | 'month', selectedDate: Date): string => {
-  console.log('📝 getDateRangeDescription called with:', { viewMode, selectedDate });
-  
   try {
     // Enhanced validation
     const validDate = validateDate(selectedDate);
@@ -190,9 +180,7 @@ export const getDateRangeDescription = (viewMode: 'day' | 'week' | 'month', sele
     // Sanitize the result
     const sanitizedDateRange = sanitizeString(dateRangeText, 'selected date');
     
-    const result = `Showing appointments for ${sanitizedDateRange}`;
-    console.log('✅ Date range description result:', result);
-    return result;
+    return `Showing appointments for ${sanitizedDateRange}`;
   } catch (error) {
     console.error('❌ Error in getDateRangeDescription:', error);
     const fallbackDate = safeDateFormat(selectedDate) || 'selected date';

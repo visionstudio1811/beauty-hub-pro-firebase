@@ -99,7 +99,7 @@ const EnhancedProductManagement = () => {
 
       // Fetch products
       const productsSnap = await getDocs(
-        query(collection(db, 'organizations', orgId, 'products'), orderBy('name'))
+        query(collection(db, 'organizations', orgId, 'products'), where('is_active', '==', true), orderBy('name'))
       );
       setProducts(productsSnap.docs.map(d => {
         const data = d.data();

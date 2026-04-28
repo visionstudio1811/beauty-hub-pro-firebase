@@ -181,7 +181,6 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
       : businessHours.find((_, index) => index === adjustedDayOfWeek);
     
     if (!dayHours || !dayHours.enabled) {
-      console.log('No business hours for day:', adjustedDayOfWeek);
       return [];
     }
 

@@ -19,7 +19,6 @@ interface AppointmentFilterState {
 }
 
 export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointmentsDataProps) => {
-  console.log('🔄 useAppointmentsData called with:', { appointmentsCount: appointments?.length || 0, selectedDate });
   
   // Filter states with sanitized initialization
   const [dateFilter, setDateFilter] = useState('');
@@ -47,7 +46,6 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
       });
       
       if (hasProblems) {
-        console.log('🔄 Resetting filters due to malformed patterns');
         setDateFilter('');
         setStaffFilter('all');
         setStatusFilter('all');
@@ -65,10 +63,7 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
 
   // Memoize transformed appointments with comprehensive sanitization
   const transformedAppointments: Appointment[] = useMemo(() => {
-    console.log('🔄 Transforming appointments with sanitization:', appointments?.length || 0);
-    
     if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {
-      console.log('❌ No appointments to transform');
       return [];
     }
     
@@ -101,29 +96,17 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
       
       return transformedApt;
     });
-    
-    console.log('✅ All appointments transformed and sanitized:', transformed.length);
+
     return transformed;
   }, [appointments]);
 
   // Memoize filtered appointments
   const filteredAppointments = useMemo(() => {
-    console.log('🔄 Filtering appointments with current filters:', {
-      dateFilter,
-      staffFilter,
-      statusFilter,
-      searchQuery,
-      treatmentFilter,
-      filterViewMode,
-      selectedDate
-    });
-    
     if (!transformedAppointments || transformedAppointments.length === 0) {
-      console.log('❌ No transformed appointments to filter');
       return [];
     }
-    
-    const filtered = filterAppointments(transformedAppointments, {
+
+    return filterAppointments(transformedAppointments, {
       dateFilter,
       staffFilter,
       statusFilter,
@@ -132,9 +115,6 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
       viewMode: filterViewMode,
       selectedDate
     });
-    
-    console.log('✅ Filtered appointments:', filtered.length);
-    return filtered;
   }, [transformedAppointments, dateFilter, staffFilter, statusFilter, searchQuery, treatmentFilter, filterViewMode, selectedDate]);
 
   // Memoize dropdown data with sanitization
@@ -144,10 +124,7 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
     }
     const rawStaffList = transformedAppointments.map(apt => apt.staff).filter(Boolean);
     const sanitizedStaffList = sanitizeStringArray(rawStaffList, 'Unknown Staff');
-    const uniqueStaffList = [...new Set(sanitizedStaffList)];
-    
-    console.log('📋 Sanitized staff list:', uniqueStaffList);
-    return uniqueStaffList;
+    return [...new Set(sanitizedStaffList)];
   }, [transformedAppointments]);
   
   const treatments = useMemo(() => {
@@ -156,10 +133,7 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
     }
     const rawTreatmentList = transformedAppointments.map(apt => apt.treatment).filter(Boolean);
     const sanitizedTreatmentList = sanitizeStringArray(rawTreatmentList, 'Unknown Treatment');
-    const uniqueTreatmentList = [...new Set(sanitizedTreatmentList)];
-    
-    console.log('📋 Sanitized treatments list:', uniqueTreatmentList);
-    return uniqueTreatmentList;
+    return [...new Set(sanitizedTreatmentList)];
   }, [transformedAppointments]);
 
   // Calculate statistics with proper null safety and error handling
@@ -171,13 +145,11 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
       scheduledAppointments: Math.max(0, safeAppointments.filter(apt => apt.status === 'scheduled').length),
       completedAppointments: Math.max(0, safeAppointments.filter(apt => apt.status === 'completed').length)
     };
-    console.log('📊 Statistics calculated:', stats);
     return stats;
   }, [filteredAppointments]);
 
   // Enhanced clear filters with sanitization check
   const handleClearFilters = useCallback(() => {
-    console.log('🧹 Clearing all filters with sanitization check');
     setDateFilter('');
     setStaffFilter('all');
     setStatusFilter('all');
@@ -192,33 +164,23 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
 
   // Sanitized setters to prevent malformed values from being set
   const setSanitizedDateFilter = useCallback((value: string) => {
-    const sanitized = sanitizeString(value, '');
-    console.log('📅 Setting sanitized date filter:', value, '->', sanitized);
-    setDateFilter(sanitized);
+    setDateFilter(sanitizeString(value, ''));
   }, []);
 
   const setSanitizedStaffFilter = useCallback((value: string) => {
-    const sanitized = sanitizeString(value, 'all');
-    console.log('👥 Setting sanitized staff filter:', value, '->', sanitized);
-    setStaffFilter(sanitized);
+    setStaffFilter(sanitizeString(value, 'all'));
   }, []);
 
   const setSanitizedStatusFilter = useCallback((value: string) => {
-    const sanitized = sanitizeString(value, 'all');
-    console.log('📊 Setting sanitized status filter:', value, '->', sanitized);
-    setStatusFilter(sanitized);
+    setStatusFilter(sanitizeString(value, 'all'));
   }, []);
 
   const setSanitizedSearchQuery = useCallback((value: string) => {
-    const sanitized = sanitizeString(value, '');
-    console.log('🔍 Setting sanitized search query:', value, '->', sanitized);
-    setSearchQuery(sanitized);
+    setSearchQuery(sanitizeString(value, ''));
   }, []);
 
   const setSanitizedTreatmentFilter = useCallback((value: string) => {
-    const sanitized = sanitizeString(value, 'all');
-    console.log('💊 Setting sanitized treatment filter:', value, '->', sanitized);
-    setTreatmentFilter(sanitized);
+    setTreatmentFilter(sanitizeString(value, 'all'));
   }, []);
 
   return {

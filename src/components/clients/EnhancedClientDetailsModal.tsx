@@ -19,6 +19,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -239,25 +240,29 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     onClose();
   };
 
-  const handleClearHistory = () => {
-    if (!client) return;
-    
-    const updatedClient = {
-      ...client,
-      ...formData,
-      purchases: [],
-      appointments: [],
-      totalRevenue: 0,
-      totalVisits: 0,
-      lastVisit: 'Never'
-    };
-    
-    onSave(updatedClient);
-    toast({
-      title: "History Cleared",
-      description: "All appointment and purchase history has been cleared."
-    });
-    onClose();
+  const handleClearHistory = async () => {
+    if (!client || !currentOrganization?.id) return;
+
+    try {
+      const orgRef = collection(db, 'organizations', currentOrganization.id);
+      const [apptSnap, purchaseSnap] = await Promise.all([
+        getDocs(query(collection(db, 'organizations', currentOrganization.id, 'appointments'), where('client_id', '==', client.id))),
+        getDocs(query(collection(db, 'organizations', currentOrganization.id, 'purchases'), where('client_id', '==', client.id))),
+      ]);
+
+      const batch = writeBatch(db);
+      apptSnap.docs.forEach(d => batch.delete(d.ref));
+      purchaseSnap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+
+      setPurchases([]);
+      setAppointments([]);
+
+      toast({ title: 'History Cleared', description: 'All appointment and purchase history has been deleted.' });
+    } catch (error) {
+      console.error('Error clearing history:', error);
+      toast({ title: 'Failed to clear history', description: 'Please try again.', variant: 'destructive' });
+    }
   };
 
   const handleAssignPackage = () => {

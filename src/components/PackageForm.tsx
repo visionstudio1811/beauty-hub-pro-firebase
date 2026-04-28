@@ -8,6 +8,7 @@ import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { usePackageForm } from '@/hooks/usePackageForm';
 import { Package, usePackages } from '@/contexts/PackageContext';
 import { PackageFormData } from '@/types/package';
+import { useToast } from '@/hooks/use-toast';
 
 interface PackageFormProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
 }) => {
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
   const { addPackage, updatePackage } = usePackages();
+  const { toast } = useToast();
   const {
     formData,
     setFormData,
@@ -94,6 +96,11 @@ export const PackageForm: React.FC<PackageFormProps> = ({
       resetForm();
     } catch (error) {
       console.error('Package submission error:', error);
+      toast({
+        title: editingPackage ? 'Failed to update package' : 'Failed to create package',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }

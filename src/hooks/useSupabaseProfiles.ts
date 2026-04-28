@@ -42,7 +42,6 @@ export const useSupabaseProfiles = () => {
           is_active: docData.isActive ?? true,
         };
       });
-      console.log('Fetched profiles:', data);
       setProfiles(data);
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -61,17 +60,13 @@ export const useSupabaseProfiles = () => {
   }, []);
 
   const getStaffProfiles = () => {
-    const staffProfiles = profiles.filter(
+    return profiles.filter(
       profile => profile.role === 'staff' || profile.role === 'admin'
     );
-    console.log('Staff profiles available:', staffProfiles);
-    return staffProfiles;
   };
 
   const getBeauticianProfiles = () => {
-    const beauticianProfiles = profiles.filter(profile => profile.role === 'beautician');
-    console.log('Beautician profiles available:', beauticianProfiles);
-    return beauticianProfiles;
+    return profiles.filter(profile => profile.role === 'beautician');
   };
 
   return {

@@ -36,8 +36,6 @@ export const useSupabaseBusinessInfo = () => {
       const infoRef = doc(db, 'organizations', currentOrganization.id, 'config', 'businessInfo');
       const snap = await getDoc(infoRef);
 
-      console.log('Fetched business info:', snap.data());
-
       if (snap.exists()) {
         const data = snap.data();
         setBusinessInfo({
@@ -64,7 +62,6 @@ export const useSupabaseBusinessInfo = () => {
   const updateBusinessInfo = async (info: Omit<BusinessInfo, 'id' | 'created_at' | 'updated_at'>) => {
     if (!currentOrganization?.id) return;
     try {
-      console.log('Updating business info:', info);
       const infoRef = doc(db, 'organizations', currentOrganization.id, 'config', 'businessInfo');
       await setDoc(
         infoRef,

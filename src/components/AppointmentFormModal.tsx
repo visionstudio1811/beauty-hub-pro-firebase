@@ -14,7 +14,6 @@ import { ClientPackage } from '@/hooks/useClientPackages';
 import { Calendar as CalendarIcon, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAppointmentForm } from '@/hooks/useAppointmentForm';
-import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { ClientSection } from '@/components/appointment-form/ClientSection';
 import { PackageSection } from '@/components/appointment-form/PackageSection';
 import { AppointmentDetailsSection } from '@/components/appointment-form/AppointmentDetailsSection';
@@ -54,8 +53,6 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   
   const { toast } = useToast();
   const { addClient } = useClients();
-  const { } = useSupabaseAppointments();
-
   const {
     formData,
     setFormData,
