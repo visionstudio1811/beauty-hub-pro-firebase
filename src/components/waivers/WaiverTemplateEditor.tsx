@@ -381,15 +381,17 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
       const now = new Date().toISOString();
       const trimmedHeadline = headline.trim();
       const trimmedSubHeadline = subHeadline.trim();
+      // Firestore rejects undefined field values — strip them from every block
+      const sanitizedBlocks = JSON.parse(JSON.stringify(blocks));
       if (selected) {
         await updateDoc(
           doc(db, 'organizations', currentOrganization.id, 'waiverTemplates', selected.id),
-          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, kind, updated_at: now, updated_at_ts: serverTimestamp() }
+          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: sanitizedBlocks, kind, updated_at: now, updated_at_ts: serverTimestamp() }
         );
       } else {
         const newRef = await addDoc(
           collection(db, 'organizations', currentOrganization.id, 'waiverTemplates'),
-          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, kind, organization_id: currentOrganization.id, created_at: now, updated_at: now, created_at_ts: serverTimestamp() }
+          { title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: sanitizedBlocks, kind, organization_id: currentOrganization.id, created_at: now, updated_at: now, created_at_ts: serverTimestamp() }
         );
         setSelected({ id: newRef.id, title, headline: trimmedHeadline, sub_headline: trimmedSubHeadline, content: blocks, updated_at: now, kind });
       }
