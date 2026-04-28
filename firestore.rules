@@ -38,6 +38,15 @@ service cloud.firestore {
       return isAuthenticated() && getUserOrg() == orgId;
     }
 
+    function hasClientPortalAccess(orgId) {
+      return isAuthenticated()
+             && exists(/databases/$(database)/documents/clientPortalAccess/$(request.auth.uid)/organizations/$(orgId));
+    }
+
+    function portalClientId(orgId) {
+      return get(/databases/$(database)/documents/clientPortalAccess/$(request.auth.uid)/organizations/$(orgId)).data.client_id;
+    }
+
     // Returns true if the update keeps the named field unchanged (or absent on both sides).
     function unchanged(field) {
       return !(field in request.resource.data.diff(resource.data).affectedKeys());
@@ -77,7 +86,7 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId} {
-      allow read: if isAuthenticated() && belongsToOrg(orgId);
+      allow read: if isAuthenticated() && (belongsToOrg(orgId) || hasClientPortalAccess(orgId));
 
       // Only users without an org can create their first org, and they must claim
       // it as creator. Blocks attackers from creating orgs they then hop into.
@@ -91,7 +100,8 @@ service cloud.firestore {
       allow delete: if false;
 
       match /clients/{clientId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician())
+                    || (hasClientPortalAccess(orgId) && portalClientId(orgId) == clientId);
         allow create: if belongsToOrg(orgId) && isReception();
         allow update: if belongsToOrg(orgId) && isReception();
         // Hard-delete is denied — clients are soft-deleted via `deleted_at`.
@@ -99,39 +109,41 @@ service cloud.firestore {
       }
 
       match /appointments/{appointmentId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
         allow create: if belongsToOrg(orgId) && isReception();
         allow update: if belongsToOrg(orgId) && isReception();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /treatments/{treatmentId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
         allow create, update: if belongsToOrg(orgId) && isStaff();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /staff/{staffId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /packages/{packageId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
         allow create, update: if belongsToOrg(orgId) && isStaff();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /purchases/{purchaseId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
         allow create, update: if belongsToOrg(orgId) && isReception();
         // Purchases are a financial audit trail — no deletes.
         allow delete: if false;
       }
 
       match /products/{productId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
         allow create, update: if belongsToOrg(orgId) && isStaff();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
@@ -143,7 +155,8 @@ service cloud.firestore {
       }
 
       match /productAssignments/{assignmentId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
         allow create, update: if belongsToOrg(orgId) && isReception();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
@@ -159,7 +172,10 @@ service cloud.firestore {
       }
 
       match /invoices/{invoiceId} {
-        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow read: if (belongsToOrg(orgId) && isAdmin())
+                    || (hasClientPortalAccess(orgId)
+                        && resource.data.client_id == portalClientId(orgId)
+                        && resource.data.status == 'issued');
         // Invoice records are created by the createInvoice Cloud Function
         // (atomic counter + frozen snapshots + server-computed totals).
         allow create: if false;
@@ -282,6 +298,12 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      match /bookingRequests/{requestId} {
+        allow read: if (belongsToOrg(orgId) && isReception())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
+        allow create, update, delete: if false; // Cloud Functions only
+      }
+
       // Rate limiters — Cloud Functions only
       match /rateLimits/{docId} {
         allow read: if false;
@@ -314,6 +336,11 @@ service cloud.firestore {
                     && request.resource.data.status == 'signed'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt'])
                     && (!('expiresAt' in resource.data.keys()) || resource.data.expiresAt > request.time);
+    }
+
+    match /clientPortalAccess/{userId}/organizations/{orgId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false; // Cloud Functions only
     }
   }
 }

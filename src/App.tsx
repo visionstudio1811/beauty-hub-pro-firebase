@@ -17,6 +17,7 @@ import NotFound from './pages/NotFound';
 import Auth from './pages/Auth';
 import Index from './pages/Index';
 import WaiverForm from './pages/WaiverForm';
+import ClientPortal from './pages/ClientPortal';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { ClientsProvider } from '@/contexts/ClientsContext';
@@ -60,6 +61,8 @@ function App() {
                             <Route path="/" element={<Index />} />
                             <Route path="/auth" element={<Auth />} />
                             <Route path="/waiver/:token" element={<WaiverForm />} />
+                            <Route path="/client" element={<ClientPortal />} />
+                            <Route path="/client/:orgSlug" element={<ClientPortal />} />
                             
                             {/* Admin routes */}
                             <Route path="/admin" element={

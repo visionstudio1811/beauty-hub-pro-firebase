@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -58,6 +59,7 @@ export const AcuityIntegration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [mappingJson, setMappingJson] = useState('{\n  "treatments": {},\n  "staff_calendars": {}\n}');
   const [syncStats, setSyncStats] = useState<SyncStats>({ clients: 0, appointments: 0 });
 
   useEffect(() => {
@@ -93,6 +95,7 @@ export const AcuityIntegration: React.FC = () => {
           created_at: data.created_at ?? undefined,
           updated_at: data.updated_at ?? undefined,
         });
+        setMappingJson(JSON.stringify(data.client_portal_acuity_mappings ?? { treatments: {}, staff_calendars: {} }, null, 2));
       }
     } catch (error) {
       console.error('Error loading Acuity config:', error);
@@ -151,6 +154,17 @@ export const AcuityIntegration: React.FC = () => {
     try {
       const orgId = currentOrganization.id;
       const now = new Date().toISOString();
+      let clientPortalAcuityMappings: Record<string, unknown>;
+      try {
+        clientPortalAcuityMappings = JSON.parse(mappingJson || '{}') as Record<string, unknown>;
+      } catch {
+        toast({
+          title: 'Invalid mapping JSON',
+          description: 'Check the client portal Acuity mapping before saving.',
+          variant: 'destructive',
+        });
+        return;
+      }
       const configData = {
         acuity_user_id: config.acuity_user_id,
         api_key_encrypted: config.api_key_encrypted,
@@ -159,6 +173,7 @@ export const AcuityIntegration: React.FC = () => {
         sync_direction: config.sync_direction,
         sync_frequency_minutes: config.sync_frequency_minutes,
         conflict_resolution: config.conflict_resolution,
+        client_portal_acuity_mappings: clientPortalAcuityMappings,
         organization_id: orgId,
         updated_at: now,
       };
@@ -333,6 +348,20 @@ export const AcuityIntegration: React.FC = () => {
               onCheckedChange={(checked) => setConfig(prev => ({ ...prev, sync_enabled: checked }))}
             />
             <Label htmlFor="sync_enabled">Enable Acuity Sync</Label>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client_portal_acuity_mappings">Client Portal Booking Mapping</Label>
+            <Textarea
+              id="client_portal_acuity_mappings"
+              value={mappingJson}
+              onChange={(e) => setMappingJson(e.target.value)}
+              className="min-h-40 font-mono text-xs"
+              placeholder='{"treatments":{"crmTreatmentId":{"appointmentTypeID":123}},"staff_calendars":{"crmStaffId":456}}'
+            />
+            <p className="text-xs text-muted-foreground">
+              Map CRM treatment IDs to Acuity appointment type IDs and CRM staff IDs to Acuity calendar IDs for approved client requests.
+            </p>
           </div>
 
           <Button onClick={saveConfig} disabled={saving}>

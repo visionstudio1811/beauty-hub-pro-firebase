@@ -7,6 +7,7 @@ import AppointmentFilters from '../components/AppointmentFilters';
 import AppointmentSection from '../components/dashboard/AppointmentSection';
 import AppointmentsHeader from '../components/appointments/AppointmentsHeader';
 import AppointmentsStats from '../components/appointments/AppointmentsStats';
+import { BookingRequestsPanel } from '@/components/appointments/BookingRequestsPanel';
 import { useAppointmentStatus } from '../hooks/useAppointmentStatus';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
@@ -108,6 +109,8 @@ const Appointments = () => {
         scheduledAppointments={statistics.scheduledAppointments}
         completedAppointments={statistics.completedAppointments}
       />
+
+      <BookingRequestsPanel />
 
       {/* Filters */}
       <AppointmentFilters 
