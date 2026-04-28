@@ -284,10 +284,10 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
   if (rawSlug) slugCandidates.add(rawSlug);
 
   if (host && !['localhost', '127.0.0.1'].includes(host)) {
-    queries.push(orgs.where('crm_domain', '==', host).where('is_active', '==', true).limit(1).get());
-    queries.push(orgs.where('custom_domain', '==', host).where('is_active', '==', true).limit(1).get());
-    queries.push(orgs.where('domain', '==', host).where('is_active', '==', true).limit(1).get());
-    queries.push(orgs.where('portal_domains', 'array-contains', host).where('is_active', '==', true).limit(1).get());
+    queries.push(orgs.where('crm_domain', '==', host).where('isActive', '==', true).limit(1).get());
+    queries.push(orgs.where('custom_domain', '==', host).where('isActive', '==', true).limit(1).get());
+    queries.push(orgs.where('domain', '==', host).where('isActive', '==', true).limit(1).get());
+    queries.push(orgs.where('portal_domains', 'array-contains', host).where('isActive', '==', true).limit(1).get());
 
     const withoutCrm = host.startsWith('crm.') ? host.slice(4) : host;
     const labels = withoutCrm.split('.').filter(Boolean);
@@ -297,7 +297,7 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
   }
 
   for (const slug of Array.from(slugCandidates).filter(Boolean)) {
-    queries.push(orgs.where('slug', '==', slug).where('is_active', '==', true).limit(1).get());
+    queries.push(orgs.where('slug', '==', slug).where('isActive', '==', true).limit(1).get());
   }
 
   const snaps = await Promise.all(queries);
