@@ -185,6 +185,14 @@ Clients authenticate with Google or phone OTP. The Cloud Function `linkClientPor
 
 Booking requests are created by `createClientBookingRequest` and reviewed by staff via the CRM Appointments page. Approval calls `updateClientBookingRequest`, creates the appointment, decrements package sessions, and attempts Acuity sync if mappings are configured.
 
+Production smoke test after deploy:
+
+1. Open `https://crm.lumiereut.com/client`.
+2. Confirm the page resolves to the Lumiere portal, not the public marketing site.
+3. Sign in with a Google email or phone number that exists on a Lumiere client card.
+4. Confirm only that client's records appear.
+5. Submit a booking request and approve it from CRM → Appointments.
+
 ## What does NOT work in emulator mode
 
 - **Real emails (Resend)** — without `RESEND_API_KEY` in the functions env, the

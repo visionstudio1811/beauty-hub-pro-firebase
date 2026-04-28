@@ -5,6 +5,7 @@ A multi-tenant salon and spa management platform for appointments, clients, staf
 **Live URL:** https://beauty-hub-pro-app.web.app
 **GitHub:** https://github.com/visionstudio1811/beauty-hub-pro-firebase
 **Firebase project:** `beauty-hub-pro-app`
+**Client portal:** deployed at `/client` on each white-label CRM domain
 
 ---
 
@@ -55,6 +56,12 @@ Supported alternatives are `custom_domain`, `domain`, or `portal_domains: ["crm.
 Client access is not a staff CRM account. Clients sign in with Google or phone OTP, and the backend grants portal access only when the signed-in email or phone matches an active CRM client card in that organization. After matching, clients can view their own active packages, assigned products, issued invoices, appointments, and booking requests.
 
 Booking from the portal is request-based. A client submits a preferred slot and optional backup time; staff approve or reject the request in the CRM Appointments page. Only after approval does the system create the CRM appointment, decrement package sessions, and attempt Acuity sync.
+
+For Lumiere, the intended client-facing link is:
+
+```
+https://crm.lumiereut.com/client
+```
 
 ---
 
