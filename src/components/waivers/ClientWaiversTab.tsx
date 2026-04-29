@@ -91,7 +91,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
     if (!currentOrganization) return;
     setLoading(true);
     try {
-      const [tplSnap, waiverSnap] = await Promise.all([
+      const [tplResult, waiverResult] = await Promise.allSettled([
         getDocs(
           query(
             collection(db, 'organizations', currentOrganization.id, 'waiverTemplates'),
@@ -107,7 +107,13 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
         ),
       ]);
 
-      const allTpls: WaiverTemplate[] = tplSnap.docs.map(d => ({
+      if (tplResult.status === 'rejected') console.error('Failed to load templates:', tplResult.reason);
+      if (waiverResult.status === 'rejected') console.error('Failed to load waivers:', waiverResult.reason);
+
+      const tplSnap = tplResult.status === 'fulfilled' ? tplResult.value : null;
+      const waiverSnap = waiverResult.status === 'fulfilled' ? waiverResult.value : null;
+
+      const allTpls: WaiverTemplate[] = (tplSnap?.docs ?? []).map(d => ({
         id: d.id,
         title: d.data().title ?? '',
         kind: (d.data().kind as TemplateKind) ?? 'waiver',
@@ -115,7 +121,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
       const tpls = allTpls.filter(t => t.kind === kind);
 
       const waiverList: WaiverRecord[] = await Promise.all(
-        waiverSnap.docs.map(async (d) => {
+        (waiverSnap?.docs ?? []).map(async (d) => {
           const data = d.data();
           let tplTitle: string | null = null;
           let recordKind: TemplateKind = (data.kind as TemplateKind) ?? 'waiver';

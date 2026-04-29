@@ -4,9 +4,8 @@ import { useParams } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
-import { db, storage, functions } from '@/lib/firebase';
+import { db, functions } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,22 +58,81 @@ interface WaiverData {
   client_name: string;
   client_email: string;
   client_phone: string;
+  client_birthday: string;
+  client_age: number | null;
+  client_address: string;
+  client_gender: string;
+}
+
+function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<string, string | boolean | string[]> {
+  const firstName = waiver.client_name.split(' ')[0] ?? '';
+  const lastName = waiver.client_name.split(' ').slice(1).join(' ') ?? '';
+  const prefill: Record<string, string | boolean | string[]> = {};
+
+  for (const block of blocks) {
+    if (!block.label && block.type !== 'email' && block.type !== 'phone') continue;
+    const lbl = (block.label ?? '').toLowerCase();
+
+    if (block.type === 'email' || lbl.includes('email')) {
+      if (waiver.client_email) prefill[block.id] = waiver.client_email;
+    } else if (block.type === 'phone' || lbl.includes('phone')) {
+      if (waiver.client_phone) prefill[block.id] = waiver.client_phone;
+    } else if (lbl.includes('first name')) {
+      if (firstName) prefill[block.id] = firstName;
+    } else if (lbl.includes('last name')) {
+      if (lastName) prefill[block.id] = lastName;
+    } else if (lbl.includes('full name') || lbl === 'name') {
+      if (waiver.client_name) prefill[block.id] = waiver.client_name;
+    } else if (lbl.includes('birthday') || lbl.includes('date of birth') || lbl.includes('dob') || lbl.includes('birth date')) {
+      if (waiver.client_birthday) prefill[block.id] = waiver.client_birthday;
+    } else if (lbl.includes('age')) {
+      if (waiver.client_age != null) prefill[block.id] = String(waiver.client_age);
+    } else if (lbl.includes('address')) {
+      if (waiver.client_address) prefill[block.id] = waiver.client_address;
+    }
+  }
+  return prefill;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function uploadPdf(blob: Blob, token: string): Promise<string> {
-  const path = `waivers/${token}.pdf`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
-  return getDownloadURL(storageRef);
+  const fileBase64 = await blobToBase64(blob);
+  const upload = httpsCallable<
+    { token: string; fileBase64: string; contentType: string; kind: 'pdf' },
+    { url: string }
+  >(functions, 'uploadWaiverFile');
+  const res = await upload({ token, fileBase64, contentType: 'application/pdf', kind: 'pdf' });
+  return res.data.url;
 }
 
 async function uploadWaiverImage(file: File, token: string, blockId: string, index: number): Promise<string> {
+  const fileBase64 = await blobToBase64(file);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `waivers/${token}/photos/${blockId}-${index}-${safeName}`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file, { contentType: file.type });
-  return getDownloadURL(storageRef);
+  const upload = httpsCallable<
+    { token: string; fileBase64: string; contentType: string; kind: 'photo'; filename: string },
+    { url: string }
+  >(functions, 'uploadWaiverFile');
+  const res = await upload({
+    token,
+    fileBase64,
+    contentType: file.type,
+    kind: 'photo',
+    filename: `${blockId}-${index}-${safeName}`,
+  });
+  return res.data.url;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -216,12 +274,15 @@ async function buildPdf(
 export default function WaiverForm() {
   const { token } = useParams<{ token: string }>();
   const sigRef = useRef<SignatureCanvas>(null);
+  const sigDataUrlRef = useRef<string | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [waiver, setWaiver] = useState<WaiverData | null>(null);
   const [alreadySigned, setAlreadySigned] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -240,16 +301,16 @@ export default function WaiverForm() {
   const [imageFiles, setImageFiles] = useState<Record<string, File[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [capturedSig, setCapturedSig] = useState<string | null>(null);
 
-  // Load waiver data from Firestore via waiverTokens collection
-  useEffect(() => {
+  const loadWaiver = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
-
-    (async () => {
-      try {
-        // Token IS the document ID in waiverTokens
-        const tokenSnap = await getDoc(doc(db, 'waiverTokens', token));
-        if (!tokenSnap.exists()) { setNotFound(true); setLoading(false); return; }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      // Token IS the document ID in waiverTokens
+      const tokenSnap = await getDoc(doc(db, 'waiverTokens', token));
+      if (!tokenSnap.exists()) { setNotFound(true); setLoading(false); return; }
 
         const tokenData = tokenSnap.data();
         const waiverId: string = tokenData.waiverId;         // sendWaiver uses camelCase
@@ -286,7 +347,7 @@ export default function WaiverForm() {
         const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
         const tpl = tplSnap.exists() ? tplSnap.data() : null;
 
-        setWaiver({
+        const waiverData: WaiverData = {
           waiver_id: waiverId,
           template_title: tpl?.title ?? 'Waiver',
           template_headline: tpl?.headline ?? '',
@@ -295,16 +356,31 @@ export default function WaiverForm() {
           client_name: wd.clientName ?? '',
           client_email: wd.clientEmail ?? '',
           client_phone: wd.clientPhone ?? '',
-        });
+          client_birthday: wd.clientBirthday ?? '',
+          client_age: wd.clientAge ?? null,
+          client_address: wd.clientAddress ?? '',
+          client_gender: wd.clientGender ?? '',
+        };
+        setWaiver(waiverData);
         setSignerName(wd.clientName ?? '');
         setSignerEmail(wd.clientEmail ?? '');
         setSignerPhone(wd.clientPhone ?? '');
-      } catch (err) {
-        setNotFound(true);
+        setAnswers(buildPrefillAnswers(tpl?.content ?? [], waiverData));
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        if (msg.includes('not found') || msg.includes('NOT_FOUND')) {
+          setNotFound(true);
+        } else {
+          setLoadError(msg);
+        }
       } finally {
         setLoading(false);
       }
-    })();
+  };
+
+  // Load waiver data from Firestore via waiverTokens collection
+  useEffect(() => {
+    loadWaiver();
   }, [token]);
 
   const handleVerifyOtp = async () => {
@@ -331,7 +407,7 @@ export default function WaiverForm() {
       const wd = waiverSnap.data();
       const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
       const tpl = tplSnap.exists() ? tplSnap.data() : null;
-      setWaiver({
+      const waiverDataOtp: WaiverData = {
         waiver_id: waiverId,
         template_title: tpl?.title ?? 'Form',
         template_headline: tpl?.headline ?? '',
@@ -340,10 +416,16 @@ export default function WaiverForm() {
         client_name: wd.clientName ?? '',
         client_email: wd.clientEmail ?? '',
         client_phone: wd.clientPhone ?? '',
-      });
+        client_birthday: wd.clientBirthday ?? '',
+        client_age: wd.clientAge ?? null,
+        client_address: wd.clientAddress ?? '',
+        client_gender: wd.clientGender ?? '',
+      };
+      setWaiver(waiverDataOtp);
       setSignerName(wd.clientName ?? '');
       setSignerEmail(wd.clientEmail ?? '');
       setSignerPhone(wd.clientPhone ?? '');
+      setAnswers(buildPrefillAnswers(tpl?.content ?? [], waiverDataOtp));
       setLoading(false);
     } catch (err: unknown) {
       setOtpError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
@@ -401,7 +483,7 @@ export default function WaiverForm() {
     });
     if (!mainConsent) {
       newErrors['__sig'] = 'Please agree to use electronic records and signatures.';
-    } else if (!sigRef.current || sigRef.current.isEmpty()) {
+    } else if (!capturedSig && (!sigRef.current || sigRef.current.isEmpty())) {
       newErrors['__sig'] = 'Please draw your signature.';
     }
     return newErrors;
@@ -429,7 +511,7 @@ export default function WaiverForm() {
         );
       }
 
-      const sigDataUrl = sigRef.current!.getTrimmedCanvas().toDataURL('image/png');
+      const sigDataUrl = capturedSig ?? sigRef.current!.getTrimmedCanvas().toDataURL('image/png');
       const pdfTitle = waiver.template_headline || waiver.template_title;
       const pdfBlob = await buildPdf(pdfTitle, signerName, signerEmail, signerPhone, waiver.template_blocks, finalAnswers, sigDataUrl, imageDataUrls);
       const pdfUrl  = await uploadPdf(pdfBlob, token!);
@@ -463,6 +545,20 @@ export default function WaiverForm() {
   // ── States ────────────────────────────────────────────────
   if (loading) return (
     <Screen><Loader2 className="h-8 w-8 animate-spin text-primary" /></Screen>
+  );
+  if (loadError) return (
+    <Screen>
+      <AlertCircle className="h-10 w-10 text-amber-500 mb-3" />
+      <h2 className="text-lg font-semibold">Connection error</h2>
+      <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">Could not load the form. Check your connection and try again.</p>
+      <p className="text-xs text-muted-foreground mt-2 text-center max-w-xs opacity-60">{loadError}</p>
+      <button
+        onClick={() => loadWaiver()}
+        className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
+      >
+        Try Again
+      </button>
+    </Screen>
   );
   if (notFound) return (
     <Screen>
@@ -620,7 +716,7 @@ export default function WaiverForm() {
                 onCheckedChange={(c) => {
                   const next = c === true;
                   setMainConsent(next);
-                  if (!next) sigRef.current?.clear();
+                  if (!next) { sigRef.current?.clear(); sigDataUrlRef.current = null; setCapturedSig(null); }
                   setErrors((p) => { const n = { ...p }; delete n['__sig']; return n; });
                 }}
                 className="mt-0.5"
@@ -638,45 +734,59 @@ export default function WaiverForm() {
               </span>
             </label>
 
-            <div className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-border'}`}>
-              <SignatureCanvas
-                ref={sigRef}
-                penColor="#1e1e2e"
-                canvasProps={{
-                  className: 'w-full',
-                  style: {
-                    height: 140,
-                    background: '#fafafa',
-                    touchAction: 'none',
-                    pointerEvents: mainConsent ? 'auto' : 'none',
-                    opacity: mainConsent ? 1 : 0.5,
-                  },
-                }}
-                onEnd={() => setErrors((p) => { const n = { ...p }; delete n['__sig']; return n; })}
-              />
-              {!mainConsent && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
-                    Check the box above to enable signing
-                  </span>
+            {capturedSig ? (
+              <div className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-green-400'}`}>
+                <img src={capturedSig} alt="Your signature" className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
+                <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">Signature saved</span>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div ref={canvasContainerRef} className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-border'}`}>
+                <SignatureCanvas
+                  ref={sigRef}
+                  penColor="#1e1e2e"
+                  canvasProps={{
+                    className: 'w-full',
+                    style: {
+                      height: 140,
+                      background: '#fafafa',
+                      touchAction: 'none',
+                      pointerEvents: mainConsent ? 'auto' : 'none',
+                      opacity: mainConsent ? 1 : 0.5,
+                    },
+                  }}
+                  onEnd={() => {
+                    if (sigRef.current && !sigRef.current.isEmpty()) {
+                      setCapturedSig(sigRef.current.getTrimmedCanvas().toDataURL('image/png'));
+                    }
+                    setErrors((p) => { const n = { ...p }; delete n['__sig']; return n; });
+                  }}
+                />
+                {!mainConsent && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
+                      Check the box above to enable signing
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-center">
               {errors['__sig'] ? (
                 <p className="text-xs text-destructive">{errors['__sig']}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  {mainConsent ? 'Draw your signature above' : 'Consent required before signing'}
+                  {capturedSig ? 'Signature captured — scroll freely' : mainConsent ? 'Draw your signature above' : 'Consent required before signing'}
                 </p>
               )}
               <button
                 type="button"
-                onClick={() => sigRef.current?.clear()}
+                onClick={() => { sigRef.current?.clear(); setCapturedSig(null); sigDataUrlRef.current = null; }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                disabled={!mainConsent}
+                disabled={!mainConsent && !capturedSig}
               >
-                <RotateCcw className="h-3 w-3" /> Clear
+                <RotateCcw className="h-3 w-3" /> Re-sign
               </button>
             </div>
 
@@ -995,15 +1105,18 @@ function SignatureBlock({
   const ref = useRef<SignatureCanvas>(null);
   const [consented, setConsented] = useState(false);
   const [showDisclosure, setShowDisclosure] = useState(false);
+  const [captured, setCaptured] = useState<string | null>(null);
 
   const capture = () => {
-    if (!ref.current || ref.current.isEmpty()) { onAnswer(''); return; }
+    if (!ref.current || ref.current.isEmpty()) return;
     const dataUrl = ref.current.getTrimmedCanvas().toDataURL('image/png');
+    setCaptured(dataUrl);
     onAnswer(dataUrl);
   };
 
   const clear = () => {
     ref.current?.clear();
+    setCaptured(null);
     onAnswer('');
   };
 
@@ -1011,6 +1124,7 @@ function SignatureBlock({
     setConsented(next);
     if (!next) {
       ref.current?.clear();
+      setCaptured(null);
       onAnswer('');
     }
   };
@@ -1042,46 +1156,55 @@ function SignatureBlock({
         </span>
       </label>
 
-      <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-border'}`}>
-        <SignatureCanvas
-          ref={ref}
-          penColor="#1e1e2e"
-          canvasProps={{
-            className: 'w-full',
-            style: {
-              height: 140,
-              background: '#fafafa',
-              touchAction: 'none',
-              pointerEvents: consented ? 'auto' : 'none',
-              opacity: consented ? 1 : 0.5,
-            },
-          }}
-          onEnd={capture}
-        />
-        {!consented && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
-              Check the box above to enable signing
-            </span>
+      {captured ? (
+        <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-green-400'}`}>
+          <img src={captured} alt="Your signature" className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
+          <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">Signature saved</span>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-border'}`}>
+          <SignatureCanvas
+            ref={ref}
+            penColor="#1e1e2e"
+            canvasProps={{
+              className: 'w-full',
+              style: {
+                height: 140,
+                background: '#fafafa',
+                touchAction: 'none',
+                pointerEvents: consented ? 'auto' : 'none',
+                opacity: consented ? 1 : 0.5,
+              },
+            }}
+            onEnd={capture}
+          />
+          {!consented && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
+                Check the box above to enable signing
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-between items-center">
         {error ? (
           <p className="text-xs text-destructive">{error}</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            {consented ? 'Draw your signature above' : 'Consent required before signing'}
+            {captured ? 'Signature captured — scroll freely' : consented ? 'Draw your signature above' : 'Consent required before signing'}
           </p>
         )}
         <button
           type="button"
           onClick={clear}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          disabled={!consented}
+          disabled={!consented && !captured}
         >
-          <RotateCcw className="h-3 w-3" /> Clear
+          <RotateCcw className="h-3 w-3" /> Re-sign
         </button>
       </div>
 

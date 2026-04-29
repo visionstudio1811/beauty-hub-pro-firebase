@@ -99,23 +99,25 @@ const EnhancedProductManagement = () => {
 
       // Fetch products
       const productsSnap = await getDocs(
-        query(collection(db, 'organizations', orgId, 'products'), where('is_active', '==', true), orderBy('name'))
+        query(collection(db, 'organizations', orgId, 'products'), orderBy('name'))
       );
-      setProducts(productsSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name ?? '',
-          description: data.description ?? undefined,
-          price: data.price ?? 0,
-          category: data.category ?? undefined,
-          is_active: data.is_active ?? true,
-          stock_quantity: data.stock_quantity ?? undefined,
-          image_url: data.image_url ?? undefined,
-          created_at: data.created_at ?? '',
-          updated_at: data.updated_at ?? '',
-        } as Product;
-      }));
+      setProducts(productsSnap.docs
+        .filter(d => d.data().is_active !== false)
+        .map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            name: data.name ?? '',
+            description: data.description ?? undefined,
+            price: data.price ?? 0,
+            category: data.category ?? undefined,
+            is_active: data.is_active ?? true,
+            stock_quantity: data.stock_quantity ?? undefined,
+            image_url: data.image_url ?? undefined,
+            created_at: data.created_at ?? '',
+            updated_at: data.updated_at ?? '',
+          } as Product;
+        }));
 
       // Fetch categories (active only, ordered by sort_order)
       const categoriesSnap = await getDocs(

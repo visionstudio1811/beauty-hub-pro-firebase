@@ -132,6 +132,10 @@ export const sendWaiver = onCall(
       clientName: client.name ?? '',
       clientEmail: client.email ?? '',
       clientPhone: client.phone ?? '',
+      clientBirthday: client.birthday ?? client.dateOfBirth ?? '',
+      clientAge: client.age ?? null,
+      clientAddress: client.address ?? '',
+      clientGender: client.gender ?? '',
       status: 'pending',
       token,
       sentBy: uid,
@@ -161,11 +165,28 @@ export const sendWaiver = onCall(
     }
 
     if (mode === 'email') {
-      const resendKey = process.env.RESEND_API_KEY;
+      // Prefer per-org Resend config; fall back to global secret
+      let resendKey: string | undefined;
+      let fromEmail = 'noreply@beauty-hub-pro.com';
+      let fromName = 'Beauty Hub Pro';
+
+      const orgIntegrationSnap = await db
+        .collection('organizations').doc(organizationId)
+        .collection('marketingIntegrations').doc('resend')
+        .get();
+
+      if (orgIntegrationSnap.exists && orgIntegrationSnap.data()?.is_enabled) {
+        const cfg = orgIntegrationSnap.data()!.configuration as { apiKey?: string; fromEmail?: string; fromName?: string };
+        if (cfg.apiKey) resendKey = cfg.apiKey;
+        if (cfg.fromEmail) fromEmail = cfg.fromEmail;
+        if (cfg.fromName) fromName = cfg.fromName;
+      }
+
+      if (!resendKey) resendKey = process.env.RESEND_API_KEY;
       if (!resendKey) return { success: false, error: 'Email service not configured', waiver_token: token, waiver_url: waiverUrl };
 
       const orgDoc = await db.collection('organizations').doc(organizationId).get();
-      const orgName = (orgDoc.data()?.name as string) ?? 'Your salon';
+      const orgName = (orgDoc.data()?.name as string) ?? fromName;
       const safeFirstName = escapeHtml(firstName);
       const safeOrgName = escapeHtml(orgName);
       const safeTitle = escapeHtml(templateTitle);
@@ -175,7 +196,7 @@ export const sendWaiver = onCall(
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Beauty Hub Pro <noreply@beauty-hub-pro.com>',
+          from: `${fromName} <${fromEmail}>`,
           to: [client.email],
           subject: `Please ${kindAction} your ${kindLabel} for ${orgName}`,
           html: `<p>Hi ${safeFirstName},</p><p>${safeOrgName} has sent you a <strong>${safeTitle}</strong> to ${kindAction} before your appointment.</p><p><a href="${safeUrl}" style="display:inline-block;padding:12px 24px;background:#6366f1;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Open ${templateKind === 'intake' ? 'form' : 'waiver'}</a></p><p>Or copy this link:<br/><a href="${safeUrl}">${safeUrl}</a></p><p style="color:#6b7280;font-size:13px">This link is unique to you — please do not share it.</p>`,

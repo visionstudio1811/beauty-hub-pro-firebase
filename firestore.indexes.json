@@ -59,6 +59,14 @@
       ]
     },
     {
+      "collectionGroup": "purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "purchase_date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "productAssignments",
       "queryScope": "COLLECTION",
       "fields": [
@@ -112,6 +120,22 @@
       "fields": [
         { "fieldPath": "client_id", "order": "ASCENDING" },
         { "fieldPath": "invoice_number_int", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_active", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clientWaivers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

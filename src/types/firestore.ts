@@ -31,6 +31,8 @@ export interface Client {
   phone?: string;
   address?: string;
   dateOfBirth?: string;
+  gender?: 'female' | 'male' | '';
+  age?: number;
   allergies?: string;
   hasMembership: boolean;
   acuityCustomerId?: string;

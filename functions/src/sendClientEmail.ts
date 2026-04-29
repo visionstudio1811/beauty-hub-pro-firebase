@@ -131,12 +131,19 @@ export const sendClientEmail = onCall(
       }
     }
 
+    const DEFAULT_TEMPLATE_HTML = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+  <h2 style="color:#1a1a1a">{{subject}}</h2>
+  <p>Hi {{client_name}},</p>
+  <div style="line-height:1.6">{{message}}</div>
+  <br>
+  <p style="color:#666;font-size:13px">— {{organization_name}}</p>
+</body></html>`;
+
     const emailTemplates = emailConfig.email_templates || {};
     const template = emailTemplates[templateType] || emailTemplates['general'] || emailTemplates['default'];
-
-    if (!template) {
-      throw new HttpsError('not-found', `Email template '${templateType}' not found`);
-    }
+    const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
 
     // All values in templateVariables must be strings (enforced by type)
     const orgTimezone = orgData.timezone || 'America/New_York';
@@ -156,7 +163,7 @@ export const sendClientEmail = onCall(
       ),
     };
 
-    const emailHtml = renderTemplate(template.html, templateVariables);
+    const emailHtml = renderTemplate(templateHtml, templateVariables);
 
     const resend = new Resend(apiKey);
     const emailResponse = await resend.emails.send({
@@ -167,7 +174,8 @@ export const sendClientEmail = onCall(
     });
 
     if (emailResponse.error) {
-      throw new HttpsError('internal', 'Failed to send email');
+      const resendMsg = (emailResponse.error as any)?.message || JSON.stringify(emailResponse.error);
+      throw new HttpsError('internal', `Resend error: ${resendMsg}`);
     }
 
     await db

@@ -210,7 +210,8 @@ service cloud.firestore {
       }
 
       match /waiverTemplates/{templateId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        // Staff reads + unauthenticated reads (public waiver/intake form needs the template blocks)
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || request.auth == null;
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
@@ -222,7 +223,13 @@ service cloud.firestore {
       }
 
       match /clientWaivers/{waiverId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow read: if (belongsToOrg(orgId) && isBeautician())
+                    || (request.auth == null
+                        && resource.data.token is string
+                        && exists(/databases/$(database)/documents/waiverTokens/$(resource.data.token))
+                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.waiverId == waiverId
+                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.organizationId == orgId
+                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.status == 'pending');
         allow create, update: if belongsToOrg(orgId) && isReception();
         allow delete: if belongsToOrg(orgId) && isAdmin();
 

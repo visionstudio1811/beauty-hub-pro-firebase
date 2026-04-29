@@ -88,7 +88,7 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
     setTesting(true);
     try {
       const testFn = httpsCallable(functions, 'testResendIntegration');
-      const result = await testFn({ integrationId: 'resend' });
+      const result = await testFn({ organizationId: currentOrganization?.id });
       const data = result.data as { success?: boolean; error?: string };
 
       if (data.success) {

@@ -100,11 +100,6 @@ type TreatmentRecord = {
   price?: number;
 };
 
-type StaffRecord = {
-  id: string;
-  name: string;
-};
-
 type ProductAssignment = {
   id: string;
   product_id?: string;
@@ -154,7 +149,6 @@ type PortalData = {
   purchases: PurchaseRecord[];
   packages: Record<string, PackageRecord>;
   treatments: Record<string, TreatmentRecord>;
-  staff: StaffRecord[];
   products: ProductAssignment[];
   productCatalog: Record<string, ProductRecord>;
   invoices: InvoiceRecord[];
@@ -167,7 +161,6 @@ const emptyData: PortalData = {
   purchases: [],
   packages: {},
   treatments: {},
-  staff: [],
   products: [],
   productCatalog: {},
   invoices: [],
@@ -217,7 +210,6 @@ export default function ClientPortal() {
   const [requestForm, setRequestForm] = useState({
     purchaseId: '',
     treatmentId: '',
-    staffId: '',
     date: '',
     time: '',
     altDate: '',
@@ -277,13 +269,12 @@ export default function ClientPortal() {
       try {
         const orgRef = doc(db, 'organizations', access.organization_id);
         const clientSnap = await getDoc(doc(orgRef, 'clients', access.client_id));
-        const [purchasesSnap, productsSnap, invoicesSnap, appointmentsSnap, requestsSnap, staffSnap] = await Promise.all([
+        const [purchasesSnap, productsSnap, invoicesSnap, appointmentsSnap, requestsSnap] = await Promise.all([
           getDocs(query(collection(orgRef, 'purchases'), where('client_id', '==', access.client_id), where('payment_status', '==', 'active'))),
           getDocs(query(collection(orgRef, 'productAssignments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'invoices'), where('client_id', '==', access.client_id), where('status', '==', 'issued'))),
           getDocs(query(collection(orgRef, 'appointments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'bookingRequests'), where('client_id', '==', access.client_id))),
-          getDocs(collection(orgRef, 'staff')),
         ]);
 
         const purchases = purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as PurchaseRecord));
@@ -321,9 +312,6 @@ export default function ClientPortal() {
           purchases,
           packages,
           treatments,
-          staff: staffSnap.docs
-            .map((d) => ({ id: d.id, name: d.data().name ?? d.data().fullName ?? d.data().email ?? 'Staff' }))
-            .filter((staff) => staff.name),
           products: productAssignments,
           productCatalog,
           invoices: invoicesSnap.docs
@@ -393,8 +381,8 @@ export default function ClientPortal() {
 
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!org?.id || !requestForm.purchaseId || !requestForm.treatmentId || !requestForm.staffId || !requestForm.date || !requestForm.time) {
-      toast({ title: 'Missing request details', description: 'Choose a package, treatment, staff member, date, and time.', variant: 'destructive' });
+    if (!org?.id || !requestForm.purchaseId || !requestForm.treatmentId || !requestForm.date || !requestForm.time) {
+      toast({ title: 'Missing request details', description: 'Choose a package, treatment, date, and time.', variant: 'destructive' });
       return;
     }
 
@@ -402,20 +390,20 @@ export default function ClientPortal() {
     try {
       const createRequest = httpsCallable(functions, 'createClientBookingRequest');
       const alternativeSlots = requestForm.altDate && requestForm.altTime
-        ? [{ date: requestForm.altDate, time: requestForm.altTime, staff_id: requestForm.staffId }]
+        ? [{ date: requestForm.altDate, time: requestForm.altTime }]
         : [];
 
       await createRequest({
         organizationId: org.id,
         purchaseId: requestForm.purchaseId,
         treatmentId: requestForm.treatmentId,
-        preferredSlot: { date: requestForm.date, time: requestForm.time, staff_id: requestForm.staffId },
+        preferredSlot: { date: requestForm.date, time: requestForm.time },
         alternativeSlots,
         notes: requestForm.notes,
       });
 
       toast({ title: 'Request sent', description: 'The spa will confirm before it becomes an appointment.' });
-      setRequestForm({ purchaseId: '', treatmentId: '', staffId: '', date: '', time: '', altDate: '', altTime: '', notes: '' });
+      setRequestForm({ purchaseId: '', treatmentId: '', date: '', time: '', altDate: '', altTime: '', notes: '' });
       setRefreshKey((value) => value + 1);
     } catch (error) {
       console.error(error);
@@ -601,19 +589,6 @@ export default function ClientPortal() {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Staff">
-                  <Select
-                    value={requestForm.staffId}
-                    onValueChange={(value) => setRequestForm((prev) => ({ ...prev, staffId: value }))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Choose staff" /></SelectTrigger>
-                    <SelectContent>
-                      {data.staff.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
                 <Field label="Preferred date">
                   <Input type="date" value={requestForm.date} onChange={(event) => setRequestForm((prev) => ({ ...prev, date: event.target.value }))} />
                 </Field>
@@ -664,7 +639,7 @@ export default function ClientPortal() {
                   <div>
                     <div className="font-medium">{appointment.treatment_name || 'Treatment'}</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatDate(appointment.appointment_date)} at {appointment.appointment_time} with {appointment.staff_name || 'staff'}
+                      {formatDate(appointment.appointment_date)} at {appointment.appointment_time}
                     </div>
                   </div>
                   <Badge variant={statusVariant(appointment.status)}>{appointment.status}</Badge>

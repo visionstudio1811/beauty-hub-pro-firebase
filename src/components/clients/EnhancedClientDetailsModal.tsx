@@ -13,6 +13,7 @@ import { Client } from '@/hooks/useClients';
 import {
   collection,
   getDocs,
+  addDoc,
   query,
   where,
   orderBy,
@@ -20,10 +21,10 @@ import {
   getDoc,
   updateDoc,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, functions, storage } from '@/lib/firebase';
+import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { formatTimeDisplay } from '@/lib/timeUtils';
 import { safeFormatters } from '@/lib/safeDateFormatter';
@@ -39,6 +40,7 @@ import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
 import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab';
 import { buildInvoicePdf } from '@/lib/invoicePdf';
 import { useInvoices } from '@/hooks/useInvoices';
+import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import type { Invoice } from '@/types/firestore';
 
 interface DatabasePurchase {
@@ -103,6 +105,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     phone: '',
     email: '',
     birthday: '',
+    gender: '',
+    age: '',
     address: '',
     notes: '',
     city: '',
@@ -115,11 +119,21 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const [isManagePackagesModalOpen, setIsManagePackagesModalOpen] = useState(false);
   const [isCustomPackageModalOpen, setIsCustomPackageModalOpen] = useState(false);
   const [isProductAssignModalOpen, setIsProductAssignModalOpen] = useState(false);
-  
+  const [isPastTreatmentOpen, setIsPastTreatmentOpen] = useState(false);
+  const [pastTreatmentForm, setPastTreatmentForm] = useState({
+    treatment_name: '',
+    appointment_date: '',
+    staff_name: '',
+    duration: '60',
+    notes: '',
+  });
+  const [savingPastTreatment, setSavingPastTreatment] = useState(false);
+
   // Use the client packages and products hooks for real data
   const { packages: clientPackages, refetch: refetchPackages } = useClientPackages(client?.id);
   const { products: clientProducts, refetch: refetchProducts } = useClientProducts(client?.id);
   const { invoices } = useInvoices(client?.id);
+  const { treatments: treatmentsList } = useSupabaseTreatments();
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   // Update form data when client changes
@@ -130,6 +144,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         phone: client.phone || '',
         email: client.email || '',
         birthday: client.birthday || '',
+        gender: client.gender || '',
+        age: client.age != null ? String(client.age) : '',
         address: client.address || '',
         notes: client.notes || '',
         city: client.city || '',
@@ -156,8 +172,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       const snap = await getDocs(
         query(
           collection(db, 'organizations', currentOrganization.id, 'purchases'),
-          where('client_id', '==', client.id),
-          orderBy('purchase_date', 'desc')
+          where('client_id', '==', client.id)
         )
       );
 
@@ -183,9 +198,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         })
       );
 
+      results.sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''));
       setPurchases(results);
     } catch (error) {
       console.error('Error fetching purchases:', error);
+      toast({ title: 'Error', description: 'Failed to load packages', variant: 'destructive' });
     }
   };
 
@@ -222,12 +239,47 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     }
   };
 
+  const handleSavePastTreatment = async () => {
+    if (!client || !currentOrganization?.id) return;
+    if (!pastTreatmentForm.treatment_name || !pastTreatmentForm.appointment_date) {
+      toast({ title: 'Missing fields', description: 'Treatment name and date are required.', variant: 'destructive' });
+      return;
+    }
+    setSavingPastTreatment(true);
+    try {
+      await addDoc(collection(db, 'organizations', currentOrganization.id, 'appointments'), {
+        client_id: client.id,
+        client_name: client.name,
+        treatment_name: pastTreatmentForm.treatment_name,
+        appointment_date: pastTreatmentForm.appointment_date,
+        appointment_time: '00:00',
+        staff_name: pastTreatmentForm.staff_name || '',
+        duration: parseInt(pastTreatmentForm.duration) || 60,
+        notes: pastTreatmentForm.notes || '',
+        status: 'completed',
+        is_manual_entry: true,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+      toast({ title: 'Treatment added', description: 'Past treatment has been logged.' });
+      setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '' });
+      setIsPastTreatmentOpen(false);
+      await fetchAppointments();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to save treatment.', variant: 'destructive' });
+    } finally {
+      setSavingPastTreatment(false);
+    }
+  };
+
   const handleSave = () => {
     if (!client) return;
     
     const updatedClient = {
       ...client,
       ...formData,
+      age: formData.age !== '' ? parseInt(formData.age as string) : undefined,
       purchases: [],
       totalRevenue: purchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0)
     };
@@ -324,18 +376,27 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       }
 
       const blob = await buildInvoicePdf(invoice);
-      const path = `invoices/${currentOrganization.id}/${invoice.id}.pdf`;
-      const ref = storageRef(storage, path);
-      await uploadBytes(ref, blob, {
-        contentType: 'application/pdf',
-        contentDisposition: `attachment; filename="${invoice.invoice_number}.pdf"`,
+      const pdfBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const comma = result.indexOf(',');
+          resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
       });
-      const url = await getDownloadURL(ref);
 
-      await updateDoc(
-        doc(db, 'organizations', currentOrganization.id, 'invoices', invoice.id),
-        { pdf_url: url, pdf_storage_path: path },
-      );
+      const upload = httpsCallable<
+        { organizationId: string; invoiceId: string; pdfBase64: string },
+        { url: string; path: string; reused: boolean }
+      >(functions, 'uploadInvoicePdf');
+      const uploadRes = await upload({
+        organizationId: currentOrganization.id,
+        invoiceId: invoice.id,
+        pdfBase64,
+      });
+      const url = uploadRes.data.url;
 
       window.open(url, '_blank');
       toast({
@@ -500,6 +561,34 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       />
                     </div>
                     <div>
+                      <label className="text-sm font-medium">Age</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="120"
+                        value={formData.age}
+                        onChange={(e) => setFormData({...formData, age: e.target.value})}
+                        disabled={!isEditing}
+                        placeholder="e.g. 35"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Gender</label>
+                      {isEditing ? (
+                        <select
+                          value={formData.gender}
+                          onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="female">Female</option>
+                          <option value="male">Male</option>
+                        </select>
+                      ) : (
+                        <Input value={formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : ''} disabled />
+                      )}
+                    </div>
+                    <div>
                       <label className="text-sm font-medium">City</label>
                       {isEditing ? (
                         <select
@@ -577,12 +666,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
 
               {activeTab === 'appointments' && (
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
                     <h3 className="font-medium">Appointment History</h3>
-                    <Button onClick={handleBookAppointment} size="sm">
-                      <Plus className="h-4 w-4 mr-1" />
-                      Book Appointment
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={() => setIsPastTreatmentOpen(true)} size="sm" variant="outline">
+                        <History className="h-4 w-4 mr-1" />
+                        Log Past Treatment
+                      </Button>
+                      <Button onClick={handleBookAppointment} size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Book Appointment
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="space-y-4">
@@ -971,6 +1066,80 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           fetchPurchases();
         }}
       />
+
+      <Dialog open={isPastTreatmentOpen} onOpenChange={setIsPastTreatmentOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log Past Treatment</DialogTitle>
+            <DialogDescription>Add a treatment that was done before you started using the CRM.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Treatment *</label>
+              <Select
+                value={pastTreatmentForm.treatment_name}
+                onValueChange={(val) => {
+                  const t = treatmentsList.find(t => t.name === val);
+                  setPastTreatmentForm({
+                    ...pastTreatmentForm,
+                    treatment_name: val,
+                    duration: t ? String(t.duration) : pastTreatmentForm.duration,
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a treatment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {treatmentsList.map(t => (
+                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Date *</label>
+              <Input
+                type="date"
+                value={pastTreatmentForm.appointment_date}
+                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, appointment_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Staff Name</label>
+              <Input
+                placeholder="e.g. Sarah"
+                value={pastTreatmentForm.staff_name}
+                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, staff_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Duration (minutes)</label>
+              <Input
+                type="number"
+                value={pastTreatmentForm.duration}
+                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, duration: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                rows={2}
+                placeholder="Optional notes about the treatment"
+                value={pastTreatmentForm.notes}
+                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setIsPastTreatmentOpen(false)}>Cancel</Button>
+            <Button onClick={handleSavePastTreatment} disabled={savingPastTreatment}>
+              {savingPastTreatment ? 'Saving…' : 'Save Treatment'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

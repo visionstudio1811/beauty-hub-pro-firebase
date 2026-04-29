@@ -8,7 +8,10 @@ export { packageExpiryNotifications } from './packageExpiryNotifications';
 export { createInvoice } from './createInvoice';
 export { voidInvoice } from './voidInvoice';
 export { submitQuoteRequest } from './submitQuoteRequest';
+export { testResendIntegration } from './testResendIntegration';
 export { verifyFormOtp } from './verifyFormOtp';
+export { uploadWaiverFile } from './uploadWaiverFile';
+export { uploadInvoicePdf } from './uploadInvoicePdf';
 export {
   getClientPortalOrg,
   linkClientPortalAccount,

@@ -10,7 +10,7 @@ const db = admin.firestore();
 type Slot = {
   date: string;
   time: string;
-  staff_id: string;
+  staff_id?: string;
 };
 
 type PortalAccess = {
@@ -58,11 +58,14 @@ function asSlot(value: unknown, field: string): Slot {
   if (!raw || typeof raw !== 'object') {
     throw new HttpsError('invalid-argument', `${field} is required`);
   }
-  return {
+  const slot: Slot = {
     date: assertDate(raw.date),
     time: assertTime(raw.time),
-    staff_id: assertString(raw.staff_id, `${field}.staff_id`),
   };
+  if (typeof raw.staff_id === 'string' && raw.staff_id.trim() !== '') {
+    slot.staff_id = raw.staff_id.trim();
+  }
+  return slot;
 }
 
 async function getStaffUser(uid: string, orgId: string) {
@@ -181,6 +184,10 @@ async function assertSlotAvailable(
   if (start.getTime() <= Date.now()) {
     throw new HttpsError('failed-precondition', 'Requested slot must be in the future');
   }
+
+  // Conflict check is skipped when no staff is requested — staff selection
+  // happens at approval time, and the assigning admin verifies availability then.
+  if (!slot.staff_id) return;
 
   const end = new Date(start.getTime() + duration * 60000);
   const apptSnap = await orgRef
@@ -429,10 +436,13 @@ export const createClientBookingRequest = onCall(async (request) => {
 
   const treatment = await assertTreatmentCanBook(orgRef, purchase, treatmentId);
   await assertSlotAvailable(orgRef, preferredSlot, Number(treatment.duration ?? 60));
-  const staffSnap = await orgRef.collection('staff').doc(preferredSlot.staff_id).get();
-  const staffName = staffSnap.exists
-    ? String(staffSnap.data()?.name ?? staffSnap.data()?.fullName ?? 'Staff')
-    : 'Staff';
+  let staffName = 'Pending assignment';
+  if (preferredSlot.staff_id) {
+    const staffSnap = await orgRef.collection('staff').doc(preferredSlot.staff_id).get();
+    if (staffSnap.exists) {
+      staffName = String(staffSnap.data()?.name ?? staffSnap.data()?.fullName ?? 'Staff');
+    }
+  }
 
   const client = clientSnap.data()!;
   const requestRef = await orgRef.collection('bookingRequests').add({
@@ -544,9 +554,14 @@ export const updateClientBookingRequest = onCall(
       }
 
       const selectedSlot = asSlot(request.data?.selectedSlot ?? booking.preferred_slot, 'selectedSlot');
+      if (!selectedSlot.staff_id) {
+        throw new HttpsError('invalid-argument', 'Assign a staff member before approving the request');
+      }
       const selectedStaffName = typeof request.data?.selectedStaffName === 'string' && request.data.selectedStaffName.trim()
         ? request.data.selectedStaffName.trim()
-        : booking.staff_name ?? 'Staff';
+        : booking.staff_name && booking.staff_name !== 'Pending assignment'
+          ? booking.staff_name
+          : 'Staff';
       const appointment = {
         organization_id: orgId,
         client_id: booking.client_id,
