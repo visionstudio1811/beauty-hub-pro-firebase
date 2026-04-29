@@ -199,6 +199,16 @@ crm_domain: "crm.lumiereut.com"
 
 Supported alternatives are `custom_domain`, `domain`, or `portal_domains: ["crm.lumiereut.com"]`. The resolver also falls back to slug candidates inferred from `crm.<brand>...`, but explicit `crm_domain` is the reliable setup.
 
+### Provisioning the client portal for a new org
+
+Every org gets a client portal automatically via slug URL (`beautyhubpro.com/client/{slug}`). For a white-label custom domain (`crm.theirbrand.com/client`):
+
+1. Set `crm_domain: "crm.theirbrand.com"` on the org's Firestore document — this is what `getClientPortalOrg` (`functions/src/clientPortal.ts`) uses to resolve the org.
+2. Add the custom domain to Firebase Hosting (see Adding a new white-label client domain below).
+3. Add the domain to Firebase Auth authorized domains.
+
+Without `crm_domain` set, the portal returns "Portal not found" even if DNS and hosting are correct.
+
 Portal users sign in with Google or Firebase phone OTP. The callable `linkClientPortalAccount` compares the signed-in email/phone to active `organizations/{orgId}/clients` records. On match it writes:
 
 ```
@@ -275,6 +285,10 @@ Callable functions receive a `CallableRequest` — access data via `request.data
 | `packageExpiryNotifications` | scheduled | Periodic reminders for expiring packages |
 | `createInvoice` | `onCall` | Admin-only invoice generation; atomic counter + frozen snapshots + computed totals; idempotent per `purchase_id`; rate-limited 100/day |
 | `voidInvoice` | `onCall` | Admin-only; flips an issued invoice's status to `void` and stamps `voided_at` / `voided_by`. Idempotent via `failed-precondition` on an already-voided invoice; rate-limited 50/day. Invoice numbers never reused. |
+| `getClientPortalOrg` | `onCall` | Resolves org from hostname (`crm_domain`, `custom_domain`, `domain`, `portal_domains`) or slug. No auth required. |
+| `linkClientPortalAccount` | `onCall` | Links a signed-in portal user to a client card by email/phone match. |
+| `createClientBookingRequest` | `onCall` | Portal user creates a booking request against an active purchase. |
+| `updateClientBookingRequest` | `onCall` | Staff approves/rejects a booking request; approval creates appointment + decrements session. |
 
 All callables validate `request.auth` + verify the caller's `users/{uid}.organizationId` matches `request.data.organizationId` and check role before doing work. Rate-limited actions use `consumeRateLimit(orgId, action, limit)` from `rateLimit.ts` — never skip this on new functions that spend external budget (Twilio, Resend).
 
@@ -323,9 +337,11 @@ The `client.has_membership` boolean in Firestore is user-editable, but **display
 The codebase has two naming conventions, left over from the Supabase → Firebase migration. Honor the convention already used by the collection; do not mix.
 
 - **snake_case** (migrated-from-Supabase hooks): `appointments` (`appointment_date`, `appointment_time`), `treatments` (`is_active`, `category`), `staff` (`is_active`, `name`), `dropdownData` (`is_active`, `sort_order`, `category`, `value`), `schedulingConfig` (`is_active`, `day_of_week`, `start_time`), `purchases` (`client_id`, `payment_status`), `productAssignments` (`client_id`, `assigned_at`), `clients` (`deleted_at`, `created_at`), `businessHours` (`day_of_week`), session docs (`session_token`, `created_at`, `is_active`).
-- **camelCase** (newer code): `users` (`isActive`, `fullName`, `organizationId`, `organizationRole`, `createdAt`), `organizations` (`isActive`, `createdAt`, `updatedAt`).
+- **camelCase** (newer code): `users` (`isActive`, `fullName`, `organizationId`, `organizationRole`, `createdAt`), `organizations` (`isActive`, `createdAt`, `updatedAt`, `logo_url`, `crm_domain`).
 
 When you add a multi-field query, check the collection's existing field names first, then add the matching index to `firestore.indexes.json`. Wrong case = empty results with no error.
+
+**Critical trap:** `organizations` uses `isActive` (camelCase). Any Firestore query filtering on org active status must use `.where('isActive', '==', true)` — not `is_active`. This has caused "Portal not found" bugs before.
 
 ---
 
@@ -363,6 +379,10 @@ These were hardened in the 2026-04-21 audit pass. Do not weaken any of them with
 - **Invoices**: `create: false` (CF-only), `delete: false` (audit trail), `update` allows admins to set **only** `pdf_url` + `pdf_storage_path` and only while `pdf_url` is currently `null`. All monetary fields + snapshots are frozen at issue time. Invoice numbers are per-org sequential (`INV-00001`), managed by `createInvoice`. Gaps are expected (voided invoices don't renumber).
 - **`config/invoiceCounter`**: `write: if false` at rule level (via `configId != 'invoiceCounter'` exclusion in the general config rule). Only the `createInvoice` Admin-SDK Cloud Function may increment it.
 - **Storage `invoices/{orgId}/`**: admin-only read + write, PDFs only, 5MB cap.
+
+### Logo storage
+
+Org logos are uploaded to Firebase Storage at `organizations/{orgId}/logo/logo.{ext}` and the download URL is saved to the org document as `logo_url`. `LogoManagement.tsx` handles upload/remove. Do not use `localStorage` for logo storage — it is device-local and was replaced with Storage + Firestore in the 2026-04-28 audit.
 
 ## Do Not Change
 
