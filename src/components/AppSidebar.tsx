@@ -27,6 +27,7 @@ const SETTINGS_SECTIONS = [
   { id: 'scheduling',       label: 'Scheduling',       icon: Clock },
   { id: 'waivers',          label: 'Waivers',          icon: FileSignature },
   { id: 'intake',           label: 'Intake Forms',     icon: ClipboardList },
+  { id: 'agreements',       label: 'Agreements of Purchase', icon: FileSignature },
   { id: 'invoice-settings', label: 'Invoice Settings', icon: Receipt },
   { id: 'invoice-history',  label: 'Invoice History',  icon: FileText },
   { id: 'acuity',           label: 'Acuity',           icon: Zap },

@@ -34,6 +34,7 @@ import { useClientProducts } from '@/hooks/useClientProducts';
 import { PurchaseManagementModal } from '@/components/PurchaseManagementModal';
 import { ProductAssignmentModal } from '@/components/ProductAssignmentModal';
 import { CustomPackageModal } from '@/components/packages/CustomPackageModal';
+import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
 import { Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
@@ -135,6 +136,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const { invoices } = useInvoices(client?.id);
   const { treatments: treatmentsList } = useSupabaseTreatments();
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [agreementFor, setAgreementFor] = useState<{ purchaseId: string; packageName: string } | null>(null);
 
   // Update form data when client changes
   useEffect(() => {
@@ -458,6 +460,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     { value: 'actions', label: 'Actions', icon: Settings },
     { value: 'documents', label: 'Waivers', icon: FileSignature },
     { value: 'intake', label: 'Intake Forms', icon: ClipboardList },
+    { value: 'agreements', label: 'Agreements of Purchase', icon: FileSignature },
     { value: 'invoices', label: `Invoices (${invoices.length})`, icon: Receipt },
   ];
 
@@ -475,7 +478,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             </DialogDescription>
           </DialogHeader>
 
-          <div className="w-full">
+          <div className="w-full flex flex-col md:flex-row md:gap-6">
             {isMobile ? (
               <div className="space-y-4">
                 <Select value={activeTab} onValueChange={setActiveTab}>
@@ -500,30 +503,32 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 </Select>
               </div>
             ) : (
-              <div className="border-b border-border">
-                <nav className="flex space-x-8" aria-label="Tabs">
-                  {tabOptions.map((tab) => {
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.value}
-                        onClick={() => setActiveTab(tab.value)}
-                        className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                          activeTab === tab.value
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
+              <nav
+                className="md:w-56 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:sticky md:top-0 md:self-start space-y-1"
+                aria-label="Client sections"
+              >
+                {tabOptions.map((tab) => {
+                  const Icon = tab.icon;
+                  const active = activeTab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      onClick={() => setActiveTab(tab.value)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
+                        active
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
             )}
 
-            <div className="mt-6">
+            <div className="flex-1 min-w-0 mt-6 md:mt-0">
               {activeTab === 'details' && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -774,16 +779,28 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                               <div className="text-right">
                                 <Badge variant="default">Active</Badge>
                                 <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(purchase.purchase_date) || '—'}</p>
-                                <Button
-                                  onClick={() => handleGenerateInvoice(purchase.id)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="mt-2"
-                                  disabled={generatingFor === purchase.id}
-                                >
-                                  <Receipt className="h-4 w-4 mr-1" />
-                                  {generatingFor === purchase.id ? 'Generating…' : 'Generate Invoice'}
-                                </Button>
+                                <div className="flex flex-col gap-2 mt-2">
+                                  <Button
+                                    onClick={() => handleGenerateInvoice(purchase.id)}
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={generatingFor === purchase.id}
+                                  >
+                                    <Receipt className="h-4 w-4 mr-1" />
+                                    {generatingFor === purchase.id ? 'Generating…' : 'Generate Invoice'}
+                                  </Button>
+                                  <Button
+                                    onClick={() => setAgreementFor({
+                                      purchaseId: purchase.id,
+                                      packageName: purchase.packages?.name || 'Package',
+                                    })}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <FileSignature className="h-4 w-4 mr-1" />
+                                    Send Agreement
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                             {purchase.packages && (
@@ -958,6 +975,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 <ClientWaiversTab client={client} kind="intake" />
               )}
 
+              {activeTab === 'agreements' && (
+                <ClientWaiversTab client={client} kind="agreement" />
+              )}
+
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -1066,6 +1087,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           fetchPurchases();
         }}
       />
+
+      {agreementFor && (
+        <SendAgreementDialog
+          client={client}
+          purchaseId={agreementFor.purchaseId}
+          packageName={agreementFor.packageName}
+          isOpen={true}
+          onClose={() => setAgreementFor(null)}
+        />
+      )}
 
       <Dialog open={isPastTreatmentOpen} onOpenChange={setIsPastTreatmentOpen}>
         <DialogContent className="max-w-md">

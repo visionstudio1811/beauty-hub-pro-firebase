@@ -32,7 +32,20 @@ export type BlockType =
   | 'phone'
   | 'signature'
   | 'date'
-  | 'time';
+  | 'time'
+  | 'package_name'
+  | 'package_price'
+  | 'package_sessions'
+  | 'purchase_date'
+  | 'expiry_date';
+
+export const PURCHASE_BLOCK_TYPES: BlockType[] = [
+  'package_name',
+  'package_price',
+  'package_sessions',
+  'purchase_date',
+  'expiry_date',
+];
 
 export interface WaiverBlock {
   id: string;
@@ -62,16 +75,52 @@ interface WaiverData {
   client_age: number | null;
   client_address: string;
   client_gender: string;
+  package_name: string;
+  package_price: number | null;
+  package_sessions: number | null;
+  purchase_date: string;
+  expiry_date: string;
 }
+
+function formatPrice(n: number): string {
+  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+
+function purchaseBlockValue(block: WaiverBlock, waiver: WaiverData): string {
+  switch (block.type) {
+    case 'package_name':     return waiver.package_name || '—';
+    case 'package_price':    return waiver.package_price != null ? formatPrice(waiver.package_price) : '—';
+    case 'package_sessions': return waiver.package_sessions != null ? String(waiver.package_sessions) : '—';
+    case 'purchase_date':    return waiver.purchase_date || '—';
+    case 'expiry_date':      return waiver.expiry_date || '—';
+    default: return '';
+  }
+}
+
+const PURCHASE_BLOCK_LABELS: Record<string, string> = {
+  package_name: 'Package',
+  package_price: 'Price',
+  package_sessions: 'Sessions',
+  purchase_date: 'Purchase date',
+  expiry_date: 'Valid until',
+};
 
 function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<string, string | boolean | string[]> {
   const firstName = waiver.client_name.split(' ')[0] ?? '';
   const lastName = waiver.client_name.split(' ').slice(1).join(' ') ?? '';
   const prefill: Record<string, string | boolean | string[]> = {};
 
+  const todayIso = new Date().toISOString().slice(0, 10);
   for (const block of blocks) {
+    if (PURCHASE_BLOCK_TYPES.includes(block.type)) {
+      prefill[block.id] = purchaseBlockValue(block, waiver);
+      continue;
+    }
     if (!block.label && block.type !== 'email' && block.type !== 'phone') continue;
     const lbl = (block.label ?? '').toLowerCase();
+    const isBirthdayLabel =
+      lbl.includes('birthday') || lbl.includes('date of birth') ||
+      lbl.includes('dob') || lbl.includes('birth date');
 
     if (block.type === 'email' || lbl.includes('email')) {
       if (waiver.client_email) prefill[block.id] = waiver.client_email;
@@ -83,12 +132,28 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
       if (lastName) prefill[block.id] = lastName;
     } else if (lbl.includes('full name') || lbl === 'name') {
       if (waiver.client_name) prefill[block.id] = waiver.client_name;
-    } else if (lbl.includes('birthday') || lbl.includes('date of birth') || lbl.includes('dob') || lbl.includes('birth date')) {
+    } else if (isBirthdayLabel) {
       if (waiver.client_birthday) prefill[block.id] = waiver.client_birthday;
     } else if (lbl.includes('age')) {
       if (waiver.client_age != null) prefill[block.id] = String(waiver.client_age);
     } else if (lbl.includes('address')) {
       if (waiver.client_address) prefill[block.id] = waiver.client_address;
+    } else if (
+      lbl.includes('name of program') ||
+      lbl.includes('program name') ||
+      lbl.includes('package name') ||
+      lbl === 'program' ||
+      lbl === 'package'
+    ) {
+      if (waiver.package_name) prefill[block.id] = waiver.package_name;
+    } else if (lbl.includes('price') || lbl.includes('cost') || lbl.includes('amount')) {
+      if (waiver.package_price != null) prefill[block.id] = formatPrice(waiver.package_price);
+    } else if (lbl.includes('expiry') || lbl.includes('expires') || lbl.includes('valid until')) {
+      if (waiver.expiry_date) prefill[block.id] = waiver.expiry_date;
+    } else if (block.type === 'date' && !isBirthdayLabel) {
+      // Generic date blocks on agreements default to the purchase date,
+      // falling back to today's date so the form is never blank.
+      prefill[block.id] = waiver.purchase_date || todayIso;
     }
   }
   return prefill;
@@ -245,6 +310,17 @@ async function buildPdf(
         }
       }
       y += 4;
+    } else if (
+      block.type === 'package_name' ||
+      block.type === 'package_price' ||
+      block.type === 'package_sessions' ||
+      block.type === 'purchase_date' ||
+      block.type === 'expiry_date'
+    ) {
+      const lbl = block.label?.trim() || PURCHASE_BLOCK_LABELS[block.type];
+      const value = typeof answers[block.id] === 'string' ? (answers[block.id] as string) : '—';
+      addText(`${lbl}: ${value}`, 11, false, '#1f2937');
+      y += 4;
     } else if (block.label) {
       addText(block.label, 11, true);
       const answer = answers[block.id];
@@ -360,6 +436,11 @@ export default function WaiverForm() {
           client_age: wd.clientAge ?? null,
           client_address: wd.clientAddress ?? '',
           client_gender: wd.clientGender ?? '',
+          package_name: wd.packageName ?? '',
+          package_price: wd.packagePrice ?? null,
+          package_sessions: wd.packageSessions ?? null,
+          purchase_date: wd.purchaseDate ?? '',
+          expiry_date: wd.expiryDate ?? '',
         };
         setWaiver(waiverData);
         setSignerName(wd.clientName ?? '');
@@ -420,6 +501,11 @@ export default function WaiverForm() {
         client_age: wd.clientAge ?? null,
         client_address: wd.clientAddress ?? '',
         client_gender: wd.clientGender ?? '',
+        package_name: wd.packageName ?? '',
+        package_price: wd.packagePrice ?? null,
+        package_sessions: wd.packageSessions ?? null,
+        purchase_date: wd.purchaseDate ?? '',
+        expiry_date: wd.expiryDate ?? '',
       };
       setWaiver(waiverDataOtp);
       setSignerName(wd.clientName ?? '');
@@ -454,6 +540,7 @@ export default function WaiverForm() {
     if (!waiver) return newErrors;
     waiver.template_blocks.forEach((block) => {
       if (block.type === 'text' || block.type === 'heading' || block.type === 'subheading') return;
+      if (PURCHASE_BLOCK_TYPES.includes(block.type)) return; // read-only, prefilled from purchase
       if (block.type === 'image_upload') {
         if (!block.required) return;
         const files = imageFiles[block.id] ?? [];
@@ -969,6 +1056,23 @@ function BlockRenderer({
           className={error ? 'border-destructive' : ''}
         />
         {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    );
+  }
+
+  if (
+    block.type === 'package_name' ||
+    block.type === 'package_price' ||
+    block.type === 'package_sessions' ||
+    block.type === 'purchase_date' ||
+    block.type === 'expiry_date'
+  ) {
+    const lbl = block.label?.trim() || PURCHASE_BLOCK_LABELS[block.type];
+    const value = typeof answer === 'string' ? answer : '—';
+    return (
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
+        <span className="text-sm text-muted-foreground">{lbl}</span>
+        <span className="text-sm font-medium text-foreground">{value}</span>
       </div>
     );
   }

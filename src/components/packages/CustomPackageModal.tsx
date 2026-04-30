@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +7,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { PackageForm } from '@/components/PackageForm';
 import { Client } from '@/hooks/useClients';
 import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
+import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
 
 interface CustomPackageModalProps {
   client: Client | null;
@@ -29,6 +30,9 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
 }) => {
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
+  const [pendingAgreement, setPendingAgreement] = useState<
+    { purchaseId: string; packageName: string } | null
+  >(null);
 
   if (!client) return null;
 
@@ -108,6 +112,7 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
       });
 
       onCreated?.();
+      setPendingAgreement({ purchaseId: purchaseRef.id, packageName: data.name });
     } catch (err) {
       console.error('Error creating custom package:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -119,6 +124,18 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
       throw err;
     }
   };
+
+  if (pendingAgreement) {
+    return (
+      <SendAgreementDialog
+        client={client}
+        purchaseId={pendingAgreement.purchaseId}
+        packageName={pendingAgreement.packageName}
+        isOpen={true}
+        onClose={() => { setPendingAgreement(null); onClose(); }}
+      />
+    );
+  }
 
   return (
     <PackageForm

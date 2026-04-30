@@ -26,6 +26,53 @@ interface SendWaiverRequest {
   mode?: SendMode;
   smsProvider?: SmsProvider;
   requiresOtp?: boolean;
+  purchaseId?: string;
+}
+
+interface PurchaseSnapshot {
+  purchaseId: string;
+  packageId: string;
+  packageName: string;
+  packagePrice: number;
+  packageSessions: number;
+  purchaseDate: string;
+  expiryDate: string;
+}
+
+async function loadPurchaseSnapshot(
+  orgId: string,
+  purchaseId: string,
+): Promise<PurchaseSnapshot | null> {
+  const purchaseSnap = await db
+    .collection('organizations').doc(orgId)
+    .collection('purchases').doc(purchaseId)
+    .get();
+  if (!purchaseSnap.exists) return null;
+  const purchase = purchaseSnap.data()!;
+
+  let packageName = '';
+  let packageSessions = 0;
+  if (purchase.package_id) {
+    const pkgSnap = await db
+      .collection('organizations').doc(orgId)
+      .collection('packages').doc(purchase.package_id)
+      .get();
+    if (pkgSnap.exists) {
+      const pkg = pkgSnap.data()!;
+      packageName = pkg.name ?? '';
+      packageSessions = pkg.total_sessions ?? 0;
+    }
+  }
+
+  return {
+    purchaseId,
+    packageId: purchase.package_id ?? '',
+    packageName,
+    packagePrice: purchase.total_amount ?? 0,
+    packageSessions: purchase.sessions_remaining ?? packageSessions,
+    purchaseDate: purchase.purchase_date ?? '',
+    expiryDate: purchase.expiry_date ?? '',
+  };
 }
 
 async function sendViaTwilio(
@@ -120,9 +167,18 @@ export const sendWaiver = onCall(
 
     const templateData = templateDoc.data() ?? {};
     const templateTitle = (templateData.title as string) ?? 'Waiver';
-    const templateKind = (templateData.kind as 'waiver' | 'intake') ?? 'waiver';
-    const kindLabel = templateKind === 'intake' ? 'intake form' : 'waiver';
+    const templateKind = (templateData.kind as 'waiver' | 'intake' | 'agreement') ?? 'waiver';
+    const kindLabel =
+      templateKind === 'intake' ? 'intake form'
+      : templateKind === 'agreement' ? 'agreement'
+      : 'waiver';
     const kindAction = templateKind === 'intake' ? 'fill out' : 'sign';
+
+    const purchaseSnapshot = data.purchaseId
+      ? await loadPurchaseSnapshot(organizationId, data.purchaseId)
+      : null;
+    if (data.purchaseId && !purchaseSnapshot)
+      throw new HttpsError('not-found', 'Purchase not found');
 
     const token = randomUUID();
 
@@ -136,6 +192,15 @@ export const sendWaiver = onCall(
       clientAge: client.age ?? null,
       clientAddress: client.address ?? '',
       clientGender: client.gender ?? '',
+      ...(purchaseSnapshot ? {
+        purchaseId: purchaseSnapshot.purchaseId,
+        packageId: purchaseSnapshot.packageId,
+        packageName: purchaseSnapshot.packageName,
+        packagePrice: purchaseSnapshot.packagePrice,
+        packageSessions: purchaseSnapshot.packageSessions,
+        purchaseDate: purchaseSnapshot.purchaseDate,
+        expiryDate: purchaseSnapshot.expiryDate,
+      } : {}),
       status: 'pending',
       token,
       sentBy: uid,

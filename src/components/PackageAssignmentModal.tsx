@@ -22,6 +22,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
 
 interface CatalogPackage {
   id: string;
@@ -78,6 +79,9 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, EditState>>({});
+  const [pendingAgreement, setPendingAgreement] = useState<
+    { purchaseId: string; packageName: string } | null
+  >(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -230,7 +234,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
       });
 
       onAssign(client, { package: pkg, purchase });
-      onClose();
+      setPendingAgreement({ purchaseId: purchaseRef.id, packageName: pkg.name });
     } catch (error) {
       console.error('Error assigning package:', error);
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -243,6 +247,18 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
   const catalogPackages = useMemo(() => packages, [packages]);
 
   if (!client) return null;
+
+  if (pendingAgreement) {
+    return (
+      <SendAgreementDialog
+        client={client}
+        purchaseId={pendingAgreement.purchaseId}
+        packageName={pendingAgreement.packageName}
+        isOpen={true}
+        onClose={() => { setPendingAgreement(null); onClose(); }}
+      />
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -231,6 +231,23 @@ const Settings = () => {
             </CardContent>
           </Card>
         );
+      case 'agreements':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSignature className="h-5 w-5" />
+                Agreement of Purchase Templates
+              </CardTitle>
+              <CardDescription>
+                Templates sent automatically after a package is assigned to a client. Build the template once with package blocks (Package Name, Price, Sessions, Purchase Date, Expiry) and standard blocks (text, signature, etc.) — purchase + client fields prefill from the linked purchase.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WaiverTemplateEditor kind="agreement" />
+            </CardContent>
+          </Card>
+        );
       case 'invoice-settings':
         return <InvoiceSettingsEditor />;
       case 'invoice-history':

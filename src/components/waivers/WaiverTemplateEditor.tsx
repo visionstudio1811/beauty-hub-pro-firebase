@@ -57,55 +57,85 @@ import {
   Clock as ClockIcon,
   Heading1,
   Heading2,
+  Package as PackageIcon,
+  DollarSign,
+  Hash,
+  CalendarCheck,
+  CalendarX,
 } from 'lucide-react';
 import type { BlockType, WaiverBlock } from '@/pages/WaiverForm';
+import { PURCHASE_BLOCK_TYPES } from '@/pages/WaiverForm';
 import { TemplatePreviewModal } from './TemplatePreviewModal';
 
 // ── Block meta ───────────────────────────────────────────────
 // Presentational types store their content in `value` and never collect input.
+// Purchase types are read-only and prefilled from the linked purchase snapshot.
 const PRESENTATIONAL_TYPES: BlockType[] = ['text', 'heading', 'subheading'];
 const isPresentational = (t: BlockType) => PRESENTATIONAL_TYPES.includes(t);
+const isPurchaseBlock = (t: BlockType) => PURCHASE_BLOCK_TYPES.includes(t);
 
 const BLOCK_TYPES: { type: BlockType; label: string; icon: React.ElementType; description: string }[] = [
-  { type: 'heading',      label: 'Heading',              icon: Heading1,     description: 'A large section title' },
-  { type: 'subheading',   label: 'Sub Heading',          icon: Heading2,     description: 'A smaller section label below a heading' },
-  { type: 'text',         label: 'Text Block',           icon: AlignLeft,    description: 'A paragraph of informational or legal text' },
-  { type: 'checkbox',     label: 'Checkbox Agreement',   icon: CheckSquare,  description: 'A statement the client must tick to agree' },
-  { type: 'yes_no',       label: 'Yes / No Question',    icon: ToggleLeft,   description: 'A binary question (Yes or No)' },
-  { type: 'short_answer', label: 'Short Answer',         icon: MessageSquare,description: 'A free-text question' },
-  { type: 'email',        label: 'Email Address',        icon: Mail,         description: 'Collect an email (e.g. emergency contact)' },
-  { type: 'phone',        label: 'Phone Number',         icon: Phone,        description: 'Collect a phone number' },
-  { type: 'date',         label: 'Date',                 icon: Calendar,     description: 'Calendar date picker' },
-  { type: 'time',         label: 'Time',                 icon: ClockIcon,    description: 'Time-of-day picker' },
-  { type: 'signature',    label: 'Signature Pad',        icon: PenLine,      description: 'Client draws a signature (e.g. guardian or initial)' },
-  { type: 'image_upload', label: 'Image Upload',         icon: ImageUp,      description: 'Client uploads photos (e.g. affected area)' },
+  { type: 'heading',          label: 'Heading',              icon: Heading1,      description: 'A large section title' },
+  { type: 'subheading',       label: 'Sub Heading',          icon: Heading2,      description: 'A smaller section label below a heading' },
+  { type: 'text',             label: 'Text Block',           icon: AlignLeft,     description: 'A paragraph of informational or legal text' },
+  { type: 'checkbox',         label: 'Checkbox Agreement',   icon: CheckSquare,   description: 'A statement the client must tick to agree' },
+  { type: 'yes_no',           label: 'Yes / No Question',    icon: ToggleLeft,    description: 'A binary question (Yes or No)' },
+  { type: 'short_answer',     label: 'Short Answer',         icon: MessageSquare, description: 'A free-text question' },
+  { type: 'email',            label: 'Email Address',        icon: Mail,          description: 'Collect an email (e.g. emergency contact)' },
+  { type: 'phone',            label: 'Phone Number',         icon: Phone,         description: 'Collect a phone number' },
+  { type: 'date',             label: 'Date',                 icon: Calendar,      description: 'Calendar date picker' },
+  { type: 'time',             label: 'Time',                 icon: ClockIcon,     description: 'Time-of-day picker' },
+  { type: 'signature',        label: 'Signature Pad',        icon: PenLine,       description: 'Client draws a signature (e.g. guardian or initial)' },
+  { type: 'image_upload',     label: 'Image Upload',         icon: ImageUp,       description: 'Client uploads photos (e.g. affected area)' },
+  { type: 'package_name',     label: 'Package Name',         icon: PackageIcon,   description: 'Auto-filled package name from the linked purchase' },
+  { type: 'package_price',    label: 'Package Price',        icon: DollarSign,    description: 'Auto-filled package price from the linked purchase' },
+  { type: 'package_sessions', label: 'Package Sessions',     icon: Hash,          description: 'Auto-filled total session count from the linked purchase' },
+  { type: 'purchase_date',    label: 'Purchase Date',        icon: CalendarCheck, description: 'Auto-filled date the package was purchased' },
+  { type: 'expiry_date',      label: 'Package Expiry',       icon: CalendarX,     description: 'Auto-filled package expiry date' },
 ];
 
 const BADGE_COLORS: Record<BlockType, string> = {
-  text:         'bg-blue-100 text-blue-700',
-  heading:      'bg-slate-200 text-slate-800',
-  subheading:   'bg-slate-100 text-slate-700',
-  checkbox:     'bg-green-100 text-green-700',
-  yes_no:       'bg-amber-100 text-amber-700',
-  short_answer: 'bg-purple-100 text-purple-700',
-  email:        'bg-sky-100 text-sky-700',
-  phone:        'bg-teal-100 text-teal-700',
-  date:         'bg-orange-100 text-orange-700',
-  time:         'bg-yellow-100 text-yellow-700',
-  signature:    'bg-indigo-100 text-indigo-700',
-  image_upload: 'bg-pink-100 text-pink-700',
+  text:             'bg-blue-100 text-blue-700',
+  heading:          'bg-slate-200 text-slate-800',
+  subheading:       'bg-slate-100 text-slate-700',
+  checkbox:         'bg-green-100 text-green-700',
+  yes_no:           'bg-amber-100 text-amber-700',
+  short_answer:     'bg-purple-100 text-purple-700',
+  email:            'bg-sky-100 text-sky-700',
+  phone:            'bg-teal-100 text-teal-700',
+  date:             'bg-orange-100 text-orange-700',
+  time:             'bg-yellow-100 text-yellow-700',
+  signature:        'bg-indigo-100 text-indigo-700',
+  image_upload:     'bg-pink-100 text-pink-700',
+  package_name:     'bg-emerald-100 text-emerald-700',
+  package_price:    'bg-emerald-100 text-emerald-700',
+  package_sessions: 'bg-emerald-100 text-emerald-700',
+  purchase_date:    'bg-emerald-100 text-emerald-700',
+  expiry_date:      'bg-emerald-100 text-emerald-700',
 };
 
 function newBlock(type: BlockType): WaiverBlock {
   const presentational = isPresentational(type);
+  const purchase = isPurchaseBlock(type);
   return {
     id:       crypto.randomUUID(),
     type,
     value:    presentational ? '' : undefined,
-    label:    presentational ? undefined : '',
-    required: !presentational,
+    label:    presentational ? undefined : (purchase ? defaultPurchaseLabel(type) : ''),
+    required: !presentational && !purchase,
     ...(type === 'image_upload' ? { maxImages: 5 } : {}),
   };
+}
+
+function defaultPurchaseLabel(type: BlockType): string {
+  switch (type) {
+    case 'package_name':     return 'Package';
+    case 'package_price':    return 'Price';
+    case 'package_sessions': return 'Sessions';
+    case 'purchase_date':    return 'Purchase date';
+    case 'expiry_date':      return 'Valid until';
+    default: return '';
+  }
 }
 
 // ── Sortable block card ───────────────────────────────────────
@@ -191,12 +221,13 @@ function SortableBlock({
                   : block.type === 'email' ? 'e.g. Emergency contact email'
                   : block.type === 'phone' ? 'e.g. Emergency contact phone'
                   : block.type === 'signature' ? 'e.g. Parent / guardian signature'
+                  : isPurchaseBlock(block.type) ? `Label shown to client (e.g. "${defaultPurchaseLabel(block.type)}")`
                   : 'Question text…'
                 }
                 autoFocus
               />
             )}
-            {!isPresentational(block.type) && (
+            {!isPresentational(block.type) && !isPurchaseBlock(block.type) && (
               <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
@@ -206,6 +237,11 @@ function SortableBlock({
                 />
                 Required
               </label>
+            )}
+            {isPurchaseBlock(block.type) && (
+              <p className="text-xs text-muted-foreground">
+                Auto-filled from the purchase. Edit only the label.
+              </p>
             )}
             <div className="flex gap-1">
               <Button size="sm" variant="ghost" className="h-7 px-2" onClick={saveEdit}>
@@ -276,7 +312,7 @@ function AddBlockPicker({ onAdd }: { onAdd: (type: BlockType) => void }) {
 }
 
 // ── Template item in sidebar ──────────────────────────────────
-type TemplateKind = 'waiver' | 'intake';
+type TemplateKind = 'waiver' | 'intake' | 'agreement';
 type TemplateRow = {
   id: string;
   title: string;
@@ -288,8 +324,9 @@ type TemplateRow = {
 };
 
 const KIND_COPY: Record<TemplateKind, { title: string; newLabel: string; placeholder: string }> = {
-  waiver: { title: 'Waiver', newLabel: 'New Waiver', placeholder: 'e.g. General Consent Waiver' },
-  intake: { title: 'Intake Form', newLabel: 'New Intake Form', placeholder: 'e.g. New Client Intake Form' },
+  waiver:    { title: 'Waiver',         newLabel: 'New Waiver',         placeholder: 'e.g. General Consent Waiver' },
+  intake:    { title: 'Intake Form',    newLabel: 'New Intake Form',    placeholder: 'e.g. New Client Intake Form' },
+  agreement: { title: 'Agreement of Purchase', newLabel: 'New Agreement of Purchase', placeholder: 'e.g. Agreement of Purchase' },
 };
 
 // ── Main editor ───────────────────────────────────────────────

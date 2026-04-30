@@ -35,7 +35,7 @@ import {
 import { Client } from '@/hooks/useClients';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 
-type TemplateKind = 'waiver' | 'intake';
+type TemplateKind = 'waiver' | 'intake' | 'agreement';
 
 interface WaiverTemplate { id: string; title: string; kind: TemplateKind }
 interface WaiverRecord {
@@ -71,6 +71,12 @@ const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; his
     sendTitle: 'Send New Intake Form',
     historyTitle: 'Intake Form History',
     empty: 'No intake forms sent yet.',
+  },
+  agreement: {
+    singular: 'Agreement of Purchase',
+    sendTitle: 'Send New Agreement of Purchase',
+    historyTitle: 'Agreement of Purchase History',
+    empty: 'No agreements of purchase sent yet.',
   },
 };
 
@@ -242,7 +248,9 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
         {templates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No {copy.singular.toLowerCase()} templates found. Create one in{' '}
-            <span className="font-medium">Settings → {kind === 'intake' ? 'Intake Forms' : 'Waivers'}</span>.
+            <span className="font-medium">
+              Settings → {kind === 'intake' ? 'Intake Forms' : kind === 'agreement' ? 'Agreements of Purchase' : 'Waivers'}
+            </span>.
           </p>
         ) : (
           <>
