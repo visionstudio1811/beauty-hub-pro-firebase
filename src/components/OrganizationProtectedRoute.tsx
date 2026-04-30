@@ -9,11 +9,19 @@ interface OrganizationProtectedRouteProps {
 }
 
 export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProps> = ({ children }) => {
-  const { user } = useAuth();
-  const { currentOrganization, loading } = useOrganization();
+  const { user, profile, loading: authLoading } = useAuth();
+  const { currentOrganization, loading: orgLoading } = useOrganization();
   const [setupComplete, setSetupComplete] = useState(false);
 
-  if (loading) {
+  // Wait for both auth and org to finish loading. Critically, also wait when
+  // we have a `user` but `profile` is still null — the auth user object is
+  // restored synchronously on refresh, but `users/{uid}` (which carries
+  // organizationId) is fetched async. Without this guard, the org context
+  // briefly sees user-without-profile, returns currentOrganization=null, and
+  // the setup page flashes/persists until the profile load resolves.
+  const stillLoading = authLoading || orgLoading || (Boolean(user) && !profile);
+
+  if (stillLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="space-y-4 w-full max-w-md">
@@ -25,8 +33,8 @@ export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProp
     );
   }
 
-  // If user doesn't have an organization, show setup
-  if (user && !currentOrganization && !setupComplete) {
+  // Profile loaded but the user record genuinely has no organizationId — show setup
+  if (user && profile && !profile.organizationId && !currentOrganization && !setupComplete) {
     return <OrganizationSetup onComplete={() => setSetupComplete(true)} />;
   }
 
