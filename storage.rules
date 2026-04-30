@@ -19,6 +19,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
     }
 
+    // Org logo. Public read (logos render in client portal + login screens
+    // before auth), admin-only write, image MIME, size cap matches the UI.
+    match /organizations/{orgId}/logo/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.organizationId == orgId
+                   && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // Invoice PDFs live at `invoices/{orgId}/{invoiceId}.pdf`. Only admins of
     // the org may read/write, and uploads must be PDF under 5MB.
     match /invoices/{orgId}/{file} {

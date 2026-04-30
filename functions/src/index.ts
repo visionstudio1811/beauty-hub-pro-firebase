@@ -3,6 +3,7 @@ export { sendWaiver } from './sendWaiver';
 export { notifyOrgOnWaiverSigned } from './notifyOrgOnWaiverSigned';
 export { backfillClientFromLatestForm } from './backfillClient';
 export { addStandardFieldsToTemplates } from './addStandardFieldsToTemplates';
+export { uploadOrgLogo } from './uploadOrgLogo';
 export { acuityWebhook } from './acuityWebhook';
 export { acuitySync } from './acuitySync';
 export { adminCreateUser } from './adminCreateUser';

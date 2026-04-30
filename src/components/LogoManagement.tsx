@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Upload, Image, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
 /** Renders a data-URL or remote image URL into a 64×64 canvas and sets it as the page favicon. */
@@ -79,19 +79,30 @@ export const LogoManagement: React.FC = () => {
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() ?? 'png';
-      const storageRef = ref(storage, `organizations/${currentOrganization.id}/logo/logo.${ext}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
-      await updateDoc(doc(db, 'organizations', currentOrganization.id), { logo_url: downloadUrl });
+      const call = httpsCallable<
+        { organizationId: string; fileBase64: string; contentType: string },
+        { url: string; path: string }
+      >(functions, 'uploadOrgLogo');
+      const res = await call({
+        organizationId: currentOrganization.id,
+        fileBase64,
+        contentType: file.type,
+      });
 
-      setLogoUrl(downloadUrl);
-      applyFavicon(downloadUrl);
+      setLogoUrl(res.data.url);
+      applyFavicon(res.data.url);
       toast({ title: 'Logo updated', description: 'Your logo has been saved and will appear on all devices.' });
     } catch (error) {
       console.error('Logo upload error:', error);
-      toast({ title: 'Upload failed', description: 'Could not save logo. Please try again.', variant: 'destructive' });
+      const msg = error instanceof Error ? error.message : 'Could not save logo. Please try again.';
+      toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
