@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
+import { consumeRateLimit } from './rateLimit';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -23,6 +24,8 @@ export const testResendIntegration = onCall(async (request) => {
   if (!['admin', 'staff'].includes(userData.role)) {
     throw new HttpsError('permission-denied', 'Staff or admin access required');
   }
+
+  await consumeRateLimit(orgId, 'resendTest', 50);
 
   const snap = await db
     .collection('organizations').doc(orgId)

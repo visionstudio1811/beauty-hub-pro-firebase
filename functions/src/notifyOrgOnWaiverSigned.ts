@@ -1,6 +1,7 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import { backfillClientFromSignedWaiver } from './backfillClient';
+import { consumeRateLimit } from './rateLimit';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -8,6 +9,17 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
+
+async function loadOrgResendSender(orgId: string): Promise<{ apiKey: string; fromEmail: string; fromName: string } | null> {
+  const snap = await db
+    .collection('organizations').doc(orgId)
+    .collection('marketingIntegrations').doc('resend')
+    .get();
+  if (!snap.exists || !snap.data()?.is_enabled) return null;
+  const cfg = snap.data()!.configuration as { apiKey?: string; fromEmail?: string; fromName?: string };
+  if (!cfg.apiKey || !cfg.fromEmail) return null;
+  return { apiKey: cfg.apiKey, fromEmail: cfg.fromEmail, fromName: cfg.fromName || 'Beauty Hub Pro' };
+}
 
 function escapeHtml(str: string): string {
   return str
@@ -43,12 +55,6 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     if (!before || !after) return;
     if (before.status === 'signed' || after.status !== 'signed') return;
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
-      console.error('RESEND_API_KEY not configured — cannot email org on waiver sign');
-      return;
-    }
-
     const { orgId } = event.params as { orgId: string };
 
     // Load the organization to get contact email + name
@@ -59,6 +65,25 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     const orgName = (org.name as string) ?? 'Your organization';
     if (!orgEmail) {
       console.warn(`Org ${orgId} has no email — skipping waiver notification`);
+      return;
+    }
+
+    // Prefer per-org verified Resend sender; fall back to global secret + brand domain.
+    const orgSender = await loadOrgResendSender(orgId);
+    const resendKey = orgSender?.apiKey ?? process.env.RESEND_API_KEY;
+    const fromEmail = orgSender?.fromEmail ?? 'noreply@beauty-hub-pro.com';
+    const fromName  = orgSender?.fromName  ?? 'Beauty Hub Pro';
+    if (!resendKey) {
+      console.error('No Resend sender configured (per-org or global) — cannot email org on waiver sign');
+      return;
+    }
+
+    // Cap at 500 admin notifications per org per day. Anything past that is a
+    // form-submission flood and would burn Resend budget without staff value.
+    try {
+      await consumeRateLimit(orgId, 'waiverNotify', 500);
+    } catch (err) {
+      console.warn(`Daily waiverNotify limit reached for org ${orgId}; skipping notification.`, err);
       return;
     }
 
@@ -124,7 +149,7 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
       : '';
 
     const body = {
-      from: 'Beauty Hub Pro <noreply@beauty-hub-pro.com>',
+      from: `${fromName} <${fromEmail}>`,
       to: [orgEmail],
       subject: `✅ Signed ${kindNoun}: ${templateTitle} — ${signerName}`,
       html: `
