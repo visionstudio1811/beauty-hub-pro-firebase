@@ -137,6 +137,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const { treatments: treatmentsList } = useSupabaseTreatments();
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [agreementFor, setAgreementFor] = useState<{ purchaseId: string; packageName: string } | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
 
   // Update form data when client changes
   useEffect(() => {
@@ -359,6 +360,47 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     fetchPurchases();
   };
 
+  const handleBackfillFromLatestForm = async () => {
+    if (!client || !currentOrganization?.id) return;
+    setBackfilling(true);
+    try {
+      const call = httpsCallable<
+        { organizationId: string; clientId: string },
+        { filled: string[]; message: string }
+      >(functions, 'backfillClientFromLatestForm');
+      const res = await call({ organizationId: currentOrganization.id, clientId: client.id });
+      const { filled, message } = res.data;
+
+      if (filled.length > 0) {
+        const snap = await getDoc(doc(db, 'organizations', currentOrganization.id, 'clients', client.id));
+        if (snap.exists()) {
+          const c = snap.data();
+          setFormData({
+            name: c.name || '',
+            phone: c.phone || '',
+            email: c.email || '',
+            birthday: c.date_of_birth || c.birthday || '',
+            gender: c.gender || '',
+            age: c.age != null ? String(c.age) : '',
+            address: c.address || '',
+            notes: c.notes || '',
+            city: c.city || '',
+            referral_source: c.referral_source || '',
+            has_membership: c.has_membership || false
+          });
+        }
+        toast({ title: 'Client info updated', description: message });
+      } else {
+        toast({ title: 'Nothing to fill', description: message });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not auto-fill from latest form.';
+      toast({ title: 'Backfill failed', description: msg, variant: 'destructive' });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const handleGenerateInvoice = async (purchaseId: string) => {
     if (!currentOrganization?.id) return;
     setGeneratingFor(purchaseId);
@@ -531,6 +573,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             <div className="flex-1 min-w-0 mt-6 md:mt-0">
               {activeTab === 'details' && (
                 <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBackfillFromLatestForm}
+                      disabled={backfilling}
+                    >
+                      <Sparkles className="h-4 w-4 mr-1" />
+                      {backfilling ? 'Filling…' : 'Fill from latest signed form'}
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium">Name</label>

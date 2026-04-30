@@ -1,5 +1,6 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
+import { backfillClientFromSignedWaiver } from './backfillClient';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -61,17 +62,15 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
       return;
     }
 
-    // Load template title + kind + blocks (blocks needed for client backfill)
+    // Load template title + kind for the email body
     let templateTitle = 'Waiver';
     let kind: 'waiver' | 'intake' | 'agreement' = (after.kind as 'waiver' | 'intake' | 'agreement') ?? 'waiver';
-    let templateBlocks: Array<{ type?: string; label?: string; id?: string }> = [];
     if (after.templateId) {
       const tplDoc = await db.collection('organizations').doc(orgId).collection('waiverTemplates').doc(after.templateId).get();
       if (tplDoc.exists) {
         const td = tplDoc.data() ?? {};
         templateTitle = (td.title as string) ?? (kind === 'intake' ? 'Intake Form' : kind === 'agreement' ? 'Agreement of Purchase' : 'Waiver');
         if (!after.kind) kind = (td.kind as 'waiver' | 'intake' | 'agreement') ?? 'waiver';
-        if (Array.isArray(td.content)) templateBlocks = td.content;
       }
     }
     const kindNoun = kind === 'intake' ? 'intake form' : kind === 'agreement' ? 'Agreement of Purchase' : 'waiver';
@@ -164,78 +163,16 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     if (!clientId) return;
 
     try {
-      const clientRef = db.collection('organizations').doc(orgId).collection('clients').doc(clientId);
-      const clientSnap = await clientRef.get();
-      if (!clientSnap.exists) return;
-      const client = clientSnap.data() ?? {};
-
-      // Pull values from the form: signer fields are always collected;
-      // template answers may include address / DOB / city / etc.
-      type Answer = string | boolean | string[] | undefined;
-      const ans = (after.answers as Record<string, Answer>) ?? {};
-
-      const findAnswer = (predicate: (label: string, type: string) => boolean): string => {
-        for (const block of templateBlocks) {
-          const lbl = (block.label ?? '').toLowerCase();
-          const type = block.type ?? '';
-          if (!block.id) continue;
-          if (predicate(lbl, type)) {
-            const v = ans[block.id];
-            if (typeof v === 'string' && v.trim()) return v.trim();
-          }
-        }
-        return '';
-      };
-
-      const isBirthdayLabel = (lbl: string) =>
-        lbl.includes('birthday') || lbl.includes('date of birth') ||
-        lbl.includes('dob') || lbl.includes('birth date');
-
-      // First name + Last name → combined full name (only if both present)
-      const firstNameAnswer = findAnswer(lbl => lbl.includes('first name'));
-      const lastNameAnswer  = findAnswer(lbl => lbl.includes('last name'));
-      const combinedName    = [firstNameAnswer, lastNameAnswer].filter(Boolean).join(' ').trim();
-
-      const addressAnswer = findAnswer(lbl =>
-        lbl.includes('address') && !lbl.includes('line 2') && !lbl.includes('email'),
-      );
-      const cityAnswer = findAnswer(lbl => lbl.includes('city'));
-      const dobAnswer  = findAnswer((lbl, type) =>
-        isBirthdayLabel(lbl) || (type === 'date' && isBirthdayLabel(lbl)),
-      );
-      const genderAnswer = findAnswer(lbl => lbl.includes('gender') || lbl === 'sex');
-      const referralAnswer = findAnswer(lbl =>
-        lbl.includes('how did you hear') || lbl.includes('referral') || lbl.includes('find us') || lbl.includes('hear about us'),
-      );
-
-      const updates: Record<string, string> = {};
-
-      // email — fill if currently empty
-      if (!client.email && signerEmail) updates.email = signerEmail;
-
-      // phone — fill if currently empty (phone is required at create-time but might be a placeholder)
-      if ((!client.phone || client.phone.length < 7) && signerPhone) updates.phone = signerPhone;
-
-      // name — fill if missing or single-word and we have a fuller name
-      const currentName = (client.name as string) ?? '';
-      const fullerName = combinedName || signerName;
-      if (fullerName && (!currentName.trim() || currentName.trim().split(/\s+/).length < 2) &&
-          fullerName.trim().split(/\s+/).length > currentName.trim().split(/\s+/).length) {
-        updates.name = fullerName;
-      }
-
-      if (!client.address && addressAnswer) updates.address = addressAnswer;
-      if (!client.city && cityAnswer) updates.city = cityAnswer;
-      if (!client.date_of_birth && dobAnswer) updates.date_of_birth = dobAnswer;
-      if (!client.gender && genderAnswer) updates.gender = genderAnswer;
-      if (!client.referral_source && referralAnswer) updates.referral_source = referralAnswer;
-
-      if (Object.keys(updates).length > 0) {
-        await clientRef.update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        });
-        console.log(`Backfilled ${Object.keys(updates).length} field(s) on client ${clientId} from ${kindNoun}: ${Object.keys(updates).join(', ')}`);
+      const result = await backfillClientFromSignedWaiver(orgId, clientId, {
+        signer_name:  signerName,
+        signer_email: signerEmail,
+        signer_phone: signerPhone,
+        answers,
+        templateId:   after.templateId as string | undefined,
+        kind,
+      });
+      if (result.filled.length > 0) {
+        console.log(`Backfilled ${result.filled.length} field(s) on client ${clientId} from ${kindNoun}: ${result.filled.join(', ')}`);
       }
     } catch (err) {
       // Backfill is best-effort — don't fail the whole trigger
