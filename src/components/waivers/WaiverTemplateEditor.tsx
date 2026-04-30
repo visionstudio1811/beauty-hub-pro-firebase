@@ -28,7 +28,8 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -344,6 +345,7 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
   const [loadingList, setLoadingList]   = useState(true);
   const [saving, setSaving]             = useState(false);
   const [deleting, setDeleting]         = useState(false);
+  const [batchAdding, setBatchAdding]   = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -411,6 +413,29 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
   const updateBlock = (b: WaiverBlock) => setBlocks((prev) => prev.map((x) => x.id === b.id ? b : x));
   const deleteBlock = (id: string) => setBlocks((prev) => prev.filter((b) => b.id !== id));
 
+  // Quick-adds the three personal-info questions our backfill code recognises.
+  // Skips any that already exist on the template (matched loosely by label).
+  const addPersonalInfoBlocks = () => {
+    const has = (test: (lbl: string) => boolean) =>
+      blocks.some((b) => test((b.label ?? '').toLowerCase()));
+    const toAdd: WaiverBlock[] = [];
+    if (!has((l) => l === 'age' || l.endsWith(' age') || l.startsWith('age '))) {
+      toAdd.push({ ...newBlock('short_answer'), label: 'Age', required: false });
+    }
+    if (!has((l) => l.includes('gender') || l === 'sex')) {
+      toAdd.push({ ...newBlock('short_answer'), label: 'Gender', required: false });
+    }
+    if (!has((l) => l.includes('how did you hear') || l.includes('referral') || l.includes('find us') || l.includes('hear about us'))) {
+      toAdd.push({ ...newBlock('short_answer'), label: 'How did you hear about us?', required: false });
+    }
+    if (toAdd.length === 0) {
+      toast({ title: 'Already present', description: 'Age, gender, and referral fields are already in this template.' });
+      return;
+    }
+    setBlocks((prev) => [...prev, ...toAdd]);
+    toast({ title: 'Added', description: `Added ${toAdd.length} block(s). Don't forget to Save Template.` });
+  };
+
   const save = async () => {
     if (!currentOrganization) return;
     if (!title.trim()) { toast({ title: 'Please enter a title', variant: 'destructive' }); return; }
@@ -442,6 +467,45 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
     }
   };
 
+  const addStandardFieldsToAll = async () => {
+    if (!currentOrganization) return;
+    setBatchAdding(true);
+    try {
+      const call = httpsCallable<
+        { organizationId: string; kinds: string[] },
+        {
+          templatesProcessed: number;
+          templatesUpdated: number;
+          summary: Array<{ id: string; title: string; kind: string; added: string[] }>;
+        }
+      >(functions, 'addStandardFieldsToTemplates');
+      const res = await call({ organizationId: currentOrganization.id, kinds: [kind] });
+      const { templatesProcessed, templatesUpdated, summary } = res.data;
+
+      const totalAdded = summary.reduce((sum, s) => sum + s.added.length, 0);
+      toast({
+        title: templatesUpdated === 0 ? 'Nothing to add' : `Updated ${templatesUpdated} of ${templatesProcessed} ${kind}(s)`,
+        description: totalAdded === 0
+          ? 'Every template already has Age, Gender, and the referral question.'
+          : `Added ${totalAdded} block(s) across all your ${kind} templates.`,
+      });
+      await loadTemplates();
+      if (selected) {
+        const refreshed = await getDocs(query(collection(db, 'organizations', currentOrganization.id, 'waiverTemplates'), orderBy('updated_at_ts', 'desc')));
+        const updated = refreshed.docs.find(d => d.id === selected.id);
+        if (updated) setBlocks(updated.data().content ?? []);
+      }
+    } catch (err: unknown) {
+      toast({
+        title: 'Migration failed',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setBatchAdding(false);
+    }
+  };
+
   const deleteTemplate = async () => {
     if (!selected || !currentOrganization) return;
     if (!window.confirm(`Delete "${selected.title}"? This cannot be undone.`)) return;
@@ -465,6 +529,19 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
         <Button size="sm" className="w-full gap-1.5" onClick={createNew}>
           <Plus className="h-4 w-4" /> New {copy.title}
         </Button>
+        {(kind === 'agreement' || kind === 'intake') && templates.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-1.5"
+            onClick={addStandardFieldsToAll}
+            disabled={batchAdding}
+            title="Adds Age, Gender, and 'How did you hear about us?' to every template of this kind that doesn't already have them"
+          >
+            {batchAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Apply to all
+          </Button>
+        )}
         <div className="flex-1 space-y-1 overflow-y-auto">
           {loadingList ? (
             <div className="flex items-center justify-center py-8">
@@ -538,7 +615,19 @@ export function WaiverTemplateEditor({ kind = 'waiver' }: { kind?: TemplateKind 
             <div className="flex-1 space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="font-medium">Form Blocks</Label>
-                <AddBlockPicker onAdd={addBlock} />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addPersonalInfoBlocks}
+                    className="gap-1.5"
+                    title="Adds Age, Gender, and 'How did you hear about us?' if missing"
+                  >
+                    <Plus className="h-4 w-4" /> Age / Gender / Referral
+                  </Button>
+                  <AddBlockPicker onAdd={addBlock} />
+                </div>
               </div>
 
               {blocks.length === 0 ? (
