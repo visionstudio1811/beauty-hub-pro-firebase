@@ -22,7 +22,7 @@ export interface SignedWaiverFields {
 
 export interface BackfillResult {
   filled: string[];
-  updates: Record<string, string>;
+  updates: Record<string, string | number>;
 }
 
 /**
@@ -92,8 +92,9 @@ export async function backfillClientFromSignedWaiver(
   const referralAnswer = findAnswer(lbl =>
     lbl.includes('how did you hear') || lbl.includes('referral') || lbl.includes('find us') || lbl.includes('hear about us'),
   );
+  const ageAnswer = findAnswer(lbl => lbl === 'age' || lbl.endsWith(' age') || lbl.startsWith('age '));
 
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | number> = {};
 
   if (!client.email && signerEmail) updates.email = signerEmail;
 
@@ -114,6 +115,11 @@ export async function backfillClientFromSignedWaiver(
   if (!client.date_of_birth && dobAnswer) updates.date_of_birth = dobAnswer;
   if (!client.gender && genderAnswer) updates.gender = genderAnswer;
   if (!client.referral_source && referralAnswer) updates.referral_source = referralAnswer;
+
+  if (client.age == null && ageAnswer) {
+    const parsed = parseInt(ageAnswer, 10);
+    if (!Number.isNaN(parsed) && parsed > 0 && parsed < 120) updates.age = parsed;
+  }
 
   const filled = Object.keys(updates);
   if (filled.length > 0) {
