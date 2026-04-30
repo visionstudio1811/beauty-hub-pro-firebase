@@ -145,8 +145,8 @@ organizations/{orgId}                ← org document
   /config/businessInfo               ← single-document config
   /schedulingConfig/{id}
   /dropdownData/{id}
-  /waiverTemplates/{id}
-  /clientWaivers/{id}
+  /waiverTemplates/{id}              ← kind: 'waiver' | 'intake' | 'agreement'
+  /clientWaivers/{id}                ← signed forms; agreements include purchaseId + package snapshot
   /clientCommunications/{id}
   /auditLogs/{id}                    ← written by Cloud Functions only
   /marketingCampaigns/{id}
@@ -278,8 +278,8 @@ Callable functions receive a `CallableRequest` — access data via `request.data
 |---|---|---|
 | `adminCreateUser` | `onCall` | Admin-only user creation (Auth + Firestore doc) |
 | `sendClientEmail` | `onCall` | Send email via Resend; per-org daily rate limit |
-| `sendWaiver` | `onCall` | Send waiver link via SMS/email/device; issues a 30-day TTL token; per-org daily rate limit |
-| `notifyOrgOnWaiverSigned` | `onDocumentUpdated` | Firestore trigger: emails org admins the signed PDF + photos |
+| `sendWaiver` | `onCall` | Send waiver/intake/agreement link via SMS/email/device; issues a 30-day TTL token; per-org daily rate limit. Accepts optional `purchaseId` — when present, snapshots `packageName`, `packagePrice`, `packageSessions`, `purchaseDate`, `expiryDate` onto the `clientWaivers` doc so the agreement form prefills package info. |
+| `notifyOrgOnWaiverSigned` | `onDocumentUpdated` | Firestore trigger: emails org admins the signed PDF + photos. Also **backfills empty client card fields** (name, email, phone, address, city, date_of_birth, gender, referral_source) from the signed form's signer fields + answer-by-label matching. Never overwrites non-empty fields. Runs for all kinds (waiver, intake, agreement). |
 | `acuitySync` | `onCall` | Manual Acuity Scheduling sync |
 | `acuityWebhook` | `onRequest` | Acuity webhook receiver (HMAC-verified with per-org `webhook_secret`) |
 | `packageExpiryNotifications` | scheduled | Periodic reminders for expiring packages |
