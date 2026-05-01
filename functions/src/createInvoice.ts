@@ -11,6 +11,7 @@ const db = admin.firestore();
 interface CreateInvoiceRequest {
   organizationId: string;
   purchaseId: string;
+  payment_method?: string;
 }
 
 interface TreatmentLine {
@@ -28,7 +29,7 @@ export const createInvoice = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Unauthorized');
   }
 
-  const { organizationId, purchaseId } = request.data as CreateInvoiceRequest;
+  const { organizationId, purchaseId, payment_method } = request.data as CreateInvoiceRequest;
   if (!organizationId || !purchaseId) {
     throw new HttpsError('invalid-argument', 'organizationId and purchaseId are required');
   }
@@ -244,6 +245,7 @@ export const createInvoice = onCall(async (request) => {
       pdf_url: null,
       pdf_storage_path: null,
       status: 'issued',
+      payment_method: payment_method ?? '',
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       created_by: request.auth!.uid,
     });

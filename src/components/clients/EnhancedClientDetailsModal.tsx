@@ -136,6 +136,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const { invoices } = useInvoices(client?.id);
   const { treatments: treatmentsList } = useSupabaseTreatments();
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [emailingInvoice, setEmailingInvoice] = useState<string | null>(null);
+  const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  const [pendingPurchaseId, setPendingPurchaseId] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [agreementFor, setAgreementFor] = useState<{ purchaseId: string; packageName: string } | null>(null);
   const [backfilling, setBackfilling] = useState(false);
 
@@ -401,15 +405,21 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     }
   };
 
-  const handleGenerateInvoice = async (purchaseId: string) => {
+  const handleGenerateInvoice = (purchaseId: string) => {
+    setPendingPurchaseId(purchaseId);
+    setSelectedPaymentMethod('');
+    setPaymentMethodDialogOpen(true);
+  };
+
+  const executeGenerateInvoice = async (purchaseId: string, paymentMethod: string) => {
     if (!currentOrganization?.id) return;
     setGeneratingFor(purchaseId);
     try {
       const call = httpsCallable<
-        { organizationId: string; purchaseId: string },
+        { organizationId: string; purchaseId: string; payment_method: string },
         { invoice: Invoice & { id: string }; reused: boolean }
       >(functions, 'createInvoice');
-      const res = await call({ organizationId: currentOrganization.id, purchaseId });
+      const res = await call({ organizationId: currentOrganization.id, purchaseId, payment_method: paymentMethod });
       const invoice = res.data.invoice;
 
       // If a previous invoice is already fully issued with a PDF, just open it.
@@ -466,6 +476,36 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         description: 'This invoice does not yet have a PDF. Re-generate from the package row.',
         variant: 'destructive',
       });
+  };
+
+  const handleEmailInvoice = async (inv: Invoice) => {
+    const recipientEmail = inv.client_snapshot?.email || client?.email;
+    if (!recipientEmail) {
+      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      return;
+    }
+    if (!inv.pdf_url) {
+      toast({ title: 'PDF not ready', description: 'Generate the invoice PDF first.', variant: 'destructive' });
+      return;
+    }
+    if (!currentOrganization?.id) return;
+    setEmailingInvoice(inv.id);
+    try {
+      const sendEmail = httpsCallable(functions, 'sendClientEmail');
+      const clientName = inv.client_snapshot?.name || client?.name || 'there';
+      await sendEmail({
+        to: recipientEmail,
+        subject: `Your Invoice ${inv.invoice_number}`,
+        message: `Hi ${clientName},\n\nPlease find your invoice below.\n\nInvoice #: ${inv.invoice_number}\nTotal: ${formatCents(inv.total_cents, inv.currency)}\n\nView / Download your invoice:\n${inv.pdf_url}\n\nThank you!`,
+        clientId: client?.id,
+        organizationId: currentOrganization.id,
+      });
+      toast({ title: 'Invoice sent', description: `Emailed to ${recipientEmail}.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send invoice email.', variant: 'destructive' });
+    } finally {
+      setEmailingInvoice(null);
+    }
   };
 
   const formatCents = (cents: number, currency: string) => {
@@ -1087,6 +1127,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                               <Download className="h-4 w-4 mr-1" />
                               <span className="hidden sm:inline">Download</span>
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEmailInvoice(inv)}
+                              disabled={!inv.pdf_url || emailingInvoice === inv.id}
+                              title="Email invoice to client"
+                            >
+                              <Mail className="h-4 w-4 mr-1" />
+                              <span className="hidden sm:inline">{emailingInvoice === inv.id ? 'Sending…' : 'Email'}</span>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -1151,6 +1201,45 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           onClose={() => setAgreementFor(null)}
         />
       )}
+
+      <Dialog open={paymentMethodDialogOpen} onOpenChange={setPaymentMethodDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Select Payment Method</DialogTitle>
+            <DialogDescription>Choose how the client paid for this package.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Zelle">Zelle</SelectItem>
+                <SelectItem value="Cherry">Cherry</SelectItem>
+                <SelectItem value="Affirm">Affirm</SelectItem>
+                <SelectItem value="Cash">Cash</SelectItem>
+                <SelectItem value="Credit Card">Credit Card</SelectItem>
+                <SelectItem value="Check">Check</SelectItem>
+                <SelectItem value="Venmo">Venmo</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setPaymentMethodDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!selectedPaymentMethod}
+              onClick={() => {
+                setPaymentMethodDialogOpen(false);
+                if (pendingPurchaseId) executeGenerateInvoice(pendingPurchaseId, selectedPaymentMethod);
+              }}
+            >
+              <Receipt className="h-4 w-4 mr-1" />
+              Generate Invoice
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isPastTreatmentOpen} onOpenChange={setIsPastTreatmentOpen}>
         <DialogContent className="max-w-md">

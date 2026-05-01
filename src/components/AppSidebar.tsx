@@ -88,9 +88,9 @@ export function AppSidebar() {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   const itemClass = (isActive: boolean) =>
-    `group h-9 rounded-md transition-colors duration-150
+    `group h-9 rounded-lg transition-colors duration-150
      ${isActive
-       ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+       ? 'border border-[#C4A882] text-sidebar-accent-foreground bg-[#C4A882]/10'
        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
      }
      ${isCollapsed ? 'w-10 mx-auto justify-center px-0' : 'px-3'}`;
@@ -131,7 +131,7 @@ export function AppSidebar() {
                 const isActive = location.pathname === item.path ||
                   (item.path !== '/admin' && location.pathname.startsWith(item.path));
                 const button = (
-                  <SidebarMenuButton asChild isActive={isActive} className={itemClass(isActive)}>
+                  <SidebarMenuButton asChild className={itemClass(isActive)}>
                     <Link to={item.path} className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
                       <item.icon className="h-4 w-4 flex-shrink-0" />
                       {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
@@ -156,7 +156,7 @@ export function AppSidebar() {
                   {isCollapsed ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <SidebarMenuButton asChild isActive={isOnMarketing} className={itemClass(isOnMarketing)}>
+                        <SidebarMenuButton asChild className={itemClass(isOnMarketing)}>
                           <Link to="/admin/marketing" className="flex items-center justify-center">
                             <Mail className="h-4 w-4 flex-shrink-0" />
                           </Link>
@@ -166,7 +166,6 @@ export function AppSidebar() {
                     </Tooltip>
                   ) : (
                     <SidebarMenuButton
-                      isActive={isOnMarketing}
                       onClick={() => setMarketingOpen(prev => !prev)}
                       className={`${itemClass(isOnMarketing)} cursor-pointer w-full`}
                     >
@@ -213,7 +212,7 @@ export function AppSidebar() {
                     {isCollapsed ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <SidebarMenuButton asChild isActive={isOnSettings} className={itemClass(isOnSettings)}>
+                          <SidebarMenuButton asChild className={itemClass(isOnSettings)}>
                             <Link to="/admin/settings" className="flex items-center justify-center">
                               <Settings className="h-4 w-4 flex-shrink-0" />
                             </Link>
@@ -223,7 +222,6 @@ export function AppSidebar() {
                       </Tooltip>
                     ) : (
                       <SidebarMenuButton
-                        isActive={isOnSettings}
                         onClick={() => setSettingsOpen(prev => !prev)}
                         className={`${itemClass(isOnSettings)} cursor-pointer w-full`}
                       >

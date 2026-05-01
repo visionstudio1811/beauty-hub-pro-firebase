@@ -420,6 +420,12 @@ export async function buildInvoicePdf(
   y += totalsBoxH + 18;
 
   // ── FOOTER ────────────────────────────────────────────
+  if (invoice.payment_method) {
+    y = drawTextAt(doc, margin, y, 'PAYMENT METHOD', 9, { bold: true, color: theme.muted });
+    y += 2;
+    y = drawTextAt(doc, margin, y, invoice.payment_method, 10, { color: theme.ink, maxWidth: contentW });
+    y += 12;
+  }
   if (biz.payment_terms) {
     y = drawTextAt(doc, margin, y, 'PAYMENT TERMS', 9, {
       bold: true,

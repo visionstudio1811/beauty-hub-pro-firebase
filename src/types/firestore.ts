@@ -213,6 +213,7 @@ export interface Invoice {
   pdf_url: string | null;
   pdf_storage_path: string | null;
   status: 'issued' | 'void';
+  payment_method?: string;
   voided_at?: any;
   voided_by?: string;
   created_at: any;

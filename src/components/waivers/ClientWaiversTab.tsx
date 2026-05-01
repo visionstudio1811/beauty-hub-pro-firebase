@@ -92,6 +92,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
   const [sendingMode, setSendingMode]   = useState<SendMode | null>(null);
   const [smsProvider, setSmsProvider]   = useState<SmsProvider>('infobip');
   const [requiresOtp, setRequiresOtp]   = useState(true);
+  const [emailingDocId, setEmailingDocId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!currentOrganization) return;
@@ -225,6 +226,35 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
       window.open(url, '_blank');
     } catch {
       if (waiver.pdf_url) window.open(waiver.pdf_url, '_blank');
+    }
+  };
+
+  const handleEmailDocument = async (w: WaiverRecord) => {
+    if (!client.email) {
+      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      return;
+    }
+    if (!w.pdf_url) {
+      toast({ title: 'PDF not ready', description: 'The signed PDF is not available yet.', variant: 'destructive' });
+      return;
+    }
+    if (!currentOrganization?.id) return;
+    setEmailingDocId(w.id);
+    try {
+      const sendEmail = httpsCallable(functions, 'sendClientEmail');
+      const title = w.waiver_templates?.title ?? copy.singular;
+      await sendEmail({
+        to: client.email,
+        subject: `Your signed ${title}`,
+        message: `Hi ${client.name || 'there'},\n\nA copy of your signed ${title} is available below.\n\nView / Download:\n${w.pdf_url}\n\nThank you!`,
+        clientId: client.id,
+        organizationId: currentOrganization.id,
+      });
+      toast({ title: 'Document sent', description: `Emailed to ${client.email}.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send document email.', variant: 'destructive' });
+    } finally {
+      setEmailingDocId(null);
     }
   };
 
@@ -407,6 +437,18 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                         onClick={() => downloadPdf(w)}
                       >
                         <Download className="h-3.5 w-3.5" /> PDF
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => handleEmailDocument(w)}
+                        disabled={!w.pdf_url || !client.email || emailingDocId === w.id}
+                        title={!client.email ? 'No email on file for this client' : 'Email document to client'}
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        {emailingDocId === w.id ? 'Sending…' : 'Email'}
                       </Button>
 
                       {w.imageUrls.length > 0 && (

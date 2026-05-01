@@ -42,6 +42,7 @@ import {
   Receipt,
   Search,
   ShieldAlert,
+  Mail,
 } from 'lucide-react';
 import type { Invoice } from '@/types/firestore';
 
@@ -136,6 +137,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<DatePreset>('this-year');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [voidingId, setVoidingId] = useState<string | null>(null);
+  const [emailingId, setEmailingId] = useState<string | null>(null);
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
@@ -227,6 +229,36 @@ export const InvoiceHistoryViewer: React.FC = () => {
         description: 'This invoice has no PDF on file.',
         variant: 'destructive',
       });
+  };
+
+  const handleEmailInvoice = async (inv: Invoice) => {
+    const recipientEmail = inv.client_snapshot?.email;
+    if (!recipientEmail) {
+      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      return;
+    }
+    if (!inv.pdf_url) {
+      toast({ title: 'PDF not ready', description: 'Generate the invoice PDF first.', variant: 'destructive' });
+      return;
+    }
+    if (!currentOrganization?.id) return;
+    setEmailingId(inv.id);
+    try {
+      const sendEmail = httpsCallable(functions, 'sendClientEmail');
+      const clientName = inv.client_snapshot?.name || 'there';
+      await sendEmail({
+        to: recipientEmail,
+        subject: `Your Invoice ${inv.invoice_number}`,
+        message: `Hi ${clientName},\n\nPlease find your invoice below.\n\nInvoice #: ${inv.invoice_number}\nTotal: ${formatCents(inv.total_cents, inv.currency, locale)}\n\nView / Download your invoice:\n${inv.pdf_url}\n\nThank you!`,
+        clientId: inv.client_id,
+        organizationId: currentOrganization.id,
+      });
+      toast({ title: 'Invoice sent', description: `Emailed to ${recipientEmail}.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send invoice email.', variant: 'destructive' });
+    } finally {
+      setEmailingId(null);
+    }
   };
 
   const clearFilters = () => {
@@ -413,6 +445,15 @@ export const InvoiceHistoryViewer: React.FC = () => {
                       title={inv.pdf_url ? 'Download PDF' : 'No PDF on file'}
                     >
                       <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEmailInvoice(inv)}
+                      disabled={!inv.pdf_url || !inv.client_snapshot?.email || emailingId === inv.id}
+                      title={!inv.client_snapshot?.email ? 'No email on file' : 'Email invoice to client'}
+                    >
+                      <Mail className="h-4 w-4" />
                     </Button>
                     {inv.status === 'issued' && (
                       <AlertDialog>
