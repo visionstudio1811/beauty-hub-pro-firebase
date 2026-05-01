@@ -192,6 +192,8 @@ export const sendWaiver = onCall(
       clientAge: client.age ?? null,
       clientAddress: client.address ?? '',
       clientGender: client.gender ?? '',
+      clientCity: client.city ?? '',
+      clientReferralSource: client.referral_source ?? client.referralSource ?? '',
       ...(purchaseSnapshot ? {
         purchaseId: purchaseSnapshot.purchaseId,
         packageId: purchaseSnapshot.packageId,

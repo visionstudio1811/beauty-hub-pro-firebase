@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,8 @@ export type BlockType =
   | 'signature'
   | 'date'
   | 'time'
+  | 'city'
+  | 'referral_source'
   | 'package_name'
   | 'package_price'
   | 'package_sessions'
@@ -64,6 +66,7 @@ const PHONE_RE = /^[+]?[\d\s\-().]{7,20}$/;
 
 interface WaiverData {
   waiver_id: string;
+  organization_id: string;
   template_title: string;
   template_headline: string;
   template_sub_headline: string;
@@ -75,12 +78,16 @@ interface WaiverData {
   client_age: number | null;
   client_address: string;
   client_gender: string;
+  client_city: string;
+  client_referral_source: string;
   package_name: string;
   package_price: number | null;
   package_sessions: number | null;
   purchase_date: string;
   expiry_date: string;
 }
+
+const OTHER_VALUE = '__other__';
 
 function formatPrice(n: number): string {
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
@@ -114,6 +121,14 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
   for (const block of blocks) {
     if (PURCHASE_BLOCK_TYPES.includes(block.type)) {
       prefill[block.id] = purchaseBlockValue(block, waiver);
+      continue;
+    }
+    if (block.type === 'city') {
+      if (waiver.client_city) prefill[block.id] = waiver.client_city;
+      continue;
+    }
+    if (block.type === 'referral_source') {
+      if (waiver.client_referral_source) prefill[block.id] = waiver.client_referral_source;
       continue;
     }
     if (!block.label && block.type !== 'email' && block.type !== 'phone') continue;
@@ -218,6 +233,38 @@ async function loadImageSize(dataUrl: string): Promise<{ w: number; h: number }>
   });
 }
 
+// Downscale a dataURL to fit within maxDim (longest side) and re-encode as JPEG.
+// Uploaded originals are stored separately at full resolution; the PDF only
+// needs a readable preview, so we trade size for fidelity here. Without this,
+// a few phone photos easily push the generated PDF past the 10MB upload cap.
+async function compressImageDataUrl(dataUrl: string, maxDim = 1400, quality = 0.72): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (!w || !h) { resolve(dataUrl); return; }
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const tw = Math.max(1, Math.round(w * scale));
+      const th = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(dataUrl); return; }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tw, th);
+      ctx.drawImage(img, 0, 0, tw, th);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function buildPdf(
   title: string,
   signerName: string,
@@ -304,11 +351,18 @@ async function buildPdf(
           const drawW = w * ratio;
           const drawH = h * ratio;
           ensureSpace(drawH + 8);
-          const fmt = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-          doc.addImage(dataUrl, fmt, margin, y, drawW, drawH);
+          doc.addImage(dataUrl, 'JPEG', margin, y, drawW, drawH, undefined, 'FAST');
           y += drawH + 8;
         }
       }
+      y += 4;
+    } else if (block.type === 'city' || block.type === 'referral_source') {
+      const defaultLabel = block.type === 'city' ? 'City' : 'How did you hear about us?';
+      const lbl = block.label?.trim() || defaultLabel;
+      const value = typeof answers[block.id] === 'string' && (answers[block.id] as string).trim()
+        ? (answers[block.id] as string)
+        : '—';
+      addText(`${lbl}: ${value}`, 11, false, '#1f2937');
       y += 4;
     } else if (
       block.type === 'package_name' ||
@@ -378,6 +432,28 @@ export default function WaiverForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [capturedSig, setCapturedSig] = useState<string | null>(null);
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
+  const [referralOptions, setReferralOptions] = useState<string[]>([]);
+
+  // Pulls active city + referral-source options from the org's dropdownData
+  // so the public form can render the same dropdowns staff see on the client card.
+  // Fails open: if the read is denied or empty, the blocks fall back to free-text.
+  const fetchDropdownOptions = async (orgId: string) => {
+    try {
+      const q = query(
+        collection(db, 'organizations', orgId, 'dropdownData'),
+        where('is_active', '==', true),
+        orderBy('sort_order'),
+      );
+      const snap = await getDocs(q);
+      const all = snap.docs.map((d) => d.data() as { category?: string; value?: string });
+      setCityOptions(all.filter((d) => d.category === 'cities' && d.value).map((d) => d.value as string));
+      setReferralOptions(all.filter((d) => d.category === 'referral_sources' && d.value).map((d) => d.value as string));
+    } catch {
+      setCityOptions([]);
+      setReferralOptions([]);
+    }
+  };
 
   const loadWaiver = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -425,6 +501,7 @@ export default function WaiverForm() {
 
         const waiverData: WaiverData = {
           waiver_id: waiverId,
+          organization_id: orgId,
           template_title: tpl?.title ?? 'Waiver',
           template_headline: tpl?.headline ?? '',
           template_sub_headline: tpl?.sub_headline ?? '',
@@ -436,6 +513,8 @@ export default function WaiverForm() {
           client_age: wd.clientAge ?? null,
           client_address: wd.clientAddress ?? '',
           client_gender: wd.clientGender ?? '',
+          client_city: wd.clientCity ?? '',
+          client_referral_source: wd.clientReferralSource ?? '',
           package_name: wd.packageName ?? '',
           package_price: wd.packagePrice ?? null,
           package_sessions: wd.packageSessions ?? null,
@@ -447,6 +526,7 @@ export default function WaiverForm() {
         setSignerEmail(wd.clientEmail ?? '');
         setSignerPhone(wd.clientPhone ?? '');
         setAnswers(buildPrefillAnswers(tpl?.content ?? [], waiverData));
+        fetchDropdownOptions(orgId);
       } catch (err: any) {
         const msg = err?.message || String(err);
         if (msg.includes('not found') || msg.includes('NOT_FOUND')) {
@@ -490,6 +570,7 @@ export default function WaiverForm() {
       const tpl = tplSnap.exists() ? tplSnap.data() : null;
       const waiverDataOtp: WaiverData = {
         waiver_id: waiverId,
+        organization_id: orgId,
         template_title: tpl?.title ?? 'Form',
         template_headline: tpl?.headline ?? '',
         template_sub_headline: tpl?.sub_headline ?? '',
@@ -501,6 +582,8 @@ export default function WaiverForm() {
         client_age: wd.clientAge ?? null,
         client_address: wd.clientAddress ?? '',
         client_gender: wd.clientGender ?? '',
+        client_city: wd.clientCity ?? '',
+        client_referral_source: wd.clientReferralSource ?? '',
         package_name: wd.packageName ?? '',
         package_price: wd.packagePrice ?? null,
         package_sessions: wd.packageSessions ?? null,
@@ -512,6 +595,7 @@ export default function WaiverForm() {
       setSignerEmail(wd.clientEmail ?? '');
       setSignerPhone(wd.clientPhone ?? '');
       setAnswers(buildPrefillAnswers(tpl?.content ?? [], waiverDataOtp));
+      fetchDropdownOptions(orgId);
       setLoading(false);
     } catch (err: unknown) {
       setOtpError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
@@ -592,7 +676,8 @@ export default function WaiverForm() {
         if (block.type !== 'image_upload') continue;
         const files = imageFiles[block.id] ?? [];
         if (files.length === 0) continue;
-        imageDataUrls[block.id] = await Promise.all(files.map(fileToDataUrl));
+        const rawDataUrls = await Promise.all(files.map(fileToDataUrl));
+        imageDataUrls[block.id] = await Promise.all(rawDataUrls.map((d) => compressImageDataUrl(d)));
         finalAnswers[block.id] = await Promise.all(
           files.map((f, i) => uploadWaiverImage(f, token!, block.id, i))
         );
@@ -736,6 +821,8 @@ export default function WaiverForm() {
               images={imageFiles[block.id] ?? []}
               onImagesChange={(files) => setBlockImages(block.id, files)}
               error={errors[block.id]}
+              cityOptions={cityOptions}
+              referralOptions={referralOptions}
             />
           ))}
 
@@ -897,7 +984,7 @@ export default function WaiverForm() {
 
 // ── Block renderer ────────────────────────────────────────────
 function BlockRenderer({
-  block, answer, onAnswer, images, onImagesChange, error,
+  block, answer, onAnswer, images, onImagesChange, error, cityOptions, referralOptions,
 }: {
   block: WaiverBlock;
   answer: string | boolean | string[] | undefined;
@@ -905,6 +992,8 @@ function BlockRenderer({
   images: File[];
   onImagesChange: (files: File[]) => void;
   error?: string;
+  cityOptions: string[];
+  referralOptions: string[];
 }) {
   if (block.type === 'text') {
     return (
@@ -1057,6 +1146,23 @@ function BlockRenderer({
         />
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
+    );
+  }
+
+  if (block.type === 'city' || block.type === 'referral_source') {
+    const options = block.type === 'city' ? cityOptions : referralOptions;
+    return (
+      <DropdownWithOtherBlock
+        block={block}
+        answer={typeof answer === 'string' ? answer : ''}
+        onAnswer={onAnswer}
+        options={options}
+        defaultLabel={block.type === 'city' ? 'City' : 'How did you hear about us?'}
+        placeholder={block.type === 'city' ? 'Select City' : 'Select Source'}
+        otherLabel={block.type === 'city' ? '+ Other city…' : '+ Other source…'}
+        otherPlaceholder={block.type === 'city' ? 'Enter your city' : 'Enter source'}
+        error={error}
+      />
     );
   }
 
@@ -1313,6 +1419,66 @@ function SignatureBlock({
       </div>
 
       <EsignDisclosureModal open={showDisclosure} onClose={() => setShowDisclosure(false)} />
+    </div>
+  );
+}
+
+// ── Dropdown-with-Other (city / referral_source) ──────────────
+function DropdownWithOtherBlock({
+  block, answer, onAnswer, options, defaultLabel, placeholder, otherLabel, otherPlaceholder, error,
+}: {
+  block: WaiverBlock;
+  answer: string;
+  onAnswer: (v: string) => void;
+  options: string[];
+  defaultLabel: string;
+  placeholder: string;
+  otherLabel: string;
+  otherPlaceholder: string;
+  error?: string;
+}) {
+  // Default Other-mode when the prefilled value isn't in the (current) options list.
+  const initialOther = !!answer && !options.includes(answer);
+  const [otherMode, setOtherMode] = useState(initialOther);
+
+  const selectValue = otherMode ? OTHER_VALUE : (options.includes(answer) ? answer : '');
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={block.id} className="font-medium">
+        {block.label || defaultLabel}
+        {block.required && <span className="text-destructive ml-1">*</span>}
+      </Label>
+      <select
+        id={block.id}
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === OTHER_VALUE) {
+            setOtherMode(true);
+            onAnswer('');
+          } else {
+            setOtherMode(false);
+            onAnswer(v);
+          }
+        }}
+        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${error ? 'border-destructive' : 'border-input'}`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+        <option value={OTHER_VALUE}>{otherLabel}</option>
+      </select>
+      {otherMode && (
+        <Input
+          value={answer}
+          onChange={(e) => onAnswer(e.target.value)}
+          placeholder={otherPlaceholder}
+          autoFocus
+        />
+      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

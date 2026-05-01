@@ -215,6 +215,28 @@ function PreviewBlock({
     );
   }
 
+  if (block.type === 'city' || block.type === 'referral_source') {
+    const defaultLabel = block.type === 'city' ? 'City' : 'How did you hear about us?';
+    const placeholder = block.type === 'city' ? 'Select City' : 'Select Source';
+    return (
+      <div className="space-y-1.5">
+        <Label className="font-medium">
+          {block.label || defaultLabel}
+          {block.required && <span className="text-destructive ml-1">*</span>}
+        </Label>
+        <select
+          value={typeof answer === 'string' ? answer : ''}
+          onChange={(e) => onAnswer(e.target.value)}
+          className="w-full px-3 py-2 border border-input rounded-md bg-white text-sm"
+        >
+          <option value="">{placeholder}</option>
+          <option value="__preview_other__">+ Other…</option>
+        </select>
+        <p className="text-xs text-muted-foreground">Pulls live options from your client-card {block.type === 'city' ? 'cities' : 'referral sources'} when sent.</p>
+      </div>
+    );
+  }
+
   if (block.type === 'time') {
     return (
       <div className="space-y-1.5">

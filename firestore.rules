@@ -204,7 +204,8 @@ service cloud.firestore {
       }
 
       match /dropdownData/{docId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        // Staff reads + unauthenticated reads (public waiver/intake form needs city + referral-source options)
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || request.auth == null;
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }

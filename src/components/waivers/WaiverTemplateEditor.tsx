@@ -63,6 +63,8 @@ import {
   Hash,
   CalendarCheck,
   CalendarX,
+  MapPin,
+  Megaphone,
 } from 'lucide-react';
 import type { BlockType, WaiverBlock } from '@/pages/WaiverForm';
 import { PURCHASE_BLOCK_TYPES } from '@/pages/WaiverForm';
@@ -86,6 +88,8 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: React.ElementType; de
   { type: 'phone',            label: 'Phone Number',         icon: Phone,         description: 'Collect a phone number' },
   { type: 'date',             label: 'Date',                 icon: Calendar,      description: 'Calendar date picker' },
   { type: 'time',             label: 'Time',                 icon: ClockIcon,     description: 'Time-of-day picker' },
+  { type: 'city',             label: 'City',                 icon: MapPin,        description: 'City dropdown sourced from your client-card cities (with "Other")' },
+  { type: 'referral_source',  label: 'How did you hear?',    icon: Megaphone,     description: 'Referral-source dropdown sourced from your client-card sources (with "Other")' },
   { type: 'signature',        label: 'Signature Pad',        icon: PenLine,       description: 'Client draws a signature (e.g. guardian or initial)' },
   { type: 'image_upload',     label: 'Image Upload',         icon: ImageUp,       description: 'Client uploads photos (e.g. affected area)' },
   { type: 'package_name',     label: 'Package Name',         icon: PackageIcon,   description: 'Auto-filled package name from the linked purchase' },
@@ -106,6 +110,8 @@ const BADGE_COLORS: Record<BlockType, string> = {
   phone:            'bg-teal-100 text-teal-700',
   date:             'bg-orange-100 text-orange-700',
   time:             'bg-yellow-100 text-yellow-700',
+  city:             'bg-rose-100 text-rose-700',
+  referral_source:  'bg-fuchsia-100 text-fuchsia-700',
   signature:        'bg-indigo-100 text-indigo-700',
   image_upload:     'bg-pink-100 text-pink-700',
   package_name:     'bg-emerald-100 text-emerald-700',

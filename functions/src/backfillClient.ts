@@ -84,12 +84,13 @@ export async function backfillClientFromSignedWaiver(
   const addressAnswer = findAnswer(lbl =>
     lbl.includes('address') && !lbl.includes('line 2') && !lbl.includes('email'),
   );
-  const cityAnswer = findAnswer(lbl => lbl.includes('city'));
+  const cityAnswer = findAnswer((lbl, type) => type === 'city' || lbl.includes('city'));
   const dobAnswer  = findAnswer((lbl, type) =>
     isBirthdayLabel(lbl) || (type === 'date' && isBirthdayLabel(lbl)),
   );
   const genderAnswer = findAnswer(lbl => lbl.includes('gender') || lbl === 'sex');
-  const referralAnswer = findAnswer(lbl =>
+  const referralAnswer = findAnswer((lbl, type) =>
+    type === 'referral_source' ||
     lbl.includes('how did you hear') || lbl.includes('referral') || lbl.includes('find us') || lbl.includes('hear about us'),
   );
   const ageAnswer = findAnswer(lbl => lbl === 'age' || lbl.endsWith(' age') || lbl.startsWith('age '));
