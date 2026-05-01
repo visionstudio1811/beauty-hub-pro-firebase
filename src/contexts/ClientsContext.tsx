@@ -28,6 +28,8 @@ export interface Client {
   referral_source?: string;
   allergies?: string;
   notes?: string;
+  gender?: 'female' | 'male' | '';
+  age?: number;
   created_at: string;
   updated_at: string;
   has_membership: boolean;
@@ -79,6 +81,8 @@ const transformClient = (id: string, data: any, extras?: Partial<Client>): Clien
   referral_source: data.referral_source ?? data.referralSource ?? undefined,
   allergies: data.allergies ?? undefined,
   notes: data.notes ?? undefined,
+  gender: data.gender ?? undefined,
+  age: data.age ?? undefined,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   has_membership: data.has_membership ?? data.hasMembership ?? false,
@@ -247,12 +251,14 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
         referral_source: validatedData.referral_source ?? null,
         allergies: validatedData.allergies ?? null,
         notes: validatedData.notes ?? null,
+        gender: updates.gender ?? null,
+        age: updates.age ?? null,
         has_membership: updates.has_membership,
         updated_at: serverTimestamp(),
       });
 
       const existing = clients.find(c => c.id === id);
-      const updatedClient = transformClient(id, { ...existing, ...validatedData, has_membership: updates.has_membership }, {
+      const updatedClient = transformClient(id, { ...existing, ...validatedData, gender: updates.gender, age: updates.age, has_membership: updates.has_membership }, {
         lastVisit: updates.lastVisit || existing?.lastVisit,
         totalVisits: updates.totalVisits ?? existing?.totalVisits ?? 0,
         activePackage: updates.activePackage ?? existing?.activePackage ?? null,

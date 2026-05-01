@@ -127,6 +127,8 @@ export const usePaginatedClients = ({
               referral_source: data.referral_source ?? undefined,
               allergies: data.allergies ?? undefined,
               notes: data.notes ?? undefined,
+              gender: data.gender ?? undefined,
+              age: data.age ?? undefined,
               created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
               updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
               has_membership: data.has_membership ?? false,
