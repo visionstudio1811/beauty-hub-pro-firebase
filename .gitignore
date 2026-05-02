@@ -35,8 +35,9 @@ functions/lib/
 # Firebase CLI state (deploy caches, emulator data, hosting cache)
 .firebase/
 
-# Local Claude Code settings
-.claude/
+# Local Claude Code settings (but track shared skills)
+.claude/*
+!.claude/skills/
 
 # Local reference screenshots
 Vagaro-Manage-Customers-*.png
