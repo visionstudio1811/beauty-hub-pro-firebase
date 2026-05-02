@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,18 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  updateDoc,
-  doc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { Palette, Eye, Save, RotateCcw, Code, Mail } from 'lucide-react';
+import { Palette, Eye, Save, RotateCcw, Code, Mail, Image as ImageIcon, Upload, X, Loader2, Zap } from 'lucide-react';
+import { getDefaultTemplateHtml, ELEGANT_DEFAULT_SETTINGS, type TemplateType } from './emailTemplates';
 
 interface EmailTemplate {
   name: string;
@@ -41,147 +37,147 @@ interface EmailTemplateDesignerProps {
   onUpdate?: () => void;
 }
 
+const COMMON_VARS = [
+  "header_image_url",
+  "logo_url",
+  "organization_name",
+  "organization_phone",
+  "organization_address",
+  "organization_email",
+  "sender_name",
+  "client_name",
+  "date",
+  "cta_url",
+];
+
 const TEMPLATE_TYPES = {
-  general: { 
-    name: 'General Template', 
-    variables: ["subject", "message", "organization_name", "client_name", "logo_url", "organization_phone", "organization_address", "sender_name", "date"]
+  welcome: {
+    name: 'Welcome / Thank You Template',
+    variables: [...COMMON_VARS],
   },
-  birthday: { 
-    name: 'Birthday Template', 
-    variables: ["client_name", "birthday_date", "special_offer", "discount_code", "organization_name", "logo_url", "organization_phone", "sender_name", "date"]
+  general: {
+    name: 'General Template',
+    variables: ["subject", "message", ...COMMON_VARS],
   },
-  inactive: { 
-    name: 'Inactive Client Template', 
-    variables: ["client_name", "last_visit_date", "months_inactive", "comeback_offer", "organization_name", "logo_url", "organization_phone", "sender_name", "date"]
+  birthday: {
+    name: 'Birthday Template',
+    variables: ["birthday_date", "special_offer", "discount_code", ...COMMON_VARS],
   },
-  package_renewal: { 
-    name: 'Package Renewal Template', 
-    variables: ["client_name", "package_name", "expiry_date", "sessions_remaining", "renewal_discount", "organization_name", "logo_url", "organization_phone", "sender_name", "date"]
+  inactive: {
+    name: 'Inactive Client Template',
+    variables: ["last_visit_date", "months_inactive", "comeback_offer", ...COMMON_VARS],
   },
-  appointment_reminder: { 
-    name: 'Appointment Reminder Template', 
-    variables: ["client_name", "appointment_date", "appointment_time", "service_name", "staff_name", "location", "organization_name", "logo_url", "organization_phone", "sender_name", "date"]
-  }
+  package_renewal: {
+    name: 'Package Renewal Template',
+    variables: ["package_name", "expiry_date", "sessions_remaining", "renewal_discount", ...COMMON_VARS],
+  },
+  appointment_reminder: {
+    name: 'Appointment Reminder Template',
+    variables: ["appointment_date", "appointment_time", "service_name", "staff_name", "location", ...COMMON_VARS],
+  },
+} as const;
+
+const AUTO_FILLED_VARS = new Set([
+  'header_image_url',
+  'logo_url',
+  'organization_name',
+  'organization_phone',
+  'organization_address',
+  'organization_email',
+]);
+
+type AutomationKey = 'welcome' | 'birthday' | 'inactive' | 'package_renewal' | 'appointment_reminder';
+
+interface AutomationConfig {
+  is_active: boolean;
+  vip_only?: boolean;
+  days_offset?: number;
+  days_threshold?: number;
+  days_before_expiry?: number;
+  hours_before?: number;
+}
+
+const DEFAULT_AUTOMATIONS: Record<AutomationKey, AutomationConfig> = {
+  welcome:              { is_active: false, vip_only: false },
+  birthday:             { is_active: false, days_offset: 0 },
+  inactive:             { is_active: false, days_threshold: 90 },
+  package_renewal:      { is_active: true,  days_before_expiry: 7 },
+  appointment_reminder: { is_active: false, hours_before: 24 },
 };
 
-const getDefaultTemplateHtml = (type: keyof typeof TEMPLATE_TYPES): string => {
-  const baseHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: {{background_color}}">
-  <div style="background-color: {{card_background}}; padding: 20px; border-radius: 8px; margin: 20px;">
-    <div style="text-align: center; margin-bottom: 20px;">
-      {{#if logo_url}}<img src="{{logo_url}}" alt="{{organization_name}}" style="max-height: 60px; margin-bottom: 10px;">{{/if}}
-      <h2 style="color: {{primary_color}}; margin: 0;">`;
+const AUTOMATION_META: Record<AutomationKey, { title: string; description: string; trigger: string }> = {
+  welcome: {
+    title: 'Welcome / Thank You',
+    description: 'Sent automatically when a client purchases a package.',
+    trigger: 'On package purchase',
+  },
+  birthday: {
+    title: 'Birthday Greeting',
+    description: 'Sent on each client\'s birthday at 9am local time.',
+    trigger: 'Daily at 9am — matches client birthday',
+  },
+  inactive: {
+    title: 'Win-Back / Inactive Client',
+    description: 'Sent when a client hasn\'t visited for the configured number of days.',
+    trigger: 'Daily at 9am — based on last completed visit',
+  },
+  package_renewal: {
+    title: 'Package Renewal Reminder',
+    description: 'Sent before a client\'s active package expires.',
+    trigger: 'Daily — before expiry date',
+  },
+  appointment_reminder: {
+    title: 'Appointment Reminder',
+    description: 'Sent ahead of an upcoming appointment.',
+    trigger: 'Hourly — before appointment time',
+  },
+};
 
-  const templates = {
-    general: baseHtml + `{{subject}}</h2>
-    </div>
-    <div style="background-color: {{content_background}}; padding: 20px; border-radius: 6px; border-left: 4px solid {{primary_color}};">
-      <div style="color: {{text_color}}; line-height: 1.6;">{{message}}</div>
-    </div>`,
-    
-    birthday: baseHtml + `🎉 Happy Birthday {{client_name}}! 🎉</h2>
-    </div>
-    <div style="background-color: {{content_background}}; padding: 20px; border-radius: 6px; border-left: 4px solid {{primary_color}};">
-      <div style="color: {{text_color}}; line-height: 1.6;">
-        <p>We hope you have a wonderful birthday on {{birthday_date}}!</p>
-        <p>As a special birthday gift, we'd like to offer you {{special_offer}}.</p>
-        <p style="text-align: center; margin: 20px 0;">
-          <strong style="background: {{primary_color}}; color: white; padding: 10px 20px; border-radius: 5px;">
-            Use code: {{discount_code}}
-          </strong>
-        </p>
-      </div>
-    </div>`,
-    
-    inactive: baseHtml + `We Miss You, {{client_name}}!</h2>
-    </div>
-    <div style="background-color: {{content_background}}; padding: 20px; border-radius: 6px; border-left: 4px solid {{primary_color}};">
-      <div style="color: {{text_color}}; line-height: 1.6;">
-        <p>It's been {{months_inactive}} months since your last visit on {{last_visit_date}}.</p>
-        <p>We'd love to see you again! Come back and enjoy {{comeback_offer}}.</p>
-        <p>Book your appointment today and let us take care of you!</p>
-      </div>
-    </div>`,
-    
-    package_renewal: baseHtml + `Time to Renew Your {{package_name}}!</h2>
-    </div>
-    <div style="background-color: {{content_background}}; padding: 20px; border-radius: 6px; border-left: 4px solid {{primary_color}};">
-      <div style="color: {{text_color}}; line-height: 1.6;">
-        <p>Hi {{client_name}},</p>
-        <p>Your {{package_name}} expires on {{expiry_date}} with {{sessions_remaining}} sessions remaining.</p>
-        <p>Renew now and save with {{renewal_discount}}!</p>
-        <p>Don't miss out on continuing your wellness journey with us.</p>
-      </div>
-    </div>`,
-    
-    appointment_reminder: baseHtml + `Appointment Reminder</h2>
-    </div>
-    <div style="background-color: {{content_background}}; padding: 20px; border-radius: 6px; border-left: 4px solid {{primary_color}};">
-      <div style="color: {{text_color}}; line-height: 1.6;">
-        <p>Hi {{client_name}},</p>
-        <p>This is a reminder of your upcoming appointment:</p>
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
-          <p><strong>Service:</strong> {{service_name}}</p>
-          <p><strong>Date:</strong> {{appointment_date}}</p>
-          <p><strong>Time:</strong> {{appointment_time}}</p>
-          <p><strong>Practitioner:</strong> {{staff_name}}</p>
-          <p><strong>Location:</strong> {{location}}</p>
-        </div>
-        <p>We look forward to seeing you!</p>
-      </div>
-    </div>`
-  };
-
-  return templates[type] + `
-    <div style="margin-top: 20px; text-align: center;">
-      <p style="color: {{secondary_text}}; font-size: 14px; margin: 0;">{{signature}}</p>
-      <p style="color: {{secondary_text}}; font-size: 12px; margin: 5px 0 0 0;">{{organization_name}}{{#if organization_phone}} • {{organization_phone}}{{/if}}</p>
-    </div>
-  </div>
-</body>
-</html>`;
+const DEFAULT_SETTINGS: EmailTemplate['settings'] = {
+  ...ELEGANT_DEFAULT_SETTINGS,
 };
 
 const DEFAULT_TEMPLATE: EmailTemplate = {
   name: "General Template",
   html: getDefaultTemplateHtml('general'),
-  variables: TEMPLATE_TYPES.general.variables,
-  settings: {
-    primary_color: "#007bff",
-    background_color: "#f8f9fa", 
-    card_background: "#ffffff",
-    content_background: "#ffffff",
-    text_color: "#333333",
-    secondary_text: "#666666",
-    signature: "Best regards"
-  }
+  variables: [...TEMPLATE_TYPES.general.variables],
+  settings: DEFAULT_SETTINGS,
 };
 
 export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ onUpdate }) => {
-  const [selectedTemplateType, setSelectedTemplateType] = useState<keyof typeof TEMPLATE_TYPES>('general');
+  const [selectedTemplateType, setSelectedTemplateType] = useState<keyof typeof TEMPLATE_TYPES>('welcome');
   const [templates, setTemplates] = useState<Record<string, EmailTemplate>>({});
+  const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
+  const [orgEmail, setOrgEmail] = useState<string>('');
+  const [orgName, setOrgName] = useState<string>('');
+  const [orgPhone, setOrgPhone] = useState<string>('');
+  const [orgAddress, setOrgAddress] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingHeader, setUploadingHeader] = useState(false);
+  const [automations, setAutomations] = useState<Record<AutomationKey, AutomationConfig>>(DEFAULT_AUTOMATIONS);
+  const [savingAutomations, setSavingAutomations] = useState(false);
+  const headerFileInputRef = useRef<HTMLInputElement>(null);
   const [previewVariables, setPreviewVariables] = useState<Record<string, string>>({
-    subject: "Welcome to our service!",
-    message: "Thank you for joining us. We're excited to have you on board!",
+    subject: "A note from us",
+    message: "Thank you for being a part of our community. We're so happy to have you with us.",
     organization_name: "Your Business",
-    client_name: "John Doe",
+    client_name: "Jane",
     organization_phone: "(555) 123-4567",
+    organization_address: "123 Main St, City, State",
+    organization_email: "hello@yourbusiness.com",
+    sender_name: "The Team",
     date: new Date().toLocaleDateString(),
-    birthday_date: "March 15th",
+    cta_url: "",
+    birthday_date: "March 15",
     special_offer: "20% off your next treatment",
     discount_code: "BIRTHDAY20",
     last_visit_date: "6 months ago",
     months_inactive: "6",
     comeback_offer: "15% off your next visit",
     package_name: "Ultimate Spa Package",
-    expiry_date: "March 30th",
+    expiry_date: "March 30",
     sessions_remaining: "3",
     renewal_discount: "10% off renewal",
     appointment_date: "Tomorrow",
@@ -197,8 +193,8 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
   const currentTemplate = templates[selectedTemplateType] || {
     ...DEFAULT_TEMPLATE,
     name: TEMPLATE_TYPES[selectedTemplateType].name,
-    html: getDefaultTemplateHtml(selectedTemplateType),
-    variables: TEMPLATE_TYPES[selectedTemplateType].variables
+    html: getDefaultTemplateHtml(selectedTemplateType as TemplateType),
+    variables: [...TEMPLATE_TYPES[selectedTemplateType].variables],
   };
 
   useEffect(() => {
@@ -210,22 +206,87 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
 
     setLoading(true);
     try {
-      const snap = await getDocs(
-        query(
-          collection(db, 'organizations', currentOrganization.id, 'marketingIntegrations'),
-          where('provider', '==', 'resend')
-        )
-      );
-      if (!snap.empty) {
-        const data = snap.docs[0].data();
+      const [integrationSnap, orgSnap] = await Promise.all([
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend')),
+        getDoc(doc(db, 'organizations', currentOrganization.id)),
+      ]);
+      if (integrationSnap.exists()) {
+        const data = integrationSnap.data();
         if (data.email_templates && typeof data.email_templates === 'object' && !Array.isArray(data.email_templates)) {
           setTemplates(data.email_templates as any);
         }
+        if (typeof data.email_header_image_url === 'string') {
+          setHeaderImageUrl(data.email_header_image_url);
+        }
+        if (data.email_automations && typeof data.email_automations === 'object') {
+          setAutomations({
+            ...DEFAULT_AUTOMATIONS,
+            ...(data.email_automations as Partial<Record<AutomationKey, AutomationConfig>>),
+          } as Record<AutomationKey, AutomationConfig>);
+        }
       }
+      const orgData = orgSnap.data();
+      if (orgData?.logo_url) setOrgLogoUrl(orgData.logo_url as string);
+      if (orgData?.email) setOrgEmail(orgData.email as string);
+      if (orgData?.name) setOrgName(orgData.name as string);
+      if (orgData?.phone) setOrgPhone(orgData.phone as string);
+      if (orgData?.address) setOrgAddress(orgData.address as string);
     } catch (error) {
       console.error('Error fetching templates:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleHeaderUpload = async (file: File) => {
+    if (!currentOrganization?.id) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file', description: 'Please choose an image (PNG, JPG, WEBP).', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Header image must be under 8MB.', variant: 'destructive' });
+      return;
+    }
+    setUploadingHeader(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const call = httpsCallable<
+        { organizationId: string; fileBase64: string; contentType: string },
+        { url: string; path: string }
+      >(functions, 'uploadEmailHeaderImage');
+      const res = await call({
+        organizationId: currentOrganization.id,
+        fileBase64,
+        contentType: file.type,
+      });
+      setHeaderImageUrl(res.data.url);
+      toast({ title: 'Header image saved', description: 'The new image will appear on all your email templates.' });
+      onUpdate?.();
+    } catch (error: any) {
+      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingHeader(false);
+    }
+  };
+
+  const handleRemoveHeader = async () => {
+    if (!currentOrganization?.id) return;
+    try {
+      await setDoc(
+        doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend'),
+        { email_header_image_url: null, updated_at: new Date().toISOString() },
+        { merge: true }
+      );
+      setHeaderImageUrl(null);
+      toast({ title: 'Header image removed' });
+    } catch (error: any) {
+      toast({ title: 'Failed to remove image', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -239,19 +300,19 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         [selectedTemplateType]: currentTemplate
       };
 
-      // Find the resend integration doc and update it
-      const snap = await getDocs(
-        query(
-          collection(db, 'organizations', currentOrganization.id, 'marketingIntegrations'),
-          where('provider', '==', 'resend')
-        )
+      // Use the fixed `resend` doc id (matches ResendIntegration.tsx). setDoc
+      // with merge handles the case where the doc doesn't exist yet — important
+      // for orgs that have never visited the Resend tab.
+      await setDoc(
+        doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend'),
+        {
+          organization_id: currentOrganization.id,
+          provider: 'resend',
+          email_templates: JSON.parse(JSON.stringify(updatedTemplates)),
+          updated_at: new Date().toISOString(),
+        },
+        { merge: true }
       );
-      if (!snap.empty) {
-        await updateDoc(
-          doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', snap.docs[0].id),
-          { email_templates: JSON.parse(JSON.stringify(updatedTemplates)) }
-        );
-      }
 
       setTemplates(updatedTemplates);
 
@@ -259,7 +320,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         title: "Template saved",
         description: `${TEMPLATE_TYPES[selectedTemplateType].name} has been updated successfully.`,
       });
-      
+
       onUpdate?.();
     } catch (error: any) {
       toast({
@@ -269,6 +330,33 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const updateAutomation = (key: AutomationKey, patch: Partial<AutomationConfig>) => {
+    setAutomations(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  };
+
+  const saveAutomations = async () => {
+    if (!currentOrganization?.id) return;
+    setSavingAutomations(true);
+    try {
+      await setDoc(
+        doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend'),
+        {
+          organization_id: currentOrganization.id,
+          provider: 'resend',
+          email_automations: automations,
+          updated_at: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      toast({ title: 'Automations saved', description: 'Your automation settings have been updated.' });
+      onUpdate?.();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error saving automations', description: error.message });
+    } finally {
+      setSavingAutomations(false);
     }
   };
 
@@ -288,23 +376,37 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
 
   const renderPreview = () => {
     let html = currentTemplate.html;
-    const variables = { ...currentTemplate.settings, ...previewVariables };
-    
-    // Replace variables
+    // Auto-fill from real org data so the preview matches what clients will receive.
+    // Falls back to the placeholder previewVariables only when the org field is empty.
+    const variables: Record<string, string> = {
+      ...currentTemplate.settings,
+      ...previewVariables,
+      header_image_url: headerImageUrl || '',
+      logo_url: orgLogoUrl || '',
+      organization_name: orgName || previewVariables.organization_name || '',
+      organization_phone: orgPhone || previewVariables.organization_phone || '',
+      organization_address: orgAddress || previewVariables.organization_address || '',
+      organization_email: orgEmail || previewVariables.organization_email || '',
+    };
+
+    // Resolve conditional blocks first (supports {{#if x}}A{{else}}B{{/if}} and
+    // {{#if x}}A{{/if}}). Use a `[\s\S]` matcher to span multiple lines.
+    const ifElseRegex = /{{#if\s+(\w+)}}([\s\S]*?){{else}}([\s\S]*?){{\/if}}/g;
+    html = html.replace(ifElseRegex, (_m, varName, ifContent, elseContent) =>
+      variables[varName] ? ifContent : elseContent
+    );
+    const ifRegex = /{{#if\s+(\w+)}}([\s\S]*?){{\/if}}/g;
+    html = html.replace(ifRegex, (_m, varName, content) =>
+      variables[varName] ? content : ''
+    );
+
     for (const [key, value] of Object.entries(variables)) {
       const regex = new RegExp(`{{${key}}}`, 'g');
       html = html.replace(regex, value || '');
     }
-    
-    // Handle conditionals
-    html = html.replace(/{{#if\s+(\w+)}}(.*?){{\/if}}/g, (match, varName, content) => {
-      return variables[varName as keyof typeof variables] ? content : '';
-    });
-    
-    // Clean up remaining template syntax
+
     html = html.replace(/{{[^}]*}}/g, '');
 
-    // Sanitize to prevent XSS — strip scripts and event handlers while preserving structure/styles
     return DOMPurify.sanitize(html, {
       ADD_TAGS: ['style'],
       ADD_ATTR: ['style'],
@@ -353,6 +455,114 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         </div>
       </div>
 
+      {/* Automations */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Email Automations
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Activate any of these to send your designed templates automatically. Saved separately from the template content.
+              </p>
+            </div>
+            <Button onClick={saveAutomations} disabled={savingAutomations} size="sm">
+              <Save className="h-4 w-4 mr-2" />
+              {savingAutomations ? 'Saving...' : 'Save Automations'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(Object.keys(AUTOMATION_META) as AutomationKey[]).map((key) => {
+            const meta = AUTOMATION_META[key];
+            const cfg = automations[key];
+            return (
+              <div key={key} className="rounded-lg border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{meta.title}</span>
+                    {cfg.is_active && <Badge variant="default">Active</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{meta.description}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Trigger: {meta.trigger}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {key === 'welcome' && cfg.is_active && (
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.vip_only}
+                        onChange={(e) => updateAutomation(key, { vip_only: e.target.checked })}
+                        className="h-4 w-4"
+                      />
+                      VIP only
+                    </label>
+                  )}
+                  {key === 'birthday' && cfg.is_active && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Days offset</Label>
+                      <Input
+                        type="number"
+                        value={cfg.days_offset ?? 0}
+                        onChange={(e) => updateAutomation(key, { days_offset: parseInt(e.target.value, 10) || 0 })}
+                        className="w-20 h-8"
+                        min={-30}
+                        max={30}
+                      />
+                    </div>
+                  )}
+                  {key === 'inactive' && cfg.is_active && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Days inactive</Label>
+                      <Input
+                        type="number"
+                        value={cfg.days_threshold ?? 90}
+                        onChange={(e) => updateAutomation(key, { days_threshold: parseInt(e.target.value, 10) || 0 })}
+                        className="w-20 h-8"
+                        min={1}
+                        max={365}
+                      />
+                    </div>
+                  )}
+                  {key === 'package_renewal' && cfg.is_active && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Days before expiry</Label>
+                      <Input
+                        type="number"
+                        value={cfg.days_before_expiry ?? 7}
+                        onChange={(e) => updateAutomation(key, { days_before_expiry: parseInt(e.target.value, 10) || 0 })}
+                        className="w-20 h-8"
+                        min={1}
+                        max={90}
+                      />
+                    </div>
+                  )}
+                  {key === 'appointment_reminder' && cfg.is_active && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Hours before</Label>
+                      <Input
+                        type="number"
+                        value={cfg.hours_before ?? 24}
+                        onChange={(e) => updateAutomation(key, { hours_before: parseInt(e.target.value, 10) || 0 })}
+                        className="w-20 h-8"
+                        min={1}
+                        max={168}
+                      />
+                    </div>
+                  )}
+                  <Switch
+                    checked={cfg.is_active}
+                    onCheckedChange={(checked) => updateAutomation(key, { is_active: checked })}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       {/* Template Type Selector */}
       <Card>
         <CardHeader>
@@ -394,6 +604,72 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         </TabsList>
 
         <TabsContent value="visual" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                Header Image
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Shown at the top of every email. Recommended: 1200×400px, JPG or PNG, under 8MB.
+                Used across all template types — change once, update everywhere.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <input
+                ref={headerFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleHeaderUpload(f);
+                  e.target.value = '';
+                }}
+              />
+              {headerImageUrl ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg overflow-hidden border bg-muted/30">
+                    <img src={headerImageUrl} alt="Email header" className="w-full max-h-48 object-cover" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => headerFileInputRef.current?.click()}
+                      disabled={uploadingHeader}
+                      className="flex-1"
+                    >
+                      {uploadingHeader ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                      Replace Image
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleRemoveHeader}
+                      disabled={uploadingHeader}
+                      className="flex-1 text-destructive hover:text-destructive"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                  onClick={() => headerFileInputRef.current?.click()}
+                >
+                  {uploadingHeader ? (
+                    <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-muted-foreground" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  )}
+                  <p className="text-sm font-medium">{uploadingHeader ? 'Uploading…' : 'Click to upload header image'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP up to 8MB</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -513,21 +789,25 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
               <CardHeader>
                 <CardTitle>Preview Variables</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Customize the preview data to see how your template will look
+                  These are sample values for the preview only. Business name, phone, address,
+                  email, logo, and header image are pulled from your real settings.
                 </p>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentTemplate.variables.slice(0, 6).map((variable) => (
-                  <div key={variable}>
-                    <Label htmlFor={`preview_${variable}`}>{variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
-                    <Input
-                      id={`preview_${variable}`}
-                      value={previewVariables[variable] || ''}
-                      onChange={(e) => setPreviewVariables(prev => ({ ...prev, [variable]: e.target.value }))}
-                      placeholder={`Enter ${variable}`}
-                    />
-                  </div>
-                ))}
+                {currentTemplate.variables
+                  .filter((v) => !AUTO_FILLED_VARS.has(v))
+                  .slice(0, 6)
+                  .map((variable) => (
+                    <div key={variable}>
+                      <Label htmlFor={`preview_${variable}`}>{variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
+                      <Input
+                        id={`preview_${variable}`}
+                        value={previewVariables[variable] || ''}
+                        onChange={(e) => setPreviewVariables(prev => ({ ...prev, [variable]: e.target.value }))}
+                        placeholder={`Enter ${variable}`}
+                      />
+                    </div>
+                  ))}
               </CardContent>
             </Card>
 

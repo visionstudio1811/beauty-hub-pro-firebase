@@ -5,6 +5,7 @@ export { notifyOrgOnWaiverSigned } from './notifyOrgOnWaiverSigned';
 export { backfillClientFromLatestForm } from './backfillClient';
 export { addStandardFieldsToTemplates } from './addStandardFieldsToTemplates';
 export { uploadOrgLogo } from './uploadOrgLogo';
+export { uploadEmailHeaderImage } from './uploadEmailHeaderImage';
 export { acuityWebhook } from './acuityWebhook';
 export { acuitySync } from './acuitySync';
 export { adminCreateUser } from './adminCreateUser';
@@ -29,3 +30,7 @@ export {
   createClientBookingRequest,
   updateClientBookingRequest,
 } from './clientPortal';
+export { welcomeEmailOnPurchase } from './welcomeEmailOnPurchase';
+export { birthdayEmails } from './birthdayEmails';
+export { inactiveClientEmails } from './inactiveClientEmails';
+export { appointmentReminderEmails } from './appointmentReminderEmails';

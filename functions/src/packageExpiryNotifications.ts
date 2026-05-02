@@ -1,6 +1,14 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-import { Resend } from 'resend';
+import {
+  loadOrgEmailContext,
+  getAutomation,
+  sendOrgEmail,
+  alreadySent,
+  todayInTimezone,
+  addDaysISO,
+  localHour,
+} from './lib/orgEmail';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -9,28 +17,18 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 /**
- * Runs daily at 09:00 UTC. For every organisation that has Resend configured,
- * finds purchases expiring within 7 days and sends a reminder email to the
- * client. Also flips `has_membership` to false for any purchases that have
- * already expired or run out of sessions.
+ * Hourly schedule. For every organisation, when the local hour is 09:
+ *   1) Expire overdue purchases & sync `client.has_membership` (untouched).
+ *   2) Send a `package_renewal` reminder email using the org's user-designed
+ *      template via the shared org-email helper, gated by the org's
+ *      `email_automations.package_renewal` config.
+ *
+ * Backward-compat: if `email_automations.package_renewal` is missing or
+ * `is_active` is undefined, the email is sent (orgs like Lumière who
+ * already have Resend configured continue to receive reminders).
  */
-/**
- * Returns "today" as YYYY-MM-DD in the given IANA timezone.
- */
-function todayInTimezone(tz: string): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: tz }); // en-CA = YYYY-MM-DD
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z'); // noon UTC avoids DST edge
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-}
-
 export const packageExpiryNotifications = onSchedule(
   {
-    // Runs every hour so each org's "09:00 local" is handled regardless of timezone.
-    // The function skips orgs whose local time isn't ~09:00.
     schedule: 'every 1 hours',
     secrets: ['RESEND_API_KEY'],
   },
@@ -42,20 +40,26 @@ export const packageExpiryNotifications = onSchedule(
       const orgData = orgDoc.data();
       const orgTz = orgData.timezone || 'America/New_York';
 
-      // Only process this org if it's currently ~09:00 in their timezone (08:30–09:30 window)
-      const localHour = parseInt(
-        new Date().toLocaleString('en-US', { timeZone: orgTz, hour: '2-digit', hour12: false }),
-        10,
-      );
-      if (localHour !== 9) continue;
+      // Only process this org at ~09:00 in their local timezone
+      if (localHour(orgTz) !== 9) continue;
 
       const todayStr = todayInTimezone(orgTz);
-      const warningStr = addDays(todayStr, 7);
 
       // ── 1. Expire overdue purchases & sync membership ─────────
       await expireOverduePurchases(orgId, todayStr);
 
-      // ── 2. Find purchases expiring within 7 days ──────────────
+      // ── 2. Load email context (Resend config + templates + automations)
+      const ctx = await loadOrgEmailContext(orgId);
+      if (!ctx) continue; // No email integration — skip org
+
+      const cfg = getAutomation(ctx, 'package_renewal');
+      // Default ON for back-compat: only skip if explicitly disabled.
+      if (cfg.is_active === false) continue;
+
+      const daysBefore = cfg.days_before_expiry ?? 7;
+      const warningStr = addDaysISO(todayStr, daysBefore);
+
+      // ── 3. Find purchases expiring within the warning window ──
       const purchasesSnap = await db
         .collection('organizations')
         .doc(orgId)
@@ -66,35 +70,20 @@ export const packageExpiryNotifications = onSchedule(
       const expiringPurchases = purchasesSnap.docs.filter((d) => {
         const data = d.data();
         if (!data.expiry_date) return false;
-        // Expiry within window and not already past
         return data.expiry_date >= todayStr && data.expiry_date <= warningStr;
       });
 
       if (expiringPurchases.length === 0) continue;
 
-      // ── 3. Try to get email config (Resend) ───────────────────
-      const emailConfig = await getEmailConfig(orgId);
-      if (!emailConfig) continue; // No email integration — skip org
-
-      const resend = new Resend(emailConfig.apiKey);
-      const fromName = emailConfig.fromName || orgData.name || 'Beauty Hub Pro';
-      const fromEmail = emailConfig.fromEmail || 'info@beautyhubpro.com';
-
       // ── 4. Send notifications ─────────────────────────────────
       for (const purchaseDoc of expiringPurchases) {
         const purchase = purchaseDoc.data();
 
-        // Skip if we already sent a notification for this purchase
-        const alreadyNotified = await db
-          .collection('organizations')
-          .doc(orgId)
-          .collection('clientCommunications')
-          .where('purchaseId', '==', purchaseDoc.id)
-          .where('type', '==', 'email')
-          .where('subject', '==', 'Your package is expiring soon')
-          .limit(1)
-          .get();
-        if (!alreadyNotified.empty) continue;
+        // Idempotency — skip if we've already delivered a renewal email
+        // for this purchase.
+        if (await alreadySent(orgId, 'package_renewal', 'purchase', purchaseDoc.id)) {
+          continue;
+        }
 
         // Fetch client
         const clientDoc = await db
@@ -120,46 +109,44 @@ export const packageExpiryNotifications = onSchedule(
         }
 
         const daysLeft = Math.ceil(
-          (new Date(purchase.expiry_date + 'T12:00:00Z').getTime() - new Date(todayStr + 'T12:00:00Z').getTime()) / (1000 * 60 * 60 * 24),
+          (new Date(purchase.expiry_date + 'T12:00:00Z').getTime() -
+            new Date(todayStr + 'T12:00:00Z').getTime()) /
+            (1000 * 60 * 60 * 24),
         );
-        const firstName = (client.name || '').split(' ')[0] || 'there';
 
-        const subject = 'Your package is expiring soon';
-        const html = buildExpiryEmailHtml({
-          firstName,
-          packageName,
-          daysLeft,
-          expiryDate: purchase.expiry_date,
-          sessionsRemaining: purchase.sessions_remaining ?? 0,
-          orgName: orgData.name || fromName,
+        const firstName = (client.name || '').split(' ')[0] || 'there';
+        const formattedExpiry = new Date(
+          purchase.expiry_date + 'T12:00:00Z',
+        ).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
         });
 
+        const subject = 'Your package is expiring soon';
+
         try {
-          const res = await resend.emails.send({
-            from: `${fromName} <${fromEmail}>`,
-            to: [client.email],
+          await sendOrgEmail({
+            ctx,
+            to: client.email,
             subject,
-            html,
+            templateType: 'package_renewal',
+            variables: {
+              client_name: firstName,
+              package_name: packageName,
+              expiry_date: formattedExpiry,
+              sessions_remaining: String(purchase.sessions_remaining ?? 0),
+              renewal_discount: '',
+            },
+            clientId: purchase.client_id,
+            automationKey: 'package_renewal',
+            refType: 'purchase',
+            refId: purchaseDoc.id,
           });
 
-          // Log the communication
-          await db
-            .collection('organizations')
-            .doc(orgId)
-            .collection('clientCommunications')
-            .add({
-              clientId: purchase.client_id,
-              purchaseId: purchaseDoc.id,
-              type: 'email',
-              status: res.error ? 'failed' : 'delivered',
-              subject,
-              to: client.email,
-              messageId: res.data?.id ?? null,
-              sentBy: 'system',
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
-          // Record in membership history
+          // Audit entry on the client's membership history (separate from
+          // clientCommunications, which sendOrgEmail already wrote).
           await db
             .collection('organizations')
             .doc(orgId)
@@ -175,7 +162,10 @@ export const packageExpiryNotifications = onSchedule(
               createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
         } catch (emailErr) {
-          console.error(`Failed to send expiry email for purchase ${purchaseDoc.id}:`, emailErr);
+          console.error(
+            `Failed to send expiry email for purchase ${purchaseDoc.id}:`,
+            emailErr,
+          );
         }
       }
     }
@@ -249,84 +239,4 @@ async function expireOverduePurchases(orgId: string, todayStr: string) {
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
   }
-}
-
-interface EmailConfig {
-  apiKey: string;
-  fromName?: string;
-  fromEmail?: string;
-}
-
-async function getEmailConfig(orgId: string): Promise<EmailConfig | null> {
-  const snap = await db
-    .collection('organizations')
-    .doc(orgId)
-    .collection('marketingIntegrations')
-    .where('provider', '==', 'resend')
-    .where('is_enabled', '==', true)
-    .limit(1)
-    .get();
-  if (snap.empty) return null;
-
-  const cfg = snap.docs[0].data().configuration as EmailConfig;
-  if (!cfg?.apiKey) return null;
-  return cfg;
-}
-
-function buildExpiryEmailHtml(vars: {
-  firstName: string;
-  packageName: string;
-  daysLeft: number;
-  expiryDate: string;
-  sessionsRemaining: number;
-  orgName: string;
-}): string {
-  const formattedDate = new Date(vars.expiryDate).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
-  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
-    <div style="background:#7c3aed;padding:28px 32px;">
-      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:600;">${escapeHtml(vars.orgName)}</h1>
-    </div>
-    <div style="padding:32px;">
-      <p style="margin:0 0 16px;font-size:15px;color:#27272a;">
-        Hi ${escapeHtml(vars.firstName)},
-      </p>
-      <p style="margin:0 0 20px;font-size:15px;color:#27272a;">
-        Just a heads-up — your <strong>${escapeHtml(vars.packageName)}</strong> package
-        expires in <strong>${vars.daysLeft} day${vars.daysLeft === 1 ? '' : 's'}</strong>
-        (${escapeHtml(formattedDate)}).
-      </p>
-      <div style="background:#f4f4f5;border-radius:8px;padding:16px 20px;margin:0 0 20px;">
-        <p style="margin:0 0 6px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:.5px;">Sessions remaining</p>
-        <p style="margin:0;font-size:28px;font-weight:700;color:#7c3aed;">${vars.sessionsRemaining}</p>
-      </div>
-      <p style="margin:0 0 8px;font-size:15px;color:#27272a;">
-        Book your remaining sessions before they expire — we'd love to see you!
-      </p>
-      <p style="margin:24px 0 0;font-size:13px;color:#a1a1aa;">
-        ${escapeHtml(vars.orgName)}
-      </p>
-    </div>
-  </div>
-</body>
-</html>`.trim();
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

@@ -38,15 +38,23 @@ function escapeHtml(str: string): string {
 function renderTemplate(html: string, variables: Record<string, string>): string {
   let rendered = html;
 
+  // Resolve conditionals BEFORE simple variable substitution so a truthy
+  // {{#if x}} block can still contain {{x}} placeholders that need rendering.
+  // Handles {{#if x}}A{{else}}B{{/if}} first, then simple {{#if x}}A{{/if}}.
+  rendered = rendered.replace(
+    /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g,
+    (_m, varName, ifContent, elseContent) => (variables[varName] ? ifContent : elseContent)
+  );
+  rendered = rendered.replace(
+    /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
+    (_m, varName, content) => (variables[varName] ? content : '')
+  );
+
   for (const [key, value] of Object.entries(variables)) {
     const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
     // Escape all variable values before injection to prevent HTML injection
     rendered = rendered.replace(regex, escapeHtml(String(value ?? '')));
   }
-
-  rendered = rendered.replace(/\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, varName, content) => {
-    return variables[varName] ? content : '';
-  });
 
   // Remove any remaining unresolved placeholders
   rendered = rendered.replace(/\{\{[^}]*\}\}/g, '');
@@ -144,18 +152,29 @@ export const sendClientEmail = onCall(
     const emailTemplates = emailConfig.email_templates || {};
     const template = emailTemplates[templateType] || emailTemplates['general'] || emailTemplates['default'];
     const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
+    const templateSettings = (template?.settings ?? {}) as Record<string, string>;
+    const headerImageUrl: string = (emailConfig.email_header_image_url as string | undefined) ?? '';
 
     // All values in templateVariables must be strings (enforced by type)
     const orgTimezone = orgData.timezone || 'America/New_York';
     const templateVariables: Record<string, string> = {
+      // Per-template design tokens (primary_color, background_color, signature, etc.)
+      // come first so call-site `variables` can still override if explicitly set.
+      ...Object.fromEntries(
+        Object.entries(templateSettings).map(([k, v]) => [k, String(v ?? '')])
+      ),
       subject,
       message: message.replace(/\n/g, '<br>'),
       client_name: clientName,
       organization_name: String(orgData.name || fromName),
       organization_phone: String(orgData.phone || ''),
       organization_address: String(orgData.address || ''),
+      organization_email: String(orgData.email || fromEmail || ''),
+      logo_url: String(orgData.logo_url || ''),
+      header_image_url: headerImageUrl,
       sender_name: fromName,
       from_email: fromEmail,
+      cta_url: '',
       date: new Date().toLocaleDateString('en-US', { timeZone: orgTimezone }),
       datetime: new Date().toLocaleString('en-US', { timeZone: orgTimezone }),
       ...Object.fromEntries(
