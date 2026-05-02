@@ -1,0 +1,117 @@
+import { onRequest } from 'firebase-functions/v2/https';
+import * as admin from 'firebase-admin';
+import {
+  OAUTH_SECRETS,
+  exchangeCodeForTokens,
+  getUserEmailFromAccessToken,
+  getDriveClientForRefreshToken,
+  isAllowedReturnOrigin,
+  verifyState,
+} from './driveOAuth';
+
+if (!admin.apps.length) admin.initializeApp();
+const db = admin.firestore();
+
+const ROOT_FOLDER_NAME = 'Beauty Hub Pro Backups';
+
+function appendQuery(url: string, params: Record<string, string>): string {
+  const u = new URL(url);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+function htmlError(message: string): string {
+  const safe = message.replace(/[<>&"']/g, (c) =>
+    ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c] ?? c)
+  );
+  return `<!doctype html><meta charset="utf-8"><title>Drive connect failed</title>
+<body style="font-family:system-ui;padding:2rem;max-width:480px"><h1>Connection failed</h1>
+<p>${safe}</p><p>You can close this window and try again from settings.</p></body>`;
+}
+
+export const driveOAuthCallback = onRequest(
+  { secrets: OAUTH_SECRETS, region: 'us-central1' },
+  async (req, res) => {
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    const errorParam = typeof req.query.error === 'string' ? req.query.error : '';
+
+    if (errorParam) {
+      res.status(400).send(htmlError(`Google returned: ${errorParam}`));
+      return;
+    }
+    if (!code || !state) {
+      res.status(400).send(htmlError('Missing code or state.'));
+      return;
+    }
+
+    const payload = verifyState(state);
+    if (!payload) {
+      res.status(400).send(htmlError('State invalid or expired. Please try connecting again.'));
+      return;
+    }
+    if (!isAllowedReturnOrigin(payload.returnTo)) {
+      res.status(400).send(htmlError('Return URL not allowed.'));
+      return;
+    }
+
+    try {
+      const tokens = await exchangeCodeForTokens(code);
+      const email = await getUserEmailFromAccessToken(tokens.accessToken);
+      const drive = await getDriveClientForRefreshToken(tokens.refreshToken);
+
+      // Create a dedicated root folder owned by the connecting user.
+      // drive.file scope only lets us see/touch files this app created, so
+      // we always create our own root rather than asking the user to share one.
+      const created = await drive.files.create({
+        requestBody: {
+          name: ROOT_FOLDER_NAME,
+          mimeType: 'application/vnd.google-apps.folder',
+        },
+        fields: 'id, name, webViewLink',
+      });
+      const folderId = created.data.id;
+      const folderName = created.data.name ?? ROOT_FOLDER_NAME;
+      if (!folderId) {
+        throw new Error('Drive did not return a folder id');
+      }
+
+      await db
+        .collection('organizations').doc(payload.orgId)
+        .collection('marketingIntegrations').doc('googleDrive')
+        .set(
+          {
+            organization_id: payload.orgId,
+            provider: 'googleDrive',
+            is_enabled: true,
+            status: 'connected',
+            error_message: null,
+            configuration: {
+              refresh_token: tokens.refreshToken,
+              user_email: email,
+              folder_id: folderId,
+              folder_name: folderName,
+              connected_at: new Date().toISOString(),
+              connected_by_uid: payload.uid,
+            },
+            updated_at: new Date().toISOString(),
+            updated_at_ts: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+      res.redirect(302, appendQuery(payload.returnTo, { drive_connected: '1', email }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[driveOAuthCallback] failed:', err);
+      try {
+        res.redirect(
+          302,
+          appendQuery(payload.returnTo, { drive_connected: '0', error: msg.slice(0, 200) })
+        );
+      } catch {
+        res.status(500).send(htmlError(msg));
+      }
+    }
+  }
+);

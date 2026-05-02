@@ -169,9 +169,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
               title="Delete Client"
               className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
               onClick={(e) => {
-                e.preventDefault();
                 e.stopPropagation();
-                console.log('ClientsTable: Delete trigger clicked for client:', client.id);
               }}
             >
               <Trash2 className="h-4 w-4" />
@@ -263,9 +261,7 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                           variant="ghost"
                           className="h-8 w-8 p-0"
                           onClick={(e) => {
-                            e.preventDefault();
                             e.stopPropagation();
-                            console.log('ClientsTable: Mobile dropdown trigger clicked for client:', client.id);
                           }}
                         >
                           <MoreHorizontal className="h-4 w-4" />

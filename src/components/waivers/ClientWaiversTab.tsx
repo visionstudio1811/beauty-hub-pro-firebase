@@ -13,12 +13,24 @@ import { ref, getDownloadURL } from 'firebase/storage';
 import { db, functions, storage } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   FileText,
   Download,
@@ -31,6 +43,7 @@ import {
   FileSignature,
   Image as ImageIcon,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { safeFormatters } from '@/lib/safeDateFormatter';
@@ -82,8 +95,10 @@ const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; his
 
 export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
   const { currentOrganization } = useOrganization();
+  const { profile } = useAuth();
   const { toast } = useToast();
   const copy = KIND_COPY[kind];
+  const canDelete = profile?.role === 'admin';
 
   const [templates, setTemplates]       = useState<WaiverTemplate[]>([]);
   const [waivers, setWaivers]           = useState<WaiverRecord[]>([]);
@@ -93,6 +108,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
   const [smsProvider, setSmsProvider]   = useState<SmsProvider>('infobip');
   const [requiresOtp, setRequiresOtp]   = useState(true);
   const [emailingDocId, setEmailingDocId] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!currentOrganization) return;
@@ -255,6 +271,25 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
       toast({ title: 'Failed to send', description: err?.message ?? 'Could not send document email.', variant: 'destructive' });
     } finally {
       setEmailingDocId(null);
+    }
+  };
+
+  const handleDelete = async (w: WaiverRecord) => {
+    if (!currentOrganization?.id) return;
+    setDeletingDocId(w.id);
+    try {
+      const deleteWaiverFn = httpsCallable(functions, 'deleteWaiver');
+      await deleteWaiverFn({ organizationId: currentOrganization.id, waiverId: w.id });
+      setWaivers(prev => prev.filter(x => x.id !== w.id));
+      toast({ title: 'Deleted', description: `${copy.singular} deleted.` });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to delete',
+        description: err?.message ?? 'Could not delete.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -463,6 +498,44 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                         </Button>
                       )}
                     </>
+                  )}
+
+                  {canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                          disabled={deletingDocId === w.id}
+                          title={`Delete ${copy.singular}`}
+                        >
+                          {deletingDocId === w.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this {copy.singular.toLowerCase()}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the {copy.singular.toLowerCase()} record, the signed PDF,
+                            any uploaded photos, and the signing link. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(w)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                 </div>
               </div>

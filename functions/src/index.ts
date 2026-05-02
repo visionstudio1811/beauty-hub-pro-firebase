@@ -1,5 +1,6 @@
 export { sendClientEmail } from './sendClientEmail';
 export { sendWaiver } from './sendWaiver';
+export { deleteWaiver } from './deleteWaiver';
 export { notifyOrgOnWaiverSigned } from './notifyOrgOnWaiverSigned';
 export { backfillClientFromLatestForm } from './backfillClient';
 export { addStandardFieldsToTemplates } from './addStandardFieldsToTemplates';
@@ -15,6 +16,13 @@ export { testResendIntegration } from './testResendIntegration';
 export { verifyFormOtp } from './verifyFormOtp';
 export { uploadWaiverFile } from './uploadWaiverFile';
 export { uploadInvoicePdf } from './uploadInvoicePdf';
+export { backupWaiverToDrive } from './backupWaiverToDrive';
+export { backupInvoiceToDrive } from './backupInvoiceToDrive';
+export { testDriveBackup } from './driveBackupCallables';
+export { backfillDriveBackups } from './backfillDriveBackups';
+export { getDriveAuthUrl } from './oauth/getDriveAuthUrl';
+export { driveOAuthCallback } from './oauth/driveOAuthCallback';
+export { disconnectDriveBackup } from './oauth/disconnectDriveBackup';
 export {
   getClientPortalOrg,
   linkClientPortalAccount,

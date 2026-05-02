@@ -5,12 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TwilioIntegration } from './TwilioIntegration';
 import { ResendIntegration } from './ResendIntegration';
 import { InfobipIntegration } from './InfobipIntegration';
+import { GoogleDriveIntegration } from './GoogleDriveIntegration';
 import { EmailTemplateDesigner } from './EmailTemplateDesigner';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, MessageSquare, Mail, Palette } from 'lucide-react';
+import { Loader2, MessageSquare, Mail, Palette, HardDrive } from 'lucide-react';
 
 interface MarketingIntegration {
   id: string;
@@ -30,15 +31,17 @@ export const MarketingIntegrations: React.FC = () => {
   const fetchIntegrations = async () => {
     if (!currentOrganization?.id) return;
     try {
-      const [twilioSnap, resendSnap, infobipSnap] = await Promise.all([
+      const [twilioSnap, resendSnap, infobipSnap, driveSnap] = await Promise.all([
         getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'twilio')),
         getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'resend')),
         getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'infobip')),
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'googleDrive')),
       ]);
       const results: MarketingIntegration[] = [];
       if (twilioSnap.exists())  results.push({ id: twilioSnap.id,  ...twilioSnap.data()  } as MarketingIntegration);
       if (resendSnap.exists())  results.push({ id: resendSnap.id,  ...resendSnap.data()  } as MarketingIntegration);
       if (infobipSnap.exists()) results.push({ id: infobipSnap.id, ...infobipSnap.data() } as MarketingIntegration);
+      if (driveSnap.exists())   results.push({ id: driveSnap.id,   ...driveSnap.data()   } as MarketingIntegration);
       setIntegrations(results);
     } catch (error: any) {
       toast({ title: 'Error loading integrations', description: error.message, variant: 'destructive' });
@@ -69,6 +72,7 @@ export const MarketingIntegrations: React.FC = () => {
   const twilio  = byProvider('twilio');
   const resend  = byProvider('resend');
   const infobip = byProvider('infobip');
+  const drive   = byProvider('googleDrive');
 
   return (
     <div className="space-y-6">
@@ -78,7 +82,7 @@ export const MarketingIntegrations: React.FC = () => {
       </div>
 
       {/* Status overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center space-y-0 pb-2">
             <div className="flex-1">
@@ -123,11 +127,26 @@ export const MarketingIntegrations: React.FC = () => {
             <p className="text-sm text-muted-foreground">{resend?.is_enabled ? 'Ready' : 'Not configured'}</p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+            <div className="flex-1">
+              <CardTitle className="text-base font-medium flex items-center">
+                <HardDrive className="h-4 w-4 mr-2" />Drive Backup
+              </CardTitle>
+              <CardDescription>Auto-backup signed PDFs</CardDescription>
+            </div>
+            {statusBadge(drive?.status || 'disconnected')}
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{drive?.is_enabled ? 'Ready' : 'Not configured'}</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Config tabs */}
       <Tabs defaultValue="infobip" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="infobip" className="flex items-center gap-1.5">
             <MessageSquare className="h-4 w-4" />Infobip
           </TabsTrigger>
@@ -136,6 +155,9 @@ export const MarketingIntegrations: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="resend" className="flex items-center gap-1.5">
             <Mail className="h-4 w-4" />Resend Email
+          </TabsTrigger>
+          <TabsTrigger value="drive" className="flex items-center gap-1.5">
+            <HardDrive className="h-4 w-4" />Drive Backup
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-1.5">
             <Palette className="h-4 w-4" />Email Templates
@@ -150,6 +172,9 @@ export const MarketingIntegrations: React.FC = () => {
         </TabsContent>
         <TabsContent value="resend">
           <ResendIntegration integration={resend} onUpdate={fetchIntegrations} />
+        </TabsContent>
+        <TabsContent value="drive">
+          <GoogleDriveIntegration integration={drive} onUpdate={fetchIntegrations} />
         </TabsContent>
         <TabsContent value="templates">
           <EmailTemplateDesigner onUpdate={fetchIntegrations} />

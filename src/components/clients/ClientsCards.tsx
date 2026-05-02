@@ -229,9 +229,7 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                         title="Delete Client"
                         className="h-8 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
-                          console.log('ClientsCards: Delete trigger clicked for client:', client.id);
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
