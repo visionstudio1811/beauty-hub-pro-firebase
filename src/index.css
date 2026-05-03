@@ -102,7 +102,7 @@
 
   html,
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground antialiased;
     overflow-x: hidden;
   }
 }

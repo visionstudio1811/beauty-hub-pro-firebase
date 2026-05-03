@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  browserLocalPersistence,
+  browserSessionPersistence,
   ConfirmationResult,
   GoogleAuthProvider,
   RecaptchaVerifier,
+  setPersistence,
   signInWithPhoneNumber,
   signInWithPopup,
   signOut,
@@ -23,12 +26,17 @@ import {
   FileText,
   Loader2,
   LogOut,
+  MapPin,
   Package,
   Phone,
   ShoppingBag,
   Sparkles,
 } from 'lucide-react';
+import { LoginFloralCorner } from '@/components/auth/LoginFloralCorner';
+import { Checkbox } from '@/components/ui/checkbox';
 import { auth, db, functions } from '@/lib/firebase';
+import { LOGIN_HERO_URL } from '@/lib/loginBranding';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -190,6 +198,254 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+/** Accepts E.164 or 10-digit US numbers (implies +1). */
+function normalizePhoneE164(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.startsWith('+')) {
+    return trimmed.replace(/\s/g, '');
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+  return trimmed;
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+function ClientPortalSignInLayout({
+  org,
+  phone,
+  setPhone,
+  otp,
+  setOtp,
+  confirmation,
+  sendingOtp,
+  rememberMe,
+  setRememberMe,
+  onGoogle,
+  onSendOtp,
+  onVerifyOtp,
+}: {
+  org: PortalOrg;
+  phone: string;
+  setPhone: (value: string) => void;
+  otp: string;
+  setOtp: (value: string) => void;
+  confirmation: ConfirmationResult | null;
+  sendingOtp: boolean;
+  rememberMe: boolean;
+  setRememberMe: (value: boolean) => void;
+  onGoogle: () => void | Promise<void>;
+  onSendOtp: () => void | Promise<void>;
+  onVerifyOtp: () => void | Promise<void>;
+}) {
+  const addressLine = org.address?.trim();
+  const phoneDisplay = org.phone?.trim();
+
+  const contactHref = org.email?.trim()
+    ? `mailto:${org.email.trim()}`
+    : phoneDisplay
+      ? (() => {
+          const d = phoneDisplay.replace(/\D/g, '');
+          if (d.length === 10) return `tel:+1${d}`;
+          if (d.length === 11 && d.startsWith('1')) return `tel:+${d}`;
+          return `tel:${phoneDisplay.replace(/\s/g, '')}`;
+        })()
+      : null;
+
+  const heroStyle = {
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.28) 40%, rgba(0,0,0,0.55) 100%), url(${LOGIN_HERO_URL})`,
+  } as const;
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#e4dfd8] p-0 sm:p-6 md:p-8">
+      <div
+        className={cn(
+          'flex w-full max-w-6xl flex-1 flex-col overflow-hidden bg-[#f7f4f0] shadow-2xl ring-1 ring-black/5',
+          'sm:max-h-[min(920px,calc(100vh-3rem))] sm:flex-initial sm:rounded-2xl lg:flex-row lg:min-h-[580px]',
+        )}
+      >
+        {/* Brand / hero */}
+        <div
+          className="relative flex min-h-[42vh] flex-1 flex-col justify-between bg-neutral-900 bg-cover bg-center px-8 py-10 text-white lg:min-h-0 lg:w-1/2 lg:rounded-l-2xl lg:py-12"
+          style={heroStyle}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-l-2xl" aria-hidden />
+          <div className="relative z-10 flex flex-col gap-6">
+            {org.logo_url ? (
+              <img src={org.logo_url} alt={org.name} className="h-14 w-auto max-w-[200px] object-contain object-left drop-shadow-lg" />
+            ) : (
+              <h1 className="font-display text-4xl font-semibold tracking-tight drop-shadow-md">{org.name}</h1>
+            )}
+            {org.logo_url && (
+              <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/90">{org.name}</p>
+            )}
+          </div>
+
+          <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
+            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">Client portal</p>
+            <h2 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Welcome back</h2>
+            <p className="font-sans text-sm leading-relaxed text-white/85">
+              Sign in to your account to view your appointments, manage your bookings, and more.
+            </p>
+          </div>
+
+          <div className="relative z-10 mt-10 space-y-4 font-sans text-sm text-white/90 lg:mt-12">
+            {addressLine && (
+              <div className="flex gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-white/70" aria-hidden />
+                <span className="leading-snug">{addressLine}</span>
+              </div>
+            )}
+            {phoneDisplay && (
+              <div className="flex gap-3">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-white/70" aria-hidden />
+                <span>{phoneDisplay}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="relative flex flex-1 flex-col justify-center bg-[#f7f4f0] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-r-2xl lg:px-12 lg:py-14">
+          <LoginFloralCorner className="absolute right-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 sm:h-64 sm:w-64" />
+
+          <div className="relative z-10 mx-auto w-full max-w-md space-y-8">
+            <div className="space-y-2">
+              <h2 className="font-display text-3xl font-semibold text-foreground">Sign in</h2>
+              <p className="font-sans text-sm text-muted-foreground">
+                Use the same Google account or phone number your spa has on file.
+              </p>
+            </div>
+
+            <div className="space-y-5 font-sans">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 w-full gap-2 rounded-lg border-border/80 bg-white text-base shadow-sm"
+                onClick={() => void onGoogle()}
+              >
+                <GoogleIcon />
+                Continue with Google
+              </Button>
+
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <span className="w-full border-t border-border/70" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-[#f7f4f0] px-3 font-medium uppercase tracking-wide text-muted-foreground">or</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="client-phone" className="text-foreground">
+                    Phone number
+                  </Label>
+                  <div className="relative flex min-w-0">
+                    <div className="pointer-events-none absolute left-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 text-sm text-muted-foreground">
+                      <span aria-hidden>🇺🇸</span>
+                      <span className="font-medium tabular-nums">+1</span>
+                    </div>
+                    <Input
+                      id="client-phone"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="Enter your phone number"
+                      className="h-12 rounded-lg border-border/80 bg-white pl-[4.25rem] text-base shadow-sm"
+                      autoComplete="tel-national"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex cursor-pointer items-center gap-3 font-sans text-sm text-foreground">
+                  <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} />
+                  Remember me on this device
+                </label>
+
+                <Button
+                  type="button"
+                  className="h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90"
+                  onClick={() => void onSendOtp()}
+                  disabled={sendingOtp}
+                >
+                  {sendingOtp ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    'Send verification code'
+                  )}
+                </Button>
+
+                {confirmation && (
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="client-otp">Verification code</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="client-otp"
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value)}
+                        inputMode="numeric"
+                        className="h-12 rounded-lg border-border/80 bg-white text-base shadow-sm"
+                        autoComplete="one-time-code"
+                      />
+                      <Button
+                        type="button"
+                        className="h-12 shrink-0 rounded-lg bg-foreground px-6 text-background hover:bg-foreground/90"
+                        onClick={() => void onVerifyOtp()}
+                      >
+                        Verify
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div id="client-portal-recaptcha" />
+              </div>
+            </div>
+
+            {contactHref && (
+              <p className="text-center font-sans text-sm text-muted-foreground">
+                <a href={contactHref} className="underline decoration-muted-foreground/50 underline-offset-4 hover:text-foreground">
+                  Having trouble signing in? Contact us
+                </a>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientPortal() {
   const { orgSlug = '' } = useParams();
   const { user } = useAuth();
@@ -205,6 +461,7 @@ export default function ClientPortal() {
   const [otp, setOtp] = useState('');
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [submittingRequest, setSubmittingRequest] = useState(false);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const [requestForm, setRequestForm] = useState({
@@ -353,17 +610,20 @@ export default function ClientPortal() {
   }, [data.packages, data.treatments, selectedPurchase]);
 
   const handleGoogleSignIn = async () => {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
     await signInWithPopup(auth, new GoogleAuthProvider());
   };
 
   const handleSendOtp = async () => {
     if (!phone.trim()) return;
+    const e164 = normalizePhoneE164(phone);
     setSendingOtp(true);
     try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       if (!recaptchaRef.current) {
         recaptchaRef.current = new RecaptchaVerifier(auth, 'client-portal-recaptcha', { size: 'invisible' });
       }
-      const result = await signInWithPhoneNumber(auth, phone.trim(), recaptchaRef.current);
+      const result = await signInWithPhoneNumber(auth, e164, recaptchaRef.current);
       setConfirmation(result);
       toast({ title: 'Code sent', description: 'Enter the SMS code to continue.' });
     } catch (error) {
@@ -423,37 +683,20 @@ export default function ClientPortal() {
 
   if (!user) {
     return (
-      <PortalShell org={org}>
-        <div className="mx-auto w-full max-w-md space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Client sign in</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full" onClick={handleGoogleSignIn}>Continue with Google</Button>
-              <div className="space-y-2">
-                <Label htmlFor="client-phone">Phone number</Label>
-                <div className="flex gap-2">
-                  <Input id="client-phone" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+15551234567" />
-                  <Button type="button" variant="outline" onClick={handleSendOtp} disabled={sendingOtp}>
-                    {sendingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              {confirmation && (
-                <div className="space-y-2">
-                  <Label htmlFor="client-otp">Verification code</Label>
-                  <div className="flex gap-2">
-                    <Input id="client-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" />
-                    <Button type="button" onClick={handleVerifyOtp}>Verify</Button>
-                  </div>
-                </div>
-              )}
-              <div id="client-portal-recaptcha" />
-            </CardContent>
-          </Card>
-        </div>
-      </PortalShell>
+      <ClientPortalSignInLayout
+        org={org}
+        phone={phone}
+        setPhone={setPhone}
+        otp={otp}
+        setOtp={setOtp}
+        confirmation={confirmation}
+        sendingOtp={sendingOtp}
+        rememberMe={rememberMe}
+        setRememberMe={setRememberMe}
+        onGoogle={handleGoogleSignIn}
+        onSendOtp={handleSendOtp}
+        onVerifyOtp={handleVerifyOtp}
+      />
     );
   }
 
