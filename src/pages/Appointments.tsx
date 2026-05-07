@@ -11,6 +11,8 @@ import { BookingRequestsPanel } from '@/components/appointments/BookingRequestsP
 import { useAppointmentStatus } from '../hooks/useAppointmentStatus';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
+import { useAuth } from '@/contexts/AuthContext';
+import { decrementSessionForAppointment } from '@/lib/sessionDecrement';
 
 const Appointments = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -19,6 +21,7 @@ const Appointments = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('list');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  const { profile } = useAuth();
   const { getStatusColor, getStatusBadge } = useAppointmentStatus();
   const { appointments, updateAppointment, deleteAppointment, loading } = useSupabaseAppointments();
 
@@ -60,11 +63,24 @@ const Appointments = () => {
       'no-show': 'no-show'
     };
 
-    updateAppointment(appointmentId, { 
+    updateAppointment(appointmentId, {
       status: statusMap[newStatus],
       notes: notes ? notes : undefined
     });
-  }, [updateAppointment]);
+
+    // Decrement package session when an appointment is marked complete
+    if (newStatus === 'completed' && profile?.organizationId) {
+      const appt = appointments.find(a => a.id === appointmentId);
+      if (appt?.session_used && appt.purchase_id) {
+        decrementSessionForAppointment(
+          profile.organizationId,
+          appt.purchase_id,
+          appt.treatment_id ?? null,
+          appt.client_id ?? null,
+        ).catch(err => console.error('Failed to decrement session:', err));
+      }
+    }
+  }, [updateAppointment, appointments, profile]);
 
   const handleDeleteAppointment = useCallback((appointmentId: string) => {
     deleteAppointment(appointmentId);

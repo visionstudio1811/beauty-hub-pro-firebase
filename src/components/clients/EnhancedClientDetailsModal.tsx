@@ -6,7 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDropdownData } from '@/contexts/DropdownDataContext';
 import { Client } from '@/hooks/useClients';
@@ -54,6 +58,7 @@ interface DatabasePurchase {
     name: string;
     total_sessions: number;
   } | null;
+  product_snapshot?: { product_id: string; product_name: string; quantity: number; price: number }[];
 }
 
 interface Appointment {
@@ -127,8 +132,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     staff_name: '',
     duration: '60',
     notes: '',
+    price: '',
   });
   const [savingPastTreatment, setSavingPastTreatment] = useState(false);
+  const [birthdayOpen, setBirthdayOpen] = useState(false);
+  const [pastDateOpen, setPastDateOpen] = useState(false);
 
   // Use the client packages and products hooks for real data
   const { packages: clientPackages, refetch: refetchPackages } = useClientPackages(client?.id);
@@ -201,6 +209,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             payment_status: data.payment_status ?? '',
             sessions_remaining: data.sessions_remaining ?? 0,
             packages: pkg,
+            product_snapshot: Array.isArray(data.product_snapshot) ? data.product_snapshot : undefined,
           };
         })
       );
@@ -263,13 +272,14 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         staff_name: pastTreatmentForm.staff_name || '',
         duration: parseInt(pastTreatmentForm.duration) || 60,
         notes: pastTreatmentForm.notes || '',
+        price: parseFloat(pastTreatmentForm.price) || 0,
         status: 'completed',
         is_manual_entry: true,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       });
       toast({ title: 'Treatment added', description: 'Past treatment has been logged.' });
-      setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '' });
+      setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '' });
       setIsPastTreatmentOpen(false);
       await fetchAppointments();
     } catch (err) {
@@ -652,12 +662,40 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     </div>
                     <div>
                       <label className="text-sm font-medium">Birthday</label>
-                      <Input
-                        type="date"
-                        value={formData.birthday}
-                        onChange={(e) => setFormData({...formData, birthday: e.target.value})}
-                        disabled={!isEditing}
-                      />
+                      {isEditing ? (
+                        <Popover open={birthdayOpen} onOpenChange={setBirthdayOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn('w-full justify-start text-left font-normal mt-0', !formData.birthday && 'text-muted-foreground')}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.birthday
+                                ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy')
+                                : 'Pick a date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarPicker
+                              mode="single"
+                              selected={formData.birthday ? new Date(formData.birthday + 'T12:00:00') : undefined}
+                              onSelect={(date) => {
+                                setFormData({ ...formData, birthday: date ? format(date, 'yyyy-MM-dd') : '' });
+                                setBirthdayOpen(false);
+                              }}
+                              captionLayout="dropdown-buttons"
+                              fromYear={1920}
+                              toYear={new Date().getFullYear()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <Input
+                          value={formData.birthday ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy') : ''}
+                          disabled
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-medium">Age</label>
@@ -899,8 +937,21 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                             </div>
                             {purchase.packages && (
                               <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                                Sessions: {(purchase.packages.total_sessions || 0) - (purchase.sessions_remaining || 0)}/{purchase.packages.total_sessions} used 
+                                Sessions: {(purchase.packages.total_sessions || 0) - (purchase.sessions_remaining || 0)}/{purchase.packages.total_sessions} used
                                 ({purchase.sessions_remaining} remaining)
+                              </div>
+                            )}
+                            {purchase.product_snapshot && purchase.product_snapshot.length > 0 && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                                <p className="font-medium text-blue-700 mb-1">Included Products</p>
+                                <ul className="space-y-0.5">
+                                  {purchase.product_snapshot.map((p, i) => (
+                                    <li key={i} className="flex justify-between text-xs text-blue-800">
+                                      <span>{p.product_name} × {p.quantity}</span>
+                                      <span>${p.price.toFixed(2)}/ea</span>
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
                             )}
                           </div>
@@ -1258,6 +1309,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     ...pastTreatmentForm,
                     treatment_name: val,
                     duration: t ? String(t.duration) : pastTreatmentForm.duration,
+                    price: t?.price != null ? String(t.price) : pastTreatmentForm.price,
                   });
                 }}
               >
@@ -1273,11 +1325,33 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             </div>
             <div>
               <label className="text-sm font-medium">Date *</label>
-              <Input
-                type="date"
-                value={pastTreatmentForm.appointment_date}
-                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, appointment_date: e.target.value })}
-              />
+              <Popover open={pastDateOpen} onOpenChange={setPastDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn('w-full justify-start text-left font-normal', !pastTreatmentForm.appointment_date && 'text-muted-foreground')}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {pastTreatmentForm.appointment_date
+                      ? format(new Date(pastTreatmentForm.appointment_date + 'T12:00:00'), 'MMM d, yyyy')
+                      : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={pastTreatmentForm.appointment_date ? new Date(pastTreatmentForm.appointment_date + 'T12:00:00') : undefined}
+                    onSelect={(date) => {
+                      setPastTreatmentForm({ ...pastTreatmentForm, appointment_date: date ? format(date, 'yyyy-MM-dd') : '' });
+                      setPastDateOpen(false);
+                    }}
+                    captionLayout="dropdown-buttons"
+                    fromYear={2000}
+                    toYear={new Date().getFullYear()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <label className="text-sm font-medium">Staff Name</label>
@@ -1287,13 +1361,26 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, staff_name: e.target.value })}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Duration (minutes)</label>
-              <Input
-                type="number"
-                value={pastTreatmentForm.duration}
-                onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, duration: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Duration (minutes)</label>
+                <Input
+                  type="number"
+                  value={pastTreatmentForm.duration}
+                  onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, duration: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Price ($)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={pastTreatmentForm.price}
+                  onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, price: e.target.value })}
+                />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Notes</label>

@@ -53,19 +53,30 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="font-medium text-gray-900">Available Packages</h4>
-        {selectedPackage && (
-          <button
-            onClick={() => onSelectPackage(null)}
-            className="text-sm text-purple-600 hover:text-purple-700"
-          >
-            Use regular pricing
-          </button>
-        )}
-      </div>
-      
+      <h4 className="font-medium text-gray-900">Available Packages</h4>
+
       <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto">
+        {/* Always-visible "No Package" option */}
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            selectedPackage === null
+              ? 'ring-2 ring-gray-400 bg-gray-50'
+              : 'hover:ring-1 hover:ring-gray-300'
+          }`}
+          onClick={() => onSelectPackage(null)}
+        >
+          <CardContent className="p-3 flex items-center gap-3">
+            <Package className="h-5 w-5 text-gray-400" />
+            <div>
+              <p className="font-medium text-gray-700 text-sm">No Package — charge separately</p>
+              <p className="text-xs text-gray-500">Book this treatment outside of any package</p>
+            </div>
+            {selectedPackage === null && (
+              <Badge variant="secondary" className="ml-auto">Selected</Badge>
+            )}
+          </CardContent>
+        </Card>
+
         {packages.map((packageItem) => (
           <Card
             key={packageItem.id}

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Package, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, DollarSign } from 'lucide-react'; // Package kept for empty-state icon
 import { useToast } from '@/hooks/use-toast';
 import {
   collection,
@@ -55,8 +55,7 @@ const ProductManagement = () => {
     description: '',
     price: '',
     category: '',
-    is_active: true,
-    stock_quantity: ''
+    is_active: true
   });
 
   useEffect(() => {
@@ -98,8 +97,7 @@ const ProductManagement = () => {
       description: '',
       price: '',
       category: '',
-      is_active: true,
-      stock_quantity: ''
+      is_active: true
     });
     setEditingProduct(null);
   };
@@ -115,8 +113,7 @@ const ProductManagement = () => {
       description: product.description || '',
       price: product.price.toString(),
       category: product.category || '',
-      is_active: product.is_active,
-      stock_quantity: product.stock_quantity?.toString() || ''
+      is_active: product.is_active
     });
     setEditingProduct(product);
     setIsModalOpen(true);
@@ -143,7 +140,6 @@ const ProductManagement = () => {
         price: parseFloat(formData.price),
         category: formData.category.trim() || null,
         is_active: formData.is_active,
-        stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : null,
         updated_at: now,
       };
 
@@ -258,16 +254,6 @@ const ProductManagement = () => {
                   </div>
                 )}
                 
-                {product.stock_quantity !== null && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Stock:</span>
-                    <div className="flex items-center">
-                      <Package className="h-4 w-4 mr-1" />
-                      <span>{product.stock_quantity}</span>
-                    </div>
-                  </div>
-                )}
-                
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status:</span>
                   <Switch
@@ -344,16 +330,6 @@ const ProductManagement = () => {
                 value={formData.category}
                 onChange={(e) => setFormData({...formData, category: e.target.value})}
                 placeholder="Enter category"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Stock Quantity</label>
-              <Input
-                type="number"
-                value={formData.stock_quantity}
-                onChange={(e) => setFormData({...formData, stock_quantity: e.target.value})}
-                placeholder="Enter stock quantity"
               />
             </div>
 

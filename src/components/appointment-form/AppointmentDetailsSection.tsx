@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
@@ -37,6 +38,7 @@ interface AppointmentFormData {
   staffId: string;
   time: string;
   notes: string;
+  price: string;
 }
 
 interface AppointmentDetailsSectionProps {
@@ -108,9 +110,15 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="treatment">Treatment</Label>
-          <Select 
-            value={formData.treatmentId} 
-            onValueChange={(value) => onFormDataChange({ treatmentId: value, time: '' })}
+          <Select
+            value={formData.treatmentId}
+            onValueChange={(value) => {
+              const treatment = availableTreatments.find(t => t.id === value);
+              const autoPrice = !selectedPackage && treatment?.price != null
+                ? String(treatment.price)
+                : '';
+              onFormDataChange({ treatmentId: value, time: '', price: autoPrice });
+            }}
             disabled={loading.treatments}
           >
             <SelectTrigger>
@@ -164,6 +172,28 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
           </Select>
         </div>
       </div>
+
+      {/* Price */}
+      {selectedPackage ? (
+        formData.treatmentId && (
+          <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
+            Package session — no additional charge
+          </div>
+        )
+      ) : (
+        <div>
+          <Label>Price ($)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.price}
+            onChange={(e) => onFormDataChange({ price: e.target.value })}
+            placeholder="0.00"
+            className="mt-1"
+          />
+        </div>
+      )}
 
       {/* Time Slot Selection with Enhanced Feedback */}
       <div>

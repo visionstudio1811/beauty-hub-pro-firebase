@@ -1,13 +1,14 @@
 
 import { useState } from 'react';
 import { Package } from '@/contexts/PackageContext';
-import { PackageFormData, TreatmentItem } from '@/types/package';
+import { PackageFormData, TreatmentItem, ProductItem } from '@/types/package';
 import { useToast } from '@/hooks/use-toast';
 
 const initialState = (): PackageFormData => ({
   name: '',
   description: '',
   treatment_items: [],
+  product_items: [],
   price: 0,
   validity_months: 12,
 });
@@ -41,6 +42,7 @@ export const usePackageForm = () => {
       name: pkg.name,
       description: pkg.description,
       treatment_items: items,
+      product_items: Array.isArray(pkg.product_items) ? pkg.product_items.map(i => ({ product_id: i.product_id, quantity: i.quantity, price: i.price })) : [],
       price: pkg.price,
       validity_months: pkg.validity_months,
     });
@@ -79,6 +81,43 @@ export const usePackageForm = () => {
       const next = [...prev.treatment_items];
       next.splice(idx, 1);
       return { ...prev, treatment_items: next };
+    });
+  };
+
+  const toggleProduct = (productId: string, defaultPrice: number) => {
+    setFormData(prev => {
+      const idx = prev.product_items.findIndex(i => i.product_id === productId);
+      if (idx === -1) {
+        return { ...prev, product_items: [...prev.product_items, { product_id: productId, quantity: 1, price: defaultPrice }] };
+      }
+      const next = [...prev.product_items];
+      next.splice(idx, 1);
+      return { ...prev, product_items: next };
+    });
+  };
+
+  const setProductQuantity = (productId: string, quantity: number) => {
+    setFormData(prev => {
+      const idx = prev.product_items.findIndex(i => i.product_id === productId);
+      if (idx === -1) return prev;
+      if (quantity <= 0) {
+        const next = [...prev.product_items];
+        next.splice(idx, 1);
+        return { ...prev, product_items: next };
+      }
+      const next = [...prev.product_items];
+      next[idx] = { ...next[idx], quantity };
+      return { ...prev, product_items: next };
+    });
+  };
+
+  const setProductPrice = (productId: string, price: number) => {
+    setFormData(prev => {
+      const idx = prev.product_items.findIndex(i => i.product_id === productId);
+      if (idx === -1) return prev;
+      const next = [...prev.product_items];
+      next[idx] = { ...next[idx], price };
+      return { ...prev, product_items: next };
     });
   };
 
@@ -127,5 +166,8 @@ export const usePackageForm = () => {
     validateForm,
     toggleTreatment,
     setTreatmentQuantity,
+    toggleProduct,
+    setProductQuantity,
+    setProductPrice,
   };
 };

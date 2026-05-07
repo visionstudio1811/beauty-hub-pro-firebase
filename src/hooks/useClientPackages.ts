@@ -10,6 +10,13 @@ export interface SessionSlot {
   total: number;
 }
 
+export interface ProductSnapshot {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+}
+
 export interface ClientPackage {
   id: string;
   package_id: string;
@@ -21,6 +28,7 @@ export interface ClientPackage {
   payment_status: string;
   treatments: string[];
   sessions_by_treatment?: SessionSlot[];
+  product_snapshot?: ProductSnapshot[];
   price: number;
   is_custom?: boolean;
 }
@@ -73,6 +81,8 @@ export const useClientPackages = (clientId?: string) => {
           ? (purchase.sessions_by_treatment as SessionSlot[])
           : undefined;
 
+        const productSnapshot = Array.isArray(purchase.product_snapshot) ? purchase.product_snapshot : undefined;
+
         transformedPackages.push({
           id: purchaseDoc.id,
           package_id: purchase.package_id || '',
@@ -84,6 +94,7 @@ export const useClientPackages = (clientId?: string) => {
           payment_status: purchase.payment_status || '',
           treatments: pkgData.treatments || [],
           sessions_by_treatment: sessionsByTreatment,
+          product_snapshot: productSnapshot,
           price: pkgData.price || 0,
           is_custom: pkgData.is_custom ?? false,
         });

@@ -11,7 +11,7 @@ import { Client } from '@/hooks/useClients';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
-import { TreatmentItem } from '@/types/package';
+import { TreatmentItem, ProductItem } from '@/types/package';
 import {
   collection,
   getDocs,
@@ -33,6 +33,7 @@ interface CatalogPackage {
   validity_months: number;
   treatments: string[];
   treatment_items?: TreatmentItem[];
+  product_items?: ProductItem[];
   is_active: boolean;
 }
 
@@ -64,6 +65,8 @@ interface EditState {
   price: number;
   validity_months: number;
   items: TreatmentItem[];
+  alreadyUsed: Record<string, number>;
+  product_items: ProductItem[];
 }
 
 export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
@@ -82,10 +85,23 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
   const [pendingAgreement, setPendingAgreement] = useState<
     { purchaseId: string; packageName: string } | null
   >(null);
+  const [purchaseDate, setPurchaseDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentOrganization?.id) {
       fetchPackages();
+      setPurchaseDate(new Date().toISOString().split('T')[0]);
+      // Fetch all product names for display
+      getDocs(query(collection(db, 'organizations', currentOrganization.id, 'products'), orderBy('name')))
+        .then(snap => {
+          const names: Record<string, string> = {};
+          snap.docs.forEach(d => { names[d.id] = d.data().name || d.id; });
+          setProductNames(names);
+        })
+        .catch(() => {});
     }
   }, [isOpen, currentOrganization?.id]);
 
@@ -115,6 +131,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
             validity_months: data.validity_months ?? 1,
             treatments: data.treatments ?? [],
             treatment_items: Array.isArray(data.treatment_items) ? data.treatment_items : undefined,
+            product_items: Array.isArray(data.product_items) ? data.product_items : undefined,
             is_active: data.is_active ?? true,
             is_custom: data.is_custom ?? false,
           };
@@ -128,6 +145,8 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
           price: p.price,
           validity_months: p.validity_months,
           items: deriveInitialItems(p),
+          alreadyUsed: {},
+          product_items: Array.isArray(p.product_items) ? p.product_items.map(i => ({ ...i })) : [],
         };
       }
       setEdits(initial);
@@ -143,6 +162,23 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 
   const updateEdit = (pkgId: string, updater: (prev: EditState) => EditState) => {
     setEdits(prev => ({ ...prev, [pkgId]: updater(prev[pkgId]) }));
+  };
+
+  const setItemAlreadyUsed = (pkgId: string, treatmentId: string, used: number) => {
+    updateEdit(pkgId, prev => ({
+      ...prev,
+      alreadyUsed: { ...prev.alreadyUsed, [treatmentId]: Math.max(0, used) },
+    }));
+  };
+
+  const setProductItemField = (pkgId: string, productId: string, field: 'quantity' | 'price', value: number) => {
+    updateEdit(pkgId, prev => {
+      const items = [...prev.product_items];
+      const idx = items.findIndex(i => i.product_id === productId);
+      if (idx === -1) return prev;
+      items[idx] = { ...items[idx], [field]: value };
+      return { ...prev, product_items: items };
+    });
   };
 
   const setItemQuantity = (pkgId: string, treatmentId: string, qty: number) => {
@@ -189,14 +225,26 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
     setAssigning(pkg.id);
 
     try {
-      const expiryDate = new Date();
+      // Use purchaseDate so retroactive assignments get the right start/expiry
+      const purchaseDateObj = new Date(purchaseDate + 'T12:00:00');
+      const expiryDate = new Date(purchaseDateObj);
       expiryDate.setMonth(expiryDate.getMonth() + edit.validity_months);
 
-      const totalSessions = edit.items.reduce((sum, i) => sum + i.quantity, 0);
-      const sessionsByTreatment = edit.items.map(i => ({
-        treatment_id: i.treatment_id,
-        remaining: i.quantity,
-        total: i.quantity,
+      const sessionsByTreatment = edit.items.map(i => {
+        const used = edit.alreadyUsed[i.treatment_id] ?? 0;
+        return {
+          treatment_id: i.treatment_id,
+          remaining: Math.max(0, i.quantity - used),
+          total: i.quantity,
+        };
+      });
+      const totalSessions = sessionsByTreatment.reduce((sum, s) => sum + s.remaining, 0);
+
+      const productSnapshot = edit.product_items.map(i => ({
+        product_id: i.product_id,
+        product_name: productNames[i.product_id] || i.product_id,
+        quantity: i.quantity,
+        price: i.price,
       }));
 
       const now = new Date().toISOString();
@@ -210,13 +258,49 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
           sessions_remaining: totalSessions,
           sessions_by_treatment: sessionsByTreatment,
           expiry_date: expiryDate.toISOString().split('T')[0],
-          payment_status: 'active',
-          purchase_date: now.split('T')[0],
+          payment_status: totalSessions > 0 ? 'active' : 'completed',
+          purchase_date: purchaseDate,
+          ...(productSnapshot.length > 0 ? { product_snapshot: productSnapshot } : {}),
           created_at: now,
           created_at_ts: serverTimestamp(),
         },
       );
       const purchase = { id: purchaseRef.id };
+
+      // Create completed appointment records for already-used sessions
+      const apptWrites: Promise<unknown>[] = [];
+      for (const item of edit.items) {
+        const used = edit.alreadyUsed[item.treatment_id] ?? 0;
+        if (used <= 0) continue;
+        const tName = treatmentName(item.treatment_id);
+        for (let i = 0; i < used; i++) {
+          apptWrites.push(
+            addDoc(collection(db, 'organizations', currentOrganization.id, 'appointments'), {
+              client_id: client.id,
+              client_name: client.name,
+              client_phone: client.phone ?? '',
+              client_email: client.email ?? '',
+              treatment_id: item.treatment_id,
+              treatment_name: tName,
+              staff_id: '',
+              staff_name: '',
+              appointment_date: purchaseDate,
+              appointment_time: '00:00',
+              duration: 60,
+              status: 'completed',
+              session_used: true,
+              is_manual_entry: true,
+              package_id: pkg.id,
+              purchase_id: purchaseRef.id,
+              organization_id: currentOrganization.id,
+              notes: 'Retroactively logged during package assignment',
+              created_at: now,
+              created_at_ts: serverTimestamp(),
+            })
+          );
+        }
+      }
+      if (apptWrites.length > 0) await Promise.all(apptWrites);
 
       await syncMembershipStatus(currentOrganization.id, client.id, 'package_assigned');
       await logMembershipEvent(currentOrganization.id, client.id, 'package_assigned', {
@@ -272,6 +356,20 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
             Select a package and adjust price, validity, or per-treatment quantities before assigning.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex items-center gap-3 py-2 border-b">
+          <label className="text-sm font-medium whitespace-nowrap">Purchase Date</label>
+          <Input
+            type="date"
+            value={purchaseDate}
+            onChange={e => setPurchaseDate(e.target.value)}
+            className="w-44 h-8 text-sm"
+            max={new Date().toISOString().split('T')[0]}
+          />
+          <span className="text-xs text-muted-foreground">
+            Use a past date for retroactive assignments.
+          </span>
+        </div>
 
         {loading ? (
           <div className="space-y-4">
@@ -346,8 +444,14 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
                         </span>
                       </div>
                       <div className="space-y-1 max-h-40 overflow-y-auto border rounded p-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-muted-foreground flex-1">Treatment</span>
+                          <span className="text-xs text-muted-foreground w-14 text-center">Total</span>
+                          <span className="text-xs text-muted-foreground w-14 text-center">Used</span>
+                        </div>
                         {pkg.treatments.map(tid => {
                           const current = edit.items.find(i => i.treatment_id === tid)?.quantity ?? 0;
+                          const used = edit.alreadyUsed[tid] ?? 0;
                           return (
                             <div key={tid} className="flex items-center gap-2">
                               <span className="text-xs flex-1 truncate">{treatmentName(tid)}</span>
@@ -359,13 +463,58 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
                                   const v = parseInt(e.target.value, 10);
                                   setItemQuantity(pkg.id, tid, Number.isFinite(v) ? v : 0);
                                 }}
-                                className="h-7 w-16 text-xs"
+                                className="h-7 w-14 text-xs"
+                              />
+                              <Input
+                                type="number"
+                                min="0"
+                                max={current}
+                                value={used}
+                                onChange={e => {
+                                  const v = parseInt(e.target.value, 10);
+                                  setItemAlreadyUsed(pkg.id, tid, Number.isFinite(v) ? v : 0);
+                                }}
+                                className="h-7 w-14 text-xs"
+                                placeholder="0"
                               />
                             </div>
                           );
                         })}
                       </div>
                     </div>
+
+                    {edit.product_items.length > 0 && (
+                      <div>
+                        <label className="text-xs font-medium">Included Products</label>
+                        <div className="space-y-1 mt-1 border rounded p-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-muted-foreground flex-1">Product</span>
+                            <span className="text-xs text-muted-foreground w-14 text-center">Qty</span>
+                            <span className="text-xs text-muted-foreground w-20 text-center">Price ($)</span>
+                          </div>
+                          {edit.product_items.map(item => (
+                            <div key={item.product_id} className="flex items-center gap-2">
+                              <span className="text-xs flex-1 truncate">{productNames[item.product_id] || item.product_id}</span>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={e => setProductItemField(pkg.id, item.product_id, 'quantity', parseInt(e.target.value, 10) || 1)}
+                                className="h-7 w-14 text-xs"
+                              />
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.price}
+                                onChange={e => setProductItemField(pkg.id, item.product_id, 'price', parseFloat(e.target.value) || 0)}
+                                className="h-7 w-20 text-xs"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />

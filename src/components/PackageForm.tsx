@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +9,15 @@ import { usePackageForm } from '@/hooks/usePackageForm';
 import { Package, usePackages } from '@/contexts/PackageContext';
 import { PackageFormData } from '@/types/package';
 import { useToast } from '@/hooks/use-toast';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+interface OrgProduct {
+  id: string;
+  name: string;
+  price: number;
+}
 
 interface PackageFormProps {
   isOpen: boolean;
@@ -33,6 +42,9 @@ export const PackageForm: React.FC<PackageFormProps> = ({
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
   const { addPackage, updatePackage } = usePackages();
   const { toast } = useToast();
+  const { currentOrganization } = useOrganization();
+  const [orgProducts, setOrgProducts] = useState<OrgProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   const {
     formData,
     setFormData,
@@ -44,6 +56,9 @@ export const PackageForm: React.FC<PackageFormProps> = ({
     validateForm,
     toggleTreatment,
     setTreatmentQuantity,
+    toggleProduct,
+    setProductQuantity,
+    setProductPrice,
   } = usePackageForm();
 
   React.useEffect(() => {
@@ -54,6 +69,15 @@ export const PackageForm: React.FC<PackageFormProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingPackage, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !currentOrganization?.id) return;
+    setProductsLoading(true);
+    getDocs(query(collection(db, 'organizations', currentOrganization.id, 'products'), orderBy('name')))
+      .then(snap => setOrgProducts(snap.docs.map(d => ({ id: d.id, name: d.data().name || '', price: d.data().price ?? 0 }))))
+      .catch(() => {})
+      .finally(() => setProductsLoading(false));
+  }, [isOpen, currentOrganization?.id]);
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -76,6 +100,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
           name: payload.name,
           description: payload.description,
           treatment_items: payload.treatment_items,
+          product_items: payload.product_items,
           price: payload.price,
           validity_months: payload.validity_months,
         });
@@ -85,6 +110,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
           description: payload.description,
           treatments: payload.treatment_items.map(i => i.treatment_id),
           treatment_items: payload.treatment_items,
+          product_items: payload.product_items,
           price: payload.price,
           total_sessions: payload.total_sessions,
           validity_months: payload.validity_months,
@@ -225,6 +251,63 @@ export const PackageForm: React.FC<PackageFormProps> = ({
                         disabled={isSubmitting || !included}
                         className="w-20 text-sm h-8"
                         aria-label={`Sessions of ${treatment.name}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">Included Products</label>
+              <span className="text-xs text-muted-foreground">optional</span>
+            </div>
+            {productsLoading ? (
+              <div className="flex items-center p-4 border border-dashed rounded text-sm">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <span className="text-gray-500">Loading products...</span>
+              </div>
+            ) : orgProducts.length === 0 ? (
+              <div className="text-sm text-gray-500 p-3 border border-dashed rounded">
+                No products found. Add products first in the Settings page.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto border rounded p-2">
+                {orgProducts.map(product => {
+                  const included = formData.product_items.find(i => i.product_id === product.id);
+                  return (
+                    <div key={product.id} className="flex items-center gap-2 p-1.5 border rounded">
+                      <input
+                        type="checkbox"
+                        checked={!!included}
+                        onChange={() => toggleProduct(product.id, product.price)}
+                        disabled={isSubmitting}
+                        className="flex-shrink-0"
+                        aria-label={`Include ${product.name}`}
+                      />
+                      <span className="text-sm flex-1 truncate">{product.name}</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={included ? included.quantity : ''}
+                        placeholder="Qty"
+                        onChange={e => setProductQuantity(product.id, parseInt(e.target.value, 10) || 1)}
+                        disabled={isSubmitting || !included}
+                        className="w-16 text-xs h-7"
+                        aria-label={`Quantity of ${product.name}`}
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={included ? included.price : ''}
+                        placeholder="$"
+                        onChange={e => setProductPrice(product.id, parseFloat(e.target.value) || 0)}
+                        disabled={isSubmitting || !included}
+                        className="w-20 text-xs h-7"
+                        aria-label={`Price of ${product.name}`}
                       />
                     </div>
                   );

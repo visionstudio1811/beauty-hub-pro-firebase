@@ -23,6 +23,7 @@ interface AppointmentFormData {
   staffId: string;
   notes: string;
   roomId: string;
+  price: string;
 }
 
 interface TimeSlot {
@@ -43,7 +44,8 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     treatmentId: '',
     staffId: '',
     notes: '',
-    roomId: ''
+    roomId: '',
+    price: ''
   });
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<ClientPackage | null>(null);

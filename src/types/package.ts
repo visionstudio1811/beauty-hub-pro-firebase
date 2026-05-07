@@ -4,10 +4,17 @@ export interface TreatmentItem {
   quantity: number;
 }
 
+export interface ProductItem {
+  product_id: string;
+  quantity: number;
+  price: number;
+}
+
 export interface PackageFormData {
   name: string;
   description: string;
   treatment_items: TreatmentItem[];
+  product_items: ProductItem[];
   price: number;
   validity_months: number;
 }

@@ -38,6 +38,7 @@ export interface SupabaseAppointment {
   purchase_id?: string;
   session_used?: boolean;
   organization_id?: string;
+  price?: number;
 }
 
 const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
@@ -62,6 +63,7 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   purchase_id: data.purchase_id ?? undefined,
   session_used: Boolean(data.session_used),
   organization_id: data.organization_id,
+  price: typeof data.price === 'number' ? data.price : undefined,
 });
 
 export const useSupabaseAppointments = () => {

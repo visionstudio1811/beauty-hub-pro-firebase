@@ -13,7 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { TreatmentItem } from '@/types/package';
+import { TreatmentItem, ProductItem } from '@/types/package';
 
 export interface Package {
   id: string;
@@ -21,6 +21,7 @@ export interface Package {
   description: string;
   treatments: string[];
   treatment_items?: TreatmentItem[];
+  product_items?: ProductItem[];
   price: number;
   total_sessions: number;
   validity_months: number;
@@ -58,6 +59,7 @@ const docToPackage = (id: string, data: any): Package => ({
   description: data.description || '',
   treatments: data.treatments ?? [],
   treatment_items: Array.isArray(data.treatment_items) ? data.treatment_items : undefined,
+  product_items: Array.isArray(data.product_items) ? data.product_items : undefined,
   price: data.price ?? 0,
   total_sessions: data.total_sessions ?? 0,
   validity_months: data.validity_months ?? 0,
@@ -156,6 +158,7 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
         updated_at: serverTimestamp(),
       };
       if (packageData.treatment_items) payload.treatment_items = packageData.treatment_items;
+      if (packageData.product_items && packageData.product_items.length > 0) payload.product_items = packageData.product_items;
       if (packageData.is_custom) payload.is_custom = true;
       if (packageData.client_id) payload.client_id = packageData.client_id;
 

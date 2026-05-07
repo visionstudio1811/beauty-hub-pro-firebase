@@ -212,14 +212,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         package_id: selectedPackage?.package_id || null,
         purchase_id: selectedPackage?.id || undefined,
         session_used: !!selectedPackage,
+        price: selectedPackage ? 0 : (parseFloat(formData.price) || 0),
       });
-
-      // Decrement sessions on the purchase when a package session is consumed.
-      // Pass the booked treatment id so per-treatment packages decrement the right slot.
-      if (selectedPackage) {
-        await decrementPurchaseSession(selectedPackage, formData.treatmentId || null);
-        refreshPackages();
-      }
 
       onClose();
       setFormData({
@@ -230,7 +224,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         treatmentId: '',
         staffId: '',
         notes: '',
-        roomId: ''
+        roomId: '',
+        price: ''
       });
       setSelectedClient(null);
       setSelectedPackage(null);

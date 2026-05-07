@@ -83,7 +83,6 @@ const EnhancedProductManagement = () => {
     price: '',
     category: '',
     is_active: true,
-    stock_quantity: '',
     image_url: ''
   });
 
@@ -196,7 +195,6 @@ const EnhancedProductManagement = () => {
       price: '',
       category: '',
       is_active: true,
-      stock_quantity: '',
       image_url: ''
     });
     setEditingProduct(null);
@@ -214,7 +212,6 @@ const EnhancedProductManagement = () => {
       price: product.price.toString(),
       category: product.category || '',
       is_active: product.is_active,
-      stock_quantity: product.stock_quantity?.toString() || '',
       image_url: product.image_url || ''
     });
     setEditingProduct(product);
@@ -252,7 +249,6 @@ const EnhancedProductManagement = () => {
         price: parseFloat(formData.price),
         category: formData.category || null,
         is_active: formData.is_active,
-        stock_quantity: formData.stock_quantity ? parseInt(formData.stock_quantity) : null,
         image_url: formData.image_url || null,
         organization_id: orgId,
         updated_at: now,
@@ -459,15 +455,6 @@ const EnhancedProductManagement = () => {
                 )}
               </div>
               
-              {product.stock_quantity !== null && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Stock:</span>
-                  <span className={product.stock_quantity <= 5 ? 'text-red-500 font-medium' : ''}>
-                    {product.stock_quantity} units
-                  </span>
-                </div>
-              )}
-              
               <div className="flex items-center justify-between">
                 <Switch
                   checked={product.is_active}
@@ -605,35 +592,19 @@ const EnhancedProductManagement = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Category</label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({...formData, category: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Stock Quantity</label>
-                <Input
-                  type="number"
-                  value={formData.stock_quantity}
-                  onChange={(e) => setFormData({...formData, stock_quantity: e.target.value})}
-                  placeholder="Enter stock quantity"
-                />
-              </div>
+            <div>
+              <label className="text-sm font-medium">Category</label>
+              <Input
+                list="product-categories-list"
+                value={formData.category}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                placeholder="Select or type a category"
+              />
+              <datalist id="product-categories-list">
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name} />
+                ))}
+              </datalist>
             </div>
 
             <div className="flex items-center space-x-2">
