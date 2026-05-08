@@ -40,6 +40,7 @@ export const useClientProducts = (clientId?: string) => {
       const results: ClientProduct[] = [];
       for (const d of snap.docs) {
         const data = d.data();
+        if (data.deleted_at) continue;
         let productData: ClientProduct['products'] = null;
 
         if (data.product_id) {

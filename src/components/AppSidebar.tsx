@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useSecurityValidation } from '@/hooks/useSecurityValidation';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const SETTINGS_SECTIONS = [
@@ -24,6 +24,7 @@ const SETTINGS_SECTIONS = [
   { id: 'treatments',       label: 'Treatments',       icon: Calendar },
   { id: 'products',         label: 'Products',         icon: ShoppingBag },
   { id: 'categories',       label: 'Categories',       icon: Tag },
+  { id: 'brands',           label: 'Brands',           icon: Tag },
   { id: 'scheduling',       label: 'Scheduling',       icon: Clock },
   { id: 'waivers',          label: 'Waivers',          icon: FileSignature },
   { id: 'intake',           label: 'Intake Forms',     icon: ClipboardList },
@@ -45,14 +46,19 @@ const TOP_ITEMS = [
   { icon: Calendar,        label: 'Appointments', path: '/admin/appointments' },
 ];
 
+// Items only visible to admins. Kept separate from TOP_ITEMS so the array
+// passed to the renderer below already reflects the user's effective scope.
+const ADMIN_TOP_ITEMS = [
+  { icon: Receipt,         label: 'Invoices',     path: '/admin/invoices' },
+];
+
 export function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
   const { currentOrganization } = useOrganization();
-  const { validateUserRole } = useSecurityValidation();
+  const isAdmin = useIsAdmin();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(true);
 
   const isOnSettings  = location.pathname === '/admin/settings';
   const isOnMarketing = location.pathname === '/admin/marketing';
@@ -71,16 +77,6 @@ export function AppSidebar() {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
-  useEffect(() => {
-    const checkAccess = async () => {
-      if (user) {
-        const canAccess = await validateUserRole(['admin', 'staff']);
-        setShowSettings(canAccess);
-      }
-    };
-    checkAccess();
-  }, [user, validateUserRole]);
 
   const isCollapsed = state === 'collapsed';
   const orgName = currentOrganization?.name || 'Beauty Hub';
@@ -126,8 +122,8 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
 
-              {/* Top-level nav items */}
-              {TOP_ITEMS.map(item => {
+              {/* Top-level nav items — admin-only entries (Invoices) appended for admins */}
+              {[...TOP_ITEMS, ...(isAdmin ? ADMIN_TOP_ITEMS : [])].map(item => {
                 const isActive = location.pathname === item.path ||
                   (item.path !== '/admin' && location.pathname.startsWith(item.path));
                 const button = (
@@ -150,7 +146,8 @@ export function AppSidebar() {
                 );
               })}
 
-              {/* Marketing — expandable */}
+              {/* Marketing — expandable; admin-only */}
+              {isAdmin && (
               <>
                 <SidebarMenuItem>
                   {isCollapsed ? (
@@ -204,9 +201,10 @@ export function AppSidebar() {
                   </div>
                 )}
               </>
+              )}
 
-              {/* Settings — expandable */}
-              {showSettings && (
+              {/* Settings — expandable; admin-only */}
+              {isAdmin && (
                 <>
                   <SidebarMenuItem>
                     {isCollapsed ? (

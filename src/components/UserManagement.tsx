@@ -9,10 +9,11 @@ import {
   updateDoc,
   doc,
   query,
-  orderBy,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { UserPermissionChecker } from './user-management/UserPermissionChecker';
 import { UserCreationDialog } from './user-management/UserCreationDialog';
@@ -35,6 +36,7 @@ export const UserManagement: React.FC = () => {
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
   const { logSecurityEvent, hasPermission } = useSecurityValidation();
 
   useEffect(() => {
@@ -76,9 +78,18 @@ export const UserManagement: React.FC = () => {
 
   const fetchProfiles = async () => {
     try {
-      console.log('Fetching profiles...');
+      // Scope to the caller's org. The CF writes camelCase `organizationId`.
+      // We deliberately don't use a server-side orderBy because the legacy
+      // schema mixes `createdAt` (camelCase, written by adminCreateUser) with
+      // `created_at` (snake_case, from earlier seed data). Firestore drops
+      // any doc missing the orderBy field, which silently hides newly-created
+      // users. Sorting client-side handles both field names.
+      if (!currentOrganization?.id) return;
       const snap = await getDocs(
-        query(collection(db, 'users'), orderBy('created_at', 'desc'))
+        query(
+          collection(db, 'users'),
+          where('organizationId', '==', currentOrganization.id),
+        )
       );
       const data: Profile[] = snap.docs.map(d => {
         const u = d.data();
@@ -92,7 +103,7 @@ export const UserManagement: React.FC = () => {
           created_at: u.createdAt?.toDate?.()?.toISOString() ?? u.created_at ?? new Date().toISOString(),
         };
       });
-      console.log('Profiles fetched successfully:', data.length);
+      data.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       setProfiles(data);
       await logSecurityEvent('PROFILES_FETCHED', { count: data.length });
     } catch (error: any) {

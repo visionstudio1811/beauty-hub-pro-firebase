@@ -50,17 +50,16 @@ export const adminCreateUser = onCall(async (request) => {
   try {
     const securePassword = password || randomBytes(16).toString('hex');
 
-    const createPayload: admin.auth.CreateRequest = {
+    // Phone is stored in Firestore on the user doc only — we don't push it to
+    // Firebase Auth's phoneNumber field because that requires E.164 format and
+    // enforces uniqueness across the project. Local-format numbers
+    // (e.g. "0524028264") would otherwise fail with auth/invalid-phone-number.
+    const userRecord = await admin.auth().createUser({
       email,
       displayName: fullName,
       password: securePassword,
       emailVerified: true,
-    };
-    if (phone) {
-      createPayload.phoneNumber = phone;
-    }
-
-    const userRecord = await admin.auth().createUser(createPayload);
+    });
 
     await db.collection('users').doc(userRecord.uid).set({
       email,
@@ -76,10 +75,19 @@ export const adminCreateUser = onCall(async (request) => {
 
     return { success: true, uid: userRecord.uid, message: 'User created successfully' };
   } catch (error: any) {
+    // Log the underlying error so future failures aren't opaque. The thrown
+    // HttpsError stays generic to avoid leaking auth details to the client.
+    console.error('adminCreateUser failed', {
+      code: error?.code,
+      message: error?.message,
+      email,
+    });
     const safeMessage = error.code === 'auth/email-already-exists'
       ? 'A user with this email already exists'
-      : error.code === 'auth/phone-number-already-exists'
-      ? 'A user with this phone number already exists'
+      : error.code === 'auth/invalid-email'
+      ? 'Invalid email address'
+      : error.code === 'auth/weak-password'
+      ? 'Password is too weak — generate a new one and retry'
       : 'Failed to create user account';
     throw new HttpsError('internal', safeMessage);
   }

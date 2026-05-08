@@ -8,6 +8,7 @@ import { Client } from '@/hooks/useClients';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 interface ClientsCardsProps {
   clients: Client[];
@@ -31,6 +32,7 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
   onSendWaiver,
 }) => {
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
   const [communicationClient, setCommunicationClient] = useState<Client | null>(null);
   const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
 
@@ -198,16 +200,18 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                     <span className="text-xs">Book</span>
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => handleAssignPackage(client, e)}
-                  title="Assign Package"
-                  className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
-                >
-                  <Package className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Package</span>
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => handleAssignPackage(client, e)}
+                    title="Assign Package"
+                    className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
+                  >
+                    <Package className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Package</span>
+                  </Button>
+                )}
                 {onSendWaiver && (
                   <Button
                     size="sm"

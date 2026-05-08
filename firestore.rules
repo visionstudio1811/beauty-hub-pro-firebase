@@ -118,7 +118,8 @@ service cloud.firestore {
 
       match /treatments/{treatmentId} {
         allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
-        allow create, update: if belongsToOrg(orgId) && isStaff();
+        // Catalog edits are admin-only — front-desk can view but not change.
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
@@ -130,34 +131,44 @@ service cloud.firestore {
 
       match /packages/{packageId} {
         allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
-        allow create, update: if belongsToOrg(orgId) && isStaff();
+        // Packages are tied to revenue — admin-only writes.
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /purchases/{purchaseId} {
         allow read: if (belongsToOrg(orgId) && isBeautician())
                     || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
-        allow create, update: if belongsToOrg(orgId) && isReception();
+        // Financial entity — admin-only writes; soft-delete via deleted_at.
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         // Purchases are a financial audit trail — no deletes.
         allow delete: if false;
       }
 
       match /products/{productId} {
         allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
-        allow create, update: if belongsToOrg(orgId) && isStaff();
+        // Retail catalog — admin-only writes.
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /productCategories/{categoryId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow create, update: if belongsToOrg(orgId) && isStaff();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      match /productBrands/{brandId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /productAssignments/{assignmentId} {
         allow read: if (belongsToOrg(orgId) && isBeautician())
                     || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
-        allow create, update: if belongsToOrg(orgId) && isReception();
+        // Retail assignment is a financial action — admin-only writes.
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
@@ -219,7 +230,8 @@ service cloud.firestore {
 
       match /clients/{clientId}/membershipHistory/{entryId} {
         allow read: if belongsToOrg(orgId) && isBeautician();
-        allow create: if belongsToOrg(orgId) && isReception();
+        // Membership lifecycle is admin-only.
+        allow create: if belongsToOrg(orgId) && isAdmin();
         allow update, delete: if false;
       }
 
@@ -257,25 +269,26 @@ service cloud.firestore {
       }
 
       match /marketingCampaigns/{campaignId} {
-        allow read: if belongsToOrg(orgId) && isStaff();
+        // Marketing is admin-only end-to-end.
+        allow read: if belongsToOrg(orgId) && isAdmin();
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /marketingTemplates/{templateId} {
-        allow read: if belongsToOrg(orgId) && isStaff();
+        allow read: if belongsToOrg(orgId) && isAdmin();
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /marketingAutomations/{automationId} {
-        allow read: if belongsToOrg(orgId) && isStaff();
+        allow read: if belongsToOrg(orgId) && isAdmin();
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
       match /campaignRecipients/{recipientId} {
-        allow read: if belongsToOrg(orgId) && isStaff();
+        allow read: if belongsToOrg(orgId) && isAdmin();
         allow write: if false; // Cloud Functions only
       }
 
@@ -300,8 +313,10 @@ service cloud.firestore {
       }
 
       match /clientCommunications/{commId} {
-        allow read: if belongsToOrg(orgId) && isStaff();
-        allow create: if belongsToOrg(orgId) && isStaff();
+        // Front-desk needs to log/view client communications (paired with the
+        // sendClientEmail CF that also accepts reception).
+        allow read: if belongsToOrg(orgId) && isReception();
+        allow create: if belongsToOrg(orgId) && isReception();
         // Communications are an audit record — no edits or deletes from clients.
         allow update, delete: if false;
       }

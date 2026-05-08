@@ -11,6 +11,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/lib/firebase';
 import { userCreationSchema, validateAndSanitize } from '@/lib/validation';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { useSecurePasswordGenerator } from './SecurePasswordGenerator';
 
 interface UserCreationDialogProps {
@@ -21,36 +22,46 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
   onUserCreated
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ 
-    full_name: '', 
-    email: '', 
+  const [newUser, setNewUser] = useState({
+    full_name: '',
+    email: '',
     role: 'staff',
     phone: ''
   });
   const [tempPassword, setTempPassword] = useState('');
+  // Flips to true only after the Cloud Function actually creates the user.
+  // We can't gate the success panel on `tempPassword` alone — the password
+  // exists locally before any server call, so doing so used to render
+  // "User Created Successfully!" prematurely while the CF was never invoked.
+  const [userCreated, setUserCreated] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const { logSecurityEvent } = useSecurityValidation();
+  const { currentOrganization } = useOrganization();
   const { generatePassword, validatePasswordStrength } = useSecurePasswordGenerator();
 
-  const generateSecurePassword = () => {
-    const password = generatePassword({
-      length: 16,
-      includeUppercase: true,
-      includeLowercase: true,
-      includeNumbers: true,
-      includeSymbols: true,
-      excludeSimilar: true
-    });
-    
-    const validation = validatePasswordStrength(password);
-    if (validation.isValid) {
-      setTempPassword(password);
-    } else {
-      // Fallback to regenerating if somehow validation fails
-      generateSecurePassword();
+  const buildSecurePassword = (): string => {
+    // Loop locally so we can return the value synchronously — using setState +
+    // recursion-via-rerender used to race the submit handler.
+    for (let i = 0; i < 5; i++) {
+      const candidate = generatePassword({
+        length: 16,
+        includeUppercase: true,
+        includeLowercase: true,
+        includeNumbers: true,
+        includeSymbols: true,
+        excludeSimilar: true,
+      });
+      if (validatePasswordStrength(candidate).isValid) return candidate;
     }
+    // Generator is well-known to produce strong passwords; this is a hard
+    // fallback that should never fire in practice.
+    return generatePassword({ length: 20, includeUppercase: true, includeLowercase: true, includeNumbers: true, includeSymbols: true, excludeSimilar: true });
+  };
+
+  const generateSecurePassword = () => {
+    setTempPassword(buildSecurePassword());
   };
 
   const validateForm = () => {
@@ -75,47 +86,69 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
       return;
     }
 
-    // Generate secure password before creating user
-    if (!tempPassword) {
-      generateSecurePassword();
+    if (!currentOrganization?.id) {
+      toast({
+        title: "Error",
+        description: "No organization context — refresh the page and try again.",
+        variant: "destructive",
+      });
       return;
     }
+
+    // Use the existing temp password if the admin already generated one;
+    // otherwise generate one inline. Capture locally because setState is async
+    // and we need the value in this same call.
+    const passwordToUse = tempPassword || buildSecurePassword();
+    if (!tempPassword) setTempPassword(passwordToUse);
 
     setIsCreating(true);
 
     try {
-      // Validate and sanitize input
       const sanitizedData = validateAndSanitize(userCreationSchema, newUser);
 
+      // CF expects camelCase `fullName`, top-level `password`, and the
+      // `organizationId` of the calling admin. The form schema uses snake_case
+      // for historical reasons; we re-map here.
+      const payload = {
+        email: sanitizedData.email,
+        fullName: sanitizedData.full_name,
+        phone: sanitizedData.phone || undefined,
+        role: sanitizedData.role,
+        password: passwordToUse,
+        organizationId: currentOrganization.id,
+      };
+
       const adminCreateUserFn = httpsCallable(functions, 'adminCreateUser');
-      const result = await adminCreateUserFn({ ...sanitizedData, tempPassword });
-      const data = result.data as { userId?: string; error?: string };
+      const result = await adminCreateUserFn(payload);
+      const data = result.data as { uid?: string; success?: boolean; error?: string };
 
       if (data.error) {
         throw new Error(data.error);
       }
 
-      setNewUser({ full_name: '', email: '', role: 'staff', phone: '' });
+      setUserCreated(true);
       onUserCreated();
-      
-      // Log security event without sensitive data
+
       await logSecurityEvent('USER_CREATED', {
-        targetUserId: data.userId,
+        targetUserId: data.uid,
         targetUserRole: sanitizedData.role
       });
-      
+
       toast({
         title: "User Created",
         description: `${sanitizedData.full_name} has been added successfully.`,
       });
     } catch (error: any) {
       console.error('Error creating user:', error);
-      
-      // Log failed attempt without sensitive data
+
       await logSecurityEvent('USER_CREATION_FAILED', {
         error: error.message
       });
-      
+
+      // Clear the temp password on failure so the admin doesn't share a
+      // password for an account that doesn't exist.
+      setTempPassword('');
+
       toast({
         title: "Error",
         description: error.message || "Failed to create user.",
@@ -137,6 +170,7 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
   const closeDialog = () => {
     setIsOpen(false);
     setTempPassword('');
+    setUserCreated(false);
     setNewUser({ full_name: '', email: '', role: 'staff', phone: '' });
     setValidationErrors([]);
   };
@@ -172,20 +206,20 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
           </div>
         )}
         
-        {tempPassword ? (
+        {userCreated ? (
           <div className="space-y-4 p-4 bg-green-50 rounded-lg">
             <h4 className="font-medium text-green-800">User Created Successfully!</h4>
             <div className="space-y-2">
               <label className="text-sm font-medium text-green-700">Temporary Password:</label>
               <div className="flex items-center space-x-2">
-                <Input 
-                  value={tempPassword} 
-                  readOnly 
+                <Input
+                  value={tempPassword}
+                  readOnly
                   className="bg-white font-mono"
                   type="password"
                 />
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={copyPassword}
                 >
@@ -267,9 +301,9 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
         
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            {tempPassword ? 'Close' : 'Cancel'}
+            {userCreated ? 'Close' : 'Cancel'}
           </Button>
-          {!tempPassword && (
+          {!userCreated && (
             <Button onClick={handleAddUser} disabled={isCreating}>
               {isCreating ? 'Creating...' : 'Create User'}
             </Button>

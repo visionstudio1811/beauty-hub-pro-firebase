@@ -2,16 +2,15 @@
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 import { Eye, Edit, MessageSquare, Trash2, Package, Calendar, MoreHorizontal, FileSignature } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -36,8 +35,8 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
   onDeleteClient,
   onSendWaiver,
 }) => {
-  const { toast } = useToast();
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
   const [communicationClient, setCommunicationClient] = useState<Client | null>(null);
   const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
 
@@ -102,100 +101,61 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
     </span>
   );
 
-  const ActionButtons = ({ client }: { client: Client }) => (
-    <>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => handleViewDetails(client, e)}
-        title="View Details"
-        className="h-8 w-8 p-0"
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => handleEditClient(client, e)}
-        title="Edit Client"
-        className="h-8 w-8 p-0"
-      >
-        <Edit className="h-4 w-4" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => handleCommunication(client, e)}
-        title="Send Message"
-        className="h-8 w-8 p-0"
-      >
-        <MessageSquare className="h-4 w-4" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => handleBookAppointment(client, e)}
-        title="Book Appointment"
-        className="h-8 w-8 p-0"
-      >
-        <Calendar className="h-4 w-4" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={(e) => handleAssignPackage(client, e)}
-        title="Assign Package"
-        className="h-8 w-8 p-0"
-      >
-        <Package className="h-4 w-4" />
-      </Button>
-      {onSendWaiver && (
+  const [pendingDelete, setPendingDelete] = React.useState<Client | null>(null);
+
+  const ActionsMenu = ({ client }: { client: Client }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           size="sm"
-          variant="ghost"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSendWaiver(client); }}
-          title="Send Waiver"
-          className="h-8 w-8 p-0"
+          variant="outline"
+          className="h-8 px-2 gap-1"
+          onClick={(e) => e.stopPropagation()}
         >
-          <FileSignature className="h-4 w-4" />
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="hidden sm:inline">Actions</span>
         </Button>
-      )}
-      {onDeleteClient && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              title="Delete Client"
-              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will move the client to trash for 30 days. You can restore them during this period.
-                After 30 days, the client data will be permanently deleted.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={(e) => handleDeleteClient(client.id, e)}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Move to Trash
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleViewDetails(client); }}>
+          <Eye className="h-4 w-4 mr-2" />
+          View Details
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClient(client); }}>
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Client
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCommunication(client); }}>
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Send Message
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleBookAppointment(client); }}>
+          <Calendar className="h-4 w-4 mr-2" />
+          Book Appointment
+        </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAssignPackage(client); }}>
+            <Package className="h-4 w-4 mr-2" />
+            Assign Package
+          </DropdownMenuItem>
+        )}
+        {onSendWaiver && (
+          <DropdownMenuItem onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSendWaiver(client); }}>
+            <FileSignature className="h-4 w-4 mr-2" />
+            Send Waiver
+          </DropdownMenuItem>
+        )}
+        {onDeleteClient && (
+          <DropdownMenuItem
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPendingDelete(client); }}
+            className="text-red-600"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Client
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (
@@ -211,8 +171,8 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
               
               {!isMobile && <TableHead className="w-[80px] sm:w-[100px]">Last Visit</TableHead>}
               {!isMobile && <TableHead className="w-[60px] sm:w-[80px]">Visits</TableHead>}
-              {!isMobile && <TableHead className="w-[80px] sm:w-[100px]">Revenue</TableHead>}
-              <TableHead className="w-[120px] sm:w-[200px]">Actions</TableHead>
+              {!isMobile && isAdmin && <TableHead className="w-[80px] sm:w-[100px]">Revenue</TableHead>}
+              <TableHead className="w-[80px] sm:w-[110px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -247,109 +207,13 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
                 {!isMobile && (
                   <TableCell className="p-2 sm:p-4 text-center">{client.totalVisits}</TableCell>
                 )}
-                {!isMobile && (
+                {!isMobile && isAdmin && (
                   <TableCell className="p-2 sm:p-4">
                     <div className="truncate max-w-[70px] sm:max-w-[90px]">{renderRevenue(client)}</div>
                   </TableCell>
                 )}
                 <TableCell className="p-1 sm:p-4">
-                  {isMobile ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleViewDetails(client);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleEditClient(client);
-                          }}
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Client
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleCommunication(client);
-                          }}
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Send Message
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleBookAppointment(client);
-                          }}
-                        >
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Book Appointment
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleAssignPackage(client);
-                          }}
-                        >
-                          <Package className="h-4 w-4 mr-2" />
-                          Assign Package
-                        </DropdownMenuItem>
-                        {onSendWaiver && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSendWaiver(client);
-                            }}
-                          >
-                            <FileSignature className="h-4 w-4 mr-2" />
-                            Send Waiver
-                          </DropdownMenuItem>
-                        )}
-                        {onDeleteClient && (
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteClient(client.id);
-                            }}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Client
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <ActionButtons client={client} />
-                    </div>
-                  )}
+                  <ActionsMenu client={client} />
                 </TableCell>
               </TableRow>
             ))}
@@ -362,6 +226,30 @@ export const ClientsTable: React.FC<ClientsTableProps> = ({
         isOpen={isCommunicationModalOpen}
         onClose={() => setIsCommunicationModalOpen(false)}
       />
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move {pendingDelete?.name ?? 'the client'} to trash for 30 days.
+              You can restore them during this period. After 30 days, the client data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                if (pendingDelete) handleDeleteClient(pendingDelete.id, e);
+                setPendingDelete(null);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Move to Trash
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

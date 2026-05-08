@@ -9,12 +9,14 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Client } from '@/contexts/ClientsContext';
+import type { PurchaseFilter } from '@/hooks/useClientFilters';
 
 export const PAGE_SIZE = 25;
 
 interface UsePaginatedClientsParams {
   searchTerm: string;
   filterStatus: string;
+  purchaseFilter?: PurchaseFilter;
   page: number;
   version?: number;
 }
@@ -30,11 +32,14 @@ interface ClientAggregates {
   totalVisits: number;
   totalRevenue: number;
   lastVisit: string;
+  hasPackages: boolean;
+  hasProducts: boolean;
 }
 
 export const usePaginatedClients = ({
   searchTerm,
   filterStatus,
+  purchaseFilter = 'all',
   page,
   version = 0,
 }: UsePaginatedClientsParams): UsePaginatedClientsResult => {
@@ -64,7 +69,7 @@ export const usePaginatedClients = ({
 
         // Parallel fetch: clients + appointments + purchases.
         // Aggregates are computed in memory and joined by client_id.
-        const [clientsSnap, appointmentsSnap, purchasesSnap] = await Promise.all([
+        const [clientsSnap, appointmentsSnap, purchasesSnap, productAssignmentsSnap] = await Promise.all([
           getDocs(query(
             collection(db, ...orgPath, 'clients'),
             orderBy('created_at', 'desc'),
@@ -77,6 +82,7 @@ export const usePaginatedClients = ({
             collection(db, ...orgPath, 'purchases'),
             where('payment_status', 'in', ['completed', 'active']),
           )),
+          getDocs(collection(db, ...orgPath, 'productAssignments')),
         ]);
 
         if (cancelled) return;
@@ -85,7 +91,7 @@ export const usePaginatedClients = ({
         const ensure = (id: string): ClientAggregates => {
           let agg = aggregates.get(id);
           if (!agg) {
-            agg = { totalVisits: 0, totalRevenue: 0, lastVisit: '' };
+            agg = { totalVisits: 0, totalRevenue: 0, lastVisit: '', hasPackages: false, hasProducts: false };
             aggregates.set(id, agg);
           }
           return agg;
@@ -105,10 +111,29 @@ export const usePaginatedClients = ({
 
         purchasesSnap.forEach((d) => {
           const data = d.data();
+          if (data.deleted_at) return;
           const clientId = data.client_id;
           if (!clientId) return;
           const agg = ensure(clientId);
           agg.totalRevenue += Number(data.total_amount || 0);
+          // A purchase doc with a package_id means the client bought a package.
+          // Without one (e.g., legacy/standalone purchase rows) we still count
+          // it as a "package" purchase since it's not a productAssignment.
+          agg.hasPackages = true;
+        });
+
+        // Standalone product assignments (no parent purchase) also count toward
+        // client revenue — e.g. retail-only visits where no package was bought.
+        productAssignmentsSnap.forEach((d) => {
+          const data = d.data();
+          if (data.deleted_at) return;
+          const clientId = data.client_id;
+          if (!clientId) return;
+          const agg = ensure(clientId);
+          const price = Number(data.assigned_price || 0);
+          const qty = Number(data.quantity || 1);
+          agg.totalRevenue += price * qty;
+          agg.hasProducts = true;
         });
 
         let allClients = clientsSnap.docs
@@ -165,6 +190,27 @@ export const usePaginatedClients = ({
           allClients = allClients.filter(c => !c.has_membership);
         }
 
+        // Apply purchase-type filter
+        if (purchaseFilter !== 'all') {
+          allClients = allClients.filter(c => {
+            const agg = aggregates.get(c.id);
+            const hasPackages = !!agg?.hasPackages;
+            const hasProducts = !!agg?.hasProducts;
+            switch (purchaseFilter) {
+              case 'has_packages':
+                return hasPackages;
+              case 'has_products':
+                return hasProducts;
+              case 'has_both':
+                return hasPackages && hasProducts;
+              case 'none':
+                return !hasPackages && !hasProducts;
+              default:
+                return true;
+            }
+          });
+        }
+
         const total = allClients.length;
         const from = (page - 1) * PAGE_SIZE;
         const paginated = allClients.slice(from, from + PAGE_SIZE);
@@ -186,7 +232,7 @@ export const usePaginatedClients = ({
     return () => {
       cancelled = true;
     };
-  }, [currentOrganization?.id, searchTerm, filterStatus, page, version, fetchTick]);
+  }, [currentOrganization?.id, searchTerm, filterStatus, purchaseFilter, page, version, fetchTick]);
 
   return { clients, totalCount, loading, refetch };
 };

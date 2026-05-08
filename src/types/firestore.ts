@@ -118,7 +118,7 @@ export interface Product {
   name: string;
   price: number;
   category?: string;
-  stockQuantity: number;
+  brand?: string;
   imageUrl?: string;
   isActive: boolean;
   createdAt: any;
@@ -163,12 +163,25 @@ export interface InvoiceTreatmentLine {
   unit_price_cents: number;
 }
 
+export interface InvoiceBundledProduct {
+  product_id: string;
+  name: string;
+  quantity: number;
+  unit_price_cents: number;
+}
+
 export interface InvoiceLineItem {
-  type: 'package' | 'product';
+  type: 'package' | 'product' | 'treatment';
   name: string;
   description: string;
-  package_id: string | null;
+  // package_id is set when type === 'package', null/absent for standalone products.
+  package_id?: string | null;
+  // product_id is set when type === 'product'.
+  product_id?: string | null;
+  // treatment_id is set when type === 'treatment'.
+  treatment_id?: string | null;
   treatments?: InvoiceTreatmentLine[];
+  bundled_products?: InvoiceBundledProduct[];
   quantity: number;
   unit_price_cents: number;
   subtotal_cents: number;
@@ -200,7 +213,8 @@ export interface Invoice {
   invoice_number: string;
   invoice_number_int: number;
   issued_at: any;
-  purchase_id: string;
+  // Null for standalone product-only invoices that aren't tied to a purchase doc.
+  purchase_id: string | null;
   client_id: string;
   client_snapshot: InvoiceClientSnapshot;
   business_snapshot: InvoiceBusinessSnapshot;

@@ -4,12 +4,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Grid, List } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+
+type PurchaseFilter = 'all' | 'has_packages' | 'has_products' | 'has_both' | 'none';
 
 interface ClientsFiltersProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   filterStatus: string;
   setFilterStatus: (status: string) => void;
+  purchaseFilter: PurchaseFilter;
+  setPurchaseFilter: (value: PurchaseFilter) => void;
   viewMode: 'table' | 'grid';
   setViewMode: (mode: 'table' | 'grid') => void;
 }
@@ -19,10 +24,13 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
   setSearchTerm,
   filterStatus,
   setFilterStatus,
+  purchaseFilter,
+  setPurchaseFilter,
   viewMode,
   setViewMode
 }) => {
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
 
   return (
     <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg border space-y-3 sm:space-y-0">
@@ -52,6 +60,21 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
               <option value="Have Membership">Have Membership</option>
               <option value="Don't Have Membership">Don't Have Membership</option>
             </select>
+
+            {/* Purchase Filter — admin only */}
+            {isAdmin && (
+              <select
+                value={purchaseFilter}
+                onChange={(e) => setPurchaseFilter(e.target.value as PurchaseFilter)}
+                className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm"
+              >
+                <option value="all">All Purchases</option>
+                <option value="has_packages">Bought packages</option>
+                <option value="has_products">Bought products</option>
+                <option value="has_both">Bought both</option>
+                <option value="none">No purchases</option>
+              </select>
+            )}
 
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 rounded-md overflow-hidden">
@@ -102,6 +125,21 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
               <option value="Have Membership">Have Membership</option>
               <option value="Don't Have Membership">Don't Have Membership</option>
             </select>
+
+            {/* Purchase Filter — admin only */}
+            {isAdmin && (
+              <select
+                value={purchaseFilter}
+                onChange={(e) => setPurchaseFilter(e.target.value as PurchaseFilter)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm min-w-[180px]"
+              >
+                <option value="all">All Purchases</option>
+                <option value="has_packages">Bought packages</option>
+                <option value="has_products">Bought products</option>
+                <option value="has_both">Bought both</option>
+                <option value="none">No purchases</option>
+              </select>
+            )}
 
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 rounded-md overflow-hidden">

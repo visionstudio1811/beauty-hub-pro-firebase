@@ -36,11 +36,13 @@ import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useClientPackages } from '@/hooks/useClientPackages';
 import { useClientProducts } from '@/hooks/useClientProducts';
 import { PurchaseManagementModal } from '@/components/PurchaseManagementModal';
-import { ProductAssignmentModal } from '@/components/ProductAssignmentModal';
+import { ManageClientProductsModal } from '@/components/ManageClientProductsModal';
+import { CreateInvoiceDialog } from '@/components/invoices/CreateInvoiceDialog';
 import { CustomPackageModal } from '@/components/packages/CustomPackageModal';
 import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
 import { Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
 import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab';
 import { buildInvoicePdf } from '@/lib/invoicePdf';
@@ -99,13 +101,24 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const { toast } = useToast();
   const { dropdownData } = useDropdownData();
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
   const { currentOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState(initialTab ?? 'details');
 
-  // Sync tab when initialTab changes (e.g. "Send Waiver" button opens modal on documents tab)
+  // Tabs that contain financial data — hidden from non-admin.
+  const adminOnlyTabs = ['packages', 'membership', 'invoices'];
+
+  // Sync tab when initialTab changes (e.g. "Send Waiver" button opens modal on documents tab).
+  // Force-redirect non-admin away from admin-only tabs.
   useEffect(() => {
-    if (isOpen) setActiveTab(initialTab ?? 'details');
-  }, [isOpen, initialTab]);
+    if (!isOpen) return;
+    const requested = initialTab ?? 'details';
+    if (!isAdmin && adminOnlyTabs.includes(requested)) {
+      setActiveTab('details');
+    } else {
+      setActiveTab(requested);
+    }
+  }, [isOpen, initialTab, isAdmin]);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -124,7 +137,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const [isCommunicationModalOpen, setIsCommunicationModalOpen] = useState(false);
   const [isManagePackagesModalOpen, setIsManagePackagesModalOpen] = useState(false);
   const [isCustomPackageModalOpen, setIsCustomPackageModalOpen] = useState(false);
-  const [isProductAssignModalOpen, setIsProductAssignModalOpen] = useState(false);
+  const [isManageProductsModalOpen, setIsManageProductsModalOpen] = useState(false);
   const [isPastTreatmentOpen, setIsPastTreatmentOpen] = useState(false);
   const [pastTreatmentForm, setPastTreatmentForm] = useState({
     treatment_name: '',
@@ -150,6 +163,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [agreementFor, setAgreementFor] = useState<{ purchaseId: string; packageName: string } | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [productInvoiceFor, setProductInvoiceFor] = useState<
+    | { product_id: string; quantity: number; unit_price: number }
+    | null
+  >(null);
+  const [productInvoiceOpen, setProductInvoiceOpen] = useState(false);
 
   // Update form data when client changes
   useEffect(() => {
@@ -191,8 +209,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         )
       );
 
+      const activeDocs = snap.docs.filter(d => !d.data().deleted_at);
       const results: DatabasePurchase[] = await Promise.all(
-        snap.docs.map(async (d) => {
+        activeDocs.map(async (d) => {
           const data = d.data();
           let pkg: DatabasePurchase['packages'] = null;
           if (data.package_id) {
@@ -366,7 +385,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   };
 
   const handleManageProducts = () => {
-    setIsProductAssignModalOpen(true);
+    setIsManageProductsModalOpen(true);
   };
 
   const handlePackageManagementUpdate = () => {
@@ -544,7 +563,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
 
   if (!client) return null;
 
-  const tabOptions = [
+  const allTabs = [
     { value: 'details', label: 'Details', icon: User },
     { value: 'appointments', label: `Appointments (${appointments.length})`, icon: Calendar },
     { value: 'packages', label: `Packages (${purchases.length})`, icon: Package },
@@ -555,6 +574,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     { value: 'agreements', label: 'Agreements of Purchase', icon: FileSignature },
     { value: 'invoices', label: `Invoices (${invoices.length})`, icon: Receipt },
   ];
+
+  // Non-admin users don't see financial tabs.
+  const tabOptions = isAdmin
+    ? allTabs
+    : allTabs.filter(t => !adminOnlyTabs.includes(t.value));
 
   return (
     <>
@@ -778,7 +802,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       disabled={!isEditing}
                     />
                   </div>
-                  {isEditing && (
+                  {isEditing && isAdmin && (
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -794,9 +818,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     <div>Status: <Badge>{client.status}</Badge></div>
                     <div>Total Visits: {appointments.length}</div>
                     <div>Last Visit: {appointments.length > 0 ? appointments[0].appointment_date : 'Never'}</div>
-                    <div>Total Revenue: ${purchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0)}</div>
-                    <div>Active Packages: {clientPackages.length}</div>
-                    <div>Active Products: {clientProducts.length}</div>
+                    {isAdmin && (
+                      <div>Total Revenue: ${purchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0)}</div>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <div>Active Packages: {clientPackages.length}</div>
+                        <div>Active Products: {clientProducts.length}</div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -1013,6 +1043,23 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                   {productAssignment.status}
                                 </Badge>
                                 <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(productAssignment.assigned_at) || '—'}</p>
+                                <div className="flex flex-col gap-2 mt-2">
+                                  <Button
+                                    onClick={() => {
+                                      setProductInvoiceFor({
+                                        product_id: productAssignment.product_id,
+                                        quantity: productAssignment.quantity || 1,
+                                        unit_price: productAssignment.assigned_price || 0,
+                                      });
+                                      setProductInvoiceOpen(true);
+                                    }}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <Receipt className="h-4 w-4 mr-1" />
+                                    Generate Invoice
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                             {productAssignment.notes && (
@@ -1042,17 +1089,21 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                         <Calendar className="h-4 w-4 mr-2" />
                         Book New Appointment
                       </Button>
-                      
-                      <Button onClick={handleAssignPackage} className="w-full" size="lg" variant="outline">
-                        <Package className="h-4 w-4 mr-2" />
-                        Assign Package
-                      </Button>
-                      
-                      <Button onClick={handleAssignProduct} className="w-full" size="lg" variant="outline">
-                        <ShoppingBag className="h-4 w-4 mr-2" />
-                        Assign Product
-                      </Button>
-                      
+
+                      {isAdmin && (
+                        <Button onClick={handleAssignPackage} className="w-full" size="lg" variant="outline">
+                          <Package className="h-4 w-4 mr-2" />
+                          Assign Package
+                        </Button>
+                      )}
+
+                      {isAdmin && (
+                        <Button onClick={handleAssignProduct} className="w-full" size="lg" variant="outline">
+                          <ShoppingBag className="h-4 w-4 mr-2" />
+                          Assign Product
+                        </Button>
+                      )}
+
                       <Button onClick={() => setIsCommunicationModalOpen(true)} className="w-full" size="lg" variant="outline">
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Send Message
@@ -1224,12 +1275,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         onUpdate={handlePackageManagementUpdate}
       />
 
-      <ProductAssignmentModal
-        product={null}
-        clients={client ? [client] : []}
-        isOpen={isProductAssignModalOpen}
-        onClose={() => setIsProductAssignModalOpen(false)}
-        onAssign={handleProductManagementUpdate}
+      <ManageClientProductsModal
+        client={client}
+        isOpen={isManageProductsModalOpen}
+        onClose={() => setIsManageProductsModalOpen(false)}
+        onUpdate={handleProductManagementUpdate}
+      />
+
+      <CreateInvoiceDialog
+        isOpen={productInvoiceOpen}
+        onClose={() => setProductInvoiceOpen(false)}
+        initialClientId={client?.id}
+        initialProduct={productInvoiceFor ?? undefined}
       />
 
       <CustomPackageModal
@@ -1361,7 +1418,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, staff_name: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <div>
                 <label className="text-sm font-medium">Duration (minutes)</label>
                 <Input
@@ -1370,17 +1427,19 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, duration: e.target.value })}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Price ($)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={pastTreatmentForm.price}
-                  onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, price: e.target.value })}
-                />
-              </div>
+              {isAdmin && (
+                <div>
+                  <label className="text-sm font-medium">Price ($)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={pastTreatmentForm.price}
+                    onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, price: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium">Notes</label>

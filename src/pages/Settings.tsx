@@ -28,6 +28,7 @@ import { BusinessInfoEditor } from '@/components/BusinessInfoEditor';
 import { DropdownDataManagement } from '@/components/DropdownDataManagement';
 import EnhancedProductManagement from '@/components/EnhancedProductManagement';
 import { ProductCategoryManagement } from '@/components/ProductCategoryManagement';
+import { ProductBrandManagement } from '@/components/ProductBrandManagement';
 import { AcuityIntegration } from '@/components/AcuityIntegration';
 import { LogoManagement } from '@/components/LogoManagement';
 import { WaiverTemplateEditor } from '@/components/waivers/WaiverTemplateEditor';
@@ -156,14 +157,31 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                Product Categories
+                Categories
               </CardTitle>
               <CardDescription>
-                Manage product categories for better organization
+                Categorize products, facials, or both — pick the scope when creating each one.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ProductCategoryManagement />
+            </CardContent>
+          </Card>
+        );
+      case 'brands':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Product Brands
+              </CardTitle>
+              <CardDescription>
+                Manage the brands you carry — these appear as a dropdown when editing a product
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProductBrandManagement />
             </CardContent>
           </Card>
         );

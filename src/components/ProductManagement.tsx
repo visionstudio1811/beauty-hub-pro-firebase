@@ -36,8 +36,8 @@ interface Product {
   description?: string;
   price: number;
   category?: string;
+  brand?: string;
   is_active: boolean;
-  stock_quantity?: number;
   created_at: string;
   updated_at: string;
 }
@@ -77,8 +77,8 @@ const ProductManagement = () => {
           description: data.description ?? undefined,
           price: data.price ?? 0,
           category: data.category ?? undefined,
+          brand: data.brand ?? undefined,
           is_active: data.is_active ?? true,
-          stock_quantity: data.stock_quantity ?? undefined,
           created_at: data.created_at ?? '',
           updated_at: data.updated_at ?? '',
         };

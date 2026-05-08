@@ -29,6 +29,14 @@ import {
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+
+type CategoryScope = 'product' | 'treatment';
+const ALL_SCOPES: CategoryScope[] = ['product', 'treatment'];
+const SCOPE_LABELS: Record<CategoryScope, string> = {
+  product: 'Products',
+  treatment: 'Facials',
+};
 
 interface ProductCategory {
   id: string;
@@ -36,6 +44,7 @@ interface ProductCategory {
   description?: string;
   is_active: boolean;
   sort_order: number;
+  applies_to: CategoryScope[];
   created_at: string;
   updated_at: string;
 }
@@ -52,7 +61,8 @@ export const ProductCategoryManagement: React.FC = () => {
     name: '',
     description: '',
     is_active: true,
-    sort_order: 0
+    sort_order: 0,
+    applies_to: ['product', 'treatment'] as CategoryScope[],
   });
 
   useEffect(() => {
@@ -71,12 +81,16 @@ export const ProductCategoryManagement: React.FC = () => {
       );
       setCategories(snap.docs.map(d => {
         const data = d.data();
+        const appliesTo: CategoryScope[] = Array.isArray(data.applies_to) && data.applies_to.length > 0
+          ? data.applies_to.filter((s: any): s is CategoryScope => s === 'product' || s === 'treatment')
+          : ['product']; // Legacy categories existed before scope was a thing — default to products only.
         return {
           id: d.id,
           name: data.name ?? '',
           description: data.description ?? undefined,
           is_active: data.is_active ?? true,
           sort_order: data.sort_order ?? 0,
+          applies_to: appliesTo,
           created_at: data.created_at ?? '',
           updated_at: data.updated_at ?? '',
         };
@@ -94,7 +108,8 @@ export const ProductCategoryManagement: React.FC = () => {
       name: '',
       description: '',
       is_active: true,
-      sort_order: categories.length
+      sort_order: categories.length,
+      applies_to: ['product', 'treatment'],
     });
     setEditingCategory(null);
   };
@@ -109,7 +124,8 @@ export const ProductCategoryManagement: React.FC = () => {
       name: category.name,
       description: category.description || '',
       is_active: category.is_active,
-      sort_order: category.sort_order
+      sort_order: category.sort_order,
+      applies_to: category.applies_to.length > 0 ? category.applies_to : ['product'],
     });
     setEditingCategory(category);
     setIsModalOpen(true);
@@ -127,6 +143,15 @@ export const ProductCategoryManagement: React.FC = () => {
       return;
     }
 
+    if (formData.applies_to.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Pick at least one entity (Products or Facials).",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!currentOrganization?.id) {
       toast({ title: "Error", description: "No organization selected", variant: "destructive" });
       return;
@@ -139,6 +164,7 @@ export const ProductCategoryManagement: React.FC = () => {
         description: formData.description.trim() || null,
         is_active: formData.is_active,
         sort_order: formData.sort_order,
+        applies_to: formData.applies_to,
         organization_id: currentOrganization.id,
         updated_at: now,
       };
@@ -198,7 +224,7 @@ export const ProductCategoryManagement: React.FC = () => {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5 text-purple-600" />
-            Product Categories
+            Categories
           </CardTitle>
           <Button onClick={handleAdd} size="sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -216,11 +242,16 @@ export const ProductCategoryManagement: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{category.name}</span>
                     <Badge variant={category.is_active ? "default" : "secondary"}>
                       {category.is_active ? "Active" : "Inactive"}
                     </Badge>
+                    {category.applies_to.map(scope => (
+                      <Badge key={scope} variant="outline" className="text-xs">
+                        {SCOPE_LABELS[scope]}
+                      </Badge>
+                    ))}
                   </div>
                   {category.description && (
                     <p className="text-sm text-muted-foreground">{category.description}</p>
@@ -254,7 +285,7 @@ export const ProductCategoryManagement: React.FC = () => {
             <div className="text-center py-8">
               <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">No categories yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first product category to get started.</p>
+              <p className="text-muted-foreground mb-4">Create categories to organize your products and facials.</p>
               <Button onClick={handleAdd}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Category
@@ -272,7 +303,7 @@ export const ProductCategoryManagement: React.FC = () => {
               {editingCategory ? 'Edit Category' : 'Add New Category'}
             </DialogTitle>
             <DialogDescription>
-              {editingCategory ? 'Update category information' : 'Create a new product category'}
+              {editingCategory ? 'Update category information' : 'Create a category for products, facials, or both'}
             </DialogDescription>
           </DialogHeader>
           
@@ -305,6 +336,35 @@ export const ProductCategoryManagement: React.FC = () => {
                 onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value) || 0})}
                 placeholder="0"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Applies to *</label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Where this category appears as a dropdown option.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {ALL_SCOPES.map(scope => {
+                  const checked = formData.applies_to.includes(scope);
+                  return (
+                    <label
+                      key={scope}
+                      className="flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          const next = v
+                            ? Array.from(new Set([...formData.applies_to, scope]))
+                            : formData.applies_to.filter(s => s !== scope);
+                          setFormData({ ...formData, applies_to: next });
+                        }}
+                      />
+                      <span className="text-sm">{SCOPE_LABELS[scope]}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

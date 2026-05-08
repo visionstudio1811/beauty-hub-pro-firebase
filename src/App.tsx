@@ -12,6 +12,7 @@ import Appointments from './pages/Appointments';
 import Clients from './pages/Clients';
 import DeletedClients from './pages/DeletedClients';
 import Marketing from './pages/Marketing';
+import Invoices from './pages/Invoices';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import Auth from './pages/Auth';
@@ -76,9 +77,18 @@ function App() {
                               <Route path="appointments" element={<Appointments />} />
                               <Route path="clients" element={<Clients />} />
                               <Route path="clients/trash" element={<DeletedClients />} />
-                              <Route path="marketing" element={<Marketing />} />
+                              <Route path="marketing" element={
+                                <RoleProtectedRoute allowedRoles={['admin']}>
+                                  <Marketing />
+                                </RoleProtectedRoute>
+                              } />
+                              <Route path="invoices" element={
+                                <RoleProtectedRoute allowedRoles={['admin']}>
+                                  <Invoices />
+                                </RoleProtectedRoute>
+                              } />
                               <Route path="settings" element={
-                                <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
+                                <RoleProtectedRoute allowedRoles={['admin']}>
                                   <Settings />
                                 </RoleProtectedRoute>
                               } />

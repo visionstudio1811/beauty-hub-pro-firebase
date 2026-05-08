@@ -65,6 +65,7 @@ export const useClientPackages = (clientId?: string) => {
 
       for (const purchaseDoc of purchasesSnap.docs) {
         const purchase = purchaseDoc.data();
+        if (purchase.deleted_at) continue;
         if ((purchase.sessions_remaining || 0) <= 0) continue;
         if (purchase.expiry_date && purchase.expiry_date < today) continue;
 

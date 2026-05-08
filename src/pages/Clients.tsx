@@ -11,10 +11,13 @@ import { useClientFilters } from '@/hooks/useClientFilters';
 import { useDeletedClientsCount } from '@/hooks/useDeletedClientsCount';
 import { usePaginatedClients, PAGE_SIZE } from '@/hooks/usePaginatedClients';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 const Clients = () => {
   const isMobile = useIsMobile();
+  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const { deletedCount } = useDeletedClientsCount();
 
@@ -58,15 +61,26 @@ const Clients = () => {
     setSearchTerm,
     filterStatus,
     setFilterStatus,
+    purchaseFilter,
+    setPurchaseFilter,
     viewMode,
     setViewMode,
     page,
     setPage,
   } = useClientFilters();
 
+  // Defensive: non-admin must never have a purchase filter applied (the UI
+  // hides the dropdown, but stale state from prior admin sessions could leak).
+  useEffect(() => {
+    if (!isAdmin && purchaseFilter !== 'all') {
+      setPurchaseFilter('all');
+    }
+  }, [isAdmin, purchaseFilter, setPurchaseFilter]);
+
   const { clients: pagedClients, totalCount, loading } = usePaginatedClients({
     searchTerm,
     filterStatus,
+    purchaseFilter: isAdmin ? purchaseFilter : 'all',
     page,
     version: mutationVersion,
   });
@@ -182,6 +196,8 @@ const Clients = () => {
             setSearchTerm={setSearchTerm}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
+            purchaseFilter={purchaseFilter}
+            setPurchaseFilter={setPurchaseFilter}
             viewMode={viewMode}
             setViewMode={setViewMode}
           />

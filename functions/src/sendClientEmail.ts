@@ -93,8 +93,8 @@ export const sendClientEmail = onCall(
     if (userData.organizationId !== organizationId) {
       throw new HttpsError('permission-denied', 'Organization mismatch');
     }
-    if (!['admin', 'staff'].includes(userData.role)) {
-      throw new HttpsError('permission-denied', 'Staff or admin access required to send emails');
+    if (!['admin', 'staff', 'reception'].includes(userData.role)) {
+      throw new HttpsError('permission-denied', 'Reception, staff, or admin access required to send emails');
     }
 
     // Per-org daily cap: blocks runaway loops and Resend spend abuse.

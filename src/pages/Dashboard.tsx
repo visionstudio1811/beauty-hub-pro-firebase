@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppointmentFormModal } from '../components/AppointmentFormModal';
 import AppointmentFilters from '../components/AppointmentFilters';
 import DashboardStats from '../components/dashboard/DashboardStats';
+import { PurchasesSection } from '../components/dashboard/PurchasesSection';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useClients } from '@/hooks/useClients';
@@ -15,6 +17,7 @@ import { useTimezone } from '@/hooks/useTimezone';
 
 const Dashboard = () => {
   const tz = useTimezone();
+  const isAdmin = useIsAdmin();
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
 
   // Use org timezone for initial date state
@@ -175,6 +178,9 @@ const Dashboard = () => {
               treatments={treatments}
             />
           </div>
+
+          {/* Purchases (revenue + packages/products filter) — admin only */}
+          {isAdmin && <PurchasesSection dateFilter={dateFilter} />}
 
           {/* Appointments Display */}
           <div className="w-full">

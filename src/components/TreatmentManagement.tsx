@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -7,14 +7,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseTreatments, Treatment } from '@/hooks/useSupabaseTreatments';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useOrganization } from '@/contexts/OrganizationContext';
+
+interface CategoryOption {
+  id: string;
+  name: string;
+}
 
 export const TreatmentManagement: React.FC = () => {
   const { treatments, loading, addTreatment, updateTreatment } = useSupabaseTreatments();
+  const { currentOrganization } = useOrganization();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -23,6 +34,31 @@ export const TreatmentManagement: React.FC = () => {
     category: '',
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+    (async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'organizations', currentOrganization.id, 'productCategories'),
+            where('is_active', '==', true),
+            orderBy('sort_order'),
+          ),
+        );
+        const list: CategoryOption[] = [];
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const appliesTo: string[] = Array.isArray(data.applies_to) ? data.applies_to : ['product'];
+          if (!appliesTo.includes('treatment')) return;
+          list.push({ id: d.id, name: data.name || '' });
+        });
+        setCategories(list);
+      } catch (err) {
+        console.error('Failed to load categories', err);
+      }
+    })();
+  }, [currentOrganization?.id, isDialogOpen]);
 
   const resetForm = () => {
     setFormData({ name: '', price: '', duration: '', description: '', category: '' });
@@ -163,13 +199,25 @@ export const TreatmentManagement: React.FC = () => {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="category" className="text-sm">Category</Label>
-                  <Input
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="e.g., Facial, Massage"
-                    className="w-full text-sm"
-                  />
+                  <Select
+                    value={formData.category || '__none__'}
+                    onValueChange={(v) => setFormData({ ...formData, category: v === '__none__' ? '' : v })}
+                  >
+                    <SelectTrigger id="category" className="w-full text-sm">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Tip: add categories in Settings → Categories (scope: Facials).
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="description" className="text-sm">Description</Label>

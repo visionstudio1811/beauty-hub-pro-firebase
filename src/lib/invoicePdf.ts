@@ -371,6 +371,27 @@ export async function buildInvoicePdf(
         y += 13;
       }
     }
+
+    if (item.type === 'package' && item.bundled_products && item.bundled_products.length > 0) {
+      y += 6;
+      y = drawTextAt(doc, margin, y, 'INCLUDED PRODUCTS', 8, {
+        bold: true,
+        color: theme.muted,
+      });
+      y += 2;
+      for (const p of item.bundled_products) {
+        drawTextAt(doc, margin + 8, y, `•  ${p.name}   ${p.quantity}×`, 10, {
+          color: theme.ink,
+          maxWidth: colW,
+        });
+        drawTextAt(doc, pageW - margin, y, 'Included', 10, {
+          color: theme.muted,
+          align: 'right',
+        });
+        y += 13;
+      }
+    }
+
     y += 10;
     drawTextAt(
       doc,

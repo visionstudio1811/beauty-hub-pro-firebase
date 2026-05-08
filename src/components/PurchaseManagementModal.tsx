@@ -11,7 +11,6 @@ import {
   collection,
   getDocs,
   updateDoc,
-  deleteDoc,
   doc,
   query,
   where,
@@ -62,8 +61,10 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         )
       );
 
+      const activeDocs = snap.docs.filter(d => !d.data().deleted_at);
+
       const transformedPackages: ClientPackage[] = await Promise.all(
-        snap.docs.map(async (d) => {
+        activeDocs.map(async (d) => {
           const purchase = d.data();
           let pkgData: any = {};
           if (purchase.package_id) {
@@ -158,9 +159,15 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
 
     try {
       if (!currentOrganization?.id || !client) return;
-      await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId));
+      // Soft-delete: financial audit trail. Hard-delete is denied by
+      // firestore.rules. Mark cancelled + deleted_at so the row drops out of
+      // active listings but stays in the audit log.
+      await updateDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId), {
+        payment_status: 'cancelled',
+        deleted_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
 
-      // Re-evaluate membership — if this was the last active package, flip to false
       await syncMembershipStatus(currentOrganization.id, client.id, 'package_removed');
       await logMembershipEvent(currentOrganization.id, client.id, 'package_removed', {
         purchaseId: packageId,

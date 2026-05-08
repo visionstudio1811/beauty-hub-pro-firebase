@@ -40,8 +40,8 @@ interface Product {
   description?: string;
   price: number;
   category?: string;
+  brand?: string;
   is_active: boolean;
-  stock_quantity?: number;
   image_url?: string;
   created_at: string;
   updated_at: string;
@@ -51,6 +51,14 @@ interface ProductCategory {
   id: string;
   name: string;
   description?: string;
+  is_active: boolean;
+  // Which entity types this category applies to. Missing = legacy 'product' only.
+  applies_to?: string[];
+}
+
+interface ProductBrand {
+  id: string;
+  name: string;
   is_active: boolean;
 }
 
@@ -64,6 +72,7 @@ interface Client {
 const EnhancedProductManagement = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [brands, setBrands] = useState<ProductBrand[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -73,6 +82,7 @@ const EnhancedProductManagement = () => {
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [brandFilter, setBrandFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
@@ -82,6 +92,7 @@ const EnhancedProductManagement = () => {
     description: '',
     price: '',
     category: '',
+    brand: '',
     is_active: true,
     image_url: ''
   });
@@ -110,8 +121,8 @@ const EnhancedProductManagement = () => {
             description: data.description ?? undefined,
             price: data.price ?? 0,
             category: data.category ?? undefined,
+            brand: data.brand ?? undefined,
             is_active: data.is_active ?? true,
-            stock_quantity: data.stock_quantity ?? undefined,
             image_url: data.image_url ?? undefined,
             created_at: data.created_at ?? '',
             updated_at: data.updated_at ?? '',
@@ -131,7 +142,27 @@ const EnhancedProductManagement = () => {
         name: d.data().name ?? '',
         description: d.data().description ?? undefined,
         is_active: d.data().is_active ?? true,
+        applies_to: Array.isArray(d.data().applies_to) ? d.data().applies_to : undefined,
       } as ProductCategory)));
+
+      // Fetch brands (active only, ordered by sort_order). Brands are optional —
+      // if the org hasn't created any yet, the dropdown shows the inline input only.
+      try {
+        const brandsSnap = await getDocs(
+          query(
+            collection(db, 'organizations', orgId, 'productBrands'),
+            where('is_active', '==', true),
+            orderBy('sort_order')
+          )
+        );
+        setBrands(brandsSnap.docs.map(d => ({
+          id: d.id,
+          name: d.data().name ?? '',
+          is_active: d.data().is_active ?? true,
+        } as ProductBrand)));
+      } catch {
+        setBrands([]);
+      }
 
       // Fetch clients for assignment
       const clientsSnap = await getDocs(
@@ -194,6 +225,7 @@ const EnhancedProductManagement = () => {
       description: '',
       price: '',
       category: '',
+      brand: '',
       is_active: true,
       image_url: ''
     });
@@ -211,6 +243,7 @@ const EnhancedProductManagement = () => {
       description: product.description || '',
       price: product.price.toString(),
       category: product.category || '',
+      brand: product.brand || '',
       is_active: product.is_active,
       image_url: product.image_url || ''
     });
@@ -248,6 +281,7 @@ const EnhancedProductManagement = () => {
         description: formData.description.trim() || null,
         price: parseFloat(formData.price),
         category: formData.category || null,
+        brand: formData.brand?.trim() || null,
         is_active: formData.is_active,
         image_url: formData.image_url || null,
         organization_id: orgId,
@@ -331,15 +365,17 @@ const EnhancedProductManagement = () => {
   // Filter products based on search and filters
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+                         product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
-    
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesBrand = brandFilter === 'all' || product.brand === brandFilter;
+
+    const matchesStatus = statusFilter === 'all' ||
                          (statusFilter === 'active' && product.is_active) ||
                          (statusFilter === 'inactive' && !product.is_active);
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesBrand && matchesStatus;
   });
 
   if (loading) {
@@ -379,9 +415,24 @@ const EnhancedProductManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.name}>
-                {category.name}
+            {categories
+              .filter(c => !c.applies_to || c.applies_to.includes('product'))
+              .map((category) => (
+                <SelectItem key={category.id} value={category.name}>
+                  {category.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        <Select value={brandFilter} onValueChange={setBrandFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Brand" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Brands</SelectItem>
+            {brands.map((brand) => (
+              <SelectItem key={brand.id} value={brand.name}>
+                {brand.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -450,9 +501,14 @@ const EnhancedProductManagement = () => {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold">${product.price}</span>
-                {product.category && (
-                  <Badge variant="outline">{product.category}</Badge>
-                )}
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {product.brand && (
+                    <Badge variant="secondary">{product.brand}</Badge>
+                  )}
+                  {product.category && (
+                    <Badge variant="outline">{product.category}</Badge>
+                  )}
+                </div>
               </div>
               
               <div className="flex items-center justify-between">
@@ -592,19 +648,53 @@ const EnhancedProductManagement = () => {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium">Category</label>
-              <Input
-                list="product-categories-list"
-                value={formData.category}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                placeholder="Select or type a category"
-              />
-              <datalist id="product-categories-list">
-                {categories.map((category) => (
-                  <option key={category.id} value={category.name} />
-                ))}
-              </datalist>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <Select
+                  value={formData.category || '__none__'}
+                  onValueChange={(v) => setFormData({...formData, category: v === '__none__' ? '' : v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {categories
+                      .filter(c => !c.applies_to || c.applies_to.includes('product'))
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {categories.filter(c => !c.applies_to || c.applies_to.includes('product')).length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tip: add categories in Settings → Categories.
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium">Brand</label>
+                <Select
+                  value={formData.brand || '__none__'}
+                  onValueChange={(v) => setFormData({...formData, brand: v === '__none__' ? '' : v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {brands.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.name}>{brand.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {brands.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tip: add brands in Settings → Brands.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
