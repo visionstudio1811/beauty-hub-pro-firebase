@@ -53,7 +53,14 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Same-org members may read each other's user docs so that staff/reception/beautician
+      // can populate the appointment-form staff and beautician selectors. The list query
+      // in useSupabaseProfiles must filter by organizationId; without that filter this rule
+      // will deny the query as soon as it returns a user from a different org.
+      allow read: if isAuthenticated()
+                  && (request.auth.uid == userId
+                      || isAdmin()
+                      || belongsToOrg(resource.data.organizationId));
 
       // User doc creation is done exclusively by the adminCreateUser Cloud Function
       // via the Admin SDK (which bypasses these rules). Blocking self-creation

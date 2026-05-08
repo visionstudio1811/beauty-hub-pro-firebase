@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   getDocs,
@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 export interface Profile {
   id: string;
@@ -22,11 +23,20 @@ export const useSupabaseProfiles = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { currentOrganization } = useOrganization();
+  const orgId = currentOrganization?.id;
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
+    if (!orgId) {
+      setProfiles([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
       const q = query(
         collection(db, 'users'),
+        where('organizationId', '==', orgId),
         where('isActive', '==', true),
         orderBy('fullName')
       );
@@ -53,11 +63,11 @@ export const useSupabaseProfiles = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, toast]);
 
   useEffect(() => {
     fetchProfiles();
-  }, []);
+  }, [fetchProfiles]);
 
   const getStaffProfiles = () => {
     return profiles.filter(
