@@ -97,6 +97,101 @@ const EnhancedProductManagement = () => {
     image_url: ''
   });
 
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [addingBrand, setAddingBrand] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [savingBrand, setSavingBrand] = useState(false);
+
+  const handleQuickAddCategory = async () => {
+    if (!currentOrganization?.id) return;
+    const name = newCategoryName.trim();
+    if (!name) {
+      toast({ title: 'Name required', description: 'Enter a category name.', variant: 'destructive' });
+      return;
+    }
+    if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      toast({ title: 'Already exists', description: `"${name}" is already a category.`, variant: 'destructive' });
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const now = new Date().toISOString();
+      const ref = await addDoc(
+        collection(db, 'organizations', currentOrganization.id, 'productCategories'),
+        {
+          name,
+          description: null,
+          is_active: true,
+          sort_order: categories.length,
+          applies_to: ['product'],
+          organization_id: currentOrganization.id,
+          created_at: now,
+          updated_at: now,
+          created_at_ts: serverTimestamp(),
+        }
+      );
+      const newCat: ProductCategory = {
+        id: ref.id,
+        name,
+        is_active: true,
+        applies_to: ['product'],
+      };
+      setCategories(prev => [...prev, newCat]);
+      setFormData(prev => ({ ...prev, category: name }));
+      setNewCategoryName('');
+      setAddingCategory(false);
+      toast({ title: 'Category added', description: `"${name}" is now selected.` });
+    } catch (err) {
+      console.error('Failed to add category', err);
+      toast({ title: 'Error', description: 'Failed to add category', variant: 'destructive' });
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleQuickAddBrand = async () => {
+    if (!currentOrganization?.id) return;
+    const name = newBrandName.trim();
+    if (!name) {
+      toast({ title: 'Name required', description: 'Enter a brand name.', variant: 'destructive' });
+      return;
+    }
+    if (brands.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+      toast({ title: 'Already exists', description: `"${name}" is already a brand.`, variant: 'destructive' });
+      return;
+    }
+    setSavingBrand(true);
+    try {
+      const now = new Date().toISOString();
+      const ref = await addDoc(
+        collection(db, 'organizations', currentOrganization.id, 'productBrands'),
+        {
+          name,
+          description: null,
+          is_active: true,
+          sort_order: brands.length,
+          organization_id: currentOrganization.id,
+          created_at: now,
+          updated_at: now,
+          created_at_ts: serverTimestamp(),
+        }
+      );
+      const newBrand: ProductBrand = { id: ref.id, name, is_active: true };
+      setBrands(prev => [...prev, newBrand]);
+      setFormData(prev => ({ ...prev, brand: name }));
+      setNewBrandName('');
+      setAddingBrand(false);
+      toast({ title: 'Brand added', description: `"${name}" is now selected.` });
+    } catch (err) {
+      console.error('Failed to add brand', err);
+      toast({ title: 'Error', description: 'Failed to add brand', variant: 'destructive' });
+    } finally {
+      setSavingBrand(false);
+    }
+  };
+
   useEffect(() => {
     if (currentOrganization?.id) fetchData();
   }, [currentOrganization?.id]);
@@ -145,22 +240,31 @@ const EnhancedProductManagement = () => {
         applies_to: Array.isArray(d.data().applies_to) ? d.data().applies_to : undefined,
       } as ProductCategory)));
 
-      // Fetch brands (active only, ordered by sort_order). Brands are optional —
-      // if the org hasn't created any yet, the dropdown shows the inline input only.
+      // Fetch brands (active only). Sort client-side by sort_order so we don't
+      // need a composite index. Brands are optional — if the org hasn't created
+      // any yet, the dropdown shows the inline input only.
       try {
         const brandsSnap = await getDocs(
           query(
             collection(db, 'organizations', orgId, 'productBrands'),
             where('is_active', '==', true),
-            orderBy('sort_order')
           )
         );
-        setBrands(brandsSnap.docs.map(d => ({
-          id: d.id,
-          name: d.data().name ?? '',
-          is_active: d.data().is_active ?? true,
-        } as ProductBrand)));
-      } catch {
+        const brandRows = brandsSnap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            name: data.name ?? '',
+            is_active: data.is_active ?? true,
+            sort_order: typeof data.sort_order === 'number' ? data.sort_order : 0,
+          } as ProductBrand & { sort_order: number };
+        });
+        brandRows.sort(
+          (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+        );
+        setBrands(brandRows);
+      } catch (err) {
+        console.error('Failed to load brands', err);
         setBrands([]);
       }
 
@@ -650,49 +754,121 @@ const EnhancedProductManagement = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Category</label>
-                <Select
-                  value={formData.category || '__none__'}
-                  onValueChange={(v) => setFormData({...formData, category: v === '__none__' ? '' : v})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {categories
-                      .filter(c => !c.applies_to || c.applies_to.includes('product'))
-                      .map((category) => (
-                        <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                {categories.filter(c => !c.applies_to || c.applies_to.includes('product')).length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Tip: add categories in Settings → Categories.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Category</label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setAddingCategory(v => !v);
+                      setNewCategoryName('');
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {addingCategory ? 'Cancel' : 'New'}
+                  </Button>
+                </div>
+                {addingCategory ? (
+                  <div className="flex gap-2">
+                    <Input
+                      autoFocus
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickAddCategory();
+                        }
+                      }}
+                      placeholder="New category name"
+                      disabled={savingCategory}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleQuickAddCategory}
+                      disabled={savingCategory || !newCategoryName.trim()}
+                    >
+                      {savingCategory ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.category || '__none__'}
+                    onValueChange={(v) => setFormData({...formData, category: v === '__none__' ? '' : v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {categories
+                        .filter(c => !c.applies_to || c.applies_to.includes('product'))
+                        .map((category) => (
+                          <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium">Brand</label>
-                <Select
-                  value={formData.brand || '__none__'}
-                  onValueChange={(v) => setFormData({...formData, brand: v === '__none__' ? '' : v})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a brand" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {brands.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.name}>{brand.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {brands.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Tip: add brands in Settings → Brands.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Brand</label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setAddingBrand(v => !v);
+                      setNewBrandName('');
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {addingBrand ? 'Cancel' : 'New'}
+                  </Button>
+                </div>
+                {addingBrand ? (
+                  <div className="flex gap-2">
+                    <Input
+                      autoFocus
+                      value={newBrandName}
+                      onChange={(e) => setNewBrandName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickAddBrand();
+                        }
+                      }}
+                      placeholder="New brand name"
+                      disabled={savingBrand}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleQuickAddBrand}
+                      disabled={savingBrand || !newBrandName.trim()}
+                    >
+                      {savingBrand ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.brand || '__none__'}
+                    onValueChange={(v) => setFormData({...formData, brand: v === '__none__' ? '' : v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.name}>{brand.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             </div>

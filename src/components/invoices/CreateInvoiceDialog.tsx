@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, Receipt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -115,49 +115,59 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
   useEffect(() => {
     if (!isOpen || !currentOrganization?.id) return;
+    const orgId = currentOrganization.id;
+    const sortByName = (a: CatalogItem, b: CatalogItem) =>
+      a.name.localeCompare(b.name);
+
     (async () => {
       try {
-        const orgId = currentOrganization.id;
-        const [productSnap, treatmentSnap] = await Promise.all([
-          getDocs(query(
-            collection(db, 'organizations', orgId, 'products'),
-            where('is_active', '==', true),
-            orderBy('name'),
-          )),
-          getDocs(query(
-            collection(db, 'organizations', orgId, 'treatments'),
-            where('is_active', '==', true),
-            orderBy('name'),
-          )),
-        ]);
-
+        const snap = await getDocs(query(
+          collection(db, 'organizations', orgId, 'products'),
+          where('is_active', '==', true),
+        ));
         setProducts(
-          productSnap.docs.map(d => {
-            const data = d.data();
-            return {
-              id: d.id,
-              name: data.name || '',
-              price: Number(data.price || 0),
-              brand: data.brand || undefined,
-              category: data.category || undefined,
-            } as CatalogItem;
-          }),
-        );
-
-        setTreatments(
-          treatmentSnap.docs.map(d => {
-            const data = d.data();
-            return {
-              id: d.id,
-              name: data.name || '',
-              price: Number(data.price || 0),
-              category: data.category || undefined,
-              duration: Number(data.duration || 0) || undefined,
-            } as CatalogItem;
-          }),
+          snap.docs
+            .map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                name: data.name || '',
+                price: Number(data.price || 0),
+                brand: data.brand || undefined,
+                category: data.category || undefined,
+              } as CatalogItem;
+            })
+            .sort(sortByName),
         );
       } catch (err) {
-        console.error('Failed to load catalog', err);
+        console.error('Failed to load products', err);
+        setProducts([]);
+      }
+    })();
+
+    (async () => {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'organizations', orgId, 'treatments'),
+          where('is_active', '==', true),
+        ));
+        setTreatments(
+          snap.docs
+            .map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                name: data.name || '',
+                price: Number(data.price || 0),
+                category: data.category || undefined,
+                duration: Number(data.duration || 0) || undefined,
+              } as CatalogItem;
+            })
+            .sort(sortByName),
+        );
+      } catch (err) {
+        console.error('Failed to load treatments', err);
+        setTreatments([]);
       }
     })();
   }, [isOpen, currentOrganization?.id]);
