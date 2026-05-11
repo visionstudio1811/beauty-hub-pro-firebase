@@ -275,28 +275,33 @@ const AddClientModal = ({ isOpen, onClose, onAdd }: AddClientModalProps) => {
             />
           </div>
 
-          <div>
-            <Label htmlFor="allergies">Allergies</Label>
-            <textarea
-              id="allergies"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              rows={2}
-              value={formData.allergies}
-              onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-              placeholder="Any known allergies..."
-            />
-          </div>
+          <div className="rounded-md border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-3 space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
+              Internal — not visible to clients
+            </div>
+            <div>
+              <Label htmlFor="allergies">Allergies / Medical alerts</Label>
+              <textarea
+                id="allergies"
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-background"
+                rows={2}
+                value={formData.allergies}
+                onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
+                placeholder="Any known allergies..."
+              />
+            </div>
 
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <textarea
-              id="notes"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              rows={3}
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Additional notes about the client..."
-            />
+            <div>
+              <Label htmlFor="notes">Notes</Label>
+              <textarea
+                id="notes"
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-background"
+                rows={3}
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Additional notes about the client..."
+              />
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">

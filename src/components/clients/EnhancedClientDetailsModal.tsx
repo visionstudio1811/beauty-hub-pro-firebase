@@ -85,6 +85,13 @@ interface EnhancedClientDetailsModalProps {
   onBookAppointment?: (client: Client) => void;
   onAssignPackage?: (client: Client) => void;
   onAssignProduct?: (client: Client) => void;
+  // Incrementing counter forces a fresh fetch of appointments/purchases.
+  // Used after an external save (e.g. AppointmentFormModal) so the
+  // history list reflects the new record without reopening the modal.
+  appointmentRefreshKey?: number;
+  // Called after a save originating inside this modal (e.g. Log Past
+  // Treatment) so the parent page can refresh aggregate stats too.
+  onAppointmentSaved?: () => void;
 }
 
 export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProps> = ({
@@ -96,7 +103,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   initialTab,
   onBookAppointment,
   onAssignPackage,
-  onAssignProduct
+  onAssignProduct,
+  appointmentRefreshKey,
+  onAppointmentSaved
 }) => {
   const { toast } = useToast();
   const { dropdownData } = useDropdownData();
@@ -127,6 +136,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     gender: '',
     age: '',
     address: '',
+    allergies: '',
     notes: '',
     city: '',
     referral_source: '',
@@ -180,6 +190,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         gender: client.gender || '',
         age: client.age != null ? String(client.age) : '',
         address: client.address || '',
+        allergies: client.allergies || '',
         notes: client.notes || '',
         city: client.city || '',
         referral_source: client.referral_source || '',
@@ -197,6 +208,20 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       refetchProducts();
     }
   }, [isOpen, client, refetchPackages, refetchProducts]);
+
+  // Refetch lists whenever the parent signals an external save (e.g. a
+  // booking from AppointmentFormModal). Without this the appointments tab
+  // shows stale data until the modal is closed and reopened. The parent's
+  // counter starts at 0, so we only fire after it has been incremented at
+  // least once — otherwise we'd double-fetch on every initial open.
+  useEffect(() => {
+    if (!isOpen || !client || !appointmentRefreshKey) return;
+    fetchAppointments();
+    fetchPurchases();
+    refetchPackages();
+    refetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentRefreshKey]);
 
   const fetchPurchases = async () => {
     if (!client || !currentOrganization?.id) return;
@@ -282,18 +307,24 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     }
     setSavingPastTreatment(true);
     try {
+      const matchedTreatment = treatmentsList.find(t => t.name === pastTreatmentForm.treatment_name);
       await addDoc(collection(db, 'organizations', currentOrganization.id, 'appointments'), {
         client_id: client.id,
         client_name: client.name,
+        client_phone: client.phone ?? '',
+        client_email: client.email ?? '',
+        treatment_id: matchedTreatment?.id ?? '',
         treatment_name: pastTreatmentForm.treatment_name,
         appointment_date: pastTreatmentForm.appointment_date,
         appointment_time: '00:00',
+        staff_id: '',
         staff_name: pastTreatmentForm.staff_name || '',
         duration: parseInt(pastTreatmentForm.duration) || 60,
         notes: pastTreatmentForm.notes || '',
         price: parseFloat(pastTreatmentForm.price) || 0,
         status: 'completed',
         is_manual_entry: true,
+        organization_id: currentOrganization.id,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
       });
@@ -301,6 +332,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '' });
       setIsPastTreatmentOpen(false);
       await fetchAppointments();
+      onAppointmentSaved?.();
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to save treatment.', variant: 'destructive' });
@@ -416,6 +448,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             gender: c.gender || '',
             age: c.age != null ? String(c.age) : '',
             address: c.address || '',
+            allergies: c.allergies || '',
             notes: c.notes || '',
             city: c.city || '',
             referral_source: c.referral_source || '',
@@ -792,15 +825,35 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       disabled={!isEditing}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Notes</label>
-                    <textarea
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      rows={3}
-                      value={formData.notes}
-                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                      disabled={!isEditing}
-                    />
+                  <div className="rounded-md border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
+                        Internal — not visible to clients
+                      </span>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        Allergies / Medical alerts
+                      </label>
+                      <textarea
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-background"
+                        rows={2}
+                        placeholder="e.g. Latex, nuts, fragrance sensitivity"
+                        value={formData.allergies}
+                        onChange={(e) => setFormData({...formData, allergies: e.target.value})}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Notes</label>
+                      <textarea
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-background"
+                        rows={3}
+                        value={formData.notes}
+                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                        disabled={!isEditing}
+                      />
+                    </div>
                   </div>
                   {isEditing && isAdmin && (
                     <div className="flex items-center space-x-2">

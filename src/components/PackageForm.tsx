@@ -29,6 +29,9 @@ interface PackageFormProps {
   onSave?: (data: PackageFormData & { total_sessions: number }) => Promise<void>;
   titleOverride?: string;
   submitLabelOverride?: string;
+  // Optional extra UI rendered inside the form (e.g. a purchase-date picker
+  // for the per-client custom-package flow).
+  extraFields?: React.ReactNode;
 }
 
 export const PackageForm: React.FC<PackageFormProps> = ({
@@ -38,6 +41,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
   onSave,
   titleOverride,
   submitLabelOverride,
+  extraFields,
 }) => {
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
   const { addPackage, updatePackage } = usePackages();
@@ -203,6 +207,8 @@ export const PackageForm: React.FC<PackageFormProps> = ({
               />
             </div>
           </div>
+
+          {extraFields}
 
           <div>
             <div className="flex items-center justify-between mb-2">

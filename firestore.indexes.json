@@ -189,6 +189,14 @@
       ]
     },
     {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "appointment_date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "clientCommunications",
       "queryScope": "COLLECTION",
       "fields": [

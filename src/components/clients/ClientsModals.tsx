@@ -31,6 +31,8 @@ interface ClientsModalsProps {
   openBookingModal: (client: Client) => void;
   openAssignmentModal: (client: Client) => void;
   openProductAssignmentModal: (client: Client) => void;
+  onAppointmentSaved?: () => void;
+  appointmentRefreshKey?: number;
 }
 
 export const ClientsModals: React.FC<ClientsModalsProps> = ({
@@ -56,7 +58,9 @@ export const ClientsModals: React.FC<ClientsModalsProps> = ({
   onCloseNewAppointmentModal,
   openBookingModal,
   openAssignmentModal,
-  openProductAssignmentModal
+  openProductAssignmentModal,
+  onAppointmentSaved,
+  appointmentRefreshKey
 }) => {
   return (
     <>
@@ -70,14 +74,16 @@ export const ClientsModals: React.FC<ClientsModalsProps> = ({
         onBookAppointment={() => selectedClient && openBookingModal(selectedClient)}
         onAssignPackage={() => selectedClient && openAssignmentModal(selectedClient)}
         onAssignProduct={() => selectedClient && openProductAssignmentModal(selectedClient)}
+        appointmentRefreshKey={appointmentRefreshKey}
+        onAppointmentSaved={onAppointmentSaved}
       />
-      
+
       <AddClientModal
         isOpen={isAddModalOpen}
         onClose={onCloseAddModal}
         onAdd={onAdd}
       />
-      
+
       <AppointmentFormModal
         isOpen={isNewAppointmentModalOpen || isBookingModalOpen}
         onClose={() => {
@@ -86,6 +92,7 @@ export const ClientsModals: React.FC<ClientsModalsProps> = ({
         }}
         clientId={selectedClient?.id}
         clientName={selectedClient?.name}
+        onSaved={onAppointmentSaved}
       />
       
       <PackageAssignmentModal

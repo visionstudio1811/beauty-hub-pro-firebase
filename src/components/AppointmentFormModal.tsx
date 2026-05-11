@@ -40,6 +40,8 @@ interface AppointmentFormModalProps {
   clientId?: string;
   clientName?: string;
   editAppointment?: Appointment | null;
+  // Fires after a successful create/update so parents can refetch their lists.
+  onSaved?: () => void;
 }
 
 export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
@@ -47,7 +49,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   onClose,
   clientId,
   clientName,
-  editAppointment
+  editAppointment,
+  onSaved
 }) => {
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   
@@ -215,6 +218,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         price: selectedPackage ? 0 : (parseFloat(formData.price) || 0),
       });
 
+      onSaved?.();
       onClose();
       setFormData({
         clientName: '',

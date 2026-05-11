@@ -25,6 +25,14 @@ const Clients = () => {
   const [mutationVersion, setMutationVersion] = useState(0);
   const bumpVersion = useCallback(() => setMutationVersion(v => v + 1), []);
 
+  // Bumped after AppointmentFormModal saves so EnhancedClientDetailsModal
+  // refetches its appointment/purchase history while still open.
+  const [appointmentRefreshKey, setAppointmentRefreshKey] = useState(0);
+  const handleAppointmentSaved = useCallback(() => {
+    setAppointmentRefreshKey(k => k + 1);
+    bumpVersion();
+  }, [bumpVersion]);
+
   const {
     selectedClient,
     isDetailsModalOpen,
@@ -294,6 +302,8 @@ const Clients = () => {
           openBookingModal={openBookingModal}
           openAssignmentModal={openAssignmentModal}
           openProductAssignmentModal={openProductAssignmentModal}
+          onAppointmentSaved={handleAppointmentSaved}
+          appointmentRefreshKey={appointmentRefreshKey}
         />
       </div>
     </div>

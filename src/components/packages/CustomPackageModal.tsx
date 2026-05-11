@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { PackageForm } from '@/components/PackageForm';
@@ -33,6 +34,15 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
   const [pendingAgreement, setPendingAgreement] = useState<
     { purchaseId: string; packageName: string } | null
   >(null);
+  const [purchaseDate, setPurchaseDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+
+  // Reset to today's date whenever the modal reopens so a prior retroactive
+  // date doesn't leak into the next assignment.
+  useEffect(() => {
+    if (isOpen) setPurchaseDate(new Date().toISOString().split('T')[0]);
+  }, [isOpen]);
 
   if (!client) return null;
 
@@ -69,7 +79,10 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
         },
       );
 
-      const expiryDate = new Date();
+      // Anchor expiry on the chosen purchase date, not today, so retroactive
+      // assignments expire from the actual purchase moment.
+      const purchaseDateObj = new Date(purchaseDate + 'T12:00:00');
+      const expiryDate = new Date(purchaseDateObj);
       expiryDate.setMonth(expiryDate.getMonth() + data.validity_months);
 
       const now = new Date().toISOString();
@@ -88,7 +101,7 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
           })),
           expiry_date: expiryDate.toISOString().split('T')[0],
           payment_status: 'active',
-          purchase_date: now.split('T')[0],
+          purchase_date: purchaseDate,
           created_at: now,
           created_at_ts: serverTimestamp(),
           is_custom: true,
@@ -145,6 +158,21 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
       onSave={handleSave}
       titleOverride={`Custom Package for ${client.name}`}
       submitLabelOverride="Create & Assign"
+      extraFields={
+        <div>
+          <label className="text-sm font-medium">Purchase Date *</label>
+          <Input
+            type="date"
+            value={purchaseDate}
+            onChange={e => setPurchaseDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+            className="w-full mt-1 text-sm"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Use a past date for retroactive assignments — expiry is calculated from this date.
+          </p>
+        </div>
+      }
     />
   );
 };
