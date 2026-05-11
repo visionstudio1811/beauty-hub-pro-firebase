@@ -175,6 +175,17 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const e = err as { message?: unknown; code?: unknown };
+    if (typeof e.message === 'string' && e.message) return e.message;
+    if (typeof e.code === 'string' && e.code) return e.code;
+  }
+  return 'Submission failed. Please try again.';
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -183,7 +194,7 @@ function blobToBase64(blob: Blob): Promise<string> {
       const comma = result.indexOf(',');
       resolve(comma >= 0 ? result.slice(comma + 1) : result);
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error(reader.error?.message || 'Failed to read file'));
     reader.readAsDataURL(blob);
   });
 }
@@ -219,7 +230,7 @@ function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error(reader.error?.message || `Failed to read ${file.name}`));
     reader.readAsDataURL(file);
   });
 }
@@ -237,7 +248,7 @@ async function loadImageSize(dataUrl: string): Promise<{ w: number; h: number }>
 // Uploaded originals are stored separately at full resolution; the PDF only
 // needs a readable preview, so we trade size for fidelity here. Without this,
 // a few phone photos easily push the generated PDF past the 10MB upload cap.
-async function compressImageDataUrl(dataUrl: string, maxDim = 1400, quality = 0.72): Promise<string> {
+async function compressImageDataUrl(dataUrl: string, maxDim = 1000, quality = 0.6): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -275,7 +286,7 @@ async function buildPdf(
   sigDataUrl: string,
   imageDataUrls: Record<string, string[]>,
 ): Promise<Blob> {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
@@ -708,7 +719,7 @@ export default function WaiverForm() {
 
       setDone(true);
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : String(err));
+      setSubmitError(extractErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
