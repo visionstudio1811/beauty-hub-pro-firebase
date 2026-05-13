@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 type AppointmentStatus = 'confirmed' | 'completed' | 'cancelled' | 'pending' | 'no-show' | string;
-type ClientStatus = 'Have Membership' | "Don't Have Membership" | string;
+type ClientStatus = 'Have Membership' | "Don't Have Membership" | 'Membership Ended' | string;
 
 const APPOINTMENT_STYLES: Record<string, string> = {
   confirmed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-800',
@@ -14,6 +14,7 @@ const APPOINTMENT_STYLES: Record<string, string> = {
 
 const CLIENT_STYLES: Record<string, string> = {
   'Have Membership':       'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-800',
+  'Membership Ended':      'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-800',
   "Don't Have Membership": 'bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:ring-slate-700',
 };
 

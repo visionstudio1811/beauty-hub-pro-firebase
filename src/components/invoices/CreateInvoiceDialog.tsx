@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,15 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Receipt } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, Receipt, ArrowLeft, FileText, Save, Folder, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useClients } from '@/hooks/useClients';
 import { buildInvoicePdf } from '@/lib/invoicePdf';
-import type { Invoice } from '@/types/firestore';
+import type { Invoice, InvoiceDraftLine, InvoiceLineItem } from '@/types/firestore';
+import { useInvoiceDrafts } from '@/hooks/useInvoiceDrafts';
 
 type LineKind = 'product' | 'treatment';
 
@@ -57,7 +59,27 @@ interface CreateInvoiceDialogProps {
     quantity: number;
     unit_price: number;
   };
+  // If provided, the dialog opens in edit mode prefilled from the named draft.
+  initialDraftId?: string;
   onCreated?: (invoiceId: string) => void;
+}
+
+type DialogMode = 'edit' | 'preview' | 'issuing';
+
+interface BusinessInfoSnapshot {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  logo_url: string;
+  tax_id: string;
+  payment_terms: string;
+  notes: string;
+  timezone: string;
+  invoice_template?: string;
+  tax_rate: number;
+  currency: string;
 }
 
 const PAYMENT_METHODS = [
@@ -79,12 +101,15 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   onClose,
   initialClientId,
   initialProduct,
+  initialDraftId,
   onCreated,
 }) => {
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const { clients } = useClients();
+  const { drafts, saveDraft, loadDraft, deleteDraft } = useInvoiceDrafts(initialClientId ?? null);
 
+  const [mode, setMode] = useState<DialogMode>('edit');
   const [clientId, setClientId] = useState<string>('');
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [treatments, setTreatments] = useState<CatalogItem[]>([]);
@@ -92,12 +117,52 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfoSnapshot | null>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
+  const [building, setBuilding] = useState(false);
   const [idempotencyKey] = useState(
     () => `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   );
+  const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    setMode('edit');
+    setShowDrafts(false);
+    setPreviewInvoice(null);
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setPreviewPdfUrl(null);
+
+    // If we were handed a draft to continue, load it. Otherwise reset.
+    if (initialDraftId) {
+      setCurrentDraftId(initialDraftId);
+      (async () => {
+        const d = await loadDraft(initialDraftId);
+        if (!d) {
+          toast({ title: 'Draft not found', description: 'It may have been deleted.', variant: 'destructive' });
+          setCurrentDraftId(null);
+          return;
+        }
+        setClientId(d.client_id ?? initialClientId ?? '');
+        setPaymentMethod(d.payment_method ?? '');
+        setNotes(d.notes ?? '');
+        setRows(
+          d.lines.length > 0
+            ? d.lines.map(l => newRow({ kind: l.kind, item_id: l.item_id, quantity: l.quantity, unit_price: l.unit_price }))
+            : [newRow()],
+        );
+      })();
+      return;
+    }
+
+    setCurrentDraftId(null);
     setClientId(initialClientId ?? '');
     setPaymentMethod('');
     setNotes('');
@@ -111,7 +176,53 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     } else {
       setRows([newRow()]);
     }
-  }, [isOpen, initialClientId, initialProduct]);
+    // loadDraft is stable via useCallback; safe to omit
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialClientId, initialProduct, initialDraftId]);
+
+  // Load businessInfo once when the dialog opens — used for client-side
+  // preview totals + business_snapshot. Server is still the source of truth.
+  useEffect(() => {
+    if (!isOpen || !currentOrganization?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(
+          doc(db, 'organizations', currentOrganization.id, 'config', 'businessInfo'),
+        );
+        if (cancelled) return;
+        const data: Record<string, unknown> = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
+        setBusinessInfo({
+          name: String(data.name ?? currentOrganization.name ?? 'Business'),
+          address: String(data.address ?? ''),
+          phone: String(data.phone ?? ''),
+          email: String(data.email ?? ''),
+          website: String(data.website ?? ''),
+          logo_url: String(data.logo_url ?? ''),
+          tax_id: String(data.tax_id ?? ''),
+          payment_terms: String(data.payment_terms ?? ''),
+          notes: String(data.notes ?? ''),
+          timezone: String(data.timezone ?? 'UTC'),
+          invoice_template: typeof data.invoice_template === 'string' ? data.invoice_template : undefined,
+          tax_rate: Number(data.tax_rate ?? 0) || 0,
+          currency: String(data.currency ?? 'USD'),
+        });
+      } catch (err) {
+        console.error('Failed to load businessInfo for preview', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, currentOrganization?.id, currentOrganization?.name]);
+
+  // Revoke any outstanding object URL when the dialog closes / unmounts.
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !currentOrganization?.id) return;
@@ -216,17 +327,173 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     return sum + cents;
   }, 0);
 
-  const handleSubmit = async () => {
-    if (!currentOrganization?.id) return;
+  const validateForSubmit = (): boolean => {
     if (!clientId) {
       toast({ title: 'Select a client', description: 'Pick a client to bill.', variant: 'destructive' });
-      return;
+      return false;
     }
     const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
     if (validRows.length === 0) {
       toast({ title: 'Add at least one line', description: 'Pick a product or facial.', variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
+  // Build a synthetic Invoice for client-side preview. Server is still the
+  // source of truth at issue time — tax_rate or item prices may shift.
+  const buildPreviewInvoice = (): Invoice | null => {
+    if (!currentOrganization?.id || !businessInfo) return null;
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return null;
+
+    const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
+
+    const lineItems: InvoiceLineItem[] = validRows.map(r => {
+      const item = r.kind === 'treatment' ? treatmentMap.get(r.item_id) : productMap.get(r.item_id);
+      const unitCents = Math.round(r.unit_price * 100);
+      const subCents = unitCents * r.quantity;
+      return {
+        type: r.kind,
+        name: item?.name ?? 'Item',
+        description: '',
+        package_id: null,
+        product_id: r.kind === 'product' ? r.item_id : null,
+        treatment_id: r.kind === 'treatment' ? r.item_id : null,
+        quantity: r.quantity,
+        unit_price_cents: unitCents,
+        subtotal_cents: subCents,
+      };
+    });
+
+    const subtotalC = lineItems.reduce((s, li) => s + li.subtotal_cents, 0);
+    const taxC = Math.round(subtotalC * businessInfo.tax_rate);
+    const totalC = subtotalC + taxC;
+
+    return {
+      id: 'preview',
+      invoice_number: 'PREVIEW',
+      invoice_number_int: 0,
+      issued_at: { toDate: () => new Date() } as unknown as Invoice['issued_at'],
+      purchase_id: null,
+      client_id: client.id,
+      client_snapshot: {
+        name: client.name || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        address: client.address || '',
+      },
+      business_snapshot: {
+        name: businessInfo.name,
+        address: businessInfo.address,
+        phone: businessInfo.phone,
+        email: businessInfo.email,
+        website: businessInfo.website,
+        logo_url: businessInfo.logo_url,
+        tax_id: businessInfo.tax_id,
+        payment_terms: businessInfo.payment_terms,
+        notes: businessInfo.notes,
+        timezone: businessInfo.timezone,
+        invoice_template: businessInfo.invoice_template,
+      },
+      line_items: lineItems,
+      subtotal_cents: subtotalC,
+      tax_rate: businessInfo.tax_rate,
+      tax_amount_cents: taxC,
+      total_cents: totalC,
+      currency: businessInfo.currency,
+      pdf_url: null,
+      pdf_storage_path: null,
+      status: 'issued',
+      payment_method: paymentMethod || undefined,
+      created_at: { toDate: () => new Date() } as unknown as Invoice['created_at'],
+      created_by: 'preview',
+    };
+  };
+
+  const handlePreview = async () => {
+    if (!validateForSubmit()) return;
+    if (!businessInfo) {
+      toast({ title: 'Loading…', description: 'Business info still loading. Try again in a second.', variant: 'destructive' });
       return;
     }
+    const synthetic = buildPreviewInvoice();
+    if (!synthetic) {
+      toast({ title: 'Cannot preview', description: 'Missing client or business info.', variant: 'destructive' });
+      return;
+    }
+    setBuilding(true);
+    try {
+      const blob = await buildInvoicePdf(synthetic);
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
+      setPreviewPdfUrl(url);
+      setPreviewInvoice(synthetic);
+      setMode('preview');
+    } catch (err) {
+      console.error('Failed to build preview', err);
+      toast({ title: 'Preview failed', description: 'Could not render preview.', variant: 'destructive' });
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  const backToEdit = () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setPreviewPdfUrl(null);
+    setPreviewInvoice(null);
+    setMode('edit');
+  };
+
+  const rowsToDraftLines = (): InvoiceDraftLine[] =>
+    rows
+      .filter(r => r.item_id)
+      .map(r => {
+        const item = r.kind === 'treatment' ? treatmentMap.get(r.item_id) : productMap.get(r.item_id);
+        return {
+          kind: r.kind,
+          item_id: r.item_id,
+          quantity: r.quantity,
+          unit_price: r.unit_price,
+          name: item?.name,
+        };
+      });
+
+  const handleSaveDraft = async () => {
+    if (savingDraft) return;
+    if (!clientId && (rows.length === 0 || !rows.some(r => r.item_id))) {
+      toast({ title: 'Nothing to save', description: 'Pick a client or add at least one line item.', variant: 'destructive' });
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const id = await saveDraft(
+        {
+          client_id: clientId || null,
+          lines: rowsToDraftLines(),
+          payment_method: paymentMethod || undefined,
+          notes: notes.trim() || undefined,
+        },
+        currentDraftId ?? undefined,
+      );
+      setCurrentDraftId(id);
+      toast({ title: 'Draft saved', description: 'You can finish it later from Drafts.' });
+    } catch (err) {
+      console.error('Save draft failed', err);
+      toast({ title: 'Error', description: 'Failed to save draft.', variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const handleIssue = async () => {
+    if (!currentOrganization?.id) return;
+    if (!validateForSubmit()) return;
+    const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
 
     const productItems = validRows
       .filter(r => r.kind === 'product')
@@ -237,6 +504,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       .map(r => ({ treatment_id: r.item_id, quantity: r.quantity, unit_price: r.unit_price }));
 
     setSubmitting(true);
+    setMode('issuing');
     try {
       const call = httpsCallable<
         {
@@ -292,6 +560,12 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         toast({ title: 'Invoice generated', description: `${invoice.invoice_number} is ready.` });
       }
 
+      // If we issued from a draft, clean it up. Don't block success on failure.
+      if (currentDraftId) {
+        try { await deleteDraft(currentDraftId); } catch (e) { console.warn('Failed to delete draft after issue', e); }
+        setCurrentDraftId(null);
+      }
+
       onCreated?.(invoice.id);
       onClose();
     } catch (err) {
@@ -300,8 +574,38 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         ? 'Daily invoice limit reached for this organization.'
         : errMsg;
       toast({ title: 'Error', description: message, variant: 'destructive' });
+      setMode('preview');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleContinueDraft = async (draftId: string) => {
+    const d = await loadDraft(draftId);
+    if (!d) {
+      toast({ title: 'Draft not found', description: 'It may have been deleted.', variant: 'destructive' });
+      return;
+    }
+    setCurrentDraftId(draftId);
+    setClientId(d.client_id ?? '');
+    setPaymentMethod(d.payment_method ?? '');
+    setNotes(d.notes ?? '');
+    setRows(
+      d.lines.length > 0
+        ? d.lines.map(l => newRow({ kind: l.kind, item_id: l.item_id, quantity: l.quantity, unit_price: l.unit_price }))
+        : [newRow()],
+    );
+    setShowDrafts(false);
+  };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    try {
+      await deleteDraft(draftId);
+      if (currentDraftId === draftId) setCurrentDraftId(null);
+      toast({ title: 'Draft deleted' });
+    } catch (err) {
+      console.error('Delete draft failed', err);
+      toast({ title: 'Error', description: 'Failed to delete draft.', variant: 'destructive' });
     }
   };
 
@@ -310,20 +614,146 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     [clients],
   );
 
+  const formatMoney = (cents: number) =>
+    `${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={mode === 'preview' ? 'max-w-5xl max-h-[90vh] overflow-y-auto' : 'max-w-3xl max-h-[90vh] overflow-y-auto'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Receipt className="h-5 w-5" />
-            New Invoice
+            {mode === 'preview' ? <FileText className="h-5 w-5" /> : <Receipt className="h-5 w-5" />}
+            {mode === 'preview' ? 'Invoice Preview' : 'New Invoice'}
+            {currentDraftId && mode === 'edit' && (
+              <Badge variant="outline" className="ml-1 text-xs">Editing draft</Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Create an invoice for retail products, facials, or any combination — outside of a package.
+            {mode === 'preview'
+              ? 'Preview the invoice before issuing. Numbers and totals will be finalized by the server when you click Issue.'
+              : 'Create an invoice for retail products, facials, or any combination — outside of a package.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {mode === 'edit' && showDrafts && (
+          <div className="border rounded-md p-3 bg-muted/30 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Folder className="h-4 w-4" />
+                Drafts ({drafts.length})
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowDrafts(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {drafts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No saved drafts.</p>
+            ) : (
+              <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                {drafts.map(d => {
+                  const client = clients.find(c => c.id === d.client_id);
+                  return (
+                    <li key={d.id} className="flex items-center justify-between gap-2 text-sm border rounded p-2 bg-background">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{client?.name ?? 'No client'}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {d.lines.length} line{d.lines.length === 1 ? '' : 's'}
+                          {d.notes ? ` • ${d.notes}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button type="button" size="sm" variant="outline" onClick={() => handleContinueDraft(d.id)}>
+                          Continue
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteDraft(d.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {mode === 'preview' && previewInvoice ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs uppercase text-muted-foreground">Bill to</div>
+                <div className="font-medium">{previewInvoice.client_snapshot.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {[previewInvoice.client_snapshot.email, previewInvoice.client_snapshot.phone]
+                    .filter(Boolean)
+                    .join(' • ')}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-muted-foreground mb-1">Line items</div>
+                <div className="border rounded-md divide-y">
+                  {previewInvoice.line_items.map((li, i) => (
+                    <div key={i} className="p-2 flex justify-between items-center text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{li.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {li.quantity} × {formatMoney(li.unit_price_cents)} {previewInvoice.currency}
+                        </div>
+                      </div>
+                      <div className="font-medium tabular-nums">
+                        {formatMoney(li.subtotal_cents)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border rounded-md p-3 space-y-1 bg-muted/30">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{formatMoney(previewInvoice.subtotal_cents)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Tax ({(previewInvoice.tax_rate * 100).toFixed(2)}%)</span>
+                  <span className="tabular-nums">{formatMoney(previewInvoice.tax_amount_cents)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-base pt-1 border-t">
+                  <span>Total</span>
+                  <span className="tabular-nums">
+                    {formatMoney(previewInvoice.total_cents)} {previewInvoice.currency}
+                  </span>
+                </div>
+              </div>
+              {previewInvoice.payment_method && (
+                <div className="text-sm text-muted-foreground">
+                  Payment method: <span className="text-foreground">{previewInvoice.payment_method}</span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                The invoice number and exact totals are finalized server-side when you click Issue.
+              </p>
+            </div>
+            <div className="min-h-[400px] border rounded-md overflow-hidden bg-muted/20">
+              {previewPdfUrl ? (
+                <iframe
+                  title="Invoice preview"
+                  src={previewPdfUrl}
+                  className="w-full h-[60vh]"
+                />
+              ) : (
+                <div className="h-[60vh] flex items-center justify-center text-sm text-muted-foreground">
+                  Building PDF…
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Client *</label>
             <Select value={clientId} onValueChange={setClientId}>
@@ -475,16 +905,45 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
               rows={2}
             />
           </div>
-        </div>
+          </div>
+        )}
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            <Receipt className="h-4 w-4 mr-1" />
-            {submitting ? 'Generating…' : 'Generate Invoice'}
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {mode === 'preview' ? (
+            <>
+              <Button type="button" variant="outline" onClick={backToEdit} disabled={submitting}>
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back to Edit
+              </Button>
+              <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
+                <Save className="h-4 w-4 mr-1" />
+                {savingDraft ? 'Saving…' : currentDraftId ? 'Update Draft' : 'Save as Draft'}
+              </Button>
+              <Button onClick={handleIssue} disabled={submitting}>
+                <Receipt className="h-4 w-4 mr-1" />
+                {submitting ? 'Issuing…' : 'Issue Invoice'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={() => setShowDrafts(s => !s)} disabled={submitting || savingDraft}>
+                <Folder className="h-4 w-4 mr-1" />
+                Drafts ({drafts.length})
+              </Button>
+              <div className="flex-1" />
+              <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
+                <Save className="h-4 w-4 mr-1" />
+                {savingDraft ? 'Saving…' : currentDraftId ? 'Update Draft' : 'Save as Draft'}
+              </Button>
+              <Button onClick={handlePreview} disabled={building || submitting}>
+                <FileText className="h-4 w-4 mr-1" />
+                {building ? 'Building…' : 'Preview'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

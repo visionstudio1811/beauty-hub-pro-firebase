@@ -208,6 +208,31 @@ export interface InvoiceBusinessSnapshot {
   invoice_template?: string;
 }
 
+export interface InvoiceDraftLine {
+  // 'product' or 'treatment' line. Matches the LineKind on CreateInvoiceDialog.
+  kind: 'product' | 'treatment';
+  // For products: product_id. For treatments: treatment_id. Either way the
+  // single field name keeps the draft shape uniform; the consumer maps it back.
+  item_id: string;
+  quantity: number;
+  unit_price: number;
+  // Optional cached name so the drafts list can render without a catalog read.
+  name?: string;
+}
+
+export interface InvoiceDraft {
+  id: string;
+  client_id: string | null;
+  purchase_id: string | null;
+  lines: InvoiceDraftLine[];
+  payment_method?: string;
+  notes?: string;
+  created_at: any;
+  updated_at: any;
+  created_by: string;
+  updated_by: string;
+}
+
 export interface Invoice {
   id: string;
   invoice_number: string;

@@ -26,6 +26,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useClientPackages } from '@/hooks/useClientPackages';
 
 interface ClientProductRow {
   id: string;
@@ -37,6 +38,7 @@ interface ClientProductRow {
   quantity: number;
   status: string;
   notes: string;
+  purchase_id: string | null;
 }
 
 interface ManageClientProductsModalProps {
@@ -59,6 +61,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
 }) => {
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
+  const { packages: clientPackages } = useClientPackages(client?.id);
   const [rows, setRows] = useState<ClientProductRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
           quantity: Number(data.quantity || 1),
           status: data.status || 'assigned',
           notes: data.notes || '',
+          purchase_id: data.purchase_id ?? null,
         };
       });
 
@@ -149,6 +153,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
           quantity: row.quantity,
           status: row.status,
           notes: row.notes?.trim() || null,
+          purchase_id: row.purchase_id || null,
           updated_at: serverTimestamp(),
         }
       );
@@ -240,12 +245,53 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                           </div>
                         </div>
                       </div>
-                      <Badge variant={row.status === 'delivered' ? 'default' : 'secondary'}>
-                        {row.status}
-                      </Badge>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {row.purchase_id && !isEditing && (() => {
+                          const pkg = clientPackages.find(p => p.id === row.purchase_id);
+                          return (
+                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                              From {pkg?.package_name || 'Package'}
+                            </Badge>
+                          );
+                        })()}
+                        <Badge variant={row.status === 'delivered' ? 'default' : 'secondary'}>
+                          {row.status}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
+                    <div className="mt-4">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">From package</label>
+                      <Select
+                        value={row.purchase_id ?? 'standalone'}
+                        onValueChange={v => updateRow(row.id, { purchase_id: v === 'standalone' ? null : v })}
+                        disabled={!isEditing}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Standalone (not from a package)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standalone">Standalone (not from a package)</SelectItem>
+                          {[...clientPackages]
+                            .sort((a, b) => {
+                              const aHas = (a.product_snapshot || []).some(p => p.product_id === row.product_id) ? 1 : 0;
+                              const bHas = (b.product_snapshot || []).some(p => p.product_id === row.product_id) ? 1 : 0;
+                              return bHas - aHas;
+                            })
+                            .map(pkg => {
+                              const inPackage = (pkg.product_snapshot || []).find(p => p.product_id === row.product_id);
+                              return (
+                                <SelectItem key={pkg.id} value={pkg.id}>
+                                  {pkg.package_name}
+                                  {inPackage ? ` — includes ${inPackage.quantity}` : ' (does not include this product)'}
+                                </SelectItem>
+                              );
+                            })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Price ($)</label>
                         <Input

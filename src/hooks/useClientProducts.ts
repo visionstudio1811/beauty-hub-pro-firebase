@@ -12,6 +12,7 @@ interface ClientProduct {
   status: string;
   assigned_at: string;
   notes?: string;
+  purchase_id: string | null;
   products: {
     id: string;
     name: string;
@@ -68,6 +69,7 @@ export const useClientProducts = (clientId?: string) => {
           status: data.status || '',
           assigned_at: data.assigned_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
           notes: data.notes ?? undefined,
+          purchase_id: data.purchase_id ?? null,
           products: productData,
         });
       }

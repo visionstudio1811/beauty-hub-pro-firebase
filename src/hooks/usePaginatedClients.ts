@@ -33,6 +33,8 @@ interface ClientAggregates {
   totalRevenue: number;
   lastVisit: string;
   hasPackages: boolean;
+  hasActivePackage: boolean;
+  hasCompletedPackage: boolean;
   hasProducts: boolean;
 }
 
@@ -91,7 +93,15 @@ export const usePaginatedClients = ({
         const ensure = (id: string): ClientAggregates => {
           let agg = aggregates.get(id);
           if (!agg) {
-            agg = { totalVisits: 0, totalRevenue: 0, lastVisit: '', hasPackages: false, hasProducts: false };
+            agg = {
+              totalVisits: 0,
+              totalRevenue: 0,
+              lastVisit: '',
+              hasPackages: false,
+              hasActivePackage: false,
+              hasCompletedPackage: false,
+              hasProducts: false,
+            };
             aggregates.set(id, agg);
           }
           return agg;
@@ -120,6 +130,13 @@ export const usePaginatedClients = ({
           // Without one (e.g., legacy/standalone purchase rows) we still count
           // it as a "package" purchase since it's not a productAssignment.
           agg.hasPackages = true;
+          // Track active vs completed separately so we can derive a "Membership
+          // Ended" status for clients whose packages are all used up.
+          if (data.payment_status === 'active') {
+            agg.hasActivePackage = true;
+          } else if (data.payment_status === 'completed') {
+            agg.hasCompletedPackage = true;
+          }
         });
 
         // Standalone product assignments (no parent purchase) also count toward
@@ -141,6 +158,21 @@ export const usePaginatedClients = ({
           .map(d => {
             const data = d.data();
             const agg = aggregates.get(d.id);
+            const hasMembership = data.has_membership ?? false;
+            // Derive membership status from purchase lifecycle. The has_membership
+            // flag stays as a manual override (e.g. Vagaro-imported clients with
+            // no purchase record) but lifecycle is the source of truth:
+            //   active package OR override → Have Membership
+            //   only completed packages    → Membership Ended (red)
+            //   nothing                    → Don't Have Membership
+            let status: string;
+            if (hasMembership || agg?.hasActivePackage) {
+              status = 'Have Membership';
+            } else if (agg?.hasCompletedPackage) {
+              status = 'Membership Ended';
+            } else {
+              status = "Don't Have Membership";
+            }
             return {
               id: d.id,
               name: data.name || '',
@@ -156,11 +188,11 @@ export const usePaginatedClients = ({
               age: data.age ?? undefined,
               created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
               updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-              has_membership: data.has_membership ?? false,
+              has_membership: hasMembership,
               organization_id: data.organization_id ?? undefined,
               deleted_at: data.deleted_at ?? undefined,
               deleted_by: data.deleted_by ?? undefined,
-              status: data.has_membership ? 'Have Membership' : "Don't Have Membership",
+              status,
               lastVisit: agg?.lastVisit || '',
               totalVisits: agg?.totalVisits ?? 0,
               activePackage: null,
@@ -183,11 +215,14 @@ export const usePaginatedClients = ({
           );
         }
 
-        // Apply status filter
+        // Apply status filter (now matches the derived status string so
+        // "Membership Ended" can be filtered like the other two).
         if (filterStatus === 'Have Membership') {
-          allClients = allClients.filter(c => c.has_membership);
+          allClients = allClients.filter(c => c.status === 'Have Membership');
+        } else if (filterStatus === 'Membership Ended') {
+          allClients = allClients.filter(c => c.status === 'Membership Ended');
         } else if (filterStatus === "Don't Have Membership") {
-          allClients = allClients.filter(c => !c.has_membership);
+          allClients = allClients.filter(c => c.status === "Don't Have Membership");
         }
 
         // Apply purchase-type filter

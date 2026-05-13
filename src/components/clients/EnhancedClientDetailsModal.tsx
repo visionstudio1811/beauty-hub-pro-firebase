@@ -25,6 +25,7 @@ import {
   getDoc,
   updateDoc,
   writeBatch,
+  runTransaction,
   serverTimestamp,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -33,8 +34,10 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { formatTimeDisplay } from '@/lib/timeUtils';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 import { ClientCommunicationModal } from './ClientCommunicationModal';
-import { useClientPackages } from '@/hooks/useClientPackages';
+import { useClientPackages, type ClientPackage } from '@/hooks/useClientPackages';
 import { useClientProducts } from '@/hooks/useClientProducts';
+import { PackageSection } from '@/components/appointment-form/PackageSection';
+import { syncMembershipStatus } from '@/hooks/useMembershipSync';
 import { PurchaseManagementModal } from '@/components/PurchaseManagementModal';
 import { ManageClientProductsModal } from '@/components/ManageClientProductsModal';
 import { CreateInvoiceDialog } from '@/components/invoices/CreateInvoiceDialog';
@@ -50,8 +53,15 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import type { Invoice } from '@/types/firestore';
 
+interface SessionSlot {
+  treatment_id: string;
+  total: number;
+  remaining: number;
+}
+
 interface DatabasePurchase {
   id: string;
+  package_id: string | null;
   total_amount: number;
   purchase_date: string;
   payment_status: string;
@@ -61,6 +71,7 @@ interface DatabasePurchase {
     total_sessions: number;
   } | null;
   product_snapshot?: { product_id: string; product_name: string; quantity: number; price: number }[];
+  sessions_by_treatment?: SessionSlot[];
 }
 
 interface Appointment {
@@ -73,6 +84,9 @@ interface Appointment {
   notes?: string;
   duration: number;
   client_name: string;
+  purchase_id?: string | null;
+  package_name?: string | null;
+  session_used?: boolean;
 }
 
 interface EnhancedClientDetailsModalProps {
@@ -160,6 +174,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const [savingPastTreatment, setSavingPastTreatment] = useState(false);
   const [birthdayOpen, setBirthdayOpen] = useState(false);
   const [pastDateOpen, setPastDateOpen] = useState(false);
+  const [selectedPastPackage, setSelectedPastPackage] = useState<ClientPackage | null>(null);
+  const [confirmOverConsume, setConfirmOverConsume] = useState<{ treatmentName: string } | null>(null);
 
   // Use the client packages and products hooks for real data
   const { packages: clientPackages, refetch: refetchPackages } = useClientPackages(client?.id);
@@ -248,12 +264,14 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           }
           return {
             id: d.id,
+            package_id: data.package_id ?? null,
             total_amount: data.total_amount ?? 0,
             purchase_date: data.purchase_date ?? '',
             payment_status: data.payment_status ?? '',
             sessions_remaining: data.sessions_remaining ?? 0,
             packages: pkg,
             product_snapshot: Array.isArray(data.product_snapshot) ? data.product_snapshot : undefined,
+            sessions_by_treatment: Array.isArray(data.sessions_by_treatment) ? data.sessions_by_treatment : undefined,
           };
         })
       );
@@ -291,6 +309,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             notes: data.notes ?? undefined,
             duration: data.duration ?? 0,
             client_name: data.client_name ?? '',
+            purchase_id: data.purchase_id ?? null,
+            package_name: data.package_name ?? null,
+            session_used: Boolean(data.session_used),
           };
         })
       );
@@ -299,43 +320,147 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     }
   };
 
-  const handleSavePastTreatment = async () => {
+  const handleSavePastTreatment = async (opts: { confirmedOverConsume?: boolean } = {}) => {
     if (!client || !currentOrganization?.id) return;
     if (!pastTreatmentForm.treatment_name || !pastTreatmentForm.appointment_date) {
       toast({ title: 'Missing fields', description: 'Treatment name and date are required.', variant: 'destructive' });
       return;
     }
+
+    const orgId = currentOrganization.id;
+    const matchedTreatment = treatmentsList.find(t => t.name === pastTreatmentForm.treatment_name);
+
+    // Over-consume check when a package is selected
+    if (selectedPastPackage && !opts.confirmedOverConsume) {
+      const slots = selectedPastPackage.sessions_by_treatment;
+      let outOfSessions = false;
+      if (slots && slots.length > 0 && matchedTreatment?.id) {
+        const slot = slots.find(s => s.treatment_id === matchedTreatment.id);
+        outOfSessions = !slot || slot.remaining <= 0;
+      } else {
+        outOfSessions = (selectedPastPackage.sessions_remaining ?? 0) <= 0;
+      }
+      if (outOfSessions) {
+        setConfirmOverConsume({ treatmentName: pastTreatmentForm.treatment_name });
+        return;
+      }
+    }
+
     setSavingPastTreatment(true);
     try {
-      const matchedTreatment = treatmentsList.find(t => t.name === pastTreatmentForm.treatment_name);
-      await addDoc(collection(db, 'organizations', currentOrganization.id, 'appointments'), {
-        client_id: client.id,
-        client_name: client.name,
-        client_phone: client.phone ?? '',
-        client_email: client.email ?? '',
-        treatment_id: matchedTreatment?.id ?? '',
-        treatment_name: pastTreatmentForm.treatment_name,
-        appointment_date: pastTreatmentForm.appointment_date,
-        appointment_time: '00:00',
-        staff_id: '',
-        staff_name: pastTreatmentForm.staff_name || '',
-        duration: parseInt(pastTreatmentForm.duration) || 60,
-        notes: pastTreatmentForm.notes || '',
-        price: parseFloat(pastTreatmentForm.price) || 0,
-        status: 'completed',
-        is_manual_entry: true,
-        organization_id: currentOrganization.id,
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-      });
+      let sessionsAfter = -1;
+
+      if (selectedPastPackage) {
+        const apptColl = collection(db, 'organizations', orgId, 'appointments');
+        const newApptRef = doc(apptColl);
+        const purchaseRef = doc(db, 'organizations', orgId, 'purchases', selectedPastPackage.id);
+
+        sessionsAfter = await runTransaction(db, async (tx) => {
+          const purchaseSnap = await tx.get(purchaseRef);
+          if (!purchaseSnap.exists()) throw new Error('Package no longer exists.');
+          const purchase = purchaseSnap.data();
+
+          const slots = purchase.sessions_by_treatment as SessionSlot[] | undefined;
+          const updates: Record<string, unknown> = { updated_at: serverTimestamp() };
+          let newTotal: number;
+
+          if (slots && slots.length > 0 && matchedTreatment?.id) {
+            const updatedSlots = slots.map(s => ({ ...s }));
+            const slot = updatedSlots.find(s => s.treatment_id === matchedTreatment.id);
+            if (slot) {
+              slot.remaining = slot.remaining - 1;
+            }
+            newTotal = updatedSlots.reduce((sum, s) => sum + s.remaining, 0);
+            updates.sessions_by_treatment = updatedSlots;
+            updates.sessions_remaining = newTotal;
+          } else {
+            newTotal = (purchase.sessions_remaining ?? 0) - 1;
+            updates.sessions_remaining = newTotal;
+          }
+
+          if (newTotal <= 0) {
+            updates.payment_status = 'completed';
+          }
+
+          tx.set(newApptRef, {
+            client_id: client.id,
+            client_name: client.name,
+            client_phone: client.phone ?? '',
+            client_email: client.email ?? '',
+            treatment_id: matchedTreatment?.id ?? '',
+            treatment_name: pastTreatmentForm.treatment_name,
+            appointment_date: pastTreatmentForm.appointment_date,
+            appointment_time: '00:00',
+            staff_id: '',
+            staff_name: pastTreatmentForm.staff_name || '',
+            duration: parseInt(pastTreatmentForm.duration) || 60,
+            notes: pastTreatmentForm.notes || '',
+            price: 0,
+            status: 'completed',
+            is_manual_entry: true,
+            purchase_id: selectedPastPackage.id,
+            package_id: selectedPastPackage.package_id || null,
+            package_name: selectedPastPackage.package_name || null,
+            session_used: true,
+            organization_id: orgId,
+            created_at: serverTimestamp(),
+            updated_at: serverTimestamp(),
+          });
+
+          tx.update(purchaseRef, updates);
+          return newTotal;
+        });
+
+        if (sessionsAfter <= 0) {
+          try {
+            await syncMembershipStatus(orgId, client.id);
+          } catch (e) {
+            console.warn('Membership sync after past-log failed', e);
+          }
+        }
+      } else {
+        await addDoc(collection(db, 'organizations', orgId, 'appointments'), {
+          client_id: client.id,
+          client_name: client.name,
+          client_phone: client.phone ?? '',
+          client_email: client.email ?? '',
+          treatment_id: matchedTreatment?.id ?? '',
+          treatment_name: pastTreatmentForm.treatment_name,
+          appointment_date: pastTreatmentForm.appointment_date,
+          appointment_time: '00:00',
+          staff_id: '',
+          staff_name: pastTreatmentForm.staff_name || '',
+          duration: parseInt(pastTreatmentForm.duration) || 60,
+          notes: pastTreatmentForm.notes || '',
+          price: parseFloat(pastTreatmentForm.price) || 0,
+          status: 'completed',
+          is_manual_entry: true,
+          purchase_id: null,
+          package_id: null,
+          package_name: null,
+          session_used: false,
+          organization_id: orgId,
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+        });
+      }
+
       toast({ title: 'Treatment added', description: 'Past treatment has been logged.' });
       setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '' });
+      setSelectedPastPackage(null);
+      setConfirmOverConsume(null);
       setIsPastTreatmentOpen(false);
       await fetchAppointments();
+      await fetchPurchases();
+      refetchPackages();
       onAppointmentSaved?.();
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to save treatment.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to save treatment.',
+        variant: 'destructive',
+      });
     } finally {
       setSavingPastTreatment(false);
     }
@@ -912,12 +1037,24 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     ) : (
                       appointments.map((appointment) => (
                         <div key={appointment.id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-center space-x-2">
-                              <Calendar className="h-4 w-4 text-blue-600" />
-                              <div>
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex items-start space-x-2 min-w-0">
+                              <Calendar className="h-4 w-4 text-blue-600 mt-1 flex-shrink-0" />
+                              <div className="min-w-0">
                                 <h4 className="font-medium">{appointment.treatment_name}</h4>
-                                <p className="text-sm text-muted-foreground">
+                                <div className="mt-0.5">
+                                  {appointment.purchase_id ? (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs gap-1">
+                                      <Package className="h-3 w-3" />
+                                      From {appointment.package_name || 'Package'}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-gray-600 border-gray-200 text-xs">
+                                      Paid à la carte
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">
                                   {appointment.appointment_date} at {formatTimeDisplay(appointment.appointment_time)} • {appointment.duration} min
                                 </p>
                                 <p className="text-sm text-muted-foreground">
@@ -925,7 +1062,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex-shrink-0">
                               <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
                                 {appointment.status}
                               </Badge>
@@ -979,7 +1116,19 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           </Button>
                         </div>
                       ) : (
-                        purchases.map((purchase) => (
+                        purchases.map((purchase) => {
+                          // Compute delivered/owed for this purchase's product_snapshot
+                          const deliveredByProductId: Record<string, number> = {};
+                          for (const cp of clientProducts) {
+                            if (cp.purchase_id === purchase.id && cp.status === 'delivered') {
+                              deliveredByProductId[cp.product_id] = (deliveredByProductId[cp.product_id] || 0) + cp.quantity;
+                            }
+                          }
+                          const totalOwedForPurchase = (purchase.product_snapshot || []).reduce(
+                            (sum, p) => sum + Math.max(0, p.quantity - (deliveredByProductId[p.product_id] || 0)),
+                            0
+                          );
+                          return (
                           <div key={purchase.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
                               <div className="flex items-center space-x-2">
@@ -992,7 +1141,14 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                 </div>
                               </div>
                               <div className="text-right">
-                                <Badge variant="default">Active</Badge>
+                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                  <Badge variant="default">Active</Badge>
+                                  {totalOwedForPurchase > 0 && (
+                                    <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 text-xs">
+                                      {totalOwedForPurchase} item{totalOwedForPurchase === 1 ? '' : 's'} owed
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(purchase.purchase_date) || '—'}</p>
                                 <div className="flex flex-col gap-2 mt-2">
                                   <Button
@@ -1024,21 +1180,65 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                 ({purchase.sessions_remaining} remaining)
                               </div>
                             )}
+                            {purchase.sessions_by_treatment && purchase.sessions_by_treatment.length > 0 && (
+                              <div className="mt-2 p-2 bg-purple-50 rounded text-sm space-y-1.5">
+                                <p className="font-medium text-purple-700 mb-1 text-xs">Sessions by treatment</p>
+                                {purchase.sessions_by_treatment.map((slot, i) => {
+                                  const t = treatmentsList.find(tr => tr.id === slot.treatment_id);
+                                  const used = slot.total - slot.remaining;
+                                  const pct = slot.total > 0 ? Math.min(100, Math.max(0, (used / slot.total) * 100)) : 0;
+                                  return (
+                                    <div key={slot.treatment_id || i} className="text-xs">
+                                      <div className="flex justify-between text-purple-900">
+                                        <span>{t?.name || 'Treatment'}</span>
+                                        <span>
+                                          {used} used / {slot.remaining < 0 ? '0' : slot.remaining} remaining
+                                          {slot.remaining < 0 && (
+                                            <span className="text-amber-700 ml-1">({Math.abs(slot.remaining)} over)</span>
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div className="w-full bg-purple-100 rounded-full h-1.5 mt-0.5 overflow-hidden">
+                                        <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             {purchase.product_snapshot && purchase.product_snapshot.length > 0 && (
                               <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                                <p className="font-medium text-blue-700 mb-1">Included Products</p>
-                                <ul className="space-y-0.5">
-                                  {purchase.product_snapshot.map((p, i) => (
-                                    <li key={i} className="flex justify-between text-xs text-blue-800">
-                                      <span>{p.product_name} × {p.quantity}</span>
-                                      <span>${p.price.toFixed(2)}/ea</span>
-                                    </li>
-                                  ))}
+                                <p className="font-medium text-blue-700 mb-1 text-xs">Included Products</p>
+                                <ul className="space-y-1">
+                                  {purchase.product_snapshot.map((p, i) => {
+                                    const delivered = deliveredByProductId[p.product_id] || 0;
+                                    const owed = Math.max(0, p.quantity - delivered);
+                                    return (
+                                      <li key={i} className="flex justify-between items-center text-xs gap-2">
+                                        <span className="text-blue-900 flex-1 min-w-0 truncate">
+                                          {p.product_name} × {p.quantity}
+                                        </span>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                          <span className="text-blue-700">{delivered}/{p.quantity} given</span>
+                                          {owed === 0 ? (
+                                            <Badge variant="outline" className="border-green-400 text-green-700 bg-green-50 text-xs">
+                                              All delivered
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 text-xs">
+                                              {owed} owed
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </li>
+                                    );
+                                  })}
                                 </ul>
                               </div>
                             )}
                           </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -1402,36 +1602,73 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPastTreatmentOpen} onOpenChange={setIsPastTreatmentOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={isPastTreatmentOpen}
+        onOpenChange={(open) => {
+          setIsPastTreatmentOpen(open);
+          if (!open) {
+            setSelectedPastPackage(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Log Past Treatment</DialogTitle>
-            <DialogDescription>Add a treatment that was done before you started using the CRM.</DialogDescription>
+            <DialogDescription>Add a treatment that was already performed. Optionally attach it to one of the client's packages to consume a session.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {clientPackages.length > 0 && (
+              <PackageSection
+                selectedClient={client}
+                clientPackages={clientPackages}
+                selectedPackage={selectedPastPackage}
+                onSelectPackage={(pkg) => {
+                  setSelectedPastPackage(pkg);
+                  setPastTreatmentForm(prev => ({ ...prev, treatment_name: '', price: '' }));
+                }}
+                loading={false}
+              />
+            )}
             <div>
               <label className="text-sm font-medium">Treatment *</label>
-              <Select
-                value={pastTreatmentForm.treatment_name}
-                onValueChange={(val) => {
-                  const t = treatmentsList.find(t => t.name === val);
-                  setPastTreatmentForm({
-                    ...pastTreatmentForm,
-                    treatment_name: val,
-                    duration: t ? String(t.duration) : pastTreatmentForm.duration,
-                    price: t?.price != null ? String(t.price) : pastTreatmentForm.price,
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a treatment" />
-                </SelectTrigger>
-                <SelectContent>
-                  {treatmentsList.map(t => (
-                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {(() => {
+                const allowedIds = selectedPastPackage
+                  ? (selectedPastPackage.sessions_by_treatment && selectedPastPackage.sessions_by_treatment.length > 0
+                      ? selectedPastPackage.sessions_by_treatment.map(s => s.treatment_id)
+                      : selectedPastPackage.treatments)
+                  : null;
+                const displayTreatments = allowedIds
+                  ? treatmentsList.filter(t => allowedIds.includes(t.id))
+                  : treatmentsList;
+                return (
+                  <>
+                    <Select
+                      value={pastTreatmentForm.treatment_name}
+                      onValueChange={(val) => {
+                        const t = treatmentsList.find(t => t.name === val);
+                        setPastTreatmentForm({
+                          ...pastTreatmentForm,
+                          treatment_name: val,
+                          duration: t ? String(t.duration) : pastTreatmentForm.duration,
+                          price: selectedPastPackage ? '' : (t?.price != null ? String(t.price) : pastTreatmentForm.price),
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedPastPackage && displayTreatments.length === 0 ? 'No treatments in this package' : 'Select a treatment'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {displayTreatments.map(t => (
+                          <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedPastPackage && displayTreatments.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">No treatments available for this package.</p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             <div>
               <label className="text-sm font-medium">Date *</label>
@@ -1471,7 +1708,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, staff_name: e.target.value })}
               />
             </div>
-            <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-3 ${isAdmin && !selectedPastPackage ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <div>
                 <label className="text-sm font-medium">Duration (minutes)</label>
                 <Input
@@ -1480,7 +1717,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, duration: e.target.value })}
                 />
               </div>
-              {isAdmin && (
+              {isAdmin && !selectedPastPackage && (
                 <div>
                   <label className="text-sm font-medium">Price ($)</label>
                   <Input
@@ -1494,6 +1731,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 </div>
               )}
             </div>
+            {selectedPastPackage && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
+                Package session — no additional charge
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Notes</label>
               <textarea
@@ -1507,12 +1749,32 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setIsPastTreatmentOpen(false)}>Cancel</Button>
-            <Button onClick={handleSavePastTreatment} disabled={savingPastTreatment}>
+            <Button onClick={() => handleSavePastTreatment()} disabled={savingPastTreatment}>
               {savingPastTreatment ? 'Saving…' : 'Save Treatment'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!confirmOverConsume}
+        onOpenChange={(open) => { if (!open) setConfirmOverConsume(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No remaining sessions</AlertDialogTitle>
+            <AlertDialogDescription>
+              No remaining sessions for {confirmOverConsume?.treatmentName} in this package. Save anyway? The package session counter will go below zero.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleSavePastTreatment({ confirmedOverConsume: true })}>
+              Save Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

@@ -213,6 +213,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         notes: formData.notes,
         room_id: formData.roomId,
         package_id: selectedPackage?.package_id || null,
+        package_name: selectedPackage?.package_name || null,
         purchase_id: selectedPackage?.id || undefined,
         session_used: !!selectedPackage,
         price: selectedPackage ? 0 : (parseFloat(formData.price) || 0),

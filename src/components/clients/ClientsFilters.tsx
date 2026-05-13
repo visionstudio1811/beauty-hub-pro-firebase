@@ -58,6 +58,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
             >
               <option value="">All Status</option>
               <option value="Have Membership">Have Membership</option>
+              <option value="Membership Ended">Membership Ended</option>
               <option value="Don't Have Membership">Don't Have Membership</option>
             </select>
 
@@ -123,6 +124,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
             >
               <option value="">All Status</option>
               <option value="Have Membership">Have Membership</option>
+              <option value="Membership Ended">Membership Ended</option>
               <option value="Don't Have Membership">Don't Have Membership</option>
             </select>
 

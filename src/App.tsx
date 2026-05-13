@@ -20,6 +20,7 @@ import Index from './pages/Index';
 import WaiverForm from './pages/WaiverForm';
 import ClientPortal from './pages/ClientPortal';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { IdleLogoutGuard } from '@/components/auth/IdleLogoutGuard';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { ClientsProvider } from '@/contexts/ClientsContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -50,6 +51,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <AuthProvider>
+          <IdleLogoutGuard />
           <OrganizationProvider>
             <ClientsProvider>
             <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">

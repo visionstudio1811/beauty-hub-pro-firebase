@@ -97,6 +97,13 @@ const Clients = () => {
   const from = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, totalCount);
 
+  // From the AddClient dedup alert: close the Add modal and open the picked
+  // existing client's details, so staff can edit rather than create a duplicate.
+  const handleOpenExistingClient = useCallback((client: Parameters<typeof handleViewDetails>[0]) => {
+    setIsAddModalOpen(false);
+    handleViewDetails(client);
+  }, [setIsAddModalOpen, handleViewDetails]);
+
   // Wrap mutations to trigger a paginated-data refetch
   const handleDeleteClientWithRefetch = useCallback(async (clientId: string) => {
     await handleDeleteClient(clientId);
@@ -288,6 +295,7 @@ const Clients = () => {
           isAddModalOpen={isAddModalOpen}
           onCloseAddModal={() => setIsAddModalOpen(false)}
           onAdd={handleAddClientWithRefetch}
+          onOpenExistingClient={handleOpenExistingClient}
           isAssignmentModalOpen={isAssignmentModalOpen}
           onCloseAssignmentModal={() => setIsAssignmentModalOpen(false)}
           onAssign={handleAssignmentWrapper}

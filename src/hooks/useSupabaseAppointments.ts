@@ -35,6 +35,7 @@ export interface SupabaseAppointment {
   updated_at: string;
   room_id?: string;
   package_id?: string;
+  package_name?: string | null;
   purchase_id?: string;
   session_used?: boolean;
   organization_id?: string;
@@ -60,6 +61,7 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? sanitizeDateString(data.updated_at),
   room_id: data.room_id ? sanitizeString(data.room_id) : undefined,
   package_id: data.package_id,
+  package_name: data.package_name ?? null,
   purchase_id: data.purchase_id ?? undefined,
   session_used: Boolean(data.session_used),
   organization_id: data.organization_id,

@@ -84,11 +84,12 @@ export const useClientPackages = (clientId?: string) => {
 
         const productSnapshot = Array.isArray(purchase.product_snapshot) ? purchase.product_snapshot : undefined;
 
+        const descriptionOverride = typeof purchase.description_override === 'string' ? purchase.description_override : null;
         transformedPackages.push({
           id: purchaseDoc.id,
           package_id: purchase.package_id || '',
           package_name: pkgData.name || '',
-          package_description: pkgData.description || '',
+          package_description: descriptionOverride ?? pkgData.description ?? '',
           sessions_remaining: purchase.sessions_remaining || 0,
           total_sessions: pkgData.total_sessions || 0,
           expiry_date: purchase.expiry_date || null,

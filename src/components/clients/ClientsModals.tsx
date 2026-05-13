@@ -17,6 +17,7 @@ interface ClientsModalsProps {
   isAddModalOpen: boolean;
   onCloseAddModal: () => void;
   onAdd: (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
+  onOpenExistingClient?: (client: Client) => void;
   isAssignmentModalOpen: boolean;
   onCloseAssignmentModal: () => void;
   onAssign: (client: Client, assignment: any) => void;
@@ -45,6 +46,7 @@ export const ClientsModals: React.FC<ClientsModalsProps> = ({
   isAddModalOpen,
   onCloseAddModal,
   onAdd,
+  onOpenExistingClient,
   isAssignmentModalOpen,
   onCloseAssignmentModal,
   onAssign,
@@ -82,6 +84,7 @@ export const ClientsModals: React.FC<ClientsModalsProps> = ({
         isOpen={isAddModalOpen}
         onClose={onCloseAddModal}
         onAdd={onAdd}
+        onOpenExisting={onOpenExistingClient}
       />
 
       <AppointmentFormModal

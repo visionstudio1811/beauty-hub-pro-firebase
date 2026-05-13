@@ -88,7 +88,9 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
   };
 
   const getStatusColor = (status: string) => {
-    return status === 'Have Membership' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+    if (status === 'Have Membership') return 'bg-green-100 text-green-800';
+    if (status === 'Membership Ended') return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -135,17 +137,27 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Status:</span>
-                <select
-                  value={client.status}
-                  onChange={(e) => {
-                    console.log('ClientsCards: Status change for client:', client.id, 'to:', e.target.value);
-                    onStatusChange(client.id, e.target.value);
-                  }}
-                  className={`px-2 py-1 rounded text-xs border-none ${getStatusColor(client.status)} max-w-[140px]`}
-                >
-                  <option value="Have Membership">Have Membership</option>
-                  <option value="Don't Have Membership">Don't Have Membership</option>
-                </select>
+                {client.status === 'Membership Ended' ? (
+                  // Ended is derived from package lifecycle — not user-editable
+                  // from this dropdown. Show a read-only red badge; staff can
+                  // still flip has_membership manually via the client details
+                  // modal or by assigning a new package.
+                  <span className={`px-2 py-1 rounded text-xs ${getStatusColor(client.status)}`}>
+                    Membership Ended
+                  </span>
+                ) : (
+                  <select
+                    value={client.status}
+                    onChange={(e) => {
+                      console.log('ClientsCards: Status change for client:', client.id, 'to:', e.target.value);
+                      onStatusChange(client.id, e.target.value);
+                    }}
+                    className={`px-2 py-1 rounded text-xs border-none ${getStatusColor(client.status)} max-w-[140px]`}
+                  >
+                    <option value="Have Membership">Have Membership</option>
+                    <option value="Don't Have Membership">Don't Have Membership</option>
+                  </select>
+                )}
               </div>
 
               <div className="flex justify-between text-sm text-gray-600">
