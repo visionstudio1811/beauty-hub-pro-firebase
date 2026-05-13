@@ -54,13 +54,16 @@ export const useFirebaseOrganizations = () => {
   const { toast } = useToast();
   const { user, profile } = useAuth();
 
+  // Only fetch the organization the current user belongs to.
+  // Never query all organizations — users must only see their own org.
+  // The two fetchers below intentionally do NOT touch `loading`; the effect
+  // below awaits both before clearing it. Clearing loading inside one fetcher
+  // (e.g. fetchOrganizations) before the other (fetchCurrentOrganization)
+  // resolved produced a brief race where `currentOrganization` was still null
+  // and OrganizationProtectedRoute flashed the "Organization unavailable"
+  // error.
   const fetchOrganizations = async () => {
-    // Only fetch the organization the current user belongs to.
-    // Never query all organizations — users must only see their own org.
-    if (!profile?.organizationId) {
-      setLoading(false);
-      return;
-    }
+    if (!profile?.organizationId) return;
     try {
       const orgRef = doc(db, 'organizations', profile.organizationId);
       const orgSnap = await getDoc(orgRef);
@@ -76,8 +79,6 @@ export const useFirebaseOrganizations = () => {
         description: 'Failed to load organization',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,8 +104,13 @@ export const useFirebaseOrganizations = () => {
       setLoading(false);
       return;
     }
-    fetchOrganizations();
-    fetchCurrentOrganization();
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      await Promise.all([fetchOrganizations(), fetchCurrentOrganization()]);
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, [user, profile]);
 
   const createOrganization = async (
