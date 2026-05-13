@@ -159,6 +159,7 @@ organizations/{orgId}                ← org document
   /acuitySyncLogs/{id}
   /rateLimits/{action_YYYYMMDD}      ← Cloud-Function-only per-org daily counters
   /invoices/{id}                     ← immutable invoice records (CF-only create; admin one-time pdf_url update)
+  /invoiceDrafts/{id}                ← pre-issue scratch state for the invoice dialog (admin-only CRUD, no sequential number)
   /config/invoiceCounter             ← per-org sequential counter (CF-only writes)
 waiverTokens/{token}                 ← unauthenticated waiver signing (get-only, no list; 30-day TTL via expiresAt)
 clientPortalAccess/{uid}/organizations/{orgId}
@@ -177,6 +178,20 @@ clientPortalAccess/{uid}/organizations/{orgId}
 New user accounts are created exclusively by the `adminCreateUser` Cloud Function (Admin SDK bypasses rules). The client-side login error is a single generic "Invalid email or password" regardless of Firebase's specific code — do not expand this, it exists to prevent account enumeration.
 
 Auth is in `src/contexts/AuthContext.tsx`. Use `useAuth()` for `user`, `profile`, `signOut`, `signInWithEmail`, `signInWithGoogle`, `refreshProfile`.
+
+### Idle session timeout
+
+`src/components/auth/IdleLogoutGuard.tsx` is mounted once inside `AuthProvider` and runs whenever a user is signed in (staff CRM **and** client portal — anything that goes through Firebase Auth). After **30 minutes of no activity** it calls `signOut()`. At **28 minutes** it opens an `AlertDialog` with a live "Sign out in MM:SS — Stay signed in" countdown. Activity events tracked: `mousedown`, `mousemove`, `keydown`, `scroll`, `touchstart` (throttled to 1s). Tabs coordinate via `localStorage` key `bh:lastActivity` so activity in one tab keeps all tabs alive. The timers tear down immediately when `user` becomes null, so there's zero overhead on `/`, `/auth`, and `/waiver/:token`.
+
+### OrganizationProtectedRoute fallback states
+
+The `/admin` route guards are `ProtectedRoute → OrganizationProtectedRoute → RoleProtectedRoute`. `OrganizationProtectedRoute` (`src/components/OrganizationProtectedRoute.tsx`) has three distinct non-OK states that you'll see instead of the dashboard, each with a Sign Out button:
+
+- **Loading skeleton + 12-second backstop**: while `authLoading || orgLoading`. If still loading after 12s, an amber "This is taking longer than expected" banner appears with a Sign Out button — never leave the user staring at a frozen skeleton.
+- **"Account profile not found"**: `user` exists but `profile` is null after auth resolved. Means the Firebase Auth account is real but `users/{uid}` doesn't exist in Firestore. Recovery: sign out, or have an admin create the user via `adminCreateUser`.
+- **"Organization unavailable"**: `profile.organizationId` is set but `currentOrganization` couldn't be loaded. The org doc was deleted, renamed, or rule-blocked. Recovery: sign out and try a different account.
+
+Do not re-introduce the old `Boolean(user) && !profile` clause to `stillLoading` — `AuthContext` only sets `authLoading=false` after the `users/{uid}` fetch resolves, so a null profile at that point is a genuine "no profile" state, not a race.
 
 ### Client Portal Auth
 
@@ -328,10 +343,63 @@ All date rendering goes through `safeFormatters` from `src/lib/safeDateFormatter
 ### Client aggregates (Clients page)
 The Clients page stats — **Total Revenue**, **VIP Clients**, and the per-row **Visits** / **Revenue** / **Last Visit** columns — are computed in `src/hooks/usePaginatedClients.ts`. One parallel fetch pulls clients + completed appointments + active/completed purchases, then joins them by `client_id` in memory. `totalVisits` = count of completed appointments; `totalRevenue` = sum of `purchases.total_amount`; `lastVisit` = most recent `appointment_date`. If you add a new revenue source (e.g. standalone product sales), add it to the aggregation here so every downstream consumer sees the same number.
 
+`usePaginatedClients` also tracks `hasActivePackage` / `hasCompletedPackage` per client so it can derive a 3-state membership status (see next section). Don't drop those flags — multiple UI surfaces depend on them.
+
 **VIP** is defined as `has_membership === true`. If the business wants a richer definition (e.g. lifetime revenue threshold), change `ClientStatsCards.tsx` — but keep the aggregation input in `usePaginatedClients`.
 
 ### Membership status — derived, not stored
-The `client.has_membership` boolean in Firestore is user-editable, but **display** of membership status (e.g. the Membership tab's "Active/Inactive" card) must be derived from the live active-purchases count, not the flag. `MembershipHistoryTab.tsx` shows `Active` iff `activePurchasesCount > 0`. This prevents the "Inactive but 1 Active Package" desync that happens when the flag isn't synced to purchase lifecycle. The flag is still useful as a manual override for Vagaro-imported clients without a matching purchase record.
+
+Stored: `client.has_membership: boolean` (user-editable manual override).
+
+Displayed: derived in `usePaginatedClients` and rendered via `StatusBadge variant="client"`. Three states:
+
+- **Have Membership** (green) — `has_membership === true` OR client has a `payment_status: 'active'` purchase.
+- **Membership Ended** (red, **read-only badge**) — no active purchase AND `has_membership === false` AND client has at least one `payment_status: 'completed'` purchase (i.e. all packages they bought are used up).
+- **Don't Have Membership** (gray) — none of the above.
+
+In `ClientsCards.tsx` the "Membership Ended" state renders as a read-only badge, not the editable dropdown — staff can't transition into Ended manually (it's derived). To flip a client back, assign a new package or toggle `has_membership` from the client details modal.
+
+`MembershipHistoryTab.tsx` independently shows `Active` iff `activePurchasesCount > 0` for the per-tab card. Keep this aligned with the `usePaginatedClients` derivation if you change either.
+
+### Package + product + appointment linkage
+
+The `purchases` doc is the per-client instance of a package. Beyond the catalog fields (name, price, total_sessions, treatments), the purchase carries:
+
+- `sessions_remaining: number` — aggregate counter (the source for "X / Y sessions used" displays).
+- `sessions_by_treatment?: [{ treatment_id, total, remaining }]` — per-treatment slot tracking for multi-treatment packages (e.g. "5 hydra + 4 microneedling"). When this array is present, aggregate `sessions_remaining = sum(slots[].remaining)`. `decrementSessionForAppointment` (`src/lib/sessionDecrement.ts`) and the `PurchaseManagementModal` save path both keep these in sync.
+- `product_snapshot?: [{ product_id, product_name, quantity, price }]` — products bundled with the package.
+- `description_override?: string | null` — per-purchase description override. Reads should be `purchase.description_override ?? package.description ?? ''`. Implemented in `useClientPackages.ts`. Edits in `PurchaseManagementModal.tsx` write only to the purchase doc — never mutate the catalog `packages/{id}` template, which would affect every client holding that package.
+
+The `productAssignments` doc has an optional `purchase_id: string | null` that links a product delivery to the package it came from. The Packages tab on the client card joins on this to compute "X / Y given" and "N owed" per product. `ManageClientProductsModal.tsx` has a "From package" select that writes this field.
+
+The `appointments` doc has these package-linkage fields (all optional, set when the appointment consumes a package session):
+
+- `purchase_id: string | null` — points at the purchase whose session was used. Presence = the appointment is "from a package".
+- `package_id: string | null` and `package_name: string | null` — denormalized at write time so history rows can render "From {package_name}" even after the package is renamed or expired. Both `AppointmentFormModal` (Book Treatment) and the past-log dialog in `EnhancedClientDetailsModal` set these.
+- `session_used: boolean` — true when this appointment counted against a package. Drives the badge rendering and the conditional decrement in `handleStatusChange`.
+- `is_manual_entry: boolean` — only true for "Log Past Treatment" entries.
+
+The past-log save path uses `runTransaction` to write the appointment + decrement the purchase atomically. Don't replace it with sequential writes — a partial failure leaves the package counter wrong.
+
+### Invoice flow — Edit → Preview → Issue + Drafts
+
+`CreateInvoiceDialog.tsx` runs in three internal modes:
+
+- **Edit** — line items, client, payment method, notes. "Save as Draft" persists state to `organizations/{orgId}/invoiceDrafts/{id}` via `useInvoiceDrafts`; "Drafts" drawer in the footer lists, continues, or deletes existing drafts.
+- **Preview** — builds a synthetic `Invoice`-shaped object client-side (totals + tax from `config/businessInfo`, snapshots from selected client + business). Renders the same `buildInvoicePdf` blob into an `<iframe>` alongside a line-item summary. **No Firestore write happens at this step.**
+- **Issuing** — calls the existing `createInvoice` Cloud Function unchanged (sequential numbering, atomic counter, idempotency by `purchase_id` or `idempotency_key` all preserved). On success, `deleteDraft(currentDraftId)` if applicable, then `buildInvoicePdf` + `uploadInvoicePdf` as before.
+
+Drafts deliberately exclude `invoice_number`, `issued_at`, totals, and snapshots — those are computed server-side at issue time. The server is still the source of truth; preview is purely a client-side dry run that may differ slightly if the tax rate changes between preview and issue.
+
+### Add Client dedup
+
+`AddClientModal.tsx` matches against the in-memory `useClients().clients` list as staff type:
+
+- Name: case-insensitive `includes`/`startsWith`, requires ≥2 chars. Soft match → amber alert.
+- Email: exact match on normalized email. Hard match → red alert + confirm prompt on submit.
+- Phone: exact match on digits-only. Hard match → red alert + confirm prompt on submit.
+
+The "Open" button on each match closes the Add modal and opens the existing client's details via `onOpenExistingClient` (wired through `ClientsModals.tsx` and `Clients.tsx` to `handleViewDetails`). Submit is never hard-blocked — the dedup is advisory; a confirm dialog appears for red-level matches but staff can always choose "Add Anyway".
 
 ### Field naming — snake_case vs camelCase
 The codebase has two naming conventions, left over from the Supabase → Firebase migration. Honor the convention already used by the collection; do not mix.
@@ -377,6 +445,7 @@ These were hardened in the 2026-04-21 audit pass. Do not weaken any of them with
 - **Callable functions**: always check `request.auth`, load the caller's `users/{uid}`, verify `organizationId` + role, then call `consumeRateLimit(org, action, limit)` before side-effects that cost money (SMS/email/external API).
 - **Webhook endpoints** (`acuityWebhook`): HMAC-verify the signature with `crypto.timingSafeEqual` **before** processing payload. Each org must configure its own `webhook_secret` in `acuitySyncConfig`.
 - **Invoices**: `create: false` (CF-only), `delete: false` (audit trail), `update` allows admins to set **only** `pdf_url` + `pdf_storage_path` and only while `pdf_url` is currently `null`. All monetary fields + snapshots are frozen at issue time. Invoice numbers are per-org sequential (`INV-00001`), managed by `createInvoice`. Gaps are expected (voided invoices don't renumber).
+- **`invoiceDrafts`**: admin-only CRUD; create requires `created_by == request.auth.uid`. No invoice number is assigned to drafts — they're pre-issue scratch state that gets deleted when the user clicks "Issue Invoice". Drafts do NOT bypass the immutability guarantees of `invoices/{id}` — issue still goes through `createInvoice`.
 - **`config/invoiceCounter`**: `write: if false` at rule level (via `configId != 'invoiceCounter'` exclusion in the general config rule). Only the `createInvoice` Admin-SDK Cloud Function may increment it.
 - **Storage `invoices/{orgId}/`**: admin-only read + write, PDFs only, 5MB cap.
 
