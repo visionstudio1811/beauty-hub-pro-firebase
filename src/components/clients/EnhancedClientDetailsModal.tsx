@@ -66,9 +66,11 @@ interface DatabasePurchase {
   purchase_date: string;
   payment_status: string;
   sessions_remaining: number;
+  description_override?: string | null;
   packages: {
     name: string;
     total_sessions: number;
+    description?: string | null;
   } | null;
   product_snapshot?: { product_id: string; product_name: string; quantity: number; price: number }[];
   sessions_by_treatment?: SessionSlot[];
@@ -259,7 +261,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             const pkgSnap = await getDoc(doc(db, 'organizations', currentOrganization.id, 'packages', data.package_id));
             if (pkgSnap.exists()) {
               const p = pkgSnap.data();
-              pkg = { name: p.name || '', total_sessions: p.total_sessions || 0 };
+              pkg = {
+                name: p.name || '',
+                total_sessions: p.total_sessions || 0,
+                description: p.description ?? null,
+              };
             }
           }
           return {
@@ -269,6 +275,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             purchase_date: data.purchase_date ?? '',
             payment_status: data.payment_status ?? '',
             sessions_remaining: data.sessions_remaining ?? 0,
+            description_override: data.description_override ?? null,
             packages: pkg,
             product_snapshot: Array.isArray(data.product_snapshot) ? data.product_snapshot : undefined,
             sessions_by_treatment: Array.isArray(data.sessions_by_treatment) ? data.sessions_by_treatment : undefined,
@@ -1138,6 +1145,11 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                   <p className="text-sm text-muted-foreground">
                                     Package • ${Number(purchase.total_amount || 0)}
                                   </p>
+                                  {(purchase.description_override ?? purchase.packages?.description) && (
+                                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                                      {purchase.description_override ?? purchase.packages?.description}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-right">
