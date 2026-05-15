@@ -73,6 +73,10 @@ const Clients = () => {
     setPurchaseFilter,
     viewMode,
     setViewMode,
+    sortField,
+    setSortField,
+    sortDir,
+    setSortDir,
     page,
     setPage,
   } = useClientFilters();
@@ -89,6 +93,8 @@ const Clients = () => {
     searchTerm,
     filterStatus,
     purchaseFilter: isAdmin ? purchaseFilter : 'all',
+    sortField,
+    sortDir,
     page,
     version: mutationVersion,
   });
@@ -215,6 +221,10 @@ const Clients = () => {
             setPurchaseFilter={setPurchaseFilter}
             viewMode={viewMode}
             setViewMode={setViewMode}
+            sortField={sortField}
+            setSortField={setSortField}
+            sortDir={sortDir}
+            setSortDir={setSortDir}
           />
         </div>
 

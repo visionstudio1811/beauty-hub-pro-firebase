@@ -9,7 +9,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Client } from '@/contexts/ClientsContext';
-import type { PurchaseFilter } from '@/hooks/useClientFilters';
+import type { PurchaseFilter, SortField, SortDir } from '@/hooks/useClientFilters';
 
 export const PAGE_SIZE = 25;
 
@@ -17,6 +17,8 @@ interface UsePaginatedClientsParams {
   searchTerm: string;
   filterStatus: string;
   purchaseFilter?: PurchaseFilter;
+  sortField?: SortField;
+  sortDir?: SortDir;
   page: number;
   version?: number;
 }
@@ -38,10 +40,17 @@ interface ClientAggregates {
   hasProducts: boolean;
 }
 
+interface SessionSlot {
+  total?: number;
+  remaining?: number;
+}
+
 export const usePaginatedClients = ({
   searchTerm,
   filterStatus,
   purchaseFilter = 'all',
+  sortField = 'created',
+  sortDir = 'desc',
   page,
   version = 0,
 }: UsePaginatedClientsParams): UsePaginatedClientsResult => {
@@ -69,9 +78,16 @@ export const usePaginatedClients = ({
         const orgId = currentOrganization.id;
         const orgPath = ['organizations', orgId] as const;
 
-        // Parallel fetch: clients + appointments + purchases.
-        // Aggregates are computed in memory and joined by client_id.
-        const [clientsSnap, appointmentsSnap, purchasesSnap, productAssignmentsSnap] = await Promise.all([
+        // Parallel fetch: clients + appointments + purchases + product assignments + packages.
+        // Packages give us total_sessions per package_id so we can compute
+        // sessions-used per purchase (total_sessions - sessions_remaining).
+        const [
+          clientsSnap,
+          appointmentsSnap,
+          purchasesSnap,
+          productAssignmentsSnap,
+          packagesSnap,
+        ] = await Promise.all([
           getDocs(query(
             collection(db, ...orgPath, 'clients'),
             orderBy('created_at', 'desc'),
@@ -85,9 +101,19 @@ export const usePaginatedClients = ({
             where('payment_status', 'in', ['completed', 'active']),
           )),
           getDocs(collection(db, ...orgPath, 'productAssignments')),
+          getDocs(collection(db, ...orgPath, 'packages')),
         ]);
 
         if (cancelled) return;
+
+        // Catalog map: package_id → total_sessions. Purchases don't store
+        // total_sessions on the doc itself, so we look it up from the catalog
+        // to compute sessions used (= total - remaining) for the visits count.
+        const packageTotalSessions = new Map<string, number>();
+        packagesSnap.forEach((d) => {
+          const data = d.data();
+          packageTotalSessions.set(d.id, Number(data.total_sessions || 0));
+        });
 
         const aggregates = new Map<string, ClientAggregates>();
         const ensure = (id: string): ClientAggregates => {
@@ -107,18 +133,28 @@ export const usePaginatedClients = ({
           return agg;
         };
 
+        // Standalone appointments (not tied to a purchase) count as a visit
+        // directly. Package-linked appointments are captured via the purchase's
+        // sessions_used below — counting both would double-count.
         appointmentsSnap.forEach((d) => {
           const data = d.data();
           const clientId = data.client_id;
           if (!clientId) return;
           const agg = ensure(clientId);
-          agg.totalVisits += 1;
+          // Always track lastVisit from any completed appointment.
           const apptDate: string = data.appointment_date ?? '';
           if (apptDate && apptDate > agg.lastVisit) {
             agg.lastVisit = apptDate;
           }
+          if (!data.purchase_id) {
+            agg.totalVisits += 1;
+          }
         });
 
+        // For each purchase, count sessions_used = total - remaining toward the
+        // client's visits. This captures both appointment-driven decrements
+        // (handled atomically in decrementSessionForAppointment) and manual
+        // session edits in PurchaseManagementModal.
         purchasesSnap.forEach((d) => {
           const data = d.data();
           if (data.deleted_at) return;
@@ -126,17 +162,32 @@ export const usePaginatedClients = ({
           if (!clientId) return;
           const agg = ensure(clientId);
           agg.totalRevenue += Number(data.total_amount || 0);
-          // A purchase doc with a package_id means the client bought a package.
-          // Without one (e.g., legacy/standalone purchase rows) we still count
-          // it as a "package" purchase since it's not a productAssignment.
           agg.hasPackages = true;
-          // Track active vs completed separately so we can derive a "Membership
-          // Ended" status for clients whose packages are all used up.
           if (data.payment_status === 'active') {
             agg.hasActivePackage = true;
           } else if (data.payment_status === 'completed') {
             agg.hasCompletedPackage = true;
           }
+
+          // Sessions used: prefer per-treatment slots when present (they carry
+          // per-purchase totals so we don't need the catalog), otherwise fall
+          // back to the catalog package's total_sessions.
+          let sessionsUsed = 0;
+          const slots = Array.isArray(data.sessions_by_treatment)
+            ? (data.sessions_by_treatment as SessionSlot[])
+            : null;
+          if (slots && slots.length > 0) {
+            for (const slot of slots) {
+              const t = Number(slot.total || 0);
+              const r = Number(slot.remaining || 0);
+              if (t > r) sessionsUsed += t - r;
+            }
+          } else {
+            const total = packageTotalSessions.get(data.package_id) ?? 0;
+            const remaining = Number(data.sessions_remaining || 0);
+            if (total > remaining) sessionsUsed = total - remaining;
+          }
+          agg.totalVisits += sessionsUsed;
         });
 
         // Standalone product assignments (no parent purchase) also count toward
@@ -159,12 +210,6 @@ export const usePaginatedClients = ({
             const data = d.data();
             const agg = aggregates.get(d.id);
             const hasMembership = data.has_membership ?? false;
-            // Derive membership status from purchase lifecycle. The has_membership
-            // flag stays as a manual override (e.g. Vagaro-imported clients with
-            // no purchase record) but lifecycle is the source of truth:
-            //   active package OR override → Have Membership
-            //   only completed packages    → Membership Ended (red)
-            //   nothing                    → Don't Have Membership
             let status: string;
             if (hasMembership || agg?.hasActivePackage) {
               status = 'Have Membership';
@@ -215,8 +260,7 @@ export const usePaginatedClients = ({
           );
         }
 
-        // Apply status filter (now matches the derived status string so
-        // "Membership Ended" can be filtered like the other two).
+        // Apply status filter
         if (filterStatus === 'Have Membership') {
           allClients = allClients.filter(c => c.status === 'Have Membership');
         } else if (filterStatus === 'Membership Ended') {
@@ -246,6 +290,32 @@ export const usePaginatedClients = ({
           });
         }
 
+        // Sort. Default (created/desc) matches the prior implicit order so a
+        // user who never touches the sort dropdown sees the same list as before.
+        const dirMul = sortDir === 'asc' ? 1 : -1;
+        const compareNum = (a: number, b: number) => (a - b) * dirMul;
+        const compareStr = (a: string, b: string) => {
+          // Empty strings sort to the end regardless of direction so clients
+          // with no visits / no last-visit don't crowd the top.
+          if (!a && !b) return 0;
+          if (!a) return 1;
+          if (!b) return -1;
+          return a < b ? -1 * dirMul : a > b ? 1 * dirMul : 0;
+        };
+        allClients.sort((a, b) => {
+          switch (sortField) {
+            case 'visits':
+              return compareNum(a.totalVisits ?? 0, b.totalVisits ?? 0);
+            case 'revenue':
+              return compareNum(a.totalRevenue ?? 0, b.totalRevenue ?? 0);
+            case 'lastVisit':
+              return compareStr(a.lastVisit || '', b.lastVisit || '');
+            case 'created':
+            default:
+              return compareStr(a.created_at || '', b.created_at || '');
+          }
+        });
+
         const total = allClients.length;
         const from = (page - 1) * PAGE_SIZE;
         const paginated = allClients.slice(from, from + PAGE_SIZE);
@@ -267,7 +337,7 @@ export const usePaginatedClients = ({
     return () => {
       cancelled = true;
     };
-  }, [currentOrganization?.id, searchTerm, filterStatus, purchaseFilter, page, version, fetchTick]);
+  }, [currentOrganization?.id, searchTerm, filterStatus, purchaseFilter, sortField, sortDir, page, version, fetchTick]);
 
   return { clients, totalCount, loading, refetch };
 };

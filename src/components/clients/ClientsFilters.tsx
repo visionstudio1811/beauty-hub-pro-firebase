@@ -5,8 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Search, Grid, List } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import type { SortField, SortDir } from '@/hooks/useClientFilters';
 
 type PurchaseFilter = 'all' | 'has_packages' | 'has_products' | 'has_both' | 'none';
+
+// Combined sort value packs field+direction into one <select> for compactness.
+type SortValue =
+  | 'created_desc' | 'created_asc'
+  | 'visits_desc' | 'visits_asc'
+  | 'revenue_desc' | 'revenue_asc'
+  | 'lastVisit_desc' | 'lastVisit_asc';
+
+const toSortValue = (field: SortField, dir: SortDir): SortValue =>
+  `${field}_${dir}` as SortValue;
+
+const fromSortValue = (v: SortValue): { field: SortField; dir: SortDir } => {
+  const [field, dir] = v.split('_') as [SortField, SortDir];
+  return { field, dir };
+};
 
 interface ClientsFiltersProps {
   searchTerm: string;
@@ -17,6 +33,10 @@ interface ClientsFiltersProps {
   setPurchaseFilter: (value: PurchaseFilter) => void;
   viewMode: 'table' | 'grid';
   setViewMode: (mode: 'table' | 'grid') => void;
+  sortField: SortField;
+  setSortField: (value: SortField) => void;
+  sortDir: SortDir;
+  setSortDir: (value: SortDir) => void;
 }
 
 export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
@@ -27,10 +47,42 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
   purchaseFilter,
   setPurchaseFilter,
   viewMode,
-  setViewMode
+  setViewMode,
+  sortField,
+  setSortField,
+  sortDir,
+  setSortDir,
 }) => {
   const isMobile = useIsMobile();
   const isAdmin = useIsAdmin();
+
+  const sortValue = toSortValue(sortField, sortDir);
+  const handleSortChange = (v: string) => {
+    const { field, dir } = fromSortValue(v as SortValue);
+    setSortField(field);
+    setSortDir(dir);
+  };
+
+  const sortSelect = (
+    <select
+      value={sortValue}
+      onChange={(e) => handleSortChange(e.target.value)}
+      className={
+        isMobile
+          ? 'w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm'
+          : 'px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm min-w-[180px]'
+      }
+    >
+      <option value="created_desc">Newest first</option>
+      <option value="created_asc">Oldest first</option>
+      <option value="visits_desc">Most visits</option>
+      <option value="visits_asc">Fewest visits</option>
+      <option value="revenue_desc">Highest revenue</option>
+      <option value="revenue_asc">Lowest revenue</option>
+      <option value="lastVisit_desc">Last visit (recent)</option>
+      <option value="lastVisit_asc">Last visit (oldest)</option>
+    </select>
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg border space-y-3 sm:space-y-0">
@@ -47,7 +99,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
               className="pl-10 h-11"
             />
           </div>
-          
+
           {/* Filters and View Toggle */}
           <div className="flex flex-col space-y-3">
             {/* Status Filter */}
@@ -76,6 +128,9 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 <option value="none">No purchases</option>
               </select>
             )}
+
+            {/* Sort */}
+            {sortSelect}
 
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 rounded-md overflow-hidden">
@@ -115,7 +170,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
           </div>
 
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center flex-wrap">
             {/* Status Filter */}
             <select
               value={filterStatus}
@@ -142,6 +197,9 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 <option value="none">No purchases</option>
               </select>
             )}
+
+            {/* Sort */}
+            {sortSelect}
 
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 rounded-md overflow-hidden">
