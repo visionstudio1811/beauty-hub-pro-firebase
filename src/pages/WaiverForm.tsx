@@ -209,9 +209,9 @@ async function uploadPdf(blob: Blob, token: string): Promise<string> {
   return res.data.url;
 }
 
-async function uploadWaiverImage(file: File, token: string, blockId: string, index: number): Promise<string> {
-  const fileBase64 = await blobToBase64(file);
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+async function uploadWaiverImage(image: StagedImage, token: string, blockId: string, index: number): Promise<string> {
+  const fileBase64 = await blobToBase64(image.blob);
+  const safeName = image.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const upload = httpsCallable<
     { token: string; fileBase64: string; contentType: string; kind: 'photo'; filename: string },
     { url: string }
@@ -219,19 +219,41 @@ async function uploadWaiverImage(file: File, token: string, blockId: string, ind
   const res = await upload({
     token,
     fileBase64,
-    contentType: file.type,
+    contentType: image.type,
     kind: 'photo',
     filename: `${blockId}-${index}-${safeName}`,
   });
   return res.data.url;
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+// Android Chrome revokes the OS-level URI permission for picked files after
+// a short delay. Reading them at submit time (after the user has signed,
+// scrolled, etc.) throws "NotReadableError". Copy the bytes into a JS-owned
+// Blob right when the user picks the file so the upload at submit time uses
+// an in-memory reference that no OS permission gate can revoke.
+type StagedImage = {
+  name: string;
+  type: string;
+  size: number;
+  blob: Blob;
+};
+
+async function detachFile(file: File): Promise<StagedImage> {
+  const buf = await file.arrayBuffer();
+  return {
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    blob: new Blob([buf], { type: file.type }),
+  };
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error(reader.error?.message || `Failed to read ${file.name}`));
-    reader.readAsDataURL(file);
+    reader.onerror = () => reject(new Error(reader.error?.message || 'Failed to read image'));
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -439,7 +461,7 @@ export default function WaiverForm() {
   const [mainConsent, setMainConsent] = useState(false);
   const [showMainDisclosure, setShowMainDisclosure] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string | boolean | string[]>>({});
-  const [imageFiles, setImageFiles] = useState<Record<string, File[]>>({});
+  const [imageFiles, setImageFiles] = useState<Record<string, StagedImage[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [capturedSig, setCapturedSig] = useState<string | null>(null);
@@ -620,7 +642,7 @@ export default function WaiverForm() {
     setErrors((prev) => { const next = { ...prev }; delete next[blockId]; return next; });
   };
 
-  const setBlockImages = (blockId: string, files: File[]) => {
+  const setBlockImages = (blockId: string, files: StagedImage[]) => {
     setImageFiles((prev) => ({ ...prev, [blockId]: files }));
     setErrors((prev) => { const next = { ...prev }; delete next[blockId]; return next; });
   };
@@ -687,7 +709,7 @@ export default function WaiverForm() {
         if (block.type !== 'image_upload') continue;
         const files = imageFiles[block.id] ?? [];
         if (files.length === 0) continue;
-        const rawDataUrls = await Promise.all(files.map(fileToDataUrl));
+        const rawDataUrls = await Promise.all(files.map((f) => blobToDataUrl(f.blob)));
         imageDataUrls[block.id] = await Promise.all(rawDataUrls.map((d) => compressImageDataUrl(d)));
         finalAnswers[block.id] = await Promise.all(
           files.map((f, i) => uploadWaiverImage(f, token!, block.id, i))
@@ -1000,8 +1022,8 @@ function BlockRenderer({
   block: WaiverBlock;
   answer: string | boolean | string[] | undefined;
   onAnswer: (v: string | boolean | string[]) => void;
-  images: File[];
-  onImagesChange: (files: File[]) => void;
+  images: StagedImage[];
+  onImagesChange: (files: StagedImage[]) => void;
   error?: string;
   cityOptions: string[];
   referralOptions: string[];
@@ -1228,7 +1250,7 @@ function BlockRenderer({
     const max = block.maxImages ?? DEFAULT_MAX_IMAGES;
     const remaining = Math.max(0, max - images.length);
 
-    const handleFiles = (list: FileList | null) => {
+    const handleFiles = async (list: FileList | null) => {
       if (!list) return;
       const incoming = Array.from(list);
       const accepted: File[] = [];
@@ -1239,9 +1261,23 @@ function BlockRenderer({
         if (!f.type.startsWith('image/')) continue;
         accepted.push(f);
       }
-      onImagesChange([...images, ...accepted]);
+      // Read bytes into a JS-owned Blob now, while the OS URI permission is
+      // still valid. Android Chrome will revoke it later otherwise.
+      const staged: StagedImage[] = [];
+      const failed: string[] = [];
+      for (const f of accepted) {
+        try {
+          staged.push(await detachFile(f));
+        } catch {
+          failed.push(f.name);
+        }
+      }
+      if (staged.length > 0) onImagesChange([...images, ...staged]);
       if (tooBig.length > 0) {
         alert(`Skipped (over 10 MB): ${tooBig.join(', ')}`);
+      }
+      if (failed.length > 0) {
+        alert(`Could not read: ${failed.join(', ')}. Try again from your camera or gallery.`);
       }
     };
 
@@ -1262,7 +1298,7 @@ function BlockRenderer({
             {images.map((file, idx) => (
               <div key={idx} className="relative group rounded-lg overflow-hidden border border-border bg-muted/30 aspect-square">
                 <img
-                  src={URL.createObjectURL(file)}
+                  src={URL.createObjectURL(file.blob)}
                   alt={`Upload ${idx + 1}`}
                   className="w-full h-full object-cover"
                 />
