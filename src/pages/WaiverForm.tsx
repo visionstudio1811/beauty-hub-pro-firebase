@@ -755,8 +755,8 @@ export default function WaiverForm() {
     <Screen>
       <AlertCircle className="h-10 w-10 text-amber-500 mb-3" />
       <h2 className="text-lg font-semibold">Connection error</h2>
-      <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">Could not load the form. Check your connection and try again.</p>
-      <p className="text-xs text-muted-foreground mt-2 text-center max-w-xs opacity-60">{loadError}</p>
+      <p className="text-sm text-gray-700 mt-1 text-center max-w-xs">Could not load the form. Check your connection and try again.</p>
+      <p className="text-xs text-gray-600 mt-2 text-center max-w-xs">{loadError}</p>
       <button
         onClick={() => loadWaiver()}
         className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
@@ -769,26 +769,26 @@ export default function WaiverForm() {
     <Screen>
       <AlertCircle className="h-10 w-10 text-destructive mb-3" />
       <h2 className="text-lg font-semibold">Link not found</h2>
-      <p className="text-sm text-muted-foreground mt-1">This waiver link is invalid or has expired.</p>
+      <p className="text-sm text-gray-700 mt-1">This waiver link is invalid or has expired.</p>
     </Screen>
   );
   if (alreadySigned) return (
     <Screen>
       <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
       <h2 className="text-lg font-semibold">Already submitted</h2>
-      <p className="text-sm text-muted-foreground mt-1">This waiver has already been signed. Thank you!</p>
+      <p className="text-sm text-gray-700 mt-1">This waiver has already been signed. Thank you!</p>
     </Screen>
   );
   if (expired) return (
     <Screen>
       <AlertCircle className="h-10 w-10 text-destructive mb-3" />
       <h2 className="text-lg font-semibold">Link expired</h2>
-      <p className="text-sm text-muted-foreground mt-1">This waiver link has expired. Please contact the business for a new link.</p>
+      <p className="text-sm text-gray-700 mt-1">This waiver link has expired. Please contact the business for a new link.</p>
     </Screen>
   );
   if (needsOtp && !otpVerified) return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center py-8 px-4">
-      <div className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+    <div className="min-h-screen bg-white flex items-center justify-center py-8 px-4">
+      <div className="max-w-sm w-full bg-white rounded-2xl shadow-md border border-border overflow-hidden">
         <div className="bg-primary px-6 py-5">
           <h1 className="text-white text-xl font-bold">Verify your identity</h1>
           <p className="text-primary-foreground/80 text-sm mt-1">Enter the 6-digit code sent to your phone.</p>
@@ -812,7 +812,7 @@ export default function WaiverForm() {
           <Button className="w-full" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length !== 6}>
             {otpLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verifying…</> : 'Verify & Open Form'}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-gray-700 text-center">
             Didn't receive a code? Contact the salon to resend the form.
           </p>
         </div>
@@ -824,15 +824,15 @@ export default function WaiverForm() {
     <Screen>
       <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
       <h2 className="text-xl font-semibold">Thank you, {signerName.split(' ')[0]}!</h2>
-      <p className="text-sm text-muted-foreground mt-2">Your waiver has been signed and saved. You may close this page.</p>
+      <p className="text-sm text-gray-700 mt-2">Your waiver has been signed and saved. You may close this page.</p>
     </Screen>
   );
 
   if (!waiver) return null;
 
   return (
-    <div className="min-h-screen bg-muted/30 py-8 px-4">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+    <div className="min-h-screen bg-white py-8 px-4">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md border border-border overflow-hidden">
         {/* Header */}
         <div className="bg-primary px-6 py-5">
           <h1 className="text-white text-xl font-bold">
@@ -949,7 +949,7 @@ export default function WaiverForm() {
                 </div>
               </div>
             ) : (
-              <div ref={canvasContainerRef} className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-border'}`}>
+              <div ref={canvasContainerRef} className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-gray-400'}`}>
                 <SignatureCanvas
                   ref={sigRef}
                   penColor="#1e1e2e"
@@ -957,10 +957,9 @@ export default function WaiverForm() {
                     className: 'w-full',
                     style: {
                       height: 140,
-                      background: '#fafafa',
+                      background: '#ffffff',
                       touchAction: 'none',
                       pointerEvents: mainConsent ? 'auto' : 'none',
-                      opacity: mainConsent ? 1 : 0.5,
                     },
                   }}
                   onEnd={() => {
@@ -971,8 +970,8 @@ export default function WaiverForm() {
                   }}
                 />
                 {!mainConsent && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-100/70">
+                    <span className="text-sm font-medium text-gray-800 bg-white px-3 py-1.5 rounded-full border border-gray-300 shadow-sm">
                       Check the box above to enable signing
                     </span>
                   </div>
@@ -983,14 +982,14 @@ export default function WaiverForm() {
               {errors['__sig'] ? (
                 <p className="text-xs text-destructive">{errors['__sig']}</p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-700">
                   {capturedSig ? 'Signature captured — scroll freely' : mainConsent ? 'Draw your signature above' : 'Consent required before signing'}
                 </p>
               )}
               <button
                 type="button"
                 onClick={() => { sigRef.current?.clear(); setCapturedSig(null); sigDataUrlRef.current = null; }}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1 text-xs text-gray-700 hover:text-foreground transition-colors"
                 disabled={!mainConsent && !capturedSig}
               >
                 <RotateCcw className="h-3 w-3" /> Re-sign
@@ -1001,7 +1000,7 @@ export default function WaiverForm() {
           </div>
 
           {submitError && (
-            <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+            <div className="rounded-lg bg-red-50 border-2 border-red-500 px-4 py-3 text-sm text-red-900 font-medium">
               {submitError}
             </div>
           )}
@@ -1030,7 +1029,7 @@ function BlockRenderer({
 }) {
   if (block.type === 'text') {
     return (
-      <div className="prose prose-sm max-w-none bg-muted/40 rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
+      <div className="prose prose-sm max-w-none bg-white border border-border rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
         {block.value}
       </div>
     );
@@ -1055,7 +1054,7 @@ function BlockRenderer({
   if (block.type === 'checkbox') {
     return (
       <div className="space-y-1">
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-white px-4 py-3">
           <Checkbox
             id={block.id}
             checked={answer === true}
@@ -1209,8 +1208,8 @@ function BlockRenderer({
     const lbl = block.label?.trim() || PURCHASE_BLOCK_LABELS[block.type];
     const value = typeof answer === 'string' ? answer : '—';
     return (
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
-        <span className="text-sm text-muted-foreground">{lbl}</span>
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-white px-4 py-3">
+        <span className="text-sm text-gray-700">{lbl}</span>
         <span className="text-sm font-medium text-foreground">{value}</span>
       </div>
     );
@@ -1296,7 +1295,7 @@ function BlockRenderer({
         {images.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {images.map((file, idx) => (
-              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border bg-muted/30 aspect-square">
+              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border bg-white aspect-square">
                 <img
                   src={URL.createObjectURL(file.blob)}
                   alt={`Upload ${idx + 1}`}
@@ -1321,11 +1320,11 @@ function BlockRenderer({
               error ? 'border-destructive' : 'border-border'
             }`}
           >
-            <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
+            <Upload className="h-5 w-5 text-gray-700" />
+            <span className="text-sm text-gray-700">
               Tap to add {images.length === 0 ? 'photo' : 'another photo'} ({remaining} left)
             </span>
-            <span className="text-xs text-muted-foreground">JPG, PNG — up to 10 MB each</span>
+            <span className="text-xs text-gray-600">JPG, PNG — up to 10 MB each</span>
             <input
               type="file"
               accept="image/*"
@@ -1337,7 +1336,7 @@ function BlockRenderer({
         )}
 
         {remaining === 0 && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <p className="text-xs text-gray-700 flex items-center gap-1">
             <ImageIcon className="h-3.5 w-3.5" /> Maximum of {max} image{max > 1 ? 's' : ''} reached
           </p>
         )}
@@ -1421,7 +1420,7 @@ function SignatureBlock({
           </div>
         </div>
       ) : (
-        <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-border'}`}>
+        <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-gray-400'}`}>
           <SignatureCanvas
             ref={ref}
             penColor="#1e1e2e"
@@ -1429,17 +1428,16 @@ function SignatureBlock({
               className: 'w-full',
               style: {
                 height: 140,
-                background: '#fafafa',
+                background: '#ffffff',
                 touchAction: 'none',
                 pointerEvents: consented ? 'auto' : 'none',
-                opacity: consented ? 1 : 0.5,
               },
             }}
             onEnd={capture}
           />
           {!consented && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-100/70">
+              <span className="text-sm font-medium text-gray-800 bg-white px-3 py-1.5 rounded-full border border-gray-300 shadow-sm">
                 Check the box above to enable signing
               </span>
             </div>
@@ -1451,14 +1449,14 @@ function SignatureBlock({
         {error ? (
           <p className="text-xs text-destructive">{error}</p>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-gray-700">
             {captured ? 'Signature captured — scroll freely' : consented ? 'Draw your signature above' : 'Consent required before signing'}
           </p>
         )}
         <button
           type="button"
           onClick={clear}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1 text-xs text-gray-700 hover:text-foreground transition-colors"
           disabled={!consented && !captured}
         >
           <RotateCcw className="h-3 w-3" /> Re-sign
@@ -1592,7 +1590,7 @@ function EsignDisclosureModal({ open, onClose }: { open: boolean; onClose: () =>
 // ── Centered screen wrapper ───────────────────────────────────
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-muted/30">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-white">
       <div className="flex flex-col items-center text-center max-w-sm">{children}</div>
     </div>
   );

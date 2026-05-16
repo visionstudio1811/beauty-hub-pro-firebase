@@ -34,8 +34,8 @@ export function TemplatePreviewModal({ title, headline, subHeadline, blocks }: P
           </DialogHeader>
 
           {/* Mimics the live WaiverForm layout */}
-          <div className="min-h-full bg-muted/30">
-            <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
+          <div className="min-h-full bg-white">
+            <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md border border-border overflow-hidden">
               {/* Header */}
               <div className="bg-primary px-6 py-5">
                 <h1 className="text-white text-xl font-bold">
@@ -85,7 +85,7 @@ function PreviewBlock({
 }) {
   if (block.type === 'text') {
     return (
-      <div className="prose prose-sm max-w-none bg-muted/40 rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
+      <div className="prose prose-sm max-w-none bg-white border border-border rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
         {block.value}
       </div>
     );
@@ -107,7 +107,7 @@ function PreviewBlock({
 
   if (block.type === 'checkbox') {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-white px-4 py-3">
         <Checkbox
           id={`prev-${block.id}`}
           checked={answer === true}
@@ -232,7 +232,7 @@ function PreviewBlock({
           <option value="">{placeholder}</option>
           <option value="__preview_other__">+ Other…</option>
         </select>
-        <p className="text-xs text-muted-foreground">Pulls live options from your client-card {block.type === 'city' ? 'cities' : 'referral sources'} when sent.</p>
+        <p className="text-xs text-gray-700">Pulls live options from your client-card {block.type === 'city' ? 'cities' : 'referral sources'} when sent.</p>
       </div>
     );
   }
@@ -260,7 +260,7 @@ function PreviewBlock({
           {block.label || 'Signature'}
           <span className="text-destructive ml-1">*</span>
         </Label>
-        <div className="flex items-center justify-center gap-2 h-[100px] rounded-lg border-2 border-dashed border-border bg-muted/30 text-muted-foreground text-sm">
+        <div className="flex items-center justify-center gap-2 h-[100px] rounded-lg border-2 border-dashed border-gray-400 bg-white text-gray-700 text-sm">
           <PenLine className="h-4 w-4" />
           Signature pad (interactive when sent to client)
         </div>
@@ -275,7 +275,7 @@ function PreviewBlock({
           {block.label || 'Upload photo(s)'}
           {block.required && <span className="text-destructive ml-1">*</span>}
         </Label>
-        <div className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-lg px-4 py-6 text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-400 rounded-lg px-4 py-6 text-gray-700">
           <Upload className="h-5 w-5" />
           <span className="text-sm">Image upload (up to {block.maxImages ?? 5} photos)</span>
         </div>
