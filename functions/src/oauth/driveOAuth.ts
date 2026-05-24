@@ -11,6 +11,7 @@ export const REDIRECT_URI = 'https://us-central1-beauty-hub-pro-app.cloudfunctio
 
 const ALLOWED_RETURN_ORIGINS = [
   'https://crm.lumiereut.com',
+  'https://crm.gayabeautyspa.com',
   'https://app.beautyhubpro.com',
   'https://beauty-hub-pro-app.web.app',
   'https://beautyhubpro.com',
