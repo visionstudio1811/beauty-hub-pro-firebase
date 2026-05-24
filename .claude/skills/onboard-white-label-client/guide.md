@@ -99,7 +99,49 @@ The `getDriveAuthUrl` callable validates the `returnTo` origin against a hardcod
 
 ---
 
-## Step 5 (optional) — DNS sanity check
+## Step 5 — Seed default waiver templates
+
+Every new org needs the standard intake and agreement-of-purchase templates. The masters live in the top-level `defaultWaiverTemplates` Firestore collection and use `{{ORG_NAME}}` as the brand token. The `seedOrgDefaultTemplates` callable substitutes the new org's name and copies them into `organizations/{orgId}/waiverTemplates/`.
+
+The callable is admin-only and enforces `caller.organizationId == request.organizationId`, so the easiest path is to seed via Admin SDK from a local script using the org ID directly. Run from the project root:
+
+```bash
+node -e "
+const admin = require('firebase-admin');
+admin.initializeApp({ projectId: 'beauty-hub-pro-app' });
+const db = admin.firestore();
+(async () => {
+  const ORG_ID = '<paste new org ID>';
+  const orgSnap = await db.collection('organizations').doc(ORG_ID).get();
+  const orgName = orgSnap.data().name;
+  const masters = await db.collection('defaultWaiverTemplates').get();
+  const target = db.collection('organizations').doc(ORG_ID).collection('waiverTemplates');
+  const existing = await target.get();
+  const haveKinds = new Set(existing.docs.map(d => d.data().kind));
+  for (const m of masters.docs) {
+    const data = m.data();
+    if (haveKinds.has(data.kind)) { console.log('skip', data.kind, '(exists)'); continue; }
+    const branded = JSON.parse(JSON.stringify(data).split('{{ORG_NAME}}').join(orgName));
+    branded.organization_id = ORG_ID;
+    branded.created_at = admin.firestore.FieldValue.serverTimestamp();
+    branded.updated_at = admin.firestore.FieldValue.serverTimestamp();
+    branded.updated_at_ts = Date.now();
+    branded.seeded_from = m.id;
+    const ref = await target.add(branded);
+    console.log('seeded', data.kind, '→', ref.id);
+  }
+  process.exit(0);
+})().catch(e => { console.error(e); process.exit(1); });
+"
+```
+
+The seed is idempotent — if a template of that kind already exists, it skips (won't overwrite).
+
+After seeding, verify in Firestore that `organizations/<orgId>/waiverTemplates/` contains one `kind: 'intake'` and one `kind: 'agreement'`, and that the brand name reads correctly inside `content[].value` and `content[].label` strings.
+
+---
+
+## Step 6 (optional) — DNS sanity check
 
 If the client uses Cloudflare, double-check before handing off:
 
@@ -119,6 +161,7 @@ Run all of these in incognito (to avoid stale auth):
 2. **Login works:** sign in with a staff account on the new domain. If you get `auth/unauthorized-domain`, Step 2 was skipped.
 3. **Client portal resolves:** `https://crm.<brand>.com/client` should show the client portal login (not "Portal not found"). If it errors, Step 3 was skipped or the field name is wrong.
 4. **Drive Connect works:** Marketing → Integrations → Drive Backup → **Connect Google Drive** → complete OAuth → should redirect back to `crm.<brand>.com` with a success toast. If you see `returnTo origin not allowed`, Step 4 was skipped or not deployed.
+5. **Templates seeded:** Settings → Waivers → there should be one "Intake" and one "Agreement of Purchase" template, both showing the new brand's name inside the body text (not Lumière). If they're missing, Step 5 was skipped.
 
 ---
 

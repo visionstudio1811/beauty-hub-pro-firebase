@@ -391,5 +391,14 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == userId;
       allow write: if false; // Cloud Functions only
     }
+
+    // Master copies of waiver/intake/agreement templates seeded into every new
+    // org by the seedOrgDefaultTemplates Cloud Function. Admin-only read so we
+    // can preview them from the CRM; writes are Admin SDK only to keep masters
+    // consistent across the platform. Use {{ORG_NAME}} as the brand token.
+    match /defaultWaiverTemplates/{templateId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
   }
 }
