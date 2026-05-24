@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 interface ClientProduct {
   id: string;
@@ -24,6 +25,11 @@ interface ClientProduct {
 
 export const useClientProducts = (clientId?: string) => {
   const { currentOrganization } = useOrganization();
+  // productAssignments + products are admin-only reads (firestore.rules).
+  // This data is only ever shown in the admin-only Packages tab, so gating
+  // the fetch on isAdmin avoids a permission-denied query when staff open
+  // the client modal.
+  const isAdmin = useIsAdmin();
 
   const { data: products = [], isLoading, error, refetch } = useQuery({
     queryKey: ['client-products', clientId, currentOrganization?.id],
@@ -76,7 +82,7 @@ export const useClientProducts = (clientId?: string) => {
 
       return results;
     },
-    enabled: !!clientId && !!currentOrganization?.id,
+    enabled: !!clientId && !!currentOrganization?.id && isAdmin,
   });
 
   return { products, isLoading, error, refetch };

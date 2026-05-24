@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Client } from '@/contexts/ClientsContext';
 import type { PurchaseFilter, SortField, SortDir } from '@/hooks/useClientFilters';
 
@@ -55,6 +56,9 @@ export const usePaginatedClients = ({
   version = 0,
 }: UsePaginatedClientsParams): UsePaginatedClientsResult => {
   const { currentOrganization } = useOrganization();
+  // productAssignments is an admin-only read (firestore.rules). Non-admin staff
+  // never see retail revenue in the UI, so the fetch below is skipped for them.
+  const isAdmin = useIsAdmin();
   const [clients, setClients] = useState<Client[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -81,6 +85,8 @@ export const usePaginatedClients = ({
         // Parallel fetch: clients + appointments + purchases + product assignments + packages.
         // Packages give us total_sessions per package_id so we can compute
         // sessions-used per purchase (total_sessions - sessions_remaining).
+        // productAssignments is admin-only at the rules level — non-admins
+        // skip it (it only feeds retail revenue, which they never see).
         const [
           clientsSnap,
           appointmentsSnap,
@@ -100,7 +106,9 @@ export const usePaginatedClients = ({
             collection(db, ...orgPath, 'purchases'),
             where('payment_status', 'in', ['completed', 'active']),
           )),
-          getDocs(collection(db, ...orgPath, 'productAssignments')),
+          isAdmin
+            ? getDocs(collection(db, ...orgPath, 'productAssignments'))
+            : Promise.resolve(null),
           getDocs(collection(db, ...orgPath, 'packages')),
         ]);
 
@@ -192,17 +200,20 @@ export const usePaginatedClients = ({
 
         // Standalone product assignments (no parent purchase) also count toward
         // client revenue — e.g. retail-only visits where no package was bought.
-        productAssignmentsSnap.forEach((d) => {
-          const data = d.data();
-          if (data.deleted_at) return;
-          const clientId = data.client_id;
-          if (!clientId) return;
-          const agg = ensure(clientId);
-          const price = Number(data.assigned_price || 0);
-          const qty = Number(data.quantity || 1);
-          agg.totalRevenue += price * qty;
-          agg.hasProducts = true;
-        });
+        // productAssignmentsSnap is null for non-admins (fetch skipped above).
+        if (productAssignmentsSnap) {
+          productAssignmentsSnap.forEach((d) => {
+            const data = d.data();
+            if (data.deleted_at) return;
+            const clientId = data.client_id;
+            if (!clientId) return;
+            const agg = ensure(clientId);
+            const price = Number(data.assigned_price || 0);
+            const qty = Number(data.quantity || 1);
+            agg.totalRevenue += price * qty;
+            agg.hasProducts = true;
+          });
+        }
 
         let allClients = clientsSnap.docs
           .filter(d => !d.data().deleted_at)
@@ -337,7 +348,7 @@ export const usePaginatedClients = ({
     return () => {
       cancelled = true;
     };
-  }, [currentOrganization?.id, searchTerm, filterStatus, purchaseFilter, sortField, sortDir, page, version, fetchTick]);
+  }, [currentOrganization?.id, isAdmin, searchTerm, filterStatus, purchaseFilter, sortField, sortDir, page, version, fetchTick]);
 
   return { clients, totalCount, loading, refetch };
 };

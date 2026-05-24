@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarIcon, Users, Mail, MessageSquare, Gift, UserCheck, RotateCcw } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -82,11 +82,33 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
     targetAudience: 'all',
     scheduleType: 'now' as 'now' | 'scheduled',
     scheduledDate: '',
-    scheduledTime: ''
+    scheduledTime: '',
+    smsProvider: '' as '' | 'twilio' | 'infobip',
   });
+  const [providerOptions, setProviderOptions] = useState<{ twilio: boolean; infobip: boolean }>({ twilio: false, infobip: false });
   const [isLoading, setIsLoading] = useState(false);
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (!open || !currentOrganization?.id) return;
+    const loadProviders = async () => {
+      const [twilioSnap, infobipSnap] = await Promise.all([
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'twilio')),
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'infobip')),
+      ]);
+      const twilioEnabled = twilioSnap.exists() && twilioSnap.data()?.is_enabled === true;
+      const infobipEnabled = infobipSnap.exists() && infobipSnap.data()?.is_enabled === true;
+      setProviderOptions({ twilio: twilioEnabled, infobip: infobipEnabled });
+      setFormData((prev) => {
+        if (prev.smsProvider) return prev;
+        if (infobipEnabled) return { ...prev, smsProvider: 'infobip' };
+        if (twilioEnabled) return { ...prev, smsProvider: 'twilio' };
+        return prev;
+      });
+    };
+    loadProviders();
+  }, [open, currentOrganization?.id]);
 
   React.useEffect(() => {
     if (selectedTemplate) {
@@ -113,6 +135,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
     setIsLoading(true);
     try {
       const now = new Date().toISOString();
+      const needsSms = formData.type === 'sms' || formData.type === 'both';
       const campaignData = {
         organization_id: currentOrganization.id,
         name: formData.name,
@@ -120,7 +143,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
         subject: formData.subject,
         content: formData.content,
         target_audience: formData.targetAudience,
-        status: formData.scheduleType === 'now' ? 'active' : 'scheduled',
+        status: formData.scheduleType === 'now' ? 'draft' : 'scheduled',
         scheduled_at: formData.scheduleType === 'scheduled'
           ? new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).toISOString()
           : null,
@@ -134,6 +157,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
         created_at: now,
         updated_at: now,
         created_at_ts: serverTimestamp(),
+        ...(needsSms && formData.smsProvider ? { sms_provider: formData.smsProvider } : {}),
       };
 
       await addDoc(
@@ -158,7 +182,8 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
         targetAudience: 'all',
         scheduleType: 'now',
         scheduledDate: '',
-        scheduledTime: ''
+        scheduledTime: '',
+        smsProvider: '',
       });
       setSelectedTemplate(null);
     } catch (error: any) {
@@ -295,6 +320,38 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                     placeholder="Enter email subject"
                   />
+                </div>
+              )}
+
+              {(formData.type === 'sms' || formData.type === 'both') && (
+                <div className="space-y-2">
+                  <Label htmlFor="smsProvider">SMS Provider</Label>
+                  <Select
+                    value={formData.smsProvider || undefined}
+                    onValueChange={(value: 'twilio' | 'infobip') =>
+                      setFormData(prev => ({ ...prev, smsProvider: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Auto (use enabled integration)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="infobip" disabled={!providerOptions.infobip}>
+                        Infobip {!providerOptions.infobip && '(not configured)'}
+                      </SelectItem>
+                      <SelectItem value="twilio" disabled={!providerOptions.twilio}>
+                        Twilio {!providerOptions.twilio && '(not configured)'}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!providerOptions.twilio && !providerOptions.infobip && (
+                    <p className="text-xs text-destructive">
+                      No SMS provider is enabled. Configure one in Marketing → Integrations.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    A "Reply STOP to unsubscribe" footer is added automatically to comply with carrier rules.
+                  </p>
                 </div>
               )}
 

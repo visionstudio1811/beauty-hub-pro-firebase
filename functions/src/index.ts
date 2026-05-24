@@ -1,4 +1,6 @@
 export { sendClientEmail } from './sendClientEmail';
+export { sendMarketingCampaign } from './sendMarketingCampaign';
+export { runScheduledCampaigns } from './scheduledCampaigns';
 export { sendWaiver } from './sendWaiver';
 export { deleteWaiver } from './deleteWaiver';
 export { notifyOrgOnWaiverSigned } from './notifyOrgOnWaiverSigned';

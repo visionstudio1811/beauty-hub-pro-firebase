@@ -153,7 +153,12 @@ service cloud.firestore {
       }
 
       match /products/{productId} {
-        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
+        // Retail catalog carries prices — admin-only read. Non-admin staff never
+        // surface product data in the UI (the Packages/Products tabs are
+        // admin-only), so locking the read here closes the gap where a staff
+        // user could pull prices directly via the SDK. Portal users still need
+        // product reads for their own retail history.
+        allow read: if (belongsToOrg(orgId) && isAdmin()) || hasClientPortalAccess(orgId);
         // Retail catalog — admin-only writes.
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
@@ -172,7 +177,10 @@ service cloud.firestore {
       }
 
       match /productAssignments/{assignmentId} {
-        allow read: if (belongsToOrg(orgId) && isBeautician())
+        // Carries assigned_price — admin-only read so non-admin staff cannot
+        // pull retail revenue via the SDK. A portal user may still read their
+        // own assignments. usePaginatedClients skips this fetch for non-admins.
+        allow read: if (belongsToOrg(orgId) && isAdmin())
                     || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
         // Retail assignment is a financial action — admin-only writes.
         allow create, update: if belongsToOrg(orgId) && isAdmin();

@@ -156,7 +156,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     notes: '',
     city: '',
     referral_source: '',
-    has_membership: false
+    has_membership: false,
+    sms_opt_out: false,
+    email_opt_out: false,
   });
   const [purchases, setPurchases] = useState<DatabasePurchase[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -212,7 +214,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         notes: client.notes || '',
         city: client.city || '',
         referral_source: client.referral_source || '',
-        has_membership: client.has_membership || false
+        has_membership: client.has_membership || false,
+        sms_opt_out: (client as { sms_opt_out?: boolean }).sms_opt_out === true,
+        email_opt_out: (client as { email_opt_out?: boolean }).email_opt_out === true,
       });
       fetchPurchases();
       fetchAppointments();
@@ -988,15 +992,41 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     </div>
                   </div>
                   {isEditing && isAdmin && (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="membership"
-                        checked={formData.has_membership}
-                        onChange={(e) => setFormData({...formData, has_membership: e.target.checked})}
-                        className="rounded"
-                      />
-                      <label htmlFor="membership" className="text-sm font-medium">Has Membership</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="membership"
+                          checked={formData.has_membership}
+                          onChange={(e) => setFormData({...formData, has_membership: e.target.checked})}
+                          className="rounded"
+                        />
+                        <label htmlFor="membership" className="text-sm font-medium">Has Membership</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="sms_opt_out"
+                          checked={formData.sms_opt_out}
+                          onChange={(e) => setFormData({...formData, sms_opt_out: e.target.checked})}
+                          className="rounded"
+                        />
+                        <label htmlFor="sms_opt_out" className="text-sm font-medium">
+                          Opted out of SMS marketing
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="email_opt_out"
+                          checked={formData.email_opt_out}
+                          onChange={(e) => setFormData({...formData, email_opt_out: e.target.checked})}
+                          className="rounded"
+                        />
+                        <label htmlFor="email_opt_out" className="text-sm font-medium">
+                          Opted out of email marketing
+                        </label>
+                      </div>
                     </div>
                   )}
                   <div className="flex flex-wrap gap-4 text-sm">

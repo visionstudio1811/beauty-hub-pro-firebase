@@ -8,12 +8,15 @@ import { CampaignCreationModal } from '@/components/marketing/CampaignCreationMo
 import { AutomationCreationModal } from '@/components/marketing/AutomationCreationModal';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Calendar, 
-  Users, 
-  TrendingUp, 
-  Mail, 
-  MessageSquare, 
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
+import {
+  Calendar,
+  Users,
+  TrendingUp,
+  Mail,
+  MessageSquare,
   Plus,
   BarChart3,
   Target,
@@ -41,6 +44,7 @@ interface Campaign {
   template_id: string | null;
   created_at: string;
   updated_at: string;
+  sms_provider?: 'twilio' | 'infobip';
 }
 
 interface Automation {
@@ -87,22 +91,114 @@ const Marketing = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-green-100 text-green-800';
       case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'sending': return 'bg-blue-100 text-blue-800';
       case 'draft': return 'bg-gray-100 text-gray-800';
       case 'paused': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Fetch campaigns and automations
-  const fetchCampaigns = async () => {
-    // Placeholder for now - tables will be available after migration
-    setCampaigns([]);
+  // Automations aren't persisted yet — the modal logs only. Keep stub.
+  const fetchAutomations = async () => {
+    setAutomations([]);
   };
 
-  const fetchAutomations = async () => {
-    // Placeholder for now - tables will be available after migration
-    setAutomations([]);
+  // Subscribe to live campaigns for the current org.
+  useEffect(() => {
+    if (!currentOrganization?.id) {
+      setCampaigns([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const q = query(
+      collection(db, 'organizations', currentOrganization.id, 'marketingCampaigns'),
+      orderBy('created_at', 'desc')
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const rows: Campaign[] = snap.docs.map((d) => {
+          const data = d.data() as Omit<Campaign, 'id'>;
+          return { id: d.id, ...data };
+        });
+        setCampaigns(rows);
+        setIsLoading(false);
+      },
+      (err) => {
+        console.error('Failed to load campaigns:', err);
+        setIsLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [currentOrganization?.id]);
+
+  const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
+  const [previewingCampaignId, setPreviewingCampaignId] = useState<string | null>(null);
+
+  const handlePreviewAudience = async (campaign: Campaign) => {
+    if (!currentOrganization?.id) return;
+    setPreviewingCampaignId(campaign.id);
+    try {
+      const callable = httpsCallable<
+        { campaignId: string; organizationId: string; dryRun: boolean },
+        { success: boolean; total_recipients: number; sms_provider?: string; sample_recipients: { id: string; name?: string; email?: string; phone?: string }[] }
+      >(functions, 'sendMarketingCampaign');
+      const result = await callable({
+        campaignId: campaign.id,
+        organizationId: currentOrganization.id,
+        dryRun: true,
+      });
+      const r = result.data;
+      const sample = r.sample_recipients
+        .map((c) => `• ${c.name || '(no name)'} — ${campaign.type === 'email' ? (c.email || 'no email') : (c.phone || 'no phone')}`)
+        .join('\n');
+      toast({
+        title: `${r.total_recipients} recipients will be contacted`,
+        description: `${r.sms_provider ? `Provider: ${r.sms_provider}\n` : ''}Sample:\n${sample || '(none)'}`,
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast({ title: 'Preview failed', description: msg, variant: 'destructive' });
+    } finally {
+      setPreviewingCampaignId(null);
+    }
+  };
+
+  const handleSendCampaign = async (campaign: Campaign) => {
+    if (!currentOrganization?.id) return;
+    const recipientNote = campaign.type === 'sms' || campaign.type === 'both'
+      ? '\n\nSMS is opt-out: only clients who have not opted out will receive the message.'
+      : '';
+    if (!window.confirm(`Send "${campaign.name}" now to all matching clients?${recipientNote}`)) return;
+
+    setSendingCampaignId(campaign.id);
+    try {
+      const callable = httpsCallable<{ campaignId: string; organizationId: string }, { success: boolean; total_recipients: number; sent: number; failed: number }>(
+        functions,
+        'sendMarketingCampaign'
+      );
+      const result = await callable({
+        campaignId: campaign.id,
+        organizationId: currentOrganization.id,
+      });
+      const r = result.data;
+      toast({
+        title: 'Campaign sent',
+        description: `${r.sent} delivered, ${r.failed} failed out of ${r.total_recipients} recipients.`,
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast({
+        title: 'Failed to send campaign',
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingCampaignId(null);
+    }
   };
 
   const fetchStats = async () => {
@@ -130,14 +226,8 @@ const Marketing = () => {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      await Promise.all([fetchCampaigns(), fetchAutomations()]);
-      setIsLoading(false);
-    };
-
     if (currentOrganization?.id) {
-      loadData();
+      fetchAutomations();
     }
   }, [currentOrganization?.id]);
 
@@ -155,7 +245,7 @@ const Marketing = () => {
   };
 
   const onCampaignCreated = () => {
-    fetchCampaigns();
+    // Live snapshot listener auto-updates; no manual refetch needed.
   };
 
   const onAutomationCreated = () => {
@@ -303,19 +393,56 @@ const Marketing = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {campaigns.map((campaign) => (
-                    <div key={campaign.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{campaign.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {campaign.type} • {campaign.sent_count} sent • {Math.round((campaign.opened_count / Math.max(campaign.sent_count, 1)) * 100)}% open rate
-                        </p>
+                  {campaigns.map((campaign) => {
+                    const canSend = (campaign.status === 'draft' || campaign.status === 'scheduled')
+                      && sendingCampaignId !== campaign.id;
+                    return (
+                      <div key={campaign.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">{campaign.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {campaign.type}
+                            {campaign.sms_provider ? ` (${campaign.sms_provider})` : ''}
+                            {' • '}
+                            {campaign.total_recipients ? `${campaign.sent_count}/${campaign.total_recipients} delivered` : 'not yet sent'}
+                            {campaign.failed_count > 0 ? ` • ${campaign.failed_count} failed` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(campaign.status)}>
+                            {campaign.status}
+                          </Badge>
+                          {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePreviewAudience(campaign)}
+                                disabled={previewingCampaignId === campaign.id || !canSend}
+                              >
+                                {previewingCampaignId === campaign.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  'Preview'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSendCampaign(campaign)}
+                                disabled={!canSend}
+                              >
+                                {sendingCampaignId === campaign.id ? (
+                                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</>
+                                ) : (
+                                  <><Send className="h-4 w-4 mr-2" />Send Now</>
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <Badge className={getStatusColor(campaign.status)}>
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

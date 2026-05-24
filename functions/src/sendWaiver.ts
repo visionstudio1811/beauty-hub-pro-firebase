@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { randomUUID, randomInt } from 'crypto';
 import { consumeRateLimit } from './rateLimit';
+import { sendSms, SmsProvider } from './lib/smsProviders';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -16,7 +17,6 @@ function escapeHtml(str: string): string {
 }
 
 type SendMode = 'sms' | 'email' | 'device';
-type SmsProvider = 'twilio' | 'infobip';
 
 interface SendWaiverRequest {
   clientId: string;
@@ -73,59 +73,6 @@ async function loadPurchaseSnapshot(
     purchaseDate: purchase.purchase_date ?? '',
     expiryDate: purchase.expiry_date ?? '',
   };
-}
-
-async function sendViaTwilio(
-  orgId: string,
-  to: string,
-  body: string,
-): Promise<void> {
-  const snap = await db
-    .collection('organizations').doc(orgId)
-    .collection('marketingIntegrations').doc('twilio')
-    .get();
-  if (!snap.exists || !snap.data()?.is_enabled)
-    throw new Error('Twilio integration not configured or disabled. Set it up in Marketing → Integrations.');
-  const cfg = snap.data()!.configuration as { accountSid: string; authToken: string; phoneNumber: string };
-  if (!cfg.accountSid || !cfg.authToken || !cfg.phoneNumber)
-    throw new Error('Twilio credentials incomplete.');
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${cfg.accountSid}/Messages.json`;
-  const creds = Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64');
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ From: cfg.phoneNumber, To: to, Body: body }).toString(),
-  });
-  if (!res.ok) throw new Error(`Twilio error: ${await res.text()}`);
-}
-
-async function sendViaInfobip(
-  orgId: string,
-  to: string,
-  body: string,
-): Promise<void> {
-  const snap = await db
-    .collection('organizations').doc(orgId)
-    .collection('marketingIntegrations').doc('infobip')
-    .get();
-  if (!snap.exists || !snap.data()?.is_enabled)
-    throw new Error('Infobip integration not configured or disabled. Set it up in Marketing → Integrations.');
-  const cfg = snap.data()!.configuration as { apiKey: string; sender: string; baseUrl: string };
-  if (!cfg.apiKey || !cfg.sender)
-    throw new Error('Infobip credentials incomplete.');
-  const base = (cfg.baseUrl || 'https://api.infobip.com').replace(/\/$/, '');
-  const res = await fetch(`${base}/sms/2/text/advanced`, {
-    method: 'POST',
-    headers: {
-      Authorization: `App ${cfg.apiKey}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      messages: [{ from: cfg.sender, destinations: [{ to }], text: body }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Infobip error: ${await res.text()}`);
 }
 
 export const sendWaiver = onCall(
@@ -294,11 +241,7 @@ export const sendWaiver = onCall(
       : `Hi ${firstName}, please ${kindAction} your ${kindLabel} for ${orgName} here: ${waiverUrl}`;
 
     try {
-      if (smsProvider === 'infobip') {
-        await sendViaInfobip(organizationId, client.phone, messageBody);
-      } else {
-        await sendViaTwilio(organizationId, client.phone, messageBody);
-      }
+      await sendSms(organizationId, client.phone, messageBody, smsProvider);
       return { success: true, message: `SMS sent via ${smsProvider}`, waiver_token: token, waiver_url: waiverUrl };
     } catch (err: unknown) {
       return { success: false, error: err instanceof Error ? err.message : String(err), waiver_token: token, waiver_url: waiverUrl };
