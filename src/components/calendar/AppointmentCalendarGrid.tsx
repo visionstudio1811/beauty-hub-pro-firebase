@@ -1,10 +1,15 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
+import { Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
 import type { Treatment } from '@/hooks/useSupabaseTreatments';
 import type { Staff } from '@/hooks/useSupabaseStaff';
@@ -84,6 +89,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
 }) => {
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(defaultDate ?? new Date());
+  const [visibleStaffIds, setVisibleStaffIds] = useState<Set<string>>(new Set());
 
   const treatmentColorById = useMemo(() => {
     const m = new Map<string, string>();
@@ -94,6 +100,37 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   }, [treatments]);
 
   const activeStaff = useMemo(() => staff.filter((s) => s.is_active), [staff]);
+
+  // Initialize / re-sync the visible-staff selection whenever the active staff
+  // list changes (org switch, new hire activated, etc). If the current
+  // selection still makes sense, keep it; otherwise default to "all visible".
+  useEffect(() => {
+    const allActiveIds = activeStaff.map((s) => s.id);
+    setVisibleStaffIds((prev) => {
+      if (prev.size === 0) return new Set(allActiveIds);
+      // Drop any stale IDs that are no longer active; if we'd be left with
+      // nothing, fall back to all visible.
+      const filtered = new Set(Array.from(prev).filter((id) => allActiveIds.includes(id)));
+      return filtered.size === 0 ? new Set(allActiveIds) : filtered;
+    });
+  }, [activeStaff]);
+
+  const allStaffSelected = visibleStaffIds.size === activeStaff.length && activeStaff.length > 0;
+
+  const toggleStaffVisible = useCallback((id: string) => {
+    setVisibleStaffIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllStaff = useCallback(
+    () => setVisibleStaffIds(new Set(activeStaff.map((s) => s.id))),
+    [activeStaff],
+  );
+  const clearStaff = useCallback(() => setVisibleStaffIds(new Set()), []);
 
   const events: CalendarEvent[] = useMemo(() => {
     return appointments
@@ -119,9 +156,23 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
 
   // Resource columns: only meaningful on day/week with multiple active staff.
   const useResources = showResources && activeStaff.length > 1 && (view === 'day' || view === 'week');
+
+  // Apply the staff filter to both the events and the resource columns so a
+  // hidden staff member disappears from the grid entirely (no empty column,
+  // no orphan events on the right side).
+  const visibleEvents = useMemo(() => {
+    if (allStaffSelected) return events;
+    return events.filter((e) => !e.resourceId || visibleStaffIds.has(e.resourceId));
+  }, [events, visibleStaffIds, allStaffSelected]);
+
   const resources = useMemo(
-    () => (useResources ? activeStaff.map((s) => ({ resourceId: s.id, resourceTitle: s.name })) : undefined),
-    [activeStaff, useResources],
+    () =>
+      useResources
+        ? activeStaff
+            .filter((s) => visibleStaffIds.has(s.id))
+            .map((s) => ({ resourceId: s.id, resourceTitle: s.name }))
+        : undefined,
+    [activeStaff, useResources, visibleStaffIds],
   );
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
@@ -168,18 +219,80 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
     return d;
   }, [date]);
 
+  const showStaffFilter = activeStaff.length > 1;
+
   return (
-    <div className="rbc-shadcn-wrap" style={{ height }}>
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        titleAccessor="title"
-        resourceIdAccessor="resourceId"
-        resourceTitleAccessor="resourceTitle"
-        resources={resources}
-        views={['day', 'week', 'month']}
+    <div className="rbc-shadcn-wrap flex flex-col" style={{ height }}>
+      {showStaffFilter && (
+        <div className="flex items-center justify-end pb-2 gap-2 flex-wrap">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8">
+                <Users className="h-3.5 w-3.5 mr-2" />
+                Staff
+                <Badge variant="secondary" className="ml-2 px-1.5 text-xs font-normal">
+                  {visibleStaffIds.size}/{activeStaff.length}
+                </Badge>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="end">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">Show staff</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={selectAllStaff}
+                    disabled={allStaffSelected}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={clearStaff}
+                    disabled={visibleStaffIds.size === 0}
+                  >
+                    None
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {activeStaff.map((s) => {
+                  const checked = visibleStaffIds.has(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 hover:bg-accent transition-colors"
+                    >
+                      <Checkbox checked={checked} onCheckedChange={() => toggleStaffVisible(s.id)} />
+                      <span className="text-sm truncate">{s.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {visibleStaffIds.size === 0 && (
+                <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                  Nothing selected — calendar is empty. Click All to restore.
+                </p>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
+      <div className="flex-1 min-h-0">
+        <Calendar
+          localizer={localizer}
+          events={visibleEvents}
+          startAccessor="start"
+          endAccessor="end"
+          titleAccessor="title"
+          resourceIdAccessor="resourceId"
+          resourceTitleAccessor="resourceTitle"
+          resources={resources}
+          views={['day', 'week', 'month']}
         view={view}
         date={date}
         onView={setView}
@@ -192,11 +305,12 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         onSelectSlot={handleSelectSlot}
         onSelectEvent={handleSelectEvent}
         eventPropGetter={eventPropGetter}
-        popup
-        showMultiDayTimes
-        dayLayoutAlgorithm="no-overlap"
-        style={{ height: '100%' }}
-      />
+          popup
+          showMultiDayTimes
+          dayLayoutAlgorithm="no-overlap"
+          style={{ height: '100%' }}
+        />
+      </div>
     </div>
   );
 };
