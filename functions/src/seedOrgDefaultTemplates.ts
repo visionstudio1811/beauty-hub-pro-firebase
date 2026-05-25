@@ -63,35 +63,36 @@ export const seedOrgDefaultTemplates = onCall(async (request) => {
     );
   }
 
-  const masters = await db.collection('defaultWaiverTemplates').get();
-  if (masters.empty) {
+  // ---------- waiver/intake/agreement templates ----------
+  const templateMasters = await db.collection('defaultWaiverTemplates').get();
+  if (templateMasters.empty) {
     throw new HttpsError(
       'failed-precondition',
       'No master templates found in defaultWaiverTemplates collection.',
     );
   }
 
-  const targetCol = orgRef.collection('waiverTemplates');
-  const existing = await targetCol.get();
+  const templateCol = orgRef.collection('waiverTemplates');
+  const existingTemplates = await templateCol.get();
   const existingKinds = new Set<string>();
-  const existingByKind = new Map<string, string>();
-  existing.forEach((doc) => {
+  const existingTemplateByKind = new Map<string, string>();
+  existingTemplates.forEach((doc) => {
     const k = (doc.data().kind as string | undefined) ?? '';
     if (k) {
       existingKinds.add(k);
-      existingByKind.set(k, doc.id);
+      existingTemplateByKind.set(k, doc.id);
     }
   });
 
-  const created: Array<{ id: string; kind: string }> = [];
-  const skipped: Array<{ kind: string; reason: string }> = [];
-  const overwritten: Array<{ id: string; kind: string }> = [];
+  const templatesCreated: Array<{ id: string; kind: string }> = [];
+  const templatesSkipped: Array<{ kind: string; reason: string }> = [];
+  const templatesOverwritten: Array<{ id: string; kind: string }> = [];
 
-  for (const master of masters.docs) {
+  for (const master of templateMasters.docs) {
     const mData = master.data();
     const kind = mData.kind as string | undefined;
     if (!kind) {
-      skipped.push({ kind: '(missing)', reason: 'master has no kind' });
+      templatesSkipped.push({ kind: '(missing)', reason: 'master has no kind' });
       continue;
     }
 
@@ -107,18 +108,73 @@ export const seedOrgDefaultTemplates = onCall(async (request) => {
 
     if (existingKinds.has(kind)) {
       if (data.overwriteExisting) {
-        const id = existingByKind.get(kind)!;
-        await targetCol.doc(id).set(payload, { merge: false });
-        overwritten.push({ id, kind });
+        const id = existingTemplateByKind.get(kind)!;
+        await templateCol.doc(id).set(payload, { merge: false });
+        templatesOverwritten.push({ id, kind });
       } else {
-        skipped.push({ kind, reason: 'already exists' });
+        templatesSkipped.push({ kind, reason: 'already exists' });
       }
       continue;
     }
 
-    const ref = await targetCol.add(payload);
-    created.push({ id: ref.id, kind });
+    const ref = await templateCol.add(payload);
+    templatesCreated.push({ id: ref.id, kind });
   }
 
-  return { created, overwritten, skipped, orgName };
+  // ---------- marketing automations ----------
+  // Keyed by `trigger` (e.g. 'appointment_scheduled'). Idempotent: skip any
+  // trigger the org already has an automation for so re-running this function
+  // never creates duplicates that would double-send.
+  const automationMasters = await db.collection('defaultMarketingAutomations').get();
+  const automationCol = orgRef.collection('marketingAutomations');
+  const existingAutomations = await automationCol.get();
+  const existingTriggers = new Set<string>();
+  existingAutomations.forEach((doc) => {
+    const t = (doc.data().trigger as string | undefined) ?? '';
+    if (t) existingTriggers.add(t);
+  });
+
+  const automationsCreated: Array<{ id: string; trigger: string }> = [];
+  const automationsSkipped: Array<{ trigger: string; reason: string }> = [];
+
+  for (const master of automationMasters.docs) {
+    const mData = master.data() as Record<string, unknown>;
+    const trigger = mData.trigger as string | undefined;
+    if (!trigger) {
+      automationsSkipped.push({ trigger: '(missing)', reason: 'master has no trigger' });
+      continue;
+    }
+    if (existingTriggers.has(trigger)) {
+      automationsSkipped.push({ trigger, reason: 'already exists' });
+      continue;
+    }
+    const ref = await automationCol.add({
+      ...mData,
+      organization_id: data.organizationId,
+      created_by: 'system:seed',
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      last_triggered_at: null,
+      seeded_from: master.id,
+    });
+    automationsCreated.push({ id: ref.id, trigger });
+  }
+
+  return {
+    orgName,
+    templates: {
+      created: templatesCreated,
+      overwritten: templatesOverwritten,
+      skipped: templatesSkipped,
+    },
+    automations: {
+      created: automationsCreated,
+      skipped: automationsSkipped,
+    },
+    // Back-compat fields so older callers that expected `created`/`skipped`
+    // at the top level still get something useful.
+    created: templatesCreated,
+    overwritten: templatesOverwritten,
+    skipped: templatesSkipped,
+  };
 });

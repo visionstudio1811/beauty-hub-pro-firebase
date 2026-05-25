@@ -99,9 +99,13 @@ The `getDriveAuthUrl` callable validates the `returnTo` origin against a hardcod
 
 ---
 
-## Step 5 — Seed default waiver templates
+## Step 5 — Seed default templates AND automations
 
-Every new org needs the standard intake and agreement-of-purchase templates. The masters live in the top-level `defaultWaiverTemplates` Firestore collection and use `{{ORG_NAME}}` as the brand token. The `seedOrgDefaultTemplates` callable substitutes the new org's name and copies them into `organizations/{orgId}/waiverTemplates/`.
+Every new org needs:
+- The standard intake + agreement-of-purchase **templates** — masters in `defaultWaiverTemplates`, body uses `{{ORG_NAME}}` as the brand token
+- The default marketing **automations** (currently: Appointment Confirmation email) — masters in `defaultMarketingAutomations`, body uses `[NAME] [DATE] [TIME] [TREATMENT] [STAFF] [ORG]` tokens resolved at send time
+
+The `seedOrgDefaultTemplates` callable handles both in one pass. It's idempotent on both sides — templates skip by `kind`, automations skip by `trigger`.
 
 The callable is admin-only and enforces `caller.organizationId == request.organizationId`, so the easiest path is to seed via Admin SDK from a local script using the org ID directly. Run from the project root:
 
@@ -114,30 +118,54 @@ const db = admin.firestore();
   const ORG_ID = '<paste new org ID>';
   const orgSnap = await db.collection('organizations').doc(ORG_ID).get();
   const orgName = orgSnap.data().name;
-  const masters = await db.collection('defaultWaiverTemplates').get();
-  const target = db.collection('organizations').doc(ORG_ID).collection('waiverTemplates');
-  const existing = await target.get();
-  const haveKinds = new Set(existing.docs.map(d => d.data().kind));
-  for (const m of masters.docs) {
+
+  // --- waiver templates ---
+  const tplMasters = await db.collection('defaultWaiverTemplates').get();
+  const tplTarget = db.collection('organizations').doc(ORG_ID).collection('waiverTemplates');
+  const haveKinds = new Set((await tplTarget.get()).docs.map(d => d.data().kind));
+  for (const m of tplMasters.docs) {
     const data = m.data();
-    if (haveKinds.has(data.kind)) { console.log('skip', data.kind, '(exists)'); continue; }
+    if (haveKinds.has(data.kind)) { console.log('skip template', data.kind, '(exists)'); continue; }
     const branded = JSON.parse(JSON.stringify(data).split('{{ORG_NAME}}').join(orgName));
     branded.organization_id = ORG_ID;
     branded.created_at = admin.firestore.FieldValue.serverTimestamp();
     branded.updated_at = admin.firestore.FieldValue.serverTimestamp();
     branded.updated_at_ts = Date.now();
     branded.seeded_from = m.id;
-    const ref = await target.add(branded);
-    console.log('seeded', data.kind, '→', ref.id);
+    const ref = await tplTarget.add(branded);
+    console.log('seeded template', data.kind, '→', ref.id);
+  }
+
+  // --- marketing automations ---
+  const autoMasters = await db.collection('defaultMarketingAutomations').get();
+  const autoTarget = db.collection('organizations').doc(ORG_ID).collection('marketingAutomations');
+  const haveTriggers = new Set((await autoTarget.get()).docs.map(d => d.data().trigger));
+  for (const m of autoMasters.docs) {
+    const data = m.data();
+    if (haveTriggers.has(data.trigger)) { console.log('skip automation', data.trigger, '(exists)'); continue; }
+    const ref = await autoTarget.add({
+      ...data,
+      organization_id: ORG_ID,
+      created_by: 'system:seed',
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      last_triggered_at: null,
+      seeded_from: m.id,
+    });
+    console.log('seeded automation', data.trigger, '→', ref.id);
   }
   process.exit(0);
 })().catch(e => { console.error(e); process.exit(1); });
 "
 ```
 
-The seed is idempotent — if a template of that kind already exists, it skips (won't overwrite).
+Both seeds are idempotent — re-running won't duplicate.
 
-After seeding, verify in Firestore that `organizations/<orgId>/waiverTemplates/` contains one `kind: 'intake'` and one `kind: 'agreement'`, and that the brand name reads correctly inside `content[].value` and `content[].label` strings.
+After seeding, verify in Firestore that the new org has:
+- `organizations/<orgId>/waiverTemplates/` with one `kind: 'intake'` + one `kind: 'agreement'`, brand name reading correctly inside `content[].value` / `content[].label`
+- `organizations/<orgId>/marketingAutomations/` with one `trigger: 'appointment_scheduled'` doc, `is_active: true`
+
+The automation only fires once **Resend is configured** for the org (Marketing → Integrations → Resend → API key + verified `fromEmail`).
 
 ---
 

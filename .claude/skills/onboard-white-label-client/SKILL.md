@@ -15,7 +15,7 @@ The process has five required steps and one optional step:
 2. **Firebase Auth** — add `crm.<brand>.com` to authorized domains
 3. **Firestore org doc** — set `crm_domain: "crm.<brand>.com"` on `organizations/{orgId}`
 4. **Drive backup allowlist** — add `https://crm.<brand>.com` to `ALLOWED_RETURN_ORIGINS` in `functions/src/oauth/driveOAuth.ts`, then deploy the OAuth functions
-5. **Seed default waiver templates** — clone the masters in `defaultWaiverTemplates` into `organizations/{orgId}/waiverTemplates/` with the brand name auto-substituted (see `guide.md` Step 5 for the one-liner)
+5. **Seed default templates + automations** — clone the masters in `defaultWaiverTemplates` AND `defaultMarketingAutomations` into the new org. Templates auto-substitute the brand name; automations get the "Appointment Confirmation" email by default (see `guide.md` Step 5 for the one-liner)
 6. *(Optional)* DNS sanity check if the client uses Cloudflare — proxy must be OFF (grey cloud)
 
 Read `guide.md` for the detailed steps, gotchas, and verification checklist.
