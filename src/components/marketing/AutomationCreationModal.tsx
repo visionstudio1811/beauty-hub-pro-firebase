@@ -17,8 +17,7 @@ import {
   Mail,
   MessageSquare
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAutomations } from '@/hooks/useAutomations';
 import { toast } from '@/hooks/use-toast';
 
 interface AutomationCreationModalProps {
@@ -40,6 +39,17 @@ interface AutomationTemplate {
 }
 
 const automationTemplates: AutomationTemplate[] = [
+  {
+    id: 'appointment_confirmation',
+    name: 'Appointment Confirmation',
+    description: 'Email the client the moment a new appointment is booked',
+    trigger: 'appointment_scheduled',
+    icon: <Calendar className="h-5 w-5" />,
+    delay: 'Immediate',
+    messageType: 'email',
+    subject: 'Your appointment is confirmed — [DATE] at [TIME]',
+    content: 'Hi [NAME],\n\nYour [TREATMENT] appointment is confirmed for [DATE] at [TIME] with [STAFF].\n\nWe look forward to seeing you!\n\n— [ORG]'
+  },
   {
     id: 'welcome',
     name: 'Welcome Series',
@@ -113,78 +123,64 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
     isActive: true
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { currentOrganization } = useOrganization();
-  const { user } = useAuth();
+  const { createAutomation } = useAutomations();
 
   React.useEffect(() => {
     if (selectedTemplate) {
       setFormData({
-        name: selectedTemplate.name,
-        trigger: selectedTemplate.trigger,
-        delay: selectedTemplate.delay,
-        messageType: selectedTemplate.messageType,
-        subject: selectedTemplate.subject,
-        content: selectedTemplate.content,
+        name: selectedTemplate.name ?? '',
+        trigger: selectedTemplate.trigger ?? '',
+        delay: selectedTemplate.delay ?? '',
+        messageType: selectedTemplate.messageType ?? 'email',
+        subject: selectedTemplate.subject ?? '',
+        content: selectedTemplate.content ?? '',
         isActive: true
       });
     }
   }, [selectedTemplate]);
 
   const handleCreateAutomation = async () => {
-    if (!currentOrganization?.id) {
+    if (!formData.name.trim() || !formData.trigger) {
       toast({
-        title: "Error",
-        description: "Organization not found",
-        variant: "destructive"
+        title: 'Missing required fields',
+        description: 'Name and Trigger Event are required.',
+        variant: 'destructive',
       });
       return;
     }
 
     setIsLoading(true);
-    try {
-      const automationData = {
-        organization_id: currentOrganization.id,
-        name: formData.name,
-        trigger: formData.trigger,
-        delay: formData.delay,
-        message_type: formData.messageType,
-        subject: formData.subject,
-        content: formData.content,
-        is_active: formData.isActive,
-        created_by: user?.uid ?? null,
-      };
+    const newId = await createAutomation({
+      name: formData.name.trim(),
+      trigger: formData.trigger,
+      delay: formData.delay,
+      message_type: formData.messageType,
+      subject: formData.subject,
+      content: formData.content,
+      is_active: formData.isActive,
+    });
+    setIsLoading(false);
 
-      // Automation creation is a placeholder; log for now
-      console.log('Automation would be created:', automationData);
+    if (!newId) return; // hook already toasted the error
 
-      toast({
-        title: "Automation created successfully",
-        description: `Your automation "${formData.name}" is now active.`
-      });
+    toast({
+      title: 'Automation saved',
+      description: `"${formData.name}" is now ${formData.isActive ? 'active' : 'paused'}.`,
+    });
 
-      onAutomationCreated();
-      onOpenChange(false);
-      
-      // Reset form
-      setFormData({
-        name: '',
-        trigger: '',
-        delay: '',
-        messageType: 'email',
-        subject: '',
-        content: '',
-        isActive: true
-      });
-      setSelectedTemplate(null);
-    } catch (error: any) {
-      toast({
-        title: "Error creating automation",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    onAutomationCreated();
+    onOpenChange(false);
+
+    setFormData({
+      name: '',
+      trigger: '',
+      delay: '',
+      messageType: 'email',
+      subject: '',
+      content: '',
+      isActive: true,
+    });
+    setSelectedTemplate(null);
   };
 
   const triggerOptions = [
@@ -241,10 +237,22 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
                   </Card>
                 ))}
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
-                onClick={() => setSelectedTemplate({} as AutomationTemplate)}
+                onClick={() =>
+                  setSelectedTemplate({
+                    id: '__custom__',
+                    name: '',
+                    description: 'Custom automation',
+                    trigger: '',
+                    icon: <Zap className="h-5 w-5" />,
+                    delay: '',
+                    messageType: 'email',
+                    subject: '',
+                    content: '',
+                  })
+                }
               >
                 Create Custom Automation
               </Button>

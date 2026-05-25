@@ -4,6 +4,7 @@ export { runScheduledCampaigns } from './scheduledCampaigns';
 export { sendWaiver } from './sendWaiver';
 export { deleteWaiver } from './deleteWaiver';
 export { notifyOrgOnWaiverSigned } from './notifyOrgOnWaiverSigned';
+export { appointmentScheduledNotification } from './appointmentScheduledNotification';
 export { backfillClientFromLatestForm } from './backfillClient';
 export { addStandardFieldsToTemplates } from './addStandardFieldsToTemplates';
 export { uploadOrgLogo } from './uploadOrgLogo';

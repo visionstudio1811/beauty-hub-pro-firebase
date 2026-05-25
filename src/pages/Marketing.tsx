@@ -7,6 +7,8 @@ import { MarketingIntegrations } from '@/components/marketing/MarketingIntegrati
 import { CampaignCreationModal } from '@/components/marketing/CampaignCreationModal';
 import { AutomationCreationModal } from '@/components/marketing/AutomationCreationModal';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAutomations } from '@/hooks/useAutomations';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -22,7 +24,8 @@ import {
   Target,
   Send,
   Settings,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 // Type definitions for marketing data
@@ -47,21 +50,6 @@ interface Campaign {
   sms_provider?: 'twilio' | 'infobip';
 }
 
-interface Automation {
-  id: string;
-  name: string;
-  trigger_type: string;
-  trigger_conditions: any;
-  action_type: string;
-  action_config: any;
-  status: 'active' | 'paused';
-  last_triggered_at: string | null;
-  organization_id: string;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 interface MarketingStats {
   totalSent: number;
   openRate: number;
@@ -75,7 +63,7 @@ const Marketing = () => {
 
   // State management for marketing data
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [automations, setAutomations] = useState<Automation[]>([]);
+  const { automations, toggleAutomation, deleteAutomation } = useAutomations();
   const [stats, setStats] = useState<MarketingStats>({
     totalSent: 0,
     openRate: 0,
@@ -98,11 +86,6 @@ const Marketing = () => {
       case 'paused': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  // Automations aren't persisted yet — the modal logs only. Keep stub.
-  const fetchAutomations = async () => {
-    setAutomations([]);
   };
 
   // Subscribe to live campaigns for the current org.
@@ -226,12 +209,6 @@ const Marketing = () => {
   };
 
   useEffect(() => {
-    if (currentOrganization?.id) {
-      fetchAutomations();
-    }
-  }, [currentOrganization?.id]);
-
-  useEffect(() => {
     fetchStats();
   }, [campaigns]);
 
@@ -249,7 +226,30 @@ const Marketing = () => {
   };
 
   const onAutomationCreated = () => {
-    fetchAutomations();
+    // Live snapshot listener auto-updates; no manual refetch needed.
+  };
+
+  const handleToggleAutomation = async (id: string, currentlyActive: boolean) => {
+    await toggleAutomation(id, !currentlyActive);
+  };
+
+  const handleDeleteAutomation = async (id: string, name: string) => {
+    if (!window.confirm(`Delete the "${name}" automation? This cannot be undone.`)) return;
+    await deleteAutomation(id);
+    toast({ title: 'Automation deleted', description: `"${name}" was removed.` });
+  };
+
+  const formatTriggerLabel = (trigger: string): string => {
+    switch (trigger) {
+      case 'appointment_scheduled': return 'When an appointment is scheduled';
+      case 'appointment_completed': return 'When an appointment completes';
+      case 'client_created':        return 'When a new client is created';
+      case 'client_birthday':       return "On client's birthday";
+      case 'client_inactive':       return 'When a client goes inactive (90+ days)';
+      case 'package_expiring':      return 'When a package is about to expire';
+      case 'package_expired':       return 'When a package expires';
+      default: return trigger;
+    }
   };
 
   return (
@@ -468,16 +468,47 @@ const Marketing = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {automations.map((automation) => (
-                    <div key={automation.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{automation.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Trigger: {automation.trigger_type} • Last triggered: {automation.last_triggered_at || 'Never'}
+                    <div key={automation.id} className="flex items-center justify-between p-4 border rounded-lg gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium truncate">{automation.name}</h4>
+                          <Badge variant="outline" className="text-xs">
+                            {automation.message_type === 'both' ? 'Email + SMS' : automation.message_type.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {formatTriggerLabel(automation.trigger)}
+                          {automation.delay ? ` • Delay: ${automation.delay}` : ''}
                         </p>
+                        {automation.last_triggered_at && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Last fired: {new Date(automation.last_triggered_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
-                      <Badge variant="secondary">Active</Badge>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={automation.is_active}
+                            onCheckedChange={() => handleToggleAutomation(automation.id, automation.is_active)}
+                            aria-label={automation.is_active ? 'Pause automation' : 'Activate automation'}
+                          />
+                          <span className="text-xs text-muted-foreground w-12">
+                            {automation.is_active ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteAutomation(automation.id, automation.name)}
+                          aria-label="Delete automation"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
