@@ -94,6 +94,10 @@ export const treatmentSchema = z.object({
   category: z.string()
     .max(100, 'Category cannot exceed 100 characters')
     .optional()
+    .or(z.literal('')),
+  color: z.string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Color must be a 6-digit hex code (e.g. #FFD700)')
+    .optional()
     .or(z.literal(''))
 });
 

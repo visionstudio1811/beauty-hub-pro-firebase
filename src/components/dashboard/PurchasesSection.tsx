@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,24 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Package, ShoppingBag, DollarSign, TrendingUp, Sparkles } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useOrganization } from '@/contexts/OrganizationContext';
+import { usePurchasesData, PurchaseRow } from '@/hooks/usePurchasesData';
 
 type PurchaseTypeFilter = 'all' | 'packages' | 'products' | 'facials';
-type RowType = 'package' | 'product' | 'treatment';
-
-interface UnifiedRow {
-  id: string;
-  type: RowType;
-  client_id: string;
-  client_name: string;
-  description: string;
-  amount: number;
-  date: string; // YYYY-MM-DD
-  // Only present on type === 'product'.
-  product_id?: string;
-}
 
 interface PurchasesSectionProps {
   // Day-scoped filter from dashboard top filter strip; if empty, all dates.
@@ -45,151 +30,17 @@ interface PurchasesSectionProps {
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
 
-// Convert a Firestore Timestamp/ISO/millis value into a YYYY-MM-DD string.
-const toDateString = (raw: unknown): string => {
-  if (!raw) return '';
-  if (typeof raw === 'string') return raw.slice(0, 10);
-  // Firestore Timestamp shape
-  if (typeof (raw as { toDate?: () => Date }).toDate === 'function') {
-    return (raw as { toDate: () => Date }).toDate().toISOString().slice(0, 10);
-  }
-  if (typeof (raw as { seconds?: number }).seconds === 'number') {
-    return new Date((raw as { seconds: number }).seconds * 1000).toISOString().slice(0, 10);
-  }
-  return '';
-};
-
 export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
   dateFilter = '',
   productFilter = 'all',
   title = 'Purchases',
   description,
 }) => {
-  const { currentOrganization } = useOrganization();
-  const [rows, setRows] = useState<UnifiedRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { rows, loading } = usePurchasesData();
   const [typeFilter, setTypeFilter] = useState<PurchaseTypeFilter>('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    if (!currentOrganization?.id) {
-      setRows([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const orgId = currentOrganization.id;
-        const orgPath = ['organizations', orgId] as const;
-
-        const [
-          purchasesSnap,
-          productAssignmentsSnap,
-          clientsSnap,
-          packagesSnap,
-          productsSnap,
-          invoicesSnap,
-        ] = await Promise.all([
-          getDocs(query(
-            collection(db, ...orgPath, 'purchases'),
-            where('payment_status', 'in', ['active', 'completed']),
-          )),
-          getDocs(collection(db, ...orgPath, 'productAssignments')),
-          getDocs(collection(db, ...orgPath, 'clients')),
-          getDocs(collection(db, ...orgPath, 'packages')),
-          getDocs(collection(db, ...orgPath, 'products')),
-          // Issued (non-void) invoices — used only to pull facial line items so
-          // we don't double-count packages/products that have their own source.
-          getDocs(query(
-            collection(db, ...orgPath, 'invoices'),
-            where('status', '==', 'issued'),
-          )),
-        ]);
-
-        if (cancelled) return;
-
-        const clientNames = new Map<string, string>();
-        clientsSnap.forEach(d => clientNames.set(d.id, d.data().name || 'Unknown'));
-        const packageNames = new Map<string, string>();
-        packagesSnap.forEach(d => packageNames.set(d.id, d.data().name || 'Package'));
-        const productNames = new Map<string, string>();
-        productsSnap.forEach(d => productNames.set(d.id, d.data().name || 'Product'));
-
-        const collected: UnifiedRow[] = [];
-
-        purchasesSnap.forEach(d => {
-          const data = d.data();
-          if (data.deleted_at) return;
-          collected.push({
-            id: `purchase-${d.id}`,
-            type: 'package',
-            client_id: data.client_id || '',
-            client_name: clientNames.get(data.client_id) || 'Unknown',
-            description: packageNames.get(data.package_id) || 'Custom package',
-            amount: Number(data.total_amount || 0),
-            date: (data.purchase_date as string) || '',
-          });
-        });
-
-        productAssignmentsSnap.forEach(d => {
-          const data = d.data();
-          if (data.deleted_at) return;
-          collected.push({
-            id: `product-${d.id}`,
-            type: 'product',
-            client_id: data.client_id || '',
-            client_name: clientNames.get(data.client_id) || 'Unknown',
-            description: productNames.get(data.product_id) || 'Product',
-            amount: Number(data.assigned_price || 0) * Number(data.quantity || 1),
-            date: toDateString(data.assigned_at),
-            product_id: data.product_id || '',
-          });
-        });
-
-        // Facials are billed only via standalone invoices — there's no parallel
-        // "treatmentAssignments" collection, so issued invoices are the only
-        // source of truth. We deliberately ignore product line items inside
-        // invoices since those would double-count productAssignments.
-        invoicesSnap.forEach(d => {
-          const data = d.data();
-          const lineItems = Array.isArray(data.line_items) ? data.line_items : [];
-          const issuedDate = toDateString(data.issued_at);
-          const clientId = data.client_id || '';
-          const clientName = data.client_snapshot?.name || clientNames.get(clientId) || 'Unknown';
-
-          (lineItems as Array<Record<string, unknown>>).forEach((li, idx) => {
-            if (li?.type !== 'treatment') return;
-            const qty = Number(li.quantity ?? 1);
-            const unitPriceCents = Number(li.unit_price_cents ?? 0);
-            const subtotalCents = Number(li.subtotal_cents ?? unitPriceCents * qty);
-            collected.push({
-              id: `treatment-${d.id}-${idx}`,
-              type: 'treatment',
-              client_id: clientId,
-              client_name: clientName,
-              description: typeof li.name === 'string' ? li.name : 'Facial',
-              amount: subtotalCents / 100,
-              date: issuedDate,
-            });
-          });
-        });
-
-        setRows(collected);
-      } catch (err) {
-        console.error('PurchasesSection: failed to load', err);
-        if (!cancelled) setRows([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentOrganization?.id]);
-
-  const filtered = useMemo(() => {
+  const filtered = useMemo<PurchaseRow[]>(() => {
     const needle = search.trim().toLowerCase();
     return rows.filter(r => {
       if (typeFilter !== 'all') {

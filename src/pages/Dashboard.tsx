@@ -1,19 +1,23 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, Calendar, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppointmentFormModal } from '../components/AppointmentFormModal';
 import AppointmentFilters from '../components/AppointmentFilters';
 import DashboardStats from '../components/dashboard/DashboardStats';
-import { PurchasesSection } from '../components/dashboard/PurchasesSection';
+import { AppointmentCalendarGrid } from '@/components/calendar/AppointmentCalendarGrid';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 
-import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
+import { useSupabaseAppointments, SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
+import { useSupabaseStaff } from '@/hooks/useSupabaseStaff';
+import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { usePurchasesData } from '@/hooks/usePurchasesData';
 import { useClients } from '@/hooks/useClients';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { filterAppointments, getDateRangeText } from '@/utils/appointmentFilters';
 import { formatTimeDisplay, getBusinessToday, getBusinessNow, isBusinessToday } from '@/lib/timeUtils';
 import { useTimezone } from '@/hooks/useTimezone';
+import { Appointment as UIAppointment } from '../components/AppointmentModal';
 
 const Dashboard = () => {
   const tz = useTimezone();
@@ -35,7 +39,11 @@ const Dashboard = () => {
   const isMobile = useIsMobile();
 
   const { appointments, loading } = useSupabaseAppointments();
+  const { staff: staffList } = useSupabaseStaff();
+  const { treatments: treatmentList } = useSupabaseTreatments();
+  const { rows: purchaseRows } = usePurchasesData();
   const { clients } = useClients();
+  const [editAppointment, setEditAppointment] = useState<UIAppointment | null>(null);
 
   // Transform appointments to match FilterableAppointment interface for stats
   const transformedAppointments = useMemo(() => {
@@ -109,6 +117,30 @@ const Dashboard = () => {
 
   const dateRangeText = getDateRangeText(filterViewMode, selectedDate);
 
+  // Calendar widget: clicking an event opens the form modal in edit mode.
+  const handleCalendarEventClick = useCallback((raw: SupabaseAppointment) => {
+    setEditAppointment({
+      id: raw.id,
+      time: formatTimeDisplay(raw.appointment_time),
+      date: raw.appointment_date,
+      client: raw.client_name,
+      treatment: raw.treatment_name,
+      staff: raw.staff_name,
+      duration: raw.duration,
+      status: raw.status,
+      phone: raw.client_phone,
+      email: raw.client_email,
+      notes: raw.notes || '',
+      allergies: '',
+    });
+    setIsNewAppointmentModalOpen(true);
+  }, []);
+
+  const handleCalendarSlotClick = useCallback(() => {
+    setEditAppointment(null);
+    setIsNewAppointmentModalOpen(true);
+  }, []);
+
   // Calculate stats from filtered appointments using business timezone - ensure they're numbers
   const totalAppointments = Math.max(0, filteredAppointments?.length || 0);
   const todayAppointments = Math.max(0, (transformedAppointments || []).filter(apt =>
@@ -122,11 +154,18 @@ const Dashboard = () => {
     [clients],
   );
 
+  const todayKey = getBusinessToday(tz);
+  const todayRevenue = useMemo(
+    () => purchaseRows.filter((r) => r.date === todayKey).reduce((sum, r) => sum + r.amount, 0),
+    [purchaseRows, todayKey],
+  );
+
   const statsData = {
     appointments: todayAppointments,
     newClients: 0,
     activePackages: activeMembers,
     pendingReviews: confirmedAppointments,
+    todayRevenue,
   };
 
   return (
@@ -151,6 +190,29 @@ const Dashboard = () => {
 
       {/* Stats row */}
       <DashboardStats stats={statsData} />
+
+      {/* Today's calendar widget */}
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            Today's Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <AppointmentCalendarGrid
+            appointments={appointments}
+            staff={staffList}
+            treatments={treatmentList}
+            defaultView="day"
+            defaultDate={new Date()}
+            showResources
+            height={520}
+            onSelectEvent={handleCalendarEventClick}
+            onSlotSelect={handleCalendarSlotClick}
+          />
+        </CardContent>
+      </Card>
 
       {/* Main Content */}
       <div className="w-full">
@@ -178,9 +240,6 @@ const Dashboard = () => {
               treatments={treatments}
             />
           </div>
-
-          {/* Purchases (revenue + packages/products filter) — admin only */}
-          {isAdmin && <PurchasesSection dateFilter={dateFilter} />}
 
           {/* Appointments Display */}
           <div className="w-full">
@@ -246,7 +305,11 @@ const Dashboard = () => {
       {/* New Appointment Modal */}
       <AppointmentFormModal
         isOpen={isNewAppointmentModalOpen}
-        onClose={() => setIsNewAppointmentModalOpen(false)}
+        onClose={() => {
+          setIsNewAppointmentModalOpen(false);
+          setEditAppointment(null);
+        }}
+        editAppointment={editAppointment}
       />
     </div>
   );

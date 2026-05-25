@@ -5,7 +5,7 @@ import {
   Calendar, Users, LayoutDashboard, Mail, Settings,
   LogOut, ChevronRight, ChevronDown,
   Package, ShoppingBag, Tag, Clock, FileSignature,
-  ClipboardList, Receipt, FileText, Zap,
+  ClipboardList, Receipt, FileText, Zap, TrendingUp,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -49,6 +49,7 @@ const TOP_ITEMS = [
 // Items only visible to admins. Kept separate from TOP_ITEMS so the array
 // passed to the renderer below already reflects the user's effective scope.
 const ADMIN_TOP_ITEMS = [
+  { icon: TrendingUp,      label: 'Sales',        path: '/admin/sales' },
   { icon: Receipt,         label: 'Invoices',     path: '/admin/invoices' },
 ];
 

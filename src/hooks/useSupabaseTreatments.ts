@@ -21,6 +21,7 @@ export interface Treatment {
   duration: number;
   price?: number;
   category?: string;
+  color?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ const docToTreatment = (id: string, data: any): Treatment => ({
   duration: data.duration ?? 60,
   price: data.price ?? undefined,
   category: data.category ?? undefined,
+  color: typeof data.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : undefined,
   is_active: data.is_active ?? data.isActive ?? true,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),

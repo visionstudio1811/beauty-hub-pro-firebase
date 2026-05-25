@@ -73,6 +73,7 @@ export interface Treatment {
   price: number;
   duration: number;
   category?: string;
+  color?: string;
   isActive: boolean;
   createdAt: any;
 }

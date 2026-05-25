@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Plus, Edit, Trash, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseTreatments, Treatment } from '@/hooks/useSupabaseTreatments';
@@ -19,6 +20,17 @@ interface CategoryOption {
   id: string;
   name: string;
 }
+
+const PRESET_COLORS = [
+  '#FFD700', // warm yellow
+  '#10B981', // signature green
+  '#F472B6', // blush
+  '#60A5FA', // sky
+  '#C084FC', // lavender
+  '#FB923C', // orange
+  '#14B8A6', // teal
+  '#F43F5E', // rose
+];
 
 export const TreatmentManagement: React.FC = () => {
   const { treatments, loading, addTreatment, updateTreatment } = useSupabaseTreatments();
@@ -32,6 +44,7 @@ export const TreatmentManagement: React.FC = () => {
     duration: '',
     description: '',
     category: '',
+    color: '',
   });
   const { toast } = useToast();
 
@@ -61,7 +74,7 @@ export const TreatmentManagement: React.FC = () => {
   }, [currentOrganization?.id, isDialogOpen]);
 
   const resetForm = () => {
-    setFormData({ name: '', price: '', duration: '', description: '', category: '' });
+    setFormData({ name: '', price: '', duration: '', description: '', category: '', color: '' });
     setEditingTreatment(null);
   };
 
@@ -78,6 +91,7 @@ export const TreatmentManagement: React.FC = () => {
       duration: treatment.duration.toString(),
       description: treatment.description || '',
       category: treatment.category || '',
+      color: treatment.color || '',
     });
     setIsDialogOpen(true);
   };
@@ -99,6 +113,7 @@ export const TreatmentManagement: React.FC = () => {
         duration: parseInt(formData.duration),
         description: formData.description || undefined,
         category: formData.category || undefined,
+        color: formData.color || undefined,
         is_active: true,
       };
 
@@ -220,6 +235,93 @@ export const TreatmentManagement: React.FC = () => {
                   )}
                 </div>
                 <div className="grid gap-2">
+                  <Label htmlFor="color" className="text-sm">Calendar Color</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        id="color"
+                        className="flex items-center gap-3 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-left"
+                      >
+                        <span
+                          className="h-6 w-6 rounded border border-border shrink-0"
+                          style={{
+                            backgroundColor: formData.color || '#e5e7eb',
+                            backgroundImage: formData.color
+                              ? undefined
+                              : 'linear-gradient(45deg, transparent 47%, #9ca3af 47%, #9ca3af 53%, transparent 53%)',
+                          }}
+                        />
+                        <span className="text-muted-foreground">
+                          {formData.color ? formData.color.toUpperCase() : 'No color'}
+                        </span>
+                        {formData.color && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFormData({ ...formData, color: '' });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setFormData({ ...formData, color: '' });
+                              }
+                            }}
+                            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            Clear
+                          </span>
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3" align="start">
+                      <div className="grid grid-cols-4 gap-2 mb-3">
+                        {PRESET_COLORS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            aria-label={`Pick ${c}`}
+                            onClick={() => setFormData({ ...formData, color: c })}
+                            className={`h-9 w-full rounded-md border-2 transition-transform hover:scale-105 ${
+                              formData.color?.toLowerCase() === c.toLowerCase()
+                                ? 'border-foreground ring-2 ring-ring ring-offset-1'
+                                : 'border-border'
+                            }`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="custom-color" className="text-xs whitespace-nowrap">Custom:</Label>
+                        <Input
+                          id="custom-color"
+                          type="color"
+                          value={formData.color || '#10B981'}
+                          onChange={(e) => setFormData({ ...formData, color: e.target.value.toUpperCase() })}
+                          className="h-8 w-12 cursor-pointer p-1"
+                        />
+                        <Input
+                          type="text"
+                          value={formData.color}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === '' || /^#[0-9a-fA-F]{0,6}$/.test(v)) {
+                              setFormData({ ...formData, color: v.toUpperCase() });
+                            }
+                          }}
+                          placeholder="#FFD700"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">
+                    Used to color appointment blocks on the calendar.
+                  </p>
+                </div>
+                <div className="grid gap-2">
                   <Label htmlFor="description" className="text-sm">Description</Label>
                   <Textarea
                     id="description"
@@ -251,7 +353,17 @@ export const TreatmentManagement: React.FC = () => {
           {treatments.map((treatment) => (
             <div key={treatment.id} className="p-3 border rounded-lg space-y-3">
               <div className="space-y-2">
-                <h4 className="font-medium text-sm break-words">{treatment.name}</h4>
+                <div className="flex items-center gap-2">
+                  {treatment.color && (
+                    <span
+                      className="h-3 w-3 rounded-full border border-border shrink-0"
+                      style={{ backgroundColor: treatment.color }}
+                      aria-label={`Color ${treatment.color}`}
+                      title={treatment.color}
+                    />
+                  )}
+                  <h4 className="font-medium text-sm break-words">{treatment.name}</h4>
+                </div>
                 <div className="flex flex-wrap gap-1">
                   {treatment.price && <Badge variant="secondary" className="text-xs">${treatment.price}</Badge>}
                   <Badge variant="outline" className="text-xs">{treatment.duration} min</Badge>

@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { AppointmentFormModal } from '../components/AppointmentFormModal';
 import AppointmentModal, { Appointment } from '../components/AppointmentModal';
@@ -8,8 +8,11 @@ import AppointmentSection from '../components/dashboard/AppointmentSection';
 import AppointmentsHeader from '../components/appointments/AppointmentsHeader';
 import AppointmentsStats from '../components/appointments/AppointmentsStats';
 import { BookingRequestsPanel } from '@/components/appointments/BookingRequestsPanel';
+import { AppointmentCalendarGrid } from '@/components/calendar/AppointmentCalendarGrid';
 import { useAppointmentStatus } from '../hooks/useAppointmentStatus';
-import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
+import { useSupabaseAppointments, SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
+import { useSupabaseStaff } from '@/hooks/useSupabaseStaff';
+import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { useAppointmentsData } from '@/hooks/useAppointmentsData';
 import { useAuth } from '@/contexts/AuthContext';
 import { decrementSessionForAppointment } from '@/lib/sessionDecrement';
@@ -24,6 +27,8 @@ const Appointments = () => {
   const { profile } = useAuth();
   const { getStatusColor, getStatusBadge } = useAppointmentStatus();
   const { appointments, updateAppointment, deleteAppointment, loading } = useSupabaseAppointments();
+  const { staff: staffList } = useSupabaseStaff();
+  const { treatments: treatmentList } = useSupabaseTreatments();
 
   // Use the custom hook for data management
   const {
@@ -51,6 +56,27 @@ const Appointments = () => {
   const handleAppointmentClick = useCallback((appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsModalOpen(true);
+  }, []);
+
+  // Calendar gets the raw SupabaseAppointment list restricted to ids that pass
+  // the current filter set; this keeps all existing filters working on the grid.
+  const calendarAppointments: SupabaseAppointment[] = useMemo(() => {
+    const allowedIds = new Set(filteredAppointments.map((a) => a.id));
+    return appointments.filter((a) => allowedIds.has(a.id));
+  }, [filteredAppointments, appointments]);
+
+  const handleCalendarEventClick = useCallback(
+    (raw: SupabaseAppointment) => {
+      const transformed = transformedAppointments.find((t) => t.id === raw.id);
+      if (transformed) handleAppointmentClick(transformed);
+    },
+    [transformedAppointments, handleAppointmentClick],
+  );
+
+  const handleCalendarSlotClick = useCallback(() => {
+    // Pre-filling the new-appointment modal with the clicked slot is a follow-up;
+    // for now just open the standard new-appointment flow.
+    setIsNewAppointmentModalOpen(true);
   }, []);
 
   const handleStatusChange = useCallback((appointmentId: string, newStatus: Appointment['status'], notes?: string) => {
@@ -150,16 +176,32 @@ const Appointments = () => {
       />
 
       {/* Appointments Section */}
-      <AppointmentSection
-        appointments={filteredAppointments}
-        viewMode={viewMode}
-        selectedDate={selectedDate}
-        onViewModeChange={setViewMode}
-        onDateSelect={setSelectedDate}
-        onAppointmentClick={handleAppointmentClick}
-        getStatusColor={getStatusColor}
-        getStatusBadge={getStatusBadge}
-      />
+      {viewMode === 'calendar' ? (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 w-full p-3 sm:p-4 lg:p-6">
+          <AppointmentCalendarGrid
+            appointments={calendarAppointments}
+            staff={staffList}
+            treatments={treatmentList}
+            defaultView="week"
+            defaultDate={selectedDate}
+            showResources
+            height={720}
+            onSelectEvent={handleCalendarEventClick}
+            onSlotSelect={handleCalendarSlotClick}
+          />
+        </div>
+      ) : (
+        <AppointmentSection
+          appointments={filteredAppointments}
+          viewMode={viewMode}
+          selectedDate={selectedDate}
+          onViewModeChange={setViewMode}
+          onDateSelect={setSelectedDate}
+          onAppointmentClick={handleAppointmentClick}
+          getStatusColor={getStatusColor}
+          getStatusBadge={getStatusBadge}
+        />
+      )}
 
       {/* Appointment Modal */}
       <AppointmentModal
