@@ -17,13 +17,15 @@ import {
   Mail,
   MessageSquare
 } from 'lucide-react';
-import { useAutomations } from '@/hooks/useAutomations';
+import { useAutomations, MarketingAutomation } from '@/hooks/useAutomations';
 import { toast } from '@/hooks/use-toast';
 
 interface AutomationCreationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAutomationCreated: () => void;
+  /** When provided, the modal opens straight to the edit form pre-filled with this automation. */
+  editAutomation?: MarketingAutomation | null;
 }
 
 interface AutomationTemplate {
@@ -110,8 +112,10 @@ const automationTemplates: AutomationTemplate[] = [
 export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = ({
   open,
   onOpenChange,
-  onAutomationCreated
+  onAutomationCreated,
+  editAutomation = null,
 }) => {
+  const isEditing = Boolean(editAutomation);
   const [selectedTemplate, setSelectedTemplate] = useState<AutomationTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -123,7 +127,7 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
     isActive: true
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { createAutomation } = useAutomations();
+  const { createAutomation, updateAutomation } = useAutomations();
 
   React.useEffect(() => {
     if (selectedTemplate) {
@@ -139,6 +143,46 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
     }
   }, [selectedTemplate]);
 
+  // When opening in edit mode, skip template selection and pre-fill the form
+  // from the existing automation. The sentinel selectedTemplate keeps the form
+  // visible (the JSX renders the form whenever selectedTemplate is truthy).
+  React.useEffect(() => {
+    if (!open) return;
+    if (editAutomation) {
+      setFormData({
+        name: editAutomation.name,
+        trigger: editAutomation.trigger,
+        delay: editAutomation.delay,
+        messageType: editAutomation.message_type,
+        subject: editAutomation.subject,
+        content: editAutomation.content,
+        isActive: editAutomation.is_active,
+      });
+      setSelectedTemplate({
+        id: '__edit__',
+        name: editAutomation.name,
+        description: '',
+        trigger: editAutomation.trigger,
+        icon: <Zap className="h-5 w-5" />,
+        delay: editAutomation.delay,
+        messageType: editAutomation.message_type,
+        subject: editAutomation.subject,
+        content: editAutomation.content,
+      });
+    } else {
+      setSelectedTemplate(null);
+      setFormData({
+        name: '',
+        trigger: '',
+        delay: '',
+        messageType: 'email',
+        subject: '',
+        content: '',
+        isActive: true,
+      });
+    }
+  }, [open, editAutomation]);
+
   const handleCreateAutomation = async () => {
     if (!formData.name.trim() || !formData.trigger) {
       toast({
@@ -149,8 +193,7 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
       return;
     }
 
-    setIsLoading(true);
-    const newId = await createAutomation({
+    const draft = {
       name: formData.name.trim(),
       trigger: formData.trigger,
       delay: formData.delay,
@@ -158,14 +201,19 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
       subject: formData.subject,
       content: formData.content,
       is_active: formData.isActive,
-    });
+    };
+
+    setIsLoading(true);
+    const ok = editAutomation
+      ? await updateAutomation(editAutomation.id, draft)
+      : Boolean(await createAutomation(draft));
     setIsLoading(false);
 
-    if (!newId) return; // hook already toasted the error
+    if (!ok) return; // hook already toasted the error
 
     toast({
-      title: 'Automation saved',
-      description: `"${formData.name}" is now ${formData.isActive ? 'active' : 'paused'}.`,
+      title: editAutomation ? 'Automation updated' : 'Automation saved',
+      description: `"${draft.name}" is now ${draft.is_active ? 'active' : 'paused'}.`,
     });
 
     onAutomationCreated();
@@ -197,15 +245,17 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Marketing Automation</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Marketing Automation' : 'Create Marketing Automation'}</DialogTitle>
           <DialogDescription>
-            Set up automated workflows to engage with your clients at the right moments.
+            {isEditing
+              ? 'Update the subject, content, or trigger for this automation. Toggle the Active switch on the list to pause without deleting.'
+              : 'Set up automated workflows to engage with your clients at the right moments.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Template Selection */}
-          {!selectedTemplate && (
+          {/* Template Selection — only shown when creating, not editing */}
+          {!selectedTemplate && !isEditing && (
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Choose an Automation Template</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -264,13 +314,15 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Automation Details</h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setSelectedTemplate(null)}
-                >
-                  Change Template
-                </Button>
+                {!isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedTemplate(null)}
+                  >
+                    Change Template
+                  </Button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -386,7 +438,9 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
           </Button>
           {selectedTemplate && (
             <Button onClick={handleCreateAutomation} disabled={isLoading || !formData.name.trim()}>
-              {isLoading ? "Creating..." : "Create Automation"}
+              {isLoading
+                ? (isEditing ? 'Saving...' : 'Creating...')
+                : (isEditing ? 'Save Changes' : 'Create Automation')}
             </Button>
           )}
         </DialogFooter>

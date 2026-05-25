@@ -7,7 +7,7 @@ import { MarketingIntegrations } from '@/components/marketing/MarketingIntegrati
 import { CampaignCreationModal } from '@/components/marketing/CampaignCreationModal';
 import { AutomationCreationModal } from '@/components/marketing/AutomationCreationModal';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useAutomations } from '@/hooks/useAutomations';
+import { useAutomations, MarketingAutomation } from '@/hooks/useAutomations';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -25,7 +25,8 @@ import {
   Send,
   Settings,
   Loader2,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 
 // Type definitions for marketing data
@@ -73,6 +74,7 @@ const Marketing = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [campaignModalOpen, setCampaignModalOpen] = useState(false);
   const [automationModalOpen, setAutomationModalOpen] = useState(false);
+  const [editingAutomation, setEditingAutomation] = useState<MarketingAutomation | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const { currentOrganization } = useOrganization();
 
@@ -218,6 +220,12 @@ const Marketing = () => {
   };
 
   const handleCreateAutomation = () => {
+    setEditingAutomation(null);
+    setAutomationModalOpen(true);
+  };
+
+  const handleEditAutomation = (automation: MarketingAutomation) => {
+    setEditingAutomation(automation);
     setAutomationModalOpen(true);
   };
 
@@ -502,6 +510,14 @@ const Marketing = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => handleEditAutomation(automation)}
+                          aria-label="Edit automation"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDeleteAutomation(automation.id, automation.name)}
                           aria-label="Delete automation"
                           className="text-red-600 hover:text-red-700"
@@ -530,8 +546,12 @@ const Marketing = () => {
 
       <AutomationCreationModal
         open={automationModalOpen}
-        onOpenChange={setAutomationModalOpen}
+        onOpenChange={(open) => {
+          setAutomationModalOpen(open);
+          if (!open) setEditingAutomation(null);
+        }}
         onAutomationCreated={onAutomationCreated}
+        editAutomation={editingAutomation}
       />
     </div>
   );

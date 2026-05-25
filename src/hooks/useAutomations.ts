@@ -134,6 +134,25 @@ export function useAutomations() {
     }
   };
 
+  const updateAutomation = async (id: string, draft: AutomationDraft): Promise<boolean> => {
+    if (!currentOrganization?.id) return false;
+    try {
+      await updateDoc(
+        doc(db, 'organizations', currentOrganization.id, 'marketingAutomations', id),
+        { ...draft, updated_at: serverTimestamp() },
+      );
+      return true;
+    } catch (err) {
+      console.error('updateAutomation failed', err);
+      toast({
+        title: 'Failed to update automation',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   const toggleAutomation = async (id: string, isActive: boolean): Promise<void> => {
     if (!currentOrganization?.id) return;
     try {
@@ -165,5 +184,5 @@ export function useAutomations() {
     }
   };
 
-  return { automations, loading, createAutomation, toggleAutomation, deleteAutomation };
+  return { automations, loading, createAutomation, updateAutomation, toggleAutomation, deleteAutomation };
 }
