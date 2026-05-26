@@ -130,6 +130,12 @@ service cloud.firestore {
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
+      match /addons/{addonId} {
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
       match /staff/{staffId} {
         allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
         allow create, update: if belongsToOrg(orgId) && isAdmin();

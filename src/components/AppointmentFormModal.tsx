@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,10 @@ interface AppointmentFormModalProps {
   clientId?: string;
   clientName?: string;
   editAppointment?: Appointment | null;
+  // Seed values when the modal is opened from a calendar slot click.
+  initialDate?: Date;
+  initialTime?: string;
+  initialStaffId?: string;
   // Fires after a successful create/update so parents can refetch their lists.
   onSaved?: () => void;
 }
@@ -50,6 +54,9 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
   clientId,
   clientName,
   editAppointment,
+  initialDate,
+  initialTime,
+  initialStaffId,
   onSaved
 }) => {
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
@@ -67,6 +74,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     setSelectedPackage,
     selectedTreatment,
     availableTreatments,
+    availableAddons,
+    selectedAddons,
+    addonsTotalDuration,
+    addonsTotalPrice,
+    totalDuration,
     availableTimeSlots,
     staffProfiles,
     clientPackages,
@@ -78,6 +90,21 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     loading,
     selectedDateString
   } = useAppointmentForm(clientId, clientName);
+
+  // Hydrate the form from calendar-slot seed values whenever the modal opens
+  // with a new seed. Only runs on the initial open so user edits aren't clobbered.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialDate) setSelectedDate(initialDate);
+    if (initialTime || initialStaffId) {
+      setFormData(prev => ({
+        ...prev,
+        ...(initialTime ? { time: initialTime } : {}),
+        ...(initialStaffId ? { staffId: initialStaffId } : {}),
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleClientSelect = (client: Client | null) => {
     setSelectedClient(client);
@@ -196,6 +223,17 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       return;
     }
 
+    if (selectedPackage && formData.selectedAddonIds.length > 1) {
+      toast({
+        title: 'Too many add-ons',
+        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const treatmentPrice = selectedPackage ? 0 : (parseFloat(formData.price) || 0);
+
     try {
       await addAppointment({
         client_id: selectedClient?.id || null,
@@ -208,7 +246,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         treatment_name: selectedTreatment.name,
         staff_id: formData.staffId || null,
         staff_name: selectedStaff.full_name || selectedStaff.email,
-        duration: selectedTreatment.duration,
+        duration: totalDuration,
         status: 'scheduled',
         notes: formData.notes,
         room_id: formData.roomId,
@@ -216,7 +254,15 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         package_name: selectedPackage?.package_name || null,
         purchase_id: selectedPackage?.id || undefined,
         session_used: !!selectedPackage,
-        price: selectedPackage ? 0 : (parseFloat(formData.price) || 0),
+        price: treatmentPrice + addonsTotalPrice,
+        addons: selectedAddons.map(a => ({
+          addon_id: a.id,
+          name: a.name,
+          price: a.price,
+          duration_minutes: a.duration_minutes ?? 0,
+        })),
+        addons_total_price: addonsTotalPrice,
+        addons_total_duration: addonsTotalDuration,
       });
 
       onSaved?.();
@@ -230,7 +276,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         staffId: '',
         notes: '',
         roomId: '',
-        price: ''
+        price: '',
+        selectedAddonIds: []
       });
       setSelectedClient(null);
       setSelectedPackage(null);
@@ -277,6 +324,10 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
               formData={formData}
               onFormDataChange={handleFormDataChange}
               availableTreatments={availableTreatments}
+              availableAddons={availableAddons}
+              addonsTotalPrice={addonsTotalPrice}
+              addonsTotalDuration={addonsTotalDuration}
+              totalDuration={totalDuration}
               staffProfiles={staffProfiles}
               availableTimeSlots={availableTimeSlots}
               selectedPackage={selectedPackage}

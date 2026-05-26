@@ -422,6 +422,11 @@ export const createClientBookingRequest = onCall(async (request) => {
   const notes = typeof request.data?.notes === 'string'
     ? request.data.notes.trim().slice(0, 1000)
     : '';
+  const addonIdsInput = Array.isArray(request.data?.addons)
+    ? request.data.addons
+        .slice(0, 10)
+        .map((a: unknown) => assertString((a as { addon_id?: unknown })?.addon_id, 'addon_id'))
+    : [];
 
   const access = await getPortalAccess(request.auth.uid, orgId);
   const orgRef = db.collection('organizations').doc(orgId);
@@ -434,8 +439,46 @@ export const createClientBookingRequest = onCall(async (request) => {
     throw new HttpsError('not-found', 'Client not found');
   }
 
+  // Package sessions are limited to one add-on (treatment is free; add-on is paid).
+  if (purchase && addonIdsInput.length > 1) {
+    throw new HttpsError('failed-precondition', 'Package sessions are limited to one add-on');
+  }
+
   const treatment = await assertTreatmentCanBook(orgRef, purchase, treatmentId);
-  await assertSlotAvailable(orgRef, preferredSlot, Number(treatment.duration ?? 60));
+
+  // Validate add-ons exist and are active; snapshot price + duration server-side.
+  const addonSnapshots: Array<{
+    addon_id: string;
+    name: string;
+    price: number;
+    duration_minutes: number;
+  }> = [];
+  if (addonIdsInput.length > 0) {
+    const addonDocs = await Promise.all(
+      addonIdsInput.map((id: string) => orgRef.collection('addons').doc(id).get()),
+    );
+    addonDocs.forEach((snap, idx) => {
+      if (!snap.exists) {
+        throw new HttpsError('not-found', `Add-on ${addonIdsInput[idx]} not found`);
+      }
+      const a = snap.data()!;
+      if (a.is_active === false) {
+        throw new HttpsError('failed-precondition', `Add-on ${a.name ?? snap.id} is no longer available`);
+      }
+      addonSnapshots.push({
+        addon_id: snap.id,
+        name: String(a.name ?? 'Add-on'),
+        price: Number(a.price ?? 0),
+        duration_minutes: Number(a.duration_minutes ?? 0),
+      });
+    });
+  }
+
+  const addonsTotalDuration = addonSnapshots.reduce((sum, a) => sum + a.duration_minutes, 0);
+  const addonsTotalPrice = addonSnapshots.reduce((sum, a) => sum + a.price, 0);
+  const totalDuration = Number(treatment.duration ?? 60) + addonsTotalDuration;
+
+  await assertSlotAvailable(orgRef, preferredSlot, totalDuration);
   let staffName = 'Pending assignment';
   if (preferredSlot.staff_id) {
     const staffSnap = await orgRef.collection('staff').doc(preferredSlot.staff_id).get();
@@ -455,11 +498,14 @@ export const createClientBookingRequest = onCall(async (request) => {
     package_id: purchase.package_id ?? null,
     treatment_id: treatmentId,
     treatment_name: treatment.name ?? 'Treatment',
-    duration: Number(treatment.duration ?? 60),
+    duration: totalDuration,
     staff_name: staffName,
     preferred_slot: preferredSlot,
     alternative_slots: alternativeSlots,
     notes,
+    addons: addonSnapshots,
+    addons_total_price: addonsTotalPrice,
+    addons_total_duration: addonsTotalDuration,
     status: 'pending',
     source: 'client_portal',
     created_by_uid: request.auth.uid,
@@ -562,6 +608,9 @@ export const updateClientBookingRequest = onCall(
         : booking.staff_name && booking.staff_name !== 'Pending assignment'
           ? booking.staff_name
           : 'Staff';
+      const bookingAddons = Array.isArray(booking.addons) ? booking.addons : [];
+      const bookingAddonsTotalPrice = Number(booking.addons_total_price ?? 0);
+      const bookingAddonsTotalDuration = Number(booking.addons_total_duration ?? 0);
       const appointment = {
         organization_id: orgId,
         client_id: booking.client_id,
@@ -580,6 +629,10 @@ export const updateClientBookingRequest = onCall(
         package_id: booking.package_id ?? null,
         purchase_id: booking.purchase_id,
         session_used: true,
+        addons: bookingAddons,
+        addons_total_price: bookingAddonsTotalPrice,
+        addons_total_duration: bookingAddonsTotalDuration,
+        price: bookingAddonsTotalPrice,
         booking_request_id: requestId,
         acuity_sync_enabled: false,
         sync_status: 'pending',
@@ -610,6 +663,14 @@ export const updateClientBookingRequest = onCall(
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
+
+    // Mirror the sync outcome onto the bookingRequest doc so the staff-facing
+    // panel can render it without an extra appointment fetch.
+    await requestRef.update({
+      acuity_sync_status: acuityResult.status,
+      acuity_sync_error: acuityResult.reason ?? null,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
     return { status: 'approved', appointmentId: appointmentRef.id, acuity: acuityResult };
   },

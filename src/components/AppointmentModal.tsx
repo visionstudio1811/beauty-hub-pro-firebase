@@ -24,6 +24,13 @@ import { User, Clock, Phone, Mail, AlertTriangle, Calendar, Trash2 } from 'lucid
 import { formatTimeDisplay } from '@/lib/timeUtils';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 
+export interface AppointmentAddonView {
+  addon_id?: string;
+  name?: string;
+  price?: number;
+  duration_minutes?: number;
+}
+
 export interface Appointment {
   id: string;
   time: string;
@@ -37,6 +44,11 @@ export interface Appointment {
   email: string;
   notes: string;
   allergies?: string;
+  addons?: AppointmentAddonView[];
+  addons_total_price?: number;
+  addons_total_duration?: number;
+  acuity_appointment_id?: string | null;
+  sync_status?: string;
 }
 
 interface AppointmentModalProps {
@@ -154,9 +166,28 @@ const AppointmentModal = ({ appointment, isOpen, onClose, onStatusChange, onDele
           {/* Status */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <Label className="text-sm font-medium">Status</Label>
-            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(appointment.status)} w-fit`}>
-              {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(appointment.status)} w-fit`}>
+                {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
+              </span>
+              {appointment.acuity_appointment_id && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
+                  Acuity
+                </span>
+              )}
+              {appointment.sync_status && appointment.sync_status !== 'synced' && appointment.sync_status !== 'skipped' && (
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
+                    appointment.sync_status === 'failed'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                  title={`Acuity sync: ${appointment.sync_status}`}
+                >
+                  Sync: {appointment.sync_status}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Date and Time Information */}
@@ -212,6 +243,24 @@ const AppointmentModal = ({ appointment, isOpen, onClose, onStatusChange, onDele
               <p className="font-medium">{appointment.staff}</p>
             </div>
           </div>
+
+          {/* Add-ons */}
+          {appointment.addons && appointment.addons.length > 0 && (
+            <div>
+              <Label className="text-sm font-medium text-gray-600">Add-ons</Label>
+              <ul className="mt-1 space-y-0.5">
+                {appointment.addons.map((a, i) => (
+                  <li key={a.addon_id ?? i} className="text-sm flex items-center justify-between">
+                    <span>{a.name || 'Add-on'}</span>
+                    <span className="text-muted-foreground">
+                      +${(a.price ?? 0).toFixed(2)}
+                      {a.duration_minutes ? ` · +${a.duration_minutes}m` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Allergies/Alerts */}
           {appointment.allergies && (

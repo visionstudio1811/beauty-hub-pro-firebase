@@ -21,6 +21,11 @@ const Appointments = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
+  const [newAppointmentSeed, setNewAppointmentSeed] = useState<{
+    date?: Date;
+    time?: string;
+    staffId?: string;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('list');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
@@ -73,9 +78,10 @@ const Appointments = () => {
     [transformedAppointments, handleAppointmentClick],
   );
 
-  const handleCalendarSlotClick = useCallback(() => {
-    // Pre-filling the new-appointment modal with the clicked slot is a follow-up;
-    // for now just open the standard new-appointment flow.
+  const handleCalendarSlotClick = useCallback((start: Date, staffId?: string) => {
+    const hh = String(start.getHours()).padStart(2, '0');
+    const mm = String(start.getMinutes()).padStart(2, '0');
+    setNewAppointmentSeed({ date: start, time: `${hh}:${mm}`, staffId });
     setIsNewAppointmentModalOpen(true);
   }, []);
 
@@ -119,6 +125,7 @@ const Appointments = () => {
 
   const handleNewAppointmentModalClose = useCallback(() => {
     setIsNewAppointmentModalOpen(false);
+    setNewAppointmentSeed(null);
   }, []);
 
   // Show loading state
@@ -216,6 +223,9 @@ const Appointments = () => {
       <AppointmentFormModal
         isOpen={isNewAppointmentModalOpen}
         onClose={handleNewAppointmentModalClose}
+        initialDate={newAppointmentSeed?.date}
+        initialTime={newAppointmentSeed?.time}
+        initialStaffId={newAppointmentSeed?.staffId}
       />
     </div>
   );

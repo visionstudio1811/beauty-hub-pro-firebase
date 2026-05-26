@@ -108,6 +108,14 @@ type TreatmentRecord = {
   price?: number;
 };
 
+type AddonRecord = {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes?: number | null;
+  description?: string;
+};
+
 type ProductAssignment = {
   id: string;
   product_id?: string;
@@ -157,6 +165,7 @@ type PortalData = {
   purchases: PurchaseRecord[];
   packages: Record<string, PackageRecord>;
   treatments: Record<string, TreatmentRecord>;
+  addons: Record<string, AddonRecord>;
   products: ProductAssignment[];
   productCatalog: Record<string, ProductRecord>;
   invoices: InvoiceRecord[];
@@ -169,6 +178,7 @@ const emptyData: PortalData = {
   purchases: [],
   packages: {},
   treatments: {},
+  addons: {},
   products: [],
   productCatalog: {},
   invoices: [],
@@ -472,6 +482,7 @@ export default function ClientPortal() {
     altDate: '',
     altTime: '',
     notes: '',
+    addonIds: [] as string[],
   });
 
   useEffect(() => {
@@ -526,12 +537,13 @@ export default function ClientPortal() {
       try {
         const orgRef = doc(db, 'organizations', access.organization_id);
         const clientSnap = await getDoc(doc(orgRef, 'clients', access.client_id));
-        const [purchasesSnap, productsSnap, invoicesSnap, appointmentsSnap, requestsSnap] = await Promise.all([
+        const [purchasesSnap, productsSnap, invoicesSnap, appointmentsSnap, requestsSnap, addonsSnap] = await Promise.all([
           getDocs(query(collection(orgRef, 'purchases'), where('client_id', '==', access.client_id), where('payment_status', '==', 'active'))),
           getDocs(query(collection(orgRef, 'productAssignments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'invoices'), where('client_id', '==', access.client_id), where('status', '==', 'issued'))),
           getDocs(query(collection(orgRef, 'appointments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'bookingRequests'), where('client_id', '==', access.client_id))),
+          getDocs(query(collection(orgRef, 'addons'), where('is_active', '==', true))),
         ]);
 
         const purchases = purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as PurchaseRecord));
@@ -564,11 +576,16 @@ export default function ClientPortal() {
         );
         const productCatalog = Object.fromEntries(productEntries.filter(Boolean) as Array<readonly [string, ProductRecord]>);
 
+        const addons = Object.fromEntries(
+          addonsSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() } as AddonRecord] as const),
+        );
+
         setData({
           client: clientSnap.exists() ? { id: clientSnap.id, ...clientSnap.data() } as ClientRecord : null,
           purchases,
           packages,
           treatments,
+          addons,
           products: productAssignments,
           productCatalog,
           invoices: invoicesSnap.docs
@@ -646,6 +663,15 @@ export default function ClientPortal() {
       return;
     }
 
+    if (requestForm.addonIds.length > 1) {
+      toast({
+        title: 'Too many add-ons',
+        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmittingRequest(true);
     try {
       const createRequest = httpsCallable(functions, 'createClientBookingRequest');
@@ -660,10 +686,11 @@ export default function ClientPortal() {
         preferredSlot: { date: requestForm.date, time: requestForm.time },
         alternativeSlots,
         notes: requestForm.notes,
+        addons: requestForm.addonIds.map((id) => ({ addon_id: id })),
       });
 
       toast({ title: 'Request sent', description: 'The spa will confirm before it becomes an appointment.' });
-      setRequestForm({ purchaseId: '', treatmentId: '', date: '', time: '', altDate: '', altTime: '', notes: '' });
+      setRequestForm({ purchaseId: '', treatmentId: '', date: '', time: '', altDate: '', altTime: '', notes: '', addonIds: [] });
       setRefreshKey((value) => value + 1);
     } catch (error) {
       console.error(error);
@@ -832,6 +859,51 @@ export default function ClientPortal() {
                     </SelectContent>
                   </Select>
                 </Field>
+                {Object.values(data.addons).length > 0 && (
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Add-ons (optional)</Label>
+                      <span className="text-xs text-muted-foreground">One add-on max with a package session</span>
+                    </div>
+                    <div className="space-y-1 border rounded-md p-2 max-h-44 overflow-y-auto">
+                      {Object.values(data.addons).map((addon) => {
+                        const isSelected = requestForm.addonIds.includes(addon.id);
+                        const capReached = requestForm.addonIds.length >= 1;
+                        const disabled = capReached && !isSelected;
+                        return (
+                          <label
+                            key={addon.id}
+                            className={`flex items-center justify-between gap-2 rounded p-1.5 text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent'}`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                disabled={disabled}
+                                onChange={() => {
+                                  setRequestForm((prev) => ({
+                                    ...prev,
+                                    addonIds: isSelected
+                                      ? prev.addonIds.filter((id) => id !== addon.id)
+                                      : [...prev.addonIds, addon.id],
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-input"
+                              />
+                              <span className="truncate">{addon.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
+                              <span>+${addon.price}</span>
+                              {addon.duration_minutes && addon.duration_minutes > 0 && (
+                                <span>· +{addon.duration_minutes}m</span>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <Field label="Preferred date">
                   <Input type="date" value={requestForm.date} onChange={(event) => setRequestForm((prev) => ({ ...prev, date: event.target.value }))} />
                 </Field>

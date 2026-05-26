@@ -31,6 +31,10 @@ type BookingRequest = {
   alternative_slots?: RequestSlot[];
   notes?: string;
   staff_name?: string;
+  addons?: Array<{ addon_id?: string; name?: string; price?: number; duration_minutes?: number }>;
+  addons_total_price?: number;
+  addons_total_duration?: number;
+  acuity_sync_status?: string;
 };
 
 type StaffMap = Record<string, string>;
@@ -155,6 +159,29 @@ export function BookingRequestsPanel() {
               <div className="space-y-1">
                 <div className="font-medium">{request.client_name || 'Client'}</div>
                 <div className="text-sm text-muted-foreground">{request.treatment_name || 'Treatment'}</div>
+                {Array.isArray(request.addons) && request.addons.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    Add-ons: {request.addons.map((a) => a.name).filter(Boolean).join(', ')}
+                    {typeof request.addons_total_price === 'number' && request.addons_total_price > 0
+                      ? ` (+$${request.addons_total_price.toFixed(2)})`
+                      : ''}
+                  </div>
+                )}
+                {request.status === 'approved' && request.acuity_sync_status && (
+                  <div className="text-xs">
+                    {request.acuity_sync_status === 'synced' ? (
+                      <span className="inline-flex items-center gap-1 text-indigo-700">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                        Synced to Acuity
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                        Acuity sync: {request.acuity_sync_status}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="text-sm">Preferred: {slotLabel(request.preferred_slot, staff)}</div>
                 {(request.alternative_slots ?? []).map((slot, index) => (
                   <div key={`${slot.date}-${slot.time}-${slot.staff_id}`} className="text-sm text-muted-foreground">

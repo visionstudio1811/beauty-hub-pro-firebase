@@ -51,6 +51,7 @@ import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab'
 import { buildInvoicePdf } from '@/lib/invoicePdf';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { useSupabaseAddons } from '@/hooks/useSupabaseAddons';
 import type { Invoice } from '@/types/firestore';
 
 interface SessionSlot {
@@ -174,6 +175,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     duration: '60',
     notes: '',
     price: '',
+    selectedAddonIds: [] as string[],
   });
   const [savingPastTreatment, setSavingPastTreatment] = useState(false);
   const [birthdayOpen, setBirthdayOpen] = useState(false);
@@ -186,6 +188,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const { products: clientProducts, refetch: refetchProducts } = useClientProducts(client?.id);
   const { invoices } = useInvoices(client?.id);
   const { treatments: treatmentsList } = useSupabaseTreatments();
+  const { addons: addonsList } = useSupabaseAddons();
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [emailingInvoice, setEmailingInvoice] = useState<string | null>(null);
   const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
@@ -341,6 +344,27 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     const orgId = currentOrganization.id;
     const matchedTreatment = treatmentsList.find(t => t.name === pastTreatmentForm.treatment_name);
 
+    if (selectedPastPackage && pastTreatmentForm.selectedAddonIds.length > 1) {
+      toast({
+        title: 'Too many add-ons',
+        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const selectedAddons = addonsList.filter(a => pastTreatmentForm.selectedAddonIds.includes(a.id));
+    const addonSnapshots = selectedAddons.map(a => ({
+      addon_id: a.id,
+      name: a.name,
+      price: a.price,
+      duration_minutes: a.duration_minutes ?? 0,
+    }));
+    const addonsTotalPrice = addonSnapshots.reduce((sum, a) => sum + a.price, 0);
+    const addonsTotalDuration = addonSnapshots.reduce((sum, a) => sum + a.duration_minutes, 0);
+    const treatmentDurationNum = parseInt(pastTreatmentForm.duration) || 60;
+    const totalDuration = treatmentDurationNum + addonsTotalDuration;
+
     // Over-consume check when a package is selected
     if (selectedPastPackage && !opts.confirmedOverConsume) {
       const slots = selectedPastPackage.sessions_by_treatment;
@@ -404,15 +428,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             appointment_time: '00:00',
             staff_id: '',
             staff_name: pastTreatmentForm.staff_name || '',
-            duration: parseInt(pastTreatmentForm.duration) || 60,
+            duration: totalDuration,
             notes: pastTreatmentForm.notes || '',
-            price: 0,
+            price: addonsTotalPrice,
             status: 'completed',
             is_manual_entry: true,
             purchase_id: selectedPastPackage.id,
             package_id: selectedPastPackage.package_id || null,
             package_name: selectedPastPackage.package_name || null,
             session_used: true,
+            addons: addonSnapshots,
+            addons_total_price: addonsTotalPrice,
+            addons_total_duration: addonsTotalDuration,
             organization_id: orgId,
             created_at: serverTimestamp(),
             updated_at: serverTimestamp(),
@@ -441,15 +468,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           appointment_time: '00:00',
           staff_id: '',
           staff_name: pastTreatmentForm.staff_name || '',
-          duration: parseInt(pastTreatmentForm.duration) || 60,
+          duration: totalDuration,
           notes: pastTreatmentForm.notes || '',
-          price: parseFloat(pastTreatmentForm.price) || 0,
+          price: (parseFloat(pastTreatmentForm.price) || 0) + addonsTotalPrice,
           status: 'completed',
           is_manual_entry: true,
           purchase_id: null,
           package_id: null,
           package_name: null,
           session_used: false,
+          addons: addonSnapshots,
+          addons_total_price: addonsTotalPrice,
+          addons_total_duration: addonsTotalDuration,
           organization_id: orgId,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp(),
@@ -457,7 +487,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       }
 
       toast({ title: 'Treatment added', description: 'Past treatment has been logged.' });
-      setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '' });
+      setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '', selectedAddonIds: [] });
       setSelectedPastPackage(null);
       setConfirmOverConsume(null);
       setIsPastTreatmentOpen(false);
@@ -1666,7 +1696,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 selectedPackage={selectedPastPackage}
                 onSelectPackage={(pkg) => {
                   setSelectedPastPackage(pkg);
-                  setPastTreatmentForm(prev => ({ ...prev, treatment_name: '', price: '' }));
+                  setPastTreatmentForm(prev => ({ ...prev, treatment_name: '', price: '', selectedAddonIds: [] }));
                 }}
                 loading={false}
               />
@@ -1773,9 +1803,60 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 </div>
               )}
             </div>
+            {addonsList.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium">Add-ons (optional)</label>
+                  {selectedPastPackage && (
+                    <span className="text-xs text-muted-foreground">One max with package</span>
+                  )}
+                </div>
+                <div className="space-y-1 border rounded-md p-2 max-h-36 overflow-y-auto">
+                  {addonsList.map((addon) => {
+                    const isSelected = pastTreatmentForm.selectedAddonIds.includes(addon.id);
+                    const capReached =
+                      !!selectedPastPackage && pastTreatmentForm.selectedAddonIds.length >= 1;
+                    const disabled = capReached && !isSelected;
+                    return (
+                      <label
+                        key={addon.id}
+                        className={cn(
+                          'flex items-center justify-between gap-2 rounded p-1.5 text-sm cursor-pointer hover:bg-accent',
+                          disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent',
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={disabled}
+                            onChange={() => {
+                              const next = isSelected
+                                ? pastTreatmentForm.selectedAddonIds.filter(id => id !== addon.id)
+                                : [...pastTreatmentForm.selectedAddonIds, addon.id];
+                              setPastTreatmentForm({ ...pastTreatmentForm, selectedAddonIds: next });
+                            }}
+                            className="h-4 w-4 rounded border-input"
+                          />
+                          <span className="truncate">{addon.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
+                          <span>+${addon.price}</span>
+                          {addon.duration_minutes && addon.duration_minutes > 0 && (
+                            <span>· +{addon.duration_minutes}m</span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {selectedPastPackage && (
               <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
-                Package session — no additional charge
+                {pastTreatmentForm.selectedAddonIds.length > 0
+                  ? `Package session — treatment free, add-ons charged separately`
+                  : 'Package session — no additional charge'}
               </div>
             )}
             <div>

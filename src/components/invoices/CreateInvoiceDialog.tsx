@@ -29,7 +29,7 @@ import { buildInvoicePdf } from '@/lib/invoicePdf';
 import type { Invoice, InvoiceDraftLine, InvoiceLineItem } from '@/types/firestore';
 import { useInvoiceDrafts } from '@/hooks/useInvoiceDrafts';
 
-type LineKind = 'product' | 'treatment';
+type LineKind = 'product' | 'treatment' | 'addon';
 
 interface CatalogItem {
   id: string;
@@ -113,6 +113,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const [clientId, setClientId] = useState<string>('');
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [treatments, setTreatments] = useState<CatalogItem[]>([]);
+  const [addons, setAddons] = useState<CatalogItem[]>([]);
   const [rows, setRows] = useState<LineRow[]>([newRow()]);
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -281,6 +282,35 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         setTreatments([]);
       }
     })();
+
+    (async () => {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'organizations', orgId, 'addons'),
+          where('is_active', '==', true),
+        ));
+        setAddons(
+          snap.docs
+            .map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                name: data.name || '',
+                price: Number(data.price || 0),
+                category: data.category || undefined,
+                duration:
+                  data.duration_minutes === null || data.duration_minutes === undefined
+                    ? undefined
+                    : Number(data.duration_minutes) || undefined,
+              } as CatalogItem;
+            })
+            .sort(sortByName),
+        );
+      } catch (err) {
+        console.error('Failed to load addons', err);
+        setAddons([]);
+      }
+    })();
   }, [isOpen, currentOrganization?.id]);
 
   const productMap = useMemo(() => {
@@ -295,19 +325,30 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     return map;
   }, [treatments]);
 
+  const addonMap = useMemo(() => {
+    const map = new Map<string, CatalogItem>();
+    addons.forEach(a => map.set(a.id, a));
+    return map;
+  }, [addons]);
+
+  const catalogForKind = (kind: LineKind): CatalogItem[] =>
+    kind === 'treatment' ? treatments : kind === 'addon' ? addons : products;
+  const mapForKind = (kind: LineKind) =>
+    kind === 'treatment' ? treatmentMap : kind === 'addon' ? addonMap : productMap;
+
   const updateRow = (uid: string, patch: Partial<LineRow>) => {
     setRows(prev => prev.map(r => (r.uid === uid ? { ...r, ...patch } : r)));
   };
 
   const handleKindChange = (uid: string, kind: LineKind) => {
-    // Reset item + price when switching catalog so we don't carry a product id
-    // into a treatment dropdown.
+    // Reset item + price when switching catalog so we don't carry an id
+    // into the wrong dropdown.
     updateRow(uid, { kind, item_id: '', unit_price: 0 });
   };
 
   const handleItemChange = (uid: string, itemId: string) => {
     const row = rows.find(r => r.uid === uid);
-    const map = row?.kind === 'treatment' ? treatmentMap : productMap;
+    const map = row ? mapForKind(row.kind) : productMap;
     const item = map.get(itemId);
     updateRow(uid, {
       item_id: itemId,
@@ -350,7 +391,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
 
     const lineItems: InvoiceLineItem[] = validRows.map(r => {
-      const item = r.kind === 'treatment' ? treatmentMap.get(r.item_id) : productMap.get(r.item_id);
+      const item = mapForKind(r.kind).get(r.item_id);
       const unitCents = Math.round(r.unit_price * 100);
       const subCents = unitCents * r.quantity;
       return {
@@ -360,6 +401,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         package_id: null,
         product_id: r.kind === 'product' ? r.item_id : null,
         treatment_id: r.kind === 'treatment' ? r.item_id : null,
+        addon_id: r.kind === 'addon' ? r.item_id : null,
         quantity: r.quantity,
         unit_price_cents: unitCents,
         subtotal_cents: subCents,
@@ -453,7 +495,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     rows
       .filter(r => r.item_id)
       .map(r => {
-        const item = r.kind === 'treatment' ? treatmentMap.get(r.item_id) : productMap.get(r.item_id);
+        const item = mapForKind(r.kind).get(r.item_id);
         return {
           kind: r.kind,
           item_id: r.item_id,
@@ -503,6 +545,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       .filter(r => r.kind === 'treatment')
       .map(r => ({ treatment_id: r.item_id, quantity: r.quantity, unit_price: r.unit_price }));
 
+    const addonItems = validRows
+      .filter(r => r.kind === 'addon')
+      .map(r => ({ addon_id: r.item_id, quantity: r.quantity, unit_price: r.unit_price }));
+
     setSubmitting(true);
     setMode('issuing');
     try {
@@ -512,6 +558,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
           clientId: string;
           product_items: { product_id: string; quantity: number; unit_price: number }[];
           treatment_items: { treatment_id: string; quantity: number; unit_price: number }[];
+          addon_items: { addon_id: string; quantity: number; unit_price: number }[];
           payment_method?: string;
           notes?: string;
           idempotency_key: string;
@@ -524,6 +571,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         clientId,
         product_items: productItems,
         treatment_items: treatmentItems,
+        addon_items: addonItems,
         payment_method: paymentMethod || undefined,
         notes: notes.trim() || undefined,
         idempotency_key: idempotencyKey,
@@ -782,6 +830,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Add facial
                 </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => addRow('addon')}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Add add-on
+                </Button>
               </div>
             </div>
 
@@ -795,7 +847,9 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
             <div className="space-y-2">
               {rows.map(row => {
-                const catalog = row.kind === 'treatment' ? treatments : products;
+                const catalog = catalogForKind(row.kind);
+                const kindLabel = row.kind === 'treatment' ? 'facials' : row.kind === 'addon' ? 'add-ons' : 'products';
+                const placeholder = row.kind === 'treatment' ? 'Choose a facial' : row.kind === 'addon' ? 'Choose an add-on' : 'Choose a product';
                 return (
                   <div key={row.uid} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 md:col-span-2">
@@ -806,18 +860,19 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         <SelectContent>
                           <SelectItem value="product">Product</SelectItem>
                           <SelectItem value="treatment">Facial</SelectItem>
+                          <SelectItem value="addon">Add-on</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="col-span-12 md:col-span-4">
                       <Select value={row.item_id} onValueChange={v => handleItemChange(row.uid, v)}>
                         <SelectTrigger>
-                          <SelectValue placeholder={row.kind === 'treatment' ? 'Choose a facial' : 'Choose a product'} />
+                          <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
                         <SelectContent>
                           {catalog.length === 0 ? (
                             <div className="px-3 py-2 text-xs text-muted-foreground">
-                              No active {row.kind === 'treatment' ? 'facials' : 'products'} found
+                              No active {kindLabel} found
                             </div>
                           ) : (
                             catalog.map(item => (

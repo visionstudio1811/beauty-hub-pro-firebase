@@ -24,14 +24,22 @@ interface TreatmentItemInput {
   name?: string;
 }
 
+interface AddonItemInput {
+  addon_id: string;
+  quantity?: number;
+  unit_price?: number;
+  name?: string;
+}
+
 interface CreateInvoiceRequest {
   organizationId: string;
   // Either provide purchaseId (package-based invoice) OR clientId + at least
-  // one item (product or treatment) for a standalone invoice.
+  // one item (product, treatment, or add-on) for a standalone invoice.
   purchaseId?: string | null;
   clientId?: string | null;
   product_items?: ProductItemInput[];
   treatment_items?: TreatmentItemInput[];
+  addon_items?: AddonItemInput[];
   payment_method?: string;
   // Optional free-form line note appended to the description on the standalone
   // invoice. Ignored for purchase-based invoices.
@@ -89,6 +97,7 @@ export const createInvoice = onCall(async (request) => {
   const { organizationId, purchaseId, clientId, payment_method, notes, idempotency_key } = data;
   const productItems = Array.isArray(data.product_items) ? data.product_items : [];
   const treatmentItemsInput = Array.isArray(data.treatment_items) ? data.treatment_items : [];
+  const addonItemsInput = Array.isArray(data.addon_items) ? data.addon_items : [];
 
   if (!organizationId) {
     throw new HttpsError('invalid-argument', 'organizationId is required');
@@ -99,14 +108,17 @@ export const createInvoice = onCall(async (request) => {
     if (!clientId) {
       throw new HttpsError('invalid-argument', 'clientId is required for standalone invoices');
     }
-    if (productItems.length === 0 && treatmentItemsInput.length === 0) {
-      throw new HttpsError('invalid-argument', 'At least one product or treatment line item is required for standalone invoices');
+    if (productItems.length === 0 && treatmentItemsInput.length === 0 && addonItemsInput.length === 0) {
+      throw new HttpsError('invalid-argument', 'At least one product, treatment, or add-on line item is required for standalone invoices');
     }
     if (productItems.some(p => !p.product_id)) {
       throw new HttpsError('invalid-argument', 'Every product line item needs a product_id');
     }
     if (treatmentItemsInput.some(t => !t.treatment_id)) {
       throw new HttpsError('invalid-argument', 'Every treatment line item needs a treatment_id');
+    }
+    if (addonItemsInput.some(a => !a.addon_id)) {
+      throw new HttpsError('invalid-argument', 'Every add-on line item needs an addon_id');
     }
   }
 
@@ -290,16 +302,18 @@ export const createInvoice = onCall(async (request) => {
     // Standalone invoice — no purchase doc. Mix of products + treatments.
     resolvedClientId = clientId!;
 
-    const totalItemCount = productItems.length + treatmentItemsInput.length;
+    const totalItemCount = productItems.length + treatmentItemsInput.length + addonItemsInput.length;
     const singleLineNote = totalItemCount === 1 ? notes : undefined;
 
-    // Resolve products + treatments in parallel.
+    // Resolve products + treatments + add-ons in parallel.
     const productIds = Array.from(new Set(productItems.map(p => p.product_id)));
     const treatmentIds = Array.from(new Set(treatmentItemsInput.map(t => t.treatment_id)));
+    const addonIds = Array.from(new Set(addonItemsInput.map(a => a.addon_id)));
 
-    const [productSnaps, treatmentSnaps] = await Promise.all([
+    const [productSnaps, treatmentSnaps, addonSnaps] = await Promise.all([
       Promise.all(productIds.map(pid => orgRef.collection('products').doc(pid).get())),
       Promise.all(treatmentIds.map(tid => orgRef.collection('treatments').doc(tid).get())),
+      Promise.all(addonIds.map(aid => orgRef.collection('addons').doc(aid).get())),
     ]);
 
     const productMap = new Map<string, any>();
@@ -309,6 +323,10 @@ export const createInvoice = onCall(async (request) => {
     const treatmentMap = new Map<string, any>();
     treatmentSnaps.forEach(snap => {
       if (snap.exists) treatmentMap.set(snap.id, snap.data());
+    });
+    const addonMap = new Map<string, any>();
+    addonSnaps.forEach(snap => {
+      if (snap.exists) addonMap.set(snap.id, snap.data());
     });
 
     const productLines = productItems.map((item) => {
@@ -353,7 +371,28 @@ export const createInvoice = onCall(async (request) => {
       };
     });
 
-    lineItems = [...treatmentLines, ...productLines];
+    const addonLines = addonItemsInput.map((item) => {
+      const addon = addonMap.get(item.addon_id);
+      if (!addon) {
+        throw new HttpsError('not-found', `Add-on ${item.addon_id} not found`);
+      }
+      const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
+      const unitPrice = Number(item.unit_price ?? addon.price ?? 0);
+      const unitPriceCents = Math.round(unitPrice * 100);
+      const lineSubtotal = unitPriceCents * qty;
+      return {
+        type: 'addon' as const,
+        name: item.name || addon.name || 'Add-on',
+        description: singleLineNote ?? (addon.description || ''),
+        addon_id: item.addon_id,
+        package_id: null,
+        quantity: qty,
+        unit_price_cents: unitPriceCents,
+        subtotal_cents: lineSubtotal,
+      };
+    });
+
+    lineItems = [...treatmentLines, ...addonLines, ...productLines];
     subtotalCents = lineItems.reduce((sum, li) => sum + Number(li.subtotal_cents || 0), 0);
   }
 

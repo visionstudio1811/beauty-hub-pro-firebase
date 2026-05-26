@@ -198,6 +198,32 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
     [onSelectEvent],
   );
 
+  // Tiny inline marker for Acuity-synced events. Visible at any zoom level.
+  const EventBlock = useCallback(({ event, title }: { event: CalendarEvent; title: string }) => {
+    const synced = !!event.source.acuity_appointment_id;
+    const syncStatus = event.source.sync_status;
+    const failed = syncStatus === 'failed';
+    return (
+      <div className="flex items-center gap-1 min-w-0">
+        {synced && (
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-300 shrink-0"
+            title="Synced to Acuity"
+          />
+        )}
+        {failed && (
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 rounded-full bg-red-400 shrink-0"
+            title="Acuity sync failed"
+          />
+        )}
+        <span className="truncate">{title}</span>
+      </div>
+    );
+  }, []);
+
   const handleSelectSlot = useCallback(
     (slot: SlotInfo) => {
       const resourceId = typeof (slot as any).resourceId === 'string' ? (slot as any).resourceId : undefined;
@@ -305,6 +331,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         onSelectSlot={handleSelectSlot}
         onSelectEvent={handleSelectEvent}
         eventPropGetter={eventPropGetter}
+        components={{ event: EventBlock }}
           popup
           showMultiDayTimes
           dayLayoutAlgorithm="no-overlap"

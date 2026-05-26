@@ -80,7 +80,12 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
         phone: sanitizeString(apt.client_phone, 'No Phone'),
         email: sanitizeString(apt.client_email, 'No Email'),
         notes: sanitizeString(apt.notes || '', ''),
-        allergies: ''
+        allergies: '',
+        addons: Array.isArray(apt.addons) ? apt.addons : [],
+        addons_total_price: typeof apt.addons_total_price === 'number' ? apt.addons_total_price : 0,
+        addons_total_duration: typeof apt.addons_total_duration === 'number' ? apt.addons_total_duration : 0,
+        acuity_appointment_id: apt.acuity_appointment_id ?? null,
+        sync_status: apt.sync_status,
       };
       
       // Log any transformations that required sanitization

@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { useSupabaseBusinessHours } from '@/hooks/useSupabaseBusinessHours';
 import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { useSupabaseAddons } from '@/hooks/useSupabaseAddons';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useSchedulingConfig } from '@/contexts/SchedulingConfigContext';
 import { useClients, Client } from '@/hooks/useClients';
@@ -24,6 +25,7 @@ interface AppointmentFormData {
   notes: string;
   roomId: string;
   price: string;
+  selectedAddonIds: string[];
 }
 
 interface TimeSlot {
@@ -45,7 +47,8 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     staffId: '',
     notes: '',
     roomId: '',
-    price: ''
+    price: '',
+    selectedAddonIds: []
   });
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<ClientPackage | null>(null);
@@ -54,6 +57,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const { user, profile } = useAuth();
   const { validateUserRole } = useSecurityValidation();
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
+  const { addons, loading: addonsLoading } = useSupabaseAddons();
   const { addAppointment, appointments } = useSupabaseAppointments();
   const { businessHours, loading: businessHoursLoading } = useSupabaseBusinessHours();
   const { schedulingConfigs, loading: schedulingConfigLoading } = useSchedulingConfig();
@@ -93,6 +97,15 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   // Get staff profiles based on user role
   const staffProfiles = isBeautician ? getBeauticianProfiles() : getStaffProfiles();
   const selectedTreatment = treatments.find(t => t.id === formData.treatmentId);
+
+  // Derived add-on selections and totals
+  const selectedAddons = addons.filter(a => formData.selectedAddonIds.includes(a.id));
+  const addonsTotalDuration = selectedAddons.reduce(
+    (sum, a) => sum + (a.duration_minutes ?? 0),
+    0,
+  );
+  const addonsTotalPrice = selectedAddons.reduce((sum, a) => sum + (a.price ?? 0), 0);
+  const totalDuration = (selectedTreatment?.duration ?? 0) + addonsTotalDuration;
 
   // Filter treatments based on selected package. For per-treatment packages we
   // only allow treatments whose remaining slot is > 0; legacy single-pool packages
@@ -189,8 +202,8 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     const slots: TimeSlot[] = [];
     const startTime = dayHours.openTime;
     const endTime = dayHours.closeTime;
-    const treatmentDuration = selectedTreatment.duration;
-    
+    const treatmentDuration = totalDuration;
+
     const timeInterval = schedulingConfig
       ? schedulingConfig.time_interval_minutes
       : treatmentDuration;
@@ -259,9 +272,9 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
       : 1;
 
     const availabilityInfo = getTimeSlotAvailability(
-      formData.time, 
-      formData.staffId, 
-      selectedTreatment.duration, 
+      formData.time,
+      formData.staffId,
+      totalDuration,
       maxConcurrent
     );
 
@@ -353,6 +366,11 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     setSelectedPackage,
     selectedTreatment,
     availableTreatments,
+    availableAddons: addons,
+    selectedAddons,
+    addonsTotalDuration,
+    addonsTotalPrice,
+    totalDuration,
     availableTimeSlots,
     staffProfiles,
     clientPackages,
@@ -364,6 +382,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     validateAppointmentBooking,
       loading: {
         treatments: treatmentsLoading,
+        addons: addonsLoading,
         staff: staffLoading,
         packages: packagesLoading,
         businessHours: businessHoursLoading,

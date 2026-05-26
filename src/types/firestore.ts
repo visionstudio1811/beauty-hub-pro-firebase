@@ -172,7 +172,7 @@ export interface InvoiceBundledProduct {
 }
 
 export interface InvoiceLineItem {
-  type: 'package' | 'product' | 'treatment';
+  type: 'package' | 'product' | 'treatment' | 'addon';
   name: string;
   description: string;
   // package_id is set when type === 'package', null/absent for standalone products.
@@ -181,6 +181,8 @@ export interface InvoiceLineItem {
   product_id?: string | null;
   // treatment_id is set when type === 'treatment'.
   treatment_id?: string | null;
+  // addon_id is set when type === 'addon'.
+  addon_id?: string | null;
   treatments?: InvoiceTreatmentLine[];
   bundled_products?: InvoiceBundledProduct[];
   quantity: number;
@@ -210,10 +212,10 @@ export interface InvoiceBusinessSnapshot {
 }
 
 export interface InvoiceDraftLine {
-  // 'product' or 'treatment' line. Matches the LineKind on CreateInvoiceDialog.
-  kind: 'product' | 'treatment';
-  // For products: product_id. For treatments: treatment_id. Either way the
-  // single field name keeps the draft shape uniform; the consumer maps it back.
+  // 'product', 'treatment', or 'addon' line. Matches the LineKind on CreateInvoiceDialog.
+  kind: 'product' | 'treatment' | 'addon';
+  // For products: product_id. For treatments: treatment_id. For add-ons: addon_id.
+  // The single field name keeps the draft shape uniform; the consumer maps it back.
   item_id: string;
   quantity: number;
   unit_price: number;

@@ -18,6 +18,15 @@
       ]
     },
     {
+      "collectionGroup": "addons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_active", "order": "ASCENDING" },
+        { "fieldPath": "sort_order", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "dropdownData",
       "queryScope": "COLLECTION",
       "fields": [

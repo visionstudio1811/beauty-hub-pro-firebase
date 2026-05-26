@@ -15,13 +15,15 @@ import {
   FileSignature,
   ClipboardList,
   Receipt,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 
 // Import components with named exports
 import { UserManagement } from '@/components/UserManagement';
 import { PackageManagement } from '@/components/PackageManagement';
 import { TreatmentManagement } from '@/components/TreatmentManagement';
+import { AddonManagement } from '@/components/AddonManagement';
 import { SchedulingConfiguration } from '@/components/SchedulingConfiguration';
 import { BusinessHours } from '@/components/BusinessHours';
 import { BusinessInfoEditor } from '@/components/BusinessInfoEditor';
@@ -131,6 +133,23 @@ const Settings = () => {
             </CardHeader>
             <CardContent>
               <TreatmentManagement />
+            </CardContent>
+          </Card>
+        );
+      case 'addons':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Add-ons
+              </CardTitle>
+              <CardDescription>
+                Optional extras that staff and clients can attach to any appointment (e.g. eye mask, scalp massage)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AddonManagement />
             </CardContent>
           </Card>
         );

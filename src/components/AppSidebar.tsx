@@ -5,7 +5,7 @@ import {
   Calendar, Users, LayoutDashboard, Mail, Settings,
   LogOut, ChevronRight, ChevronDown,
   Package, ShoppingBag, Tag, Clock, FileSignature,
-  ClipboardList, Receipt, FileText, Zap, TrendingUp,
+  ClipboardList, Receipt, FileText, Zap, TrendingUp, Sparkles,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -22,6 +22,7 @@ const SETTINGS_SECTIONS = [
   { id: 'users',            label: 'Users',            icon: Users },
   { id: 'packages',         label: 'Packages',         icon: Package },
   { id: 'treatments',       label: 'Treatments',       icon: Calendar },
+  { id: 'addons',           label: 'Add-ons',          icon: Sparkles },
   { id: 'products',         label: 'Products',         icon: ShoppingBag },
   { id: 'categories',       label: 'Categories',       icon: Tag },
   { id: 'brands',           label: 'Brands',           icon: Tag },

@@ -19,6 +19,13 @@ interface Treatment {
   price?: number;
 }
 
+interface AddonOption {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes?: number | null;
+}
+
 interface StaffProfile {
   id: string;
   full_name?: string;
@@ -39,6 +46,7 @@ interface AppointmentFormData {
   time: string;
   notes: string;
   price: string;
+  selectedAddonIds: string[];
 }
 
 interface AppointmentDetailsSectionProps {
@@ -47,12 +55,17 @@ interface AppointmentDetailsSectionProps {
   formData: AppointmentFormData;
   onFormDataChange: (updates: Partial<AppointmentFormData>) => void;
   availableTreatments: Treatment[];
+  availableAddons: AddonOption[];
+  addonsTotalPrice: number;
+  addonsTotalDuration: number;
+  totalDuration: number;
   staffProfiles: StaffProfile[];
   availableTimeSlots: TimeSlot[];
   selectedPackage: any;
   onTimeChange: (value: string) => void;
   loading: {
     treatments: boolean;
+    addons?: boolean;
     staff: boolean;
     businessHours: boolean;
     schedulingConfig: boolean;
@@ -65,12 +78,24 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
   formData,
   onFormDataChange,
   availableTreatments,
+  availableAddons,
+  addonsTotalPrice,
+  addonsTotalDuration,
+  totalDuration,
   staffProfiles,
   availableTimeSlots,
   selectedPackage,
   onTimeChange,
   loading
 }) => {
+  const toggleAddon = (addonId: string) => {
+    const isSelected = formData.selectedAddonIds.includes(addonId);
+    const nextIds = isSelected
+      ? formData.selectedAddonIds.filter(id => id !== addonId)
+      : [...formData.selectedAddonIds, addonId];
+    onFormDataChange({ selectedAddonIds: nextIds, time: '' });
+  };
+  const packageAddonCapReached = !!selectedPackage && formData.selectedAddonIds.length >= 1;
   // Count available vs total slots for display
   const availableSlotCount = availableTimeSlots.filter(slot => slot.available).length;
   const totalSlotCount = availableTimeSlots.length;
@@ -150,12 +175,17 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
               No treatments available for the selected package
             </p>
           )}
+          {formData.treatmentId && addonsTotalDuration > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Total time with add-ons: {totalDuration} min
+            </p>
+          )}
         </div>
 
         <div>
           <Label htmlFor="staff">Staff Member</Label>
-          <Select 
-            value={formData.staffId} 
+          <Select
+            value={formData.staffId}
             onValueChange={(value) => onFormDataChange({ staffId: value, time: '' })}
             disabled={loading.staff}
           >
@@ -173,16 +203,66 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
         </div>
       </div>
 
+      {/* Add-ons */}
+      {availableAddons.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Add-ons (optional)</Label>
+            {selectedPackage && (
+              <span className="text-xs text-muted-foreground">
+                Package sessions include one add-on max
+              </span>
+            )}
+          </div>
+          <div className="space-y-2 border rounded-md p-2 max-h-44 overflow-y-auto">
+            {availableAddons.map((addon) => {
+              const isSelected = formData.selectedAddonIds.includes(addon.id);
+              const disabled = packageAddonCapReached && !isSelected;
+              return (
+                <label
+                  key={addon.id}
+                  className={cn(
+                    'flex items-center justify-between gap-3 rounded p-2 text-sm cursor-pointer hover:bg-accent',
+                    disabled && 'opacity-50 cursor-not-allowed hover:bg-transparent',
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={disabled}
+                      onChange={() => toggleAddon(addon.id)}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <span className="truncate">{addon.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary" className="text-xs">+${addon.price}</Badge>
+                    {addon.duration_minutes && addon.duration_minutes > 0 ? (
+                      <Badge variant="outline" className="text-xs">+{addon.duration_minutes} min</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">No extra time</Badge>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Price */}
       {selectedPackage ? (
         formData.treatmentId && (
           <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
-            Package session — no additional charge
+            {addonsTotalPrice > 0
+              ? `Package session — treatment free, add-ons $${addonsTotalPrice.toFixed(2)}`
+              : 'Package session — no additional charge'}
           </div>
         )
       ) : (
         <div>
-          <Label>Price ($)</Label>
+          <Label>Treatment Price ($)</Label>
           <Input
             type="number"
             step="0.01"
@@ -192,6 +272,12 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
             placeholder="0.00"
             className="mt-1"
           />
+          {addonsTotalPrice > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              + ${addonsTotalPrice.toFixed(2)} in add-ons. Total: $
+              {((parseFloat(formData.price) || 0) + addonsTotalPrice).toFixed(2)}
+            </p>
+          )}
         </div>
       )}
 

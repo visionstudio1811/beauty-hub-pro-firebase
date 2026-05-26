@@ -16,6 +16,13 @@ import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeString, sanitizeDateString } from '@/lib/dataSanitization';
 
+export interface AppointmentAddonSnapshot {
+  addon_id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+}
+
 export interface SupabaseAppointment {
   id: string;
   client_id?: string;
@@ -40,6 +47,11 @@ export interface SupabaseAppointment {
   session_used?: boolean;
   organization_id?: string;
   price?: number;
+  addons?: AppointmentAddonSnapshot[];
+  addons_total_price?: number;
+  addons_total_duration?: number;
+  acuity_appointment_id?: string | null;
+  sync_status?: 'pending' | 'synced' | 'failed' | 'skipped' | string;
 }
 
 const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
@@ -66,6 +78,21 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   session_used: Boolean(data.session_used),
   organization_id: data.organization_id,
   price: typeof data.price === 'number' ? data.price : undefined,
+  addons: Array.isArray(data.addons)
+    ? data.addons.map((a: any) => ({
+        addon_id: String(a?.addon_id ?? ''),
+        name: sanitizeString(a?.name, 'Add-on'),
+        price: typeof a?.price === 'number' ? a.price : Number(a?.price ?? 0),
+        duration_minutes:
+          typeof a?.duration_minutes === 'number' ? a.duration_minutes : Number(a?.duration_minutes ?? 0),
+      }))
+    : undefined,
+  addons_total_price: typeof data.addons_total_price === 'number' ? data.addons_total_price : undefined,
+  addons_total_duration:
+    typeof data.addons_total_duration === 'number' ? data.addons_total_duration : undefined,
+  acuity_appointment_id:
+    data.acuity_appointment_id === undefined ? undefined : data.acuity_appointment_id,
+  sync_status: typeof data.sync_status === 'string' ? data.sync_status : undefined,
 });
 
 export const useSupabaseAppointments = () => {
