@@ -3,6 +3,7 @@ import { Plus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppointmentFormModal } from '../components/AppointmentFormModal';
+import AppointmentModal, { Appointment as UIAppointment } from '../components/AppointmentModal';
 import DashboardStats from '../components/dashboard/DashboardStats';
 import { AppointmentCalendarGrid } from '@/components/calendar/AppointmentCalendarGrid';
 
@@ -11,43 +12,87 @@ import { useSupabaseStaff } from '@/hooks/useSupabaseStaff';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { usePurchasesData } from '@/hooks/usePurchasesData';
 import { useClients } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
+import { decrementSessionForAppointment } from '@/lib/sessionDecrement';
 import { formatTimeDisplay, getBusinessToday, getBusinessNow, isBusinessToday } from '@/lib/timeUtils';
 import { useTimezone } from '@/hooks/useTimezone';
-import { Appointment as UIAppointment } from '../components/AppointmentModal';
+
+const toUiAppointment = (raw: SupabaseAppointment): UIAppointment => ({
+  id: raw.id,
+  time: formatTimeDisplay(raw.appointment_time),
+  date: raw.appointment_date,
+  client: raw.client_name,
+  treatment: raw.treatment_name,
+  staff: raw.staff_name,
+  duration: raw.duration,
+  status: raw.status,
+  phone: raw.client_phone,
+  email: raw.client_email,
+  notes: raw.notes || '',
+  allergies: '',
+  addons: raw.addons,
+  addons_total_price: raw.addons_total_price,
+  addons_total_duration: raw.addons_total_duration,
+  acuity_appointment_id: raw.acuity_appointment_id ?? null,
+  sync_status: raw.sync_status,
+});
 
 const Dashboard = () => {
   const tz = useTimezone();
+  const { profile } = useAuth();
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
-  const [editAppointment, setEditAppointment] = useState<UIAppointment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<UIAppointment | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  const { appointments } = useSupabaseAppointments();
+  const { appointments, updateAppointment, deleteAppointment } = useSupabaseAppointments();
   const { staff: staffList } = useSupabaseStaff();
   const { treatments: treatmentList } = useSupabaseTreatments();
   const { rows: purchaseRows } = usePurchasesData();
   const { clients } = useClients();
 
-  // Calendar widget: clicking an event opens the form modal in edit mode.
+  // Click an event on the calendar → open the rich Appointment Details modal
+  // (status, confirm, no-show, delete) — same UX as the Appointments page.
   const handleCalendarEventClick = useCallback((raw: SupabaseAppointment) => {
-    setEditAppointment({
-      id: raw.id,
-      time: formatTimeDisplay(raw.appointment_time),
-      date: raw.appointment_date,
-      client: raw.client_name,
-      treatment: raw.treatment_name,
-      staff: raw.staff_name,
-      duration: raw.duration,
-      status: raw.status,
-      phone: raw.client_phone,
-      email: raw.client_email,
-      notes: raw.notes || '',
-      allergies: '',
-    });
-    setIsNewAppointmentModalOpen(true);
+    setSelectedAppointment(toUiAppointment(raw));
+    setIsViewModalOpen(true);
   }, []);
 
   const handleCalendarSlotClick = useCallback(() => {
-    setEditAppointment(null);
     setIsNewAppointmentModalOpen(true);
+  }, []);
+
+  const handleStatusChange = useCallback(
+    (appointmentId: string, newStatus: UIAppointment['status'], notes?: string) => {
+      updateAppointment(appointmentId, {
+        status: newStatus,
+        notes: notes ? notes : undefined,
+      });
+
+      if (newStatus === 'completed' && profile?.organizationId) {
+        const appt = appointments.find((a) => a.id === appointmentId);
+        if (appt?.session_used && appt.purchase_id) {
+          decrementSessionForAppointment(
+            profile.organizationId,
+            appt.purchase_id,
+            appt.treatment_id ?? null,
+            appt.client_id ?? null,
+          ).catch((err) => console.error('Failed to decrement session:', err));
+        }
+      }
+    },
+    [updateAppointment, appointments, profile],
+  );
+
+  const handleDeleteAppointment = useCallback(
+    (appointmentId: string) => {
+      deleteAppointment(appointmentId);
+    },
+    [deleteAppointment],
+  );
+
+  const handleViewModalClose = useCallback(() => {
+    setIsViewModalOpen(false);
+    setSelectedAppointment(null);
   }, []);
 
   // Stats — all date-scoped to "today" so the dashboard is an at-a-glance
@@ -125,14 +170,19 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* New Appointment Modal */}
+      {/* Appointment Details Modal — opened from the calendar widget */}
+      <AppointmentModal
+        appointment={selectedAppointment}
+        isOpen={isViewModalOpen}
+        onClose={handleViewModalClose}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDeleteAppointment}
+      />
+
+      {/* New Appointment Modal — opened from "+ New Appointment" + empty slots */}
       <AppointmentFormModal
         isOpen={isNewAppointmentModalOpen}
-        onClose={() => {
-          setIsNewAppointmentModalOpen(false);
-          setEditAppointment(null);
-        }}
-        editAppointment={editAppointment}
+        onClose={() => setIsNewAppointmentModalOpen(false)}
       />
     </div>
   );
