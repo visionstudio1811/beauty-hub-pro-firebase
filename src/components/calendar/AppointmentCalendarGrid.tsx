@@ -168,10 +168,13 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   // Apply the staff filter to both the events and the resource columns so a
   // hidden staff member disappears from the grid entirely (no empty column,
   // no orphan events on the right side).
+  // When the org has no records in the staff/{} collection (e.g. admin-only
+  // setups where the practitioner is a user, not a staff entity), there's
+  // nothing to filter against — show everything.
   const visibleEvents = useMemo(() => {
-    if (allStaffSelected) return events;
+    if (activeStaff.length === 0 || allStaffSelected) return events;
     return events.filter((e) => !e.resourceId || visibleStaffIds.has(e.resourceId));
-  }, [events, visibleStaffIds, allStaffSelected]);
+  }, [events, visibleStaffIds, allStaffSelected, activeStaff.length]);
 
   const resources = useMemo(
     () =>
