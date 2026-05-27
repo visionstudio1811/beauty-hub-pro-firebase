@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Monitor, Smartphone, Tablet, AlertTriangle, Trash2, Shield } from 'lucide-react';
 import { useSessionSecurity } from '@/hooks/useSessionSecurity';
+import { safeFormatters } from '@/lib/safeDateFormatter';
 
 export const SessionManager: React.FC = () => {
   const { 
@@ -144,7 +145,7 @@ export const SessionManager: React.FC = () => {
                       </div>
                       
                       <div className="text-xs text-muted-foreground">
-                        IP: {session.ip_address} • Created: {new Date(session.created_at).toLocaleDateString()}
+                        IP: {session.ip_address} • Created: {safeFormatters.shortDate(session.created_at) || '—'}
                       </div>
                     </div>
                   </div>

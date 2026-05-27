@@ -8,8 +8,10 @@ service firebase.storage {
     match /waivers/{file} {
       allow read: if request.auth != null;
       // UUID token in the filename is the unguessable secret. Size cap prevents
-      // bucket abuse; content-type check is advisory since the SDK sends it.
-      allow write: if true; // unauthenticated upload — UUID token in path is the secret
+      // bucket abuse; PDF MIME enforced so the bucket can't be used to host
+      // arbitrary files.
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
     }
 
     // Waiver photo uploads live at `waivers/{token}/photos/{filename}`.

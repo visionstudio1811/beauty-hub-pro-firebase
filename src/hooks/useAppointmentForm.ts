@@ -13,6 +13,7 @@ import { useClientPackages, ClientPackage } from '@/hooks/useClientPackages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { syncMembershipStatus } from '@/hooks/useMembershipSync';
+import { format } from 'date-fns';
 
 
 interface AppointmentFormData {
@@ -65,8 +66,10 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const { clients } = useClients();
   const { packages: clientPackages, loading: packagesLoading, refreshPackages } = useClientPackages(selectedClient?.id);
   
-  // Calculate selected date string
-  const selectedDateString = selectedDate.toISOString().split('T')[0];
+  // Calculate selected date string. Use date-fns format (local time) instead
+  // of toISOString().split('T')[0] which UTC-shifts — for users east of UTC
+  // in the evening, that would book slots for the next day.
+  const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
 
   // Pre-select client if clientId is provided
   useEffect(() => {

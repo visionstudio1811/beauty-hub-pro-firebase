@@ -291,8 +291,13 @@ service cloud.firestore {
                       && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.status == 'pending'
                       && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.waiverId == waiverId
                       && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.organizationId == orgId
-                      && (!('expiresAt' in get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.keys())
-                          || get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time);
+                      // Require expiresAt to be present AND in the future.
+                      // Previously this allowed missing-field as a pass; flip
+                      // so a token without expiresAt is rejected (defense in
+                      // depth — sendWaiver always writes the field, but a
+                      // token created by hand wouldn't).
+                      && 'expiresAt' in get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.keys()
+                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time;
       }
 
       match /auditLogs/{logId} {
@@ -390,7 +395,9 @@ service cloud.firestore {
       allow update: if resource.data.status == 'pending'
                     && request.resource.data.status == 'signed'
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'signedAt'])
-                    && (!('expiresAt' in resource.data.keys()) || resource.data.expiresAt > request.time);
+                    // Require expiresAt — see /clientWaivers rule for context.
+                    && 'expiresAt' in resource.data.keys()
+                    && resource.data.expiresAt > request.time;
     }
 
     match /clientPortalAccess/{userId}/organizations/{orgId} {

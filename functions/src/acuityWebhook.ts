@@ -201,19 +201,39 @@ export const acuityWebhook = onRequest(
         return;
       }
 
-      const configSnapshot = await db
-        .collectionGroup('acuitySyncConfig')
-        .where('sync_enabled', '==', true)
-        .limit(1)
-        .get();
-
-      if (configSnapshot.empty) {
-        res.status(404).json({ error: 'No Acuity configuration found' });
+      // Required: ?org={orgId} in the URL. This used to fall back to
+      // `collectionGroup('acuitySyncConfig').limit(1)` which would pick the
+      // first org with sync enabled — letting any org's signature potentially
+      // validate against another's secret. Webhook URL must be tenant-scoped.
+      const organizationId =
+        (typeof req.query?.org === 'string' && req.query.org) ||
+        (typeof req.query?.organizationId === 'string' && req.query.organizationId) ||
+        '';
+      if (!organizationId) {
+        res.status(400).json({
+          error:
+            'Missing ?org=ORGID in webhook URL. Configure the Acuity webhook URL to include the org id as a query parameter.',
+        });
         return;
       }
 
-      const orgConfig = configSnapshot.docs[0].data();
-      const organizationId = orgConfig.organization_id as string;
+      const configSnap = await db
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('acuitySyncConfig')
+        .limit(1)
+        .get();
+
+      if (configSnap.empty) {
+        res.status(404).json({ error: 'No Acuity configuration found for this organization' });
+        return;
+      }
+
+      const orgConfig = configSnap.docs[0].data() ?? {};
+      if (orgConfig.sync_enabled !== true) {
+        res.status(403).json({ error: 'Acuity sync is disabled for this organization' });
+        return;
+      }
 
       // Use dedicated webhook_secret only — do NOT fall back to the API key
       const webhookSecret = orgConfig.webhook_secret as string | undefined;

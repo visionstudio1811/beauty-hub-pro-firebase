@@ -260,35 +260,48 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       );
 
       const activeDocs = snap.docs.filter(d => !d.data().deleted_at);
-      const results: DatabasePurchase[] = await Promise.all(
-        activeDocs.map(async (d) => {
-          const data = d.data();
-          let pkg: DatabasePurchase['packages'] = null;
-          if (data.package_id) {
-            const pkgSnap = await getDoc(doc(db, 'organizations', currentOrganization.id, 'packages', data.package_id));
-            if (pkgSnap.exists()) {
-              const p = pkgSnap.data();
-              pkg = {
-                name: p.name || '',
-                total_sessions: p.total_sessions || 0,
-                description: p.description ?? null,
-              };
-            }
-          }
-          return {
-            id: d.id,
-            package_id: data.package_id ?? null,
-            total_amount: data.total_amount ?? 0,
-            purchase_date: data.purchase_date ?? '',
-            payment_status: data.payment_status ?? '',
-            sessions_remaining: data.sessions_remaining ?? 0,
-            description_override: data.description_override ?? null,
-            packages: pkg,
-            product_snapshot: Array.isArray(data.product_snapshot) ? data.product_snapshot : undefined,
-            sessions_by_treatment: Array.isArray(data.sessions_by_treatment) ? data.sessions_by_treatment : undefined,
-          };
-        })
+
+      // Batch-fetch unique packages instead of N+1 (one getDoc per purchase).
+      // Same package reused across purchases costs only one read.
+      const uniquePackageIds = Array.from(
+        new Set(
+          activeDocs
+            .map((d) => d.data().package_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0),
+        ),
       );
+      const packageSnaps = await Promise.all(
+        uniquePackageIds.map((id) =>
+          getDoc(doc(db, 'organizations', currentOrganization.id, 'packages', id)),
+        ),
+      );
+      const packageMap = new Map<string, DatabasePurchase['packages']>();
+      packageSnaps.forEach((snap) => {
+        if (!snap.exists()) return;
+        const p = snap.data();
+        packageMap.set(snap.id, {
+          name: p.name || '',
+          total_sessions: p.total_sessions || 0,
+          description: p.description ?? null,
+        });
+      });
+
+      const results: DatabasePurchase[] = activeDocs.map((d) => {
+        const data = d.data();
+        const pkg = data.package_id ? packageMap.get(data.package_id) ?? null : null;
+        return {
+          id: d.id,
+          package_id: data.package_id ?? null,
+          total_amount: data.total_amount ?? 0,
+          purchase_date: data.purchase_date ?? '',
+          payment_status: data.payment_status ?? '',
+          sessions_remaining: data.sessions_remaining ?? 0,
+          description_override: data.description_override ?? null,
+          packages: pkg,
+          product_snapshot: Array.isArray(data.product_snapshot) ? data.product_snapshot : undefined,
+          sessions_by_treatment: Array.isArray(data.sessions_by_treatment) ? data.sessions_by_treatment : undefined,
+        };
+      });
 
       results.sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''));
       setPurchases(results);
