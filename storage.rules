@@ -10,7 +10,7 @@ service firebase.storage {
       // UUID token in the filename is the unguessable secret. Size cap prevents
       // bucket abuse; PDF MIME enforced so the bucket can't be used to host
       // arbitrary files.
-      allow write: if request.resource.size < 10 * 1024 * 1024
+      allow write: if request.resource.size < 50 * 1024 * 1024
                    && request.resource.contentType == 'application/pdf';
     }
 
