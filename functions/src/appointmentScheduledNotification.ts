@@ -72,29 +72,24 @@ function renderAutomationContent(template: string, vars: Record<string, string>)
   });
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+/** Replace {{var}} placeholders inside the branded email template HTML. */
+function renderTemplate(html: string, variables: Record<string, string>): string {
+  return html.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    const v = variables[key];
+    return v !== undefined ? v : match;
+  });
 }
 
-/** Minimal branded HTML wrapper around the rendered plain-text content. */
-function buildEmailHtml(subject: string, content: string, orgName: string): string {
-  const bodyHtml = escapeHtml(content).replace(/\n/g, '<br>');
-  const headerLine = escapeHtml(orgName || 'Beauty Hub Pro');
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1f2937;background:#ffffff">
-  <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:20px">
-    <p style="margin:0;font-weight:600;color:#111827">${headerLine}</p>
-  </div>
-  <h2 style="margin:0 0 16px;font-size:18px;color:#111827">${escapeHtml(subject)}</h2>
-  <div style="line-height:1.65;font-size:15px">${bodyHtml}</div>
-  <p style="color:#6b7280;font-size:12px;margin-top:28px">— ${headerLine}</p>
+/** Fallback HTML wrapper for orgs that haven't configured email templates yet. */
+const DEFAULT_TEMPLATE_HTML = `
+<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+  <h2 style="color:#1a1a1a">{{subject}}</h2>
+  <p>Hi {{client_name}},</p>
+  <div style="line-height:1.6">{{message}}</div>
+  <br>
+  <p style="color:#666;font-size:13px">— {{organization_name}}</p>
 </body></html>`;
-}
 
 export const appointmentScheduledNotification = onDocumentCreated(
   {
@@ -164,7 +159,8 @@ export const appointmentScheduledNotification = onDocumentCreated(
       return;
     }
 
-    const config = (integrationSnap.docs[0].data().configuration ?? {}) as ResendIntegrationConfig;
+    const integrationData = integrationSnap.docs[0].data();
+    const config = (integrationData.configuration ?? {}) as ResendIntegrationConfig;
     if (!config.apiKey) {
       console.warn('appointmentScheduledNotification: Resend apiKey missing', { orgId });
       return;
@@ -175,6 +171,22 @@ export const appointmentScheduledNotification = onDocumentCreated(
       console.warn('appointmentScheduledNotification: Resend fromEmail missing', { orgId });
       return;
     }
+
+    // Pull the org's branded email templates from the Resend integration doc
+    // (same shape sendClientEmail uses). Prefer a dedicated
+    // 'appointment_confirmation' template; fall back to 'general' → 'default'
+    // → built-in stub so orgs without a template still get an email.
+    const emailTemplates = (integrationData.email_templates ?? {}) as Record<
+      string,
+      { html?: string; settings?: Record<string, unknown> } | undefined
+    >;
+    const template =
+      emailTemplates['appointment_confirmation'] ||
+      emailTemplates['general'] ||
+      emailTemplates['default'];
+    const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
+    const templateSettings = (template?.settings ?? {}) as Record<string, string>;
+    const headerImageUrl = String(integrationData.email_header_image_url ?? '');
 
     const vars: Record<string, string> = {
       NAME: String(appt.client_name || appt.client_email.split('@')[0]),
@@ -193,7 +205,35 @@ export const appointmentScheduledNotification = onDocumentCreated(
 
         const subject = renderAutomationContent(String(data.subject || 'Your appointment is confirmed'), vars);
         const renderedBody = renderAutomationContent(String(data.content || ''), vars);
-        const html = buildEmailHtml(subject, renderedBody, vars.ORG);
+
+        // Build {{var}} substitutions for the branded template. Match the
+        // sendClientEmail variable set so designs work consistently across
+        // both code paths.
+        const templateVariables: Record<string, string> = {
+          ...Object.fromEntries(
+            Object.entries(templateSettings).map(([k, v]) => [k, String(v ?? '')]),
+          ),
+          subject,
+          message: renderedBody.replace(/\n/g, '<br>'),
+          client_name: vars.NAME,
+          organization_name: vars.ORG,
+          organization_phone: String(orgData.phone || ''),
+          organization_address: String(orgData.address || ''),
+          organization_email: String(orgData.email || fromEmail || ''),
+          logo_url: String(orgData.logo_url || ''),
+          header_image_url: headerImageUrl,
+          sender_name: fromName,
+          from_email: fromEmail,
+          cta_url: '',
+          date: vars.DATE,
+          datetime: `${vars.DATE} ${vars.TIME}`,
+          // Appointment-specific tokens so templates can reference them directly.
+          treatment: vars.TREATMENT,
+          time: vars.TIME,
+          staff: vars.STAFF,
+        };
+
+        const html = renderTemplate(templateHtml, templateVariables);
 
         const result = await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
