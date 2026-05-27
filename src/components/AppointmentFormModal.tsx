@@ -91,8 +91,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     selectedDateString
   } = useAppointmentForm(clientId, clientName);
 
-  // Hydrate the form from calendar-slot seed values whenever the modal opens
-  // with a new seed. Only runs on the initial open so user edits aren't clobbered.
+  // Stash the seed time so we can re-apply it after the treatment/staff
+  // selection handlers clear `time`. Consumed once treatment+staff are set
+  // and the seed has been re-applied.
+  const [seedTime, setSeedTime] = useState<string | null>(null);
+
+  // Hydrate the form from calendar-slot seed values whenever the modal opens.
   useEffect(() => {
     if (!isOpen) return;
     if (initialDate) setSelectedDate(initialDate);
@@ -103,8 +107,20 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         ...(initialStaffId ? { staffId: initialStaffId } : {}),
       }));
     }
+    setSeedTime(initialTime ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Re-apply the seed time once treatment + staff are both picked.
+  // The treatment/staff select handlers clear `time` defensively; this puts
+  // the user's originally-clicked slot back. Consumed once applied.
+  useEffect(() => {
+    if (!seedTime) return;
+    if (formData.treatmentId && formData.staffId && !formData.time) {
+      setFormData(prev => ({ ...prev, time: seedTime }));
+      setSeedTime(null);
+    }
+  }, [formData.treatmentId, formData.staffId, formData.time, seedTime, setFormData]);
 
   const handleClientSelect = (client: Client | null) => {
     setSelectedClient(client);
@@ -150,7 +166,12 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     setFormData({
       ...formData,
       treatmentId: '',
-      time: ''
+      time: '',
+      // Package sessions allow one add-on max — trim excess so the user
+      // doesn't see the "too many add-ons" toast at submit.
+      selectedAddonIds: packageItem
+        ? formData.selectedAddonIds.slice(0, 1)
+        : formData.selectedAddonIds,
     });
   };
 
