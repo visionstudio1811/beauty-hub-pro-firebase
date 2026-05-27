@@ -26,7 +26,7 @@ const Appointments = () => {
     time?: string;
     staffId?: string;
   } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const { profile } = useAuth();
