@@ -65,9 +65,25 @@ export const useSupabaseAddons = () => {
       );
       const snapshot = await getDocs(q);
       setAddons(snapshot.docs.map(d => docToAddon(d.id, d.data())));
-    } catch (error) {
-      console.error('Error fetching addons:', error);
-      toast({ title: 'Error', description: 'Failed to load add-ons', variant: 'destructive' });
+    } catch (error: any) {
+      // Surface the real Firestore error so we can tell rules failure vs
+      // missing-index vs anything else. `error.code` is a string like
+      // 'permission-denied' or 'failed-precondition' (missing index).
+      const code = error?.code ?? 'unknown';
+      const message = error?.message ?? String(error);
+      console.error('Error fetching addons:', { code, message, error });
+      // Empty collection is not an error — Firestore returns an empty
+      // snapshot. Only show toast for real failures and include the code
+      // so the user can act on it.
+      toast({
+        title: 'Failed to load add-ons',
+        description: code === 'failed-precondition'
+          ? 'Index is still building. Wait 1–2 min and refresh.'
+          : code === 'permission-denied'
+          ? 'Firestore rules not deployed. Run firebase deploy --only firestore.'
+          : `${code}: ${message}`,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

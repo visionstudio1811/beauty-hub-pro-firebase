@@ -63,12 +63,27 @@ const Appointments = () => {
     setIsModalOpen(true);
   }, []);
 
-  // Calendar gets the raw SupabaseAppointment list restricted to ids that pass
-  // the current filter set; this keeps all existing filters working on the grid.
+  // Calendar handles its own date navigation, so we deliberately bypass the
+  // Time Period (day/week/month) filter for it — otherwise navigating inside
+  // the calendar would hide events that fall outside the parent's filter
+  // window. Apply only the non-date filters (staff/status/treatment/search)
+  // so dropdowns still work.
   const calendarAppointments: SupabaseAppointment[] = useMemo(() => {
-    const allowedIds = new Set(filteredAppointments.map((a) => a.id));
-    return appointments.filter((a) => allowedIds.has(a.id));
-  }, [filteredAppointments, appointments]);
+    return appointments.filter((a) => {
+      if (staffFilter !== 'all' && a.staff_name !== staffFilter) return false;
+      if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      if (treatmentFilter !== 'all' && a.treatment_name !== treatmentFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const blob = [a.client_name, a.treatment_name, a.staff_name, a.client_phone, a.client_email, a.notes]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [appointments, staffFilter, statusFilter, treatmentFilter, searchQuery]);
 
   const handleCalendarEventClick = useCallback(
     (raw: SupabaseAppointment) => {

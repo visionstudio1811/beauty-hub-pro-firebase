@@ -13,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
 import type { Treatment } from '@/hooks/useSupabaseTreatments';
 import type { Staff } from '@/hooks/useSupabaseStaff';
+import { useTimezone } from '@/hooks/useTimezone';
+import { getBusinessNow } from '@/lib/timeUtils';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar.css';
@@ -87,9 +89,15 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   onSelectEvent,
   onSlotSelect,
 }) => {
+  const tz = useTimezone();
   const [view, setView] = useState<View>(defaultView);
-  const [date, setDate] = useState<Date>(defaultDate ?? new Date());
+  const [date, setDate] = useState<Date>(defaultDate ?? getBusinessNow(tz));
   const [visibleStaffIds, setVisibleStaffIds] = useState<Set<string>>(new Set());
+
+  // Pin the "now" indicator to the business timezone so a viewer in a
+  // different timezone (e.g. dev in Israel viewing a NY salon) sees the
+  // current-time line at the salon's actual hour, not their own local hour.
+  const getNow = useCallback(() => getBusinessNow(tz), [tz]);
 
   const treatmentColorById = useMemo(() => {
     const m = new Map<string, string>();
@@ -249,8 +257,11 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
 
   return (
     <div className="rbc-shadcn-wrap flex flex-col" style={{ height }}>
-      {showStaffFilter && (
-        <div className="flex items-center justify-end pb-2 gap-2 flex-wrap">
+      <div className="flex items-center justify-between pb-2 gap-2 flex-wrap">
+        <div className="text-xs text-muted-foreground">
+          Times shown in <span className="font-medium">{tz}</span>
+        </div>
+        {showStaffFilter && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="h-8">
@@ -306,8 +317,8 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
               )}
             </PopoverContent>
           </Popover>
-        </div>
-      )}
+        )}
+      </div>
       <div className="flex-1 min-h-0">
         <Calendar
           localizer={localizer}
@@ -323,6 +334,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         date={date}
         onView={setView}
         onNavigate={setDate}
+        getNow={getNow}
         step={15}
         timeslots={2}
         min={dayMin}
