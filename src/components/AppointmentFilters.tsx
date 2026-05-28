@@ -8,8 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Filter, Search, X, CalendarDays, CalendarRange, CalendarClock } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Calendar, Filter, Search, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { sanitizeString, sanitizeDateString } from '@/lib/dataSanitization';
 
@@ -66,30 +65,8 @@ const AppointmentFilters = ({
 
   const statuses = ['all', 'scheduled', 'confirmed', 'in-progress', 'completed', 'cancelled', 'no-show'];
 
-  const hasActiveFilters = staffFilter !== 'all' || statusFilter !== 'all' || 
+  const hasActiveFilters = staffFilter !== 'all' || statusFilter !== 'all' ||
     treatmentFilter !== 'all' || searchQuery !== '';
-
-  const getViewModeIcon = (mode: 'day' | 'week' | 'month') => {
-    switch (mode) {
-      case 'day':
-        return <CalendarClock className="h-4 w-4" />;
-      case 'week':
-        return <CalendarDays className="h-4 w-4" />;
-      case 'month':
-        return <CalendarRange className="h-4 w-4" />;
-    }
-  };
-
-  const getViewModeDescription = (mode: 'day' | 'week' | 'month') => {
-    switch (mode) {
-      case 'day':
-        return 'View appointments for a single day';
-      case 'week':
-        return 'View appointments for the entire week';
-      case 'month':
-        return 'View appointments for the entire month';
-    }
-  };
 
   const handleDateFilterChange = (value: string) => {
     const sanitized = sanitizeDateString(value, '');
@@ -124,59 +101,6 @@ const AppointmentFilters = ({
   return (
     <Card className="w-full max-w-full overflow-hidden shadow-sm border-gray-200 dark:border-gray-800">
       <CardContent className="p-4 sm:p-6 space-y-6">
-        {/* Enhanced View Mode Section */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h4 className="font-semibold text-gray-900 dark:text-gray-100">Time Period</h4>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {(['day', 'week', 'month'] as const).map((mode) => (
-              <Button
-                key={mode}
-                variant={viewMode === mode ? 'default' : 'outline'}
-                onClick={() => onViewModeChange(mode)}
-                className={`
-                  relative h-auto p-4 flex flex-col items-center gap-3 transition-all duration-200
-                  ${viewMode === mode 
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg' 
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-600'
-                  }
-                `}
-                title={getViewModeDescription(mode)}
-              >
-                <div className={`p-2 rounded-full ${
-                  viewMode === mode 
-                    ? 'bg-white/20' 
-                    : 'bg-blue-100 dark:bg-blue-900/30'
-                }`}>
-                  {getViewModeIcon(mode)}
-                </div>
-                <div className="text-center">
-                  <div className="font-medium capitalize">{mode}</div>
-                  <div className={`text-xs mt-1 ${
-                    viewMode === mode 
-                      ? 'text-white/80' 
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}>
-                    {mode === 'day' && 'Single day'}
-                    {mode === 'week' && '7 days'}
-                    {mode === 'month' && '30 days'}
-                  </div>
-                </div>
-                {viewMode === mode && (
-                  <div className="absolute -top-1 -right-1">
-                    <Badge className="bg-green-500 hover:bg-green-500 text-white text-xs px-2 py-1">
-                      Active
-                    </Badge>
-                  </div>
-                )}
-              </Button>
-            ))}
-          </div>
-        </div>
-
         {/* Layout Mode Controls */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">

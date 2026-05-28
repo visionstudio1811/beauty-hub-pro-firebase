@@ -207,7 +207,6 @@ const Appointments = () => {
             defaultView="week"
             defaultDate={selectedDate}
             showResources
-            height={720}
             onSelectEvent={handleCalendarEventClick}
             onSlotSelect={handleCalendarSlotClick}
           />

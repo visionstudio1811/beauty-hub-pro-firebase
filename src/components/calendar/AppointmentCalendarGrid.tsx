@@ -65,8 +65,10 @@ interface Props {
   defaultView?: View;
   defaultDate?: Date;
   showResources?: boolean;
-  /** Pixel height for the calendar container (CSS height). */
-  height?: number;
+  /** CSS height for the calendar container. Accepts a pixel number or any
+   * CSS length string. Defaults to a viewport-relative calc so the grid
+   * fills the page rather than leaving dead space at the bottom. */
+  height?: number | string;
   onSelectEvent?: (appt: SupabaseAppointment) => void;
   onSlotSelect?: (start: Date, staffId?: string) => void;
 }
@@ -85,7 +87,10 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   defaultView = 'week',
   defaultDate,
   showResources = true,
-  height = 700,
+  // Default fills the viewport minus a generous offset for app chrome
+  // (top bar + page header + this card's own padding). Override via prop
+  // for embeds in smaller containers.
+  height = 'calc(100vh - 16rem)',
   onSelectEvent,
   onSlotSelect,
 }) => {

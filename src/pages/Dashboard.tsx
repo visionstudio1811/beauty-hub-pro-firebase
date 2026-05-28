@@ -163,7 +163,6 @@ const Dashboard = () => {
             defaultView="day"
             defaultDate={getBusinessNow(tz)}
             showResources
-            height={520}
             onSelectEvent={handleCalendarEventClick}
             onSlotSelect={handleCalendarSlotClick}
           />
