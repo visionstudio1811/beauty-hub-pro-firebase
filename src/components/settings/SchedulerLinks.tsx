@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Link as LinkIcon, Copy, Plus, Trash2, Code2 } from 'lucide-react';
+import { Link as LinkIcon, Copy, Plus, Trash2, Code2, X } from 'lucide-react';
 
 interface SchedulerLink {
   id: string;       // The token
@@ -176,6 +176,19 @@ export const SchedulerLinks: React.FC = () => {
     }
   };
 
+  const handleDelete = async (token: string) => {
+    if (!currentOrganization?.id) return;
+    if (!confirm('Permanently delete this link? This cannot be undone — the URL will be gone for good.')) return;
+    try {
+      const fn = httpsCallable(functions, 'deleteSchedulerLink');
+      await fn({ organizationId: currentOrganization.id, token });
+      toast({ title: 'Link deleted' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete';
+      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+    }
+  };
+
   const copyToClipboard = async (text: string, label = 'Copied') => {
     try {
       await navigator.clipboard.writeText(text);
@@ -274,14 +287,24 @@ export const SchedulerLinks: React.FC = () => {
                     >
                       <Code2 className="h-3 w-3 mr-1" /> Embed
                     </Button>
-                    {link.is_active && (
+                    {link.is_active && !expired && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRevoke(link.id)}
                         className="text-red-600 hover:text-red-700"
                       >
-                        <Trash2 className="h-3 w-3 mr-1" /> Revoke
+                        <X className="h-3 w-3 mr-1" /> Revoke
+                      </Button>
+                    )}
+                    {(!link.is_active || expired) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(link.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" /> Delete
                       </Button>
                     )}
                   </div>

@@ -144,3 +144,50 @@ export const revokeSchedulerLink = onCall(async (request) => {
 
   return { success: true };
 });
+
+/**
+ * Permanently removes a scheduler link. Both the top-level public-lookup doc
+ * and the per-org admin mirror are deleted. To prevent admins from accidentally
+ * killing a working URL, deletion is only allowed once the link is already
+ * inactive — either revoked (is_active === false on the mirror) or expired
+ * (expires_at < now). Active links must be revoked first.
+ */
+export const deleteSchedulerLink = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+
+  const { organizationId, token } = request.data as { organizationId: string; token: string };
+  if (!organizationId || !token) {
+    throw new HttpsError('invalid-argument', 'organizationId and token are required');
+  }
+
+  await assertAdmin(request.auth.uid, organizationId);
+
+  const linkRef = db
+    .collection('organizations')
+    .doc(organizationId)
+    .collection('schedulerLinks')
+    .doc(token);
+  const linkSnap = await linkRef.get();
+  if (!linkSnap.exists) {
+    throw new HttpsError('not-found', 'Link not found');
+  }
+
+  const linkData = linkSnap.data() ?? {};
+  const isActive = linkData.is_active !== false;
+  const expiresAt = linkData.expires_at?.toDate?.();
+  const isExpired = expiresAt && expiresAt < new Date();
+
+  if (isActive && !isExpired) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Active links must be revoked before deletion.',
+    );
+  }
+
+  const batch = db.batch();
+  batch.delete(db.collection('schedulerLinkTokens').doc(token));
+  batch.delete(linkRef);
+  await batch.commit();
+
+  return { success: true };
+});

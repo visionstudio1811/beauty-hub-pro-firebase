@@ -39,6 +39,6 @@ export { birthdayEmails } from './birthdayEmails';
 export { inactiveClientEmails } from './inactiveClientEmails';
 export { appointmentReminderEmails } from './appointmentReminderEmails';
 export { getAvailableSlots } from './scheduling/getAvailableSlots';
-export { createSchedulerLink, revokeSchedulerLink } from './scheduling/createSchedulerLink';
+export { createSchedulerLink, revokeSchedulerLink, deleteSchedulerLink } from './scheduling/createSchedulerLink';
 export { resolveSchedulerLink, submitPublicBookingRequest } from './scheduling/publicBooking';
 export { notifyOnPublicBookingRequest } from './scheduling/notifyOnPublicBookingRequest';
