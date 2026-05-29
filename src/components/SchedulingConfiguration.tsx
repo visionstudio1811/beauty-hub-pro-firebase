@@ -181,12 +181,13 @@ export const SchedulingConfiguration = () => {
           <div className="flex items-center space-x-2 min-w-0">
             <CalendarClock className="h-5 w-5 text-purple-600 flex-shrink-0" />
             <CardTitle className="text-lg font-semibold truncate">Scheduling Configuration</CardTitle>
+            <Badge variant="outline" className="ml-1 text-xs">Legacy</Badge>
           </div>
           {hasAdminAccess && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 w-full sm:w-auto" 
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-full sm:w-auto"
               onClick={() => handleDialogOpen()}
             >
               <Plus className="h-4 w-4 mr-1" /> Add Config
@@ -198,6 +199,15 @@ export const SchedulingConfiguration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
+        <Alert variant="default" className="mb-4 border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            <strong>How layering works:</strong> Business Hours sets the outer bound. Configs here
+            narrow the window further when no staff schedule applies. <strong>Staff Schedules</strong>{' '}
+            (Settings → Staff Schedules) take precedence when set for a given day. Date overrides
+            on a staff schedule replace the window for that exact date.
+          </AlertDescription>
+        </Alert>
         {hasAdminAccess === false && (
           <Alert variant="default" className="mb-4">
             <AlertCircle className="h-4 w-4" />

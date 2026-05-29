@@ -1,5 +1,13 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import {
+  formatDateForDisplay,
+  formatTimeForDisplay,
+  getActiveEmailAutomation,
+  isValidEmail,
+  renderAndSend,
+  resolveEmailContext,
+} from './scheduling/bookingEmailSend';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -535,20 +543,58 @@ export const updateClientBookingRequest = onCall(
     const requestRef = orgRef.collection('bookingRequests').doc(requestId);
 
     if (action === 'reject') {
+      // Load the booking pre-update so we can email the visitor with the
+      // original slot + treatment in the body.
+      const bookingSnap = await requestRef.get();
+      const bookingPre = bookingSnap.exists ? bookingSnap.data() : null;
+
+      const staffResponse = typeof request.data?.staffResponse === 'string'
+        ? request.data.staffResponse.trim().slice(0, 1000)
+        : '';
+
       await requestRef.update({
         status: 'rejected',
-        staff_response: typeof request.data?.staffResponse === 'string'
-          ? request.data.staffResponse.trim().slice(0, 1000)
-          : '',
+        staff_response: staffResponse,
         reviewed_by: request.auth.uid,
         reviewed_by_name: staff.fullName ?? staff.email ?? '',
         reviewed_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
+
+      // Fire a rejection email for public-link bookings using the same template
+      // pipeline as the other transactional emails. Non-blocking — a failed
+      // email never fails the rejection. We only send for public_link source
+      // because client_portal users don't expect a rejection email on this path
+      // (they see the status flip in the portal UI).
+      if (bookingPre && bookingPre.source === 'public_link') {
+        try {
+          await sendBookingRejectionEmail(orgId, requestId, bookingPre, staffResponse);
+        } catch (err) {
+          console.error('updateClientBookingRequest: rejection email failed', {
+            orgId, requestId, error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       return { status: 'rejected' };
     }
 
     const appointmentRef = orgRef.collection('appointments').doc();
+
+    // Pre-fetch the treatment doc once so we can snapshot buffer_before / after
+    // onto the new appointment. Done outside the transaction since the treatment
+    // is independent of the purchase/booking-request consistency window.
+    const bookingPreSnap = await requestRef.get();
+    const treatmentIdForBuffer = bookingPreSnap.data()?.treatment_id as string | undefined;
+    let pretxBufferBefore = 0;
+    let pretxBufferAfter = 0;
+    if (treatmentIdForBuffer) {
+      const tSnap = await orgRef.collection('treatments').doc(treatmentIdForBuffer).get();
+      const t = tSnap.data() ?? {};
+      if (typeof t.buffer_before_minutes === 'number') pretxBufferBefore = t.buffer_before_minutes;
+      if (typeof t.buffer_after_minutes === 'number') pretxBufferAfter = t.buffer_after_minutes;
+    }
+
     const appointmentPayload = await db.runTransaction(async (tx) => {
       const requestSnap = await tx.get(requestRef);
       if (!requestSnap.exists) {
@@ -611,6 +657,16 @@ export const updateClientBookingRequest = onCall(
       const bookingAddons = Array.isArray(booking.addons) ? booking.addons : [];
       const bookingAddonsTotalPrice = Number(booking.addons_total_price ?? 0);
       const bookingAddonsTotalDuration = Number(booking.addons_total_duration ?? 0);
+      // Snapshot buffers — prefer the bookingRequest's saved value (public-link
+      // bookings store it at submission time); fall back to the pre-fetched
+      // treatment doc otherwise (client_portal bookings).
+      const bufferBefore = typeof booking.buffer_before_minutes === 'number'
+        ? booking.buffer_before_minutes
+        : pretxBufferBefore;
+      const bufferAfter = typeof booking.buffer_after_minutes === 'number'
+        ? booking.buffer_after_minutes
+        : pretxBufferAfter;
+
       const appointment = {
         organization_id: orgId,
         client_id: booking.client_id,
@@ -636,6 +692,8 @@ export const updateClientBookingRequest = onCall(
         booking_request_id: requestId,
         acuity_sync_enabled: false,
         sync_status: 'pending',
+        buffer_before_minutes: bufferBefore,
+        buffer_after_minutes: bufferAfter,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       };
@@ -675,3 +733,55 @@ export const updateClientBookingRequest = onCall(
     return { status: 'approved', appointmentId: appointmentRef.id, acuity: acuityResult };
   },
 );
+
+/**
+ * Sends a "Booking declined" email to the visitor using the same Resend +
+ * email_templates pipeline as the other transactional emails. The salon admin
+ * customizes the body in Marketing → Automations under the
+ * `booking_request_rejected` trigger; the branded HTML wrapper comes from the
+ * `booking_request_declined` template key (with the same general/default
+ * fallback chain).
+ */
+async function sendBookingRejectionEmail(
+  orgId: string,
+  requestId: string,
+  booking: FirebaseFirestore.DocumentData,
+  staffResponse: string,
+): Promise<void> {
+  const toEmail = booking.client_email as string | null;
+  if (!isValidEmail(toEmail)) return;
+
+  const automation = await getActiveEmailAutomation(orgId, 'booking_request_rejected');
+  if (!automation) return;
+
+  const ctx = await resolveEmailContext(orgId, 'booking_request_declined');
+  if (!ctx) return;
+
+  const tz = String(ctx.orgData.timezone || 'America/New_York');
+  const dateStr = String(booking.preferred_slot?.date || '');
+  const timeStr = String(booking.preferred_slot?.time || '');
+  const visitorName = (String(booking.client_name || 'there').trim()) || 'there';
+
+  const vars: Record<string, string> = {
+    NAME: visitorName,
+    TREATMENT: String(booking.treatment_name || 'your appointment'),
+    DATE: formatDateForDisplay(dateStr, tz),
+    TIME: formatTimeForDisplay(timeStr),
+    STAFF: String(booking.staff_name || ''),
+    ORG: String(ctx.orgData.name || ctx.fromName),
+    REASON: staffResponse,                    // [REASON] in the automation body
+    STAFF_RESPONSE: staffResponse,            // alias for backward compat
+  };
+
+  await renderAndSend({
+    orgId,
+    toEmail,
+    toName: visitorName,
+    automation,
+    ctx,
+    vars,
+    sendKind: 'system:publicBookingRequest:rejection',
+    bookingRequestId: requestId,
+    clientId: (booking.client_id as string | null) ?? null,
+  });
+}

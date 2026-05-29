@@ -21,6 +21,9 @@ export interface Staff {
   phone?: string;
   specialties: string[];
   is_active: boolean;
+  // Scheduling fields (optional)
+  treatment_ids?: string[];          // Treatments this staff member performs; empty/missing = no restriction
+  default_buffer_minutes?: number;   // Optional, additive to treatment buffer
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +35,11 @@ const docToStaff = (id: string, data: any): Staff => ({
   phone: data.phone ?? undefined,
   specialties: data.specialties ?? [],
   is_active: data.is_active ?? data.isActive ?? true,
+  treatment_ids: Array.isArray(data.treatment_ids)
+    ? data.treatment_ids.filter((t: any) => typeof t === 'string')
+    : undefined,
+  default_buffer_minutes:
+    typeof data.default_buffer_minutes === 'number' ? data.default_buffer_minutes : undefined,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
 });

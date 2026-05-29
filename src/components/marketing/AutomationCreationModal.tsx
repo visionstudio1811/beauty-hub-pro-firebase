@@ -7,15 +7,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Zap, 
-  Calendar, 
-  UserPlus, 
-  Clock, 
-  Gift, 
+import {
+  Zap,
+  Calendar,
+  UserPlus,
+  Clock,
+  Gift,
   RefreshCw,
   Mail,
-  MessageSquare
+  MessageSquare,
+  Link as LinkIcon,
+  Bell,
+  XCircle,
 } from 'lucide-react';
 import { useAutomations, MarketingAutomation } from '@/hooks/useAutomations';
 import { toast } from '@/hooks/use-toast';
@@ -106,6 +109,44 @@ const automationTemplates: AutomationTemplate[] = [
     messageType: 'email',
     subject: 'We Miss You! Come Back for 15% Off',
     content: 'It\'s been a while since your last visit. We miss you! Come back and enjoy 15% off your next service.'
+  },
+  // ----- Public scheduler-link bookings ----------------------------------------
+  // These three fire on bookings coming through shared /book/:token URLs and
+  // embedded iframes. They reuse the same Resend integration + branded HTML
+  // template wrapper as Appointment Confirmation, so the visitor experience
+  // matches the rest of your email design.
+  {
+    id: 'booking_request_received',
+    name: 'Booking Request Received (to visitor)',
+    description: 'Acknowledge a public booking request the moment it\'s submitted',
+    trigger: 'public_booking_request',
+    icon: <LinkIcon className="h-5 w-5" />,
+    delay: 'Immediate',
+    messageType: 'email',
+    subject: 'We got your booking request — [DATE] at [TIME]',
+    content: 'Hi [NAME],\n\nThanks for booking with [ORG]. We\'ve received your request for [TREATMENT] on [DATE] at [TIME] and will confirm by email shortly.\n\nIf anything\'s wrong, just reply to this email.\n\n— [ORG]'
+  },
+  {
+    id: 'booking_request_admin_alert',
+    name: 'New Booking Request (to staff)',
+    description: 'Notify your admins the moment a public booking request comes in',
+    trigger: 'public_booking_request_admin',
+    icon: <Bell className="h-5 w-5" />,
+    delay: 'Immediate',
+    messageType: 'email',
+    subject: 'New booking request — [VISITOR_NAME] · [TREATMENT] · [DATE] [TIME]',
+    content: 'A new public booking request just arrived.\n\nVisitor: [VISITOR_NAME]\nEmail: [VISITOR_EMAIL]\nPhone: [VISITOR_PHONE]\nTreatment: [TREATMENT]\nRequested: [DATE] at [TIME]\nNotes: [VISITOR_NOTES]\n\nApprove or decline in the Booking Requests panel.'
+  },
+  {
+    id: 'booking_request_declined',
+    name: 'Booking Declined (to visitor)',
+    description: 'Send a polite decline message when staff rejects a public booking',
+    trigger: 'booking_request_rejected',
+    icon: <XCircle className="h-5 w-5" />,
+    delay: 'Immediate',
+    messageType: 'email',
+    subject: 'About your booking request for [DATE] at [TIME]',
+    content: 'Hi [NAME],\n\nUnfortunately we\'re unable to confirm your [TREATMENT] booking on [DATE] at [TIME].\n\n[REASON]\n\nPlease pick another time on our booking page — we\'d love to see you.\n\n— [ORG]'
   }
 ];
 
@@ -238,7 +279,10 @@ export const AutomationCreationModal: React.FC<AutomationCreationModalProps> = (
     { value: 'client_birthday', label: 'Client Birthday' },
     { value: 'client_inactive', label: 'Client Inactive (90+ days)' },
     { value: 'package_expiring', label: 'Package Expiring Soon' },
-    { value: 'package_expired', label: 'Package Expired' }
+    { value: 'package_expired', label: 'Package Expired' },
+    { value: 'public_booking_request', label: 'Public Booking Request (to visitor)' },
+    { value: 'public_booking_request_admin', label: 'Public Booking Request (to staff)' },
+    { value: 'booking_request_rejected', label: 'Booking Request Rejected' },
   ];
 
   return (

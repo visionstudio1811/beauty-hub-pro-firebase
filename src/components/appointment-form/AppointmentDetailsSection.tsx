@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Calendar as CalendarIcon, AlertCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ interface Treatment {
   name: string;
   duration: number;
   price?: number;
+  staff_ids?: string[];
 }
 
 interface AddonOption {
@@ -49,6 +51,12 @@ interface AppointmentFormData {
   selectedAddonIds: string[];
 }
 
+interface CustomTimeConflict {
+  appointment_time: string;
+  appointment_end: string;
+  duration: number;
+}
+
 interface AppointmentDetailsSectionProps {
   selectedDate: Date;
   onDateChange: (date: Date | undefined) => void;
@@ -63,12 +71,18 @@ interface AppointmentDetailsSectionProps {
   availableTimeSlots: TimeSlot[];
   selectedPackage: any;
   onTimeChange: (value: string) => void;
+  // Custom-time override (Phase 1)
+  useCustomTime: boolean;
+  setUseCustomTime: (v: boolean) => void;
+  customTime: string;
+  setCustomTime: (v: string) => void;
+  customTimeConflict: CustomTimeConflict | null;
   loading: {
     treatments: boolean;
     addons?: boolean;
     staff: boolean;
     businessHours: boolean;
-    schedulingConfig: boolean;
+    slots?: boolean;
   };
 }
 
@@ -86,6 +100,11 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
   availableTimeSlots,
   selectedPackage,
   onTimeChange,
+  useCustomTime,
+  setUseCustomTime,
+  customTime,
+  setCustomTime,
+  customTimeConflict,
   loading
 }) => {
   const toggleAddon = (addonId: string) => {
@@ -99,6 +118,17 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
   // Count available vs total slots for display
   const availableSlotCount = availableTimeSlots.filter(slot => slot.available).length;
   const totalSlotCount = availableTimeSlots.length;
+
+  // Filter staff profiles by the selected treatment's staff_ids (if any).
+  // Empty/missing staff_ids = any active staff can perform the treatment.
+  const selectedTreatment = availableTreatments.find(t => t.id === formData.treatmentId);
+  const eligibleStaff = React.useMemo(() => {
+    if (!selectedTreatment?.staff_ids || selectedTreatment.staff_ids.length === 0) {
+      return staffProfiles;
+    }
+    const allowed = new Set(selectedTreatment.staff_ids);
+    return staffProfiles.filter(p => allowed.has(p.id));
+  }, [staffProfiles, selectedTreatment?.staff_ids]);
 
   return (
     <>
@@ -193,13 +223,18 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
               <SelectValue placeholder={loading.staff ? "Loading..." : "Select staff"} />
             </SelectTrigger>
             <SelectContent>
-              {staffProfiles.map((profile) => (
+              {eligibleStaff.map((profile) => (
                 <SelectItem key={profile.id} value={profile.id}>
                   {profile.full_name || profile.email}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {selectedTreatment?.staff_ids && selectedTreatment.staff_ids.length > 0 && eligibleStaff.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              No eligible staff for this treatment. Update the treatment's "Staff who can perform this" list in Settings.
+            </p>
+          )}
         </div>
       </div>
 
@@ -281,91 +316,132 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
         </div>
       )}
 
-      {/* Time Slot Selection with Enhanced Feedback */}
+      {/* Time selection — slot picker (default) or custom time override */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <Label htmlFor="time">Available Time Slots</Label>
-          {formData.staffId && formData.treatmentId && !loading.businessHours && !loading.schedulingConfig && (
-            <div className="text-sm text-muted-foreground">
-              {availableSlotCount > 0 ? (
-                <span className="text-green-600">{availableSlotCount}/{totalSlotCount} slots available</span>
-              ) : (
-                <span className="text-red-600 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  No slots available
-                </span>
+          <Label htmlFor="time">{useCustomTime ? 'Custom Time' : 'Available Time Slots'}</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Custom time</span>
+            <Switch
+              checked={useCustomTime}
+              onCheckedChange={(v) => {
+                setUseCustomTime(v);
+                // Clear the other side's value when switching modes
+                if (v) onFormDataChange({ time: '' });
+                else setCustomTime('');
+              }}
+              aria-label="Toggle custom time"
+            />
+          </div>
+        </div>
+
+        {useCustomTime ? (
+          <>
+            <Input
+              type="time"
+              value={customTime}
+              onChange={(e) => setCustomTime(e.target.value)}
+              disabled={!formData.staffId || !formData.treatmentId}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Bypasses schedule + advance-booking rules. Use for walk-ins, VIPs, or after-hours bookings.
+            </p>
+            {customTimeConflict && (
+              <div className="mt-2 p-2 rounded border border-amber-300 bg-amber-50 text-sm text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  Overlaps an existing appointment at {customTimeConflict.appointment_time}
+                  &ndash;{customTimeConflict.appointment_end}. You can book anyway.
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-2 text-sm">
+              {formData.staffId && formData.treatmentId && !loading.businessHours && !loading.slots && (
+                <div className="text-muted-foreground">
+                  {availableSlotCount > 0 ? (
+                    <span className="text-green-600">{availableSlotCount}/{totalSlotCount} slots available</span>
+                  ) : (
+                    <span className="text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      No slots available — flip the "Custom time" toggle to override
+                    </span>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
-        
-        <Select 
-          value={formData.time} 
-          onValueChange={onTimeChange}
-          disabled={!formData.staffId || !formData.treatmentId || loading.businessHours || loading.schedulingConfig}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={
-              loading.businessHours || loading.schedulingConfig ? "Loading..." :
-              !formData.staffId || !formData.treatmentId ? "Select treatment and staff first" :
-              availableSlotCount === 0 ? "No available slots for this date" :
-              "Select available time"
-            } />
-          </SelectTrigger>
-          <SelectContent>
-            {availableTimeSlots.length === 0 ? (
-              <SelectItem value="no-slots" disabled>
-                {loading.businessHours || loading.schedulingConfig 
-                  ? "Loading time slots..."
-                  : !formData.staffId || !formData.treatmentId
-                  ? "Select treatment and staff first"
-                  : "No available slots for this date"}
-              </SelectItem>
-            ) : (
-              availableTimeSlots.map((slot) => (
-                <SelectItem 
-                  key={slot.time} 
-                  value={slot.time}
-                  disabled={!slot.available}
-                  className={!slot.available ? "opacity-50 cursor-not-allowed" : ""}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className={!slot.available ? "line-through" : ""}>
-                      {slot.displayText}
-                    </span>
-                    {!slot.available && (
-                      <Badge variant="destructive" className="ml-2 text-xs">
-                        FULL
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))
+
+            <Select
+              value={formData.time}
+              onValueChange={onTimeChange}
+              disabled={!formData.staffId || !formData.treatmentId || loading.businessHours || loading.slots}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  loading.businessHours || loading.slots ? "Loading..." :
+                  !formData.staffId || !formData.treatmentId ? "Select treatment and staff first" :
+                  availableSlotCount === 0 ? "No available slots for this date" :
+                  "Select available time"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {availableTimeSlots.length === 0 ? (
+                  <SelectItem value="no-slots" disabled>
+                    {loading.businessHours || loading.slots
+                      ? "Loading time slots..."
+                      : !formData.staffId || !formData.treatmentId
+                      ? "Select treatment and staff first"
+                      : "No available slots for this date"}
+                  </SelectItem>
+                ) : (
+                  availableTimeSlots.map((slot) => (
+                    <SelectItem
+                      key={slot.time}
+                      value={slot.time}
+                      disabled={!slot.available}
+                      className={!slot.available ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={!slot.available ? "line-through" : ""}>
+                          {slot.displayText}
+                        </span>
+                        {!slot.available && (
+                          <Badge variant="destructive" className="ml-2 text-xs">
+                            FULL
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+
+            {formData.time && availableTimeSlots.length > 0 && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                {(() => {
+                  const selectedSlot = availableTimeSlots.find(slot => slot.time === formData.time);
+                  if (selectedSlot) {
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span>Selected: {selectedSlot.time}</span>
+                        <Badge variant={selectedSlot.available ? "default" : "destructive"}>
+                          {selectedSlot.available
+                            ? `${selectedSlot.availableCount}/${selectedSlot.maxCount} available`
+                            : "FULL"
+                          }
+                        </Badge>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             )}
-          </SelectContent>
-        </Select>
-        
-        {/* Additional availability info */}
-        {formData.time && availableTimeSlots.length > 0 && (
-          <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-            {(() => {
-              const selectedSlot = availableTimeSlots.find(slot => slot.time === formData.time);
-              if (selectedSlot) {
-                return (
-                  <div className="flex items-center justify-between">
-                    <span>Selected: {selectedSlot.time}</span>
-                    <Badge variant={selectedSlot.available ? "default" : "destructive"}>
-                      {selectedSlot.available 
-                        ? `${selectedSlot.availableCount}/${selectedSlot.maxCount} available`
-                        : "FULL"
-                      }
-                    </Badge>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
+          </>
         )}
       </div>
 

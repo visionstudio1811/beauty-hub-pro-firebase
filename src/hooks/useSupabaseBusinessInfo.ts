@@ -16,6 +16,9 @@ export interface BusinessInfo {
   phone: string | null;
   email: string | null;
   website: string | null;
+  // Org-wide booking slot step in minutes (e.g. 15, 30, 60).
+  // Undefined = auto (uses min(treatment.duration, 15) — the historical default).
+  slot_interval_minutes?: number;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +48,8 @@ export const useSupabaseBusinessInfo = () => {
           phone: data.phone ?? null,
           email: data.email ?? null,
           website: data.website ?? null,
+          slot_interval_minutes:
+            typeof data.slot_interval_minutes === 'number' ? data.slot_interval_minutes : undefined,
           created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
           updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
         });

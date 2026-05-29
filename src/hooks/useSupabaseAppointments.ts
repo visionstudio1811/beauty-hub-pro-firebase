@@ -52,6 +52,10 @@ export interface SupabaseAppointment {
   addons_total_duration?: number;
   acuity_appointment_id?: string | null;
   sync_status?: 'pending' | 'synced' | 'failed' | 'skipped' | string;
+  // Scheduling fields
+  buffer_before_minutes?: number; // Snapshotted from treatment at write time
+  buffer_after_minutes?: number;
+  is_custom_time?: boolean;       // True when staff used the "Custom time" override
 }
 
 const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
@@ -93,6 +97,11 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   acuity_appointment_id:
     data.acuity_appointment_id === undefined ? undefined : data.acuity_appointment_id,
   sync_status: typeof data.sync_status === 'string' ? data.sync_status : undefined,
+  buffer_before_minutes:
+    typeof data.buffer_before_minutes === 'number' ? data.buffer_before_minutes : undefined,
+  buffer_after_minutes:
+    typeof data.buffer_after_minutes === 'number' ? data.buffer_after_minutes : undefined,
+  is_custom_time: typeof data.is_custom_time === 'boolean' ? data.is_custom_time : undefined,
 });
 
 export const useSupabaseAppointments = () => {

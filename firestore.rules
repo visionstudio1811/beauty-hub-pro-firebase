@@ -246,6 +246,24 @@ service cloud.firestore {
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
+      // Per-user staff availability — weekly schedule + dated overrides.
+      // {staffId} matches the value stored as appointments.staff_id (a users/{uid} UID).
+      // Booking flows on the staff CRM read all docs in this sub-collection to compute
+      // available slots; portal/public reads happen via a Cloud Function (Admin SDK).
+      match /staffSchedules/{staffId}/availability/{availId} {
+        allow read: if belongsToOrg(orgId) && isBeautician();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      // Per-org mirror of shareable scheduler links (one doc per token). Admin
+      // reads them in the Scheduler Links settings UI. All writes flow through
+      // Cloud Functions (createSchedulerLink / revokeSchedulerLink).
+      match /schedulerLinks/{token} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow create, update, delete: if false;
+      }
+
       match /dropdownData/{docId} {
         // Staff reads + unauthenticated reads (public waiver/intake form needs city + referral-source options)
         allow read: if (belongsToOrg(orgId) && isBeautician()) || request.auth == null;
@@ -398,6 +416,16 @@ service cloud.firestore {
                     // Require expiresAt — see /clientWaivers rule for context.
                     && 'expiresAt' in resource.data.keys()
                     && resource.data.expiresAt > request.time;
+    }
+
+    // Public scheduler-link tokens. Mirrors the waiverTokens security pattern:
+    // any unauthenticated visitor may fetch a token by ID (knowing the token = identity
+    // proof), but listing is denied so tokens cannot be enumerated. All writes happen
+    // exclusively via Cloud Functions using the Admin SDK.
+    match /schedulerLinkTokens/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
     }
 
     match /clientPortalAccess/{userId}/organizations/{orgId} {

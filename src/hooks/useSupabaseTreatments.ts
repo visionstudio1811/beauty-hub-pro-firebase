@@ -14,6 +14,13 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
+export interface TreatmentAvailabilityWindow {
+  day_of_week: number; // 0=Sun..6=Sat (matches BusinessHours convention)
+  start_time: string;  // "HH:MM"
+  end_time: string;    // "HH:MM"
+  is_active: boolean;
+}
+
 export interface Treatment {
   id: string;
   name: string;
@@ -23,9 +30,35 @@ export interface Treatment {
   category?: string;
   color?: string;
   is_active: boolean;
+  // Scheduling fields (all optional; defaults preserve current behavior)
+  buffer_before_minutes?: number;
+  buffer_after_minutes?: number;
+  advance_min_hours?: number;
+  advance_max_days?: number;
+  staff_ids?: string[]; // Empty/missing = any active staff can perform
+  availability?: TreatmentAvailabilityWindow[]; // Per-day windows; missing = inherit business hours
   created_at: string;
   updated_at: string;
 }
+
+const sanitizeAvailability = (raw: any): TreatmentAvailabilityWindow[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  const windows: TreatmentAvailabilityWindow[] = [];
+  for (const w of raw) {
+    const dow = Number(w?.day_of_week);
+    if (!Number.isInteger(dow) || dow < 0 || dow > 6) continue;
+    const start = typeof w?.start_time === 'string' ? w.start_time : '';
+    const end = typeof w?.end_time === 'string' ? w.end_time : '';
+    if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) continue;
+    windows.push({
+      day_of_week: dow,
+      start_time: start,
+      end_time: end,
+      is_active: w?.is_active !== false,
+    });
+  }
+  return windows.length ? windows : undefined;
+};
 
 const docToTreatment = (id: string, data: any): Treatment => ({
   id,
@@ -36,6 +69,12 @@ const docToTreatment = (id: string, data: any): Treatment => ({
   category: data.category ?? undefined,
   color: typeof data.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : undefined,
   is_active: data.is_active ?? data.isActive ?? true,
+  buffer_before_minutes: typeof data.buffer_before_minutes === 'number' ? data.buffer_before_minutes : undefined,
+  buffer_after_minutes: typeof data.buffer_after_minutes === 'number' ? data.buffer_after_minutes : undefined,
+  advance_min_hours: typeof data.advance_min_hours === 'number' ? data.advance_min_hours : undefined,
+  advance_max_days: typeof data.advance_max_days === 'number' ? data.advance_max_days : undefined,
+  staff_ids: Array.isArray(data.staff_ids) ? data.staff_ids.filter((s: any) => typeof s === 'string') : undefined,
+  availability: sanitizeAvailability(data.availability),
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
 });

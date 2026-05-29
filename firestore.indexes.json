@@ -206,6 +206,23 @@
       ]
     },
     {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "staff_id", "order": "ASCENDING" },
+        { "fieldPath": "appointment_date", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "treatment_id", "order": "ASCENDING" },
+        { "fieldPath": "appointment_date", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "clientCommunications",
       "queryScope": "COLLECTION",
       "fields": [

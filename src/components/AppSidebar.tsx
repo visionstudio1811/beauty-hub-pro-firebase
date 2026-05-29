@@ -6,6 +6,7 @@ import {
   LogOut, ChevronRight, ChevronDown,
   Package, ShoppingBag, Tag, Clock, FileSignature,
   ClipboardList, Receipt, FileText, Zap, TrendingUp, Sparkles,
+  CalendarDays, Link as LinkIcon,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -27,6 +28,8 @@ const SETTINGS_SECTIONS = [
   { id: 'categories',       label: 'Categories',       icon: Tag },
   { id: 'brands',           label: 'Brands',           icon: Tag },
   { id: 'scheduling',       label: 'Scheduling',       icon: Clock },
+  { id: 'staff-schedules',  label: 'Staff Schedules',  icon: CalendarDays },
+  { id: 'scheduler-links',  label: 'Scheduler Links',  icon: LinkIcon },
   { id: 'waivers',          label: 'Waivers',          icon: FileSignature },
   { id: 'intake',           label: 'Intake Forms',     icon: ClipboardList },
   { id: 'agreements',       label: 'Agreements of Purchase', icon: FileSignature },

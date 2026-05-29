@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useSupabaseBusinessHours } from '@/hooks/useSupabaseBusinessHours';
@@ -8,11 +8,15 @@ import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { useSupabaseAddons } from '@/hooks/useSupabaseAddons';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useSchedulingConfig } from '@/contexts/SchedulingConfigContext';
+import { useSupabaseBusinessInfo } from '@/hooks/useSupabaseBusinessInfo';
 import { useClients, Client } from '@/hooks/useClients';
 import { useClientPackages, ClientPackage } from '@/hooks/useClientPackages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { syncMembershipStatus } from '@/hooks/useMembershipSync';
+import { useAvailableSlots } from '@/hooks/scheduling/useAvailableSlots';
+import { checkCustomTimeConflict } from '@/lib/scheduling/availability';
+import type { StaffForScheduling, TreatmentForScheduling } from '@/lib/scheduling/types';
 import { format } from 'date-fns';
 
 
@@ -35,6 +39,7 @@ interface TimeSlot {
   availableCount: number;
   maxCount: number;
   displayText: string;
+  staff_id?: string;
 }
 
 export const useAppointmentForm = (clientId?: string, clientName?: string) => {
@@ -54,6 +59,10 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<ClientPackage | null>(null);
   const [isBeautician, setIsBeautician] = useState(false);
+  // Custom-time override: when true, the slot picker is bypassed and the staff
+  // types a free-form time. Conflicts become advisory (warning, not block).
+  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [customTime, setCustomTime] = useState<string>('');
 
   const { user, profile } = useAuth();
   const { validateUserRole } = useSecurityValidation();
@@ -61,7 +70,8 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const { addons, loading: addonsLoading } = useSupabaseAddons();
   const { addAppointment, appointments } = useSupabaseAppointments();
   const { businessHours, loading: businessHoursLoading } = useSupabaseBusinessHours();
-  const { schedulingConfigs, loading: schedulingConfigLoading } = useSchedulingConfig();
+  const { schedulingConfigs } = useSchedulingConfig();
+  const { businessInfo } = useSupabaseBusinessInfo();
   const { getStaffProfiles, getBeauticianProfiles, loading: staffLoading } = useSupabaseProfiles();
   const { clients } = useClients();
   const { packages: clientPackages, loading: packagesLoading, refreshPackages } = useClientPackages(selectedClient?.id);
@@ -123,168 +133,111 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     return treatments.filter(t => selectedPackage.treatments.includes(t.id));
   })();
 
-  // Get applicable scheduling configuration for selected date and staff
-  const getApplicableSchedulingConfig = () => {
-    if (!formData.staffId || schedulingConfigLoading || schedulingConfigs.length === 0) {
-      return null;
-    }
-
-    const dayOfWeek = selectedDate.getDay();
-    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-    const applicableConfig = schedulingConfigs.find(config =>
-      config.is_active &&
-      config.day_of_week === adjustedDayOfWeek &&
-      (!config.staff_ids ||
-       config.staff_ids.length === 0 ||
-       config.staff_ids.includes(formData.staffId))
-    );
-
-    return applicableConfig || null;
-  };
-
-  // Enhanced availability check with proper concurrent appointment counting including Acuity
-  const getTimeSlotAvailability = (time: string, staffId: string, duration: number, maxConcurrent: number) => {
-    const appointmentStart = new Date(`${selectedDateString}T${time}`);
-    const appointmentEnd = new Date(appointmentStart.getTime() + duration * 60000);
-
-    // Get all local appointments for the selected date and staff (excluding cancelled/no-show)
-    const dayAppointments = appointments.filter(apt => 
-      apt.appointment_date === selectedDateString && 
-      apt.staff_id === staffId && 
-      apt.status !== 'cancelled' && 
-      apt.status !== 'no-show'
-    );
-
-    let overlappingCount = 0;
-    
-    // Count local appointments that overlap with the requested time slot
-    for (const existing of dayAppointments) {
-      const existingStart = new Date(`${existing.appointment_date}T${existing.appointment_time}`);
-      const existingEnd = new Date(existingStart.getTime() + existing.duration * 60000);
-
-      // Check if the time slots overlap
-      if (appointmentStart < existingEnd && appointmentEnd > existingStart) {
-        overlappingCount++;
-      }
-    }
-
-
-    const availableCount = Math.max(0, maxConcurrent - overlappingCount);
-
+  // Map the selected treatment + staff profiles into the scheduling utility's shape.
+  const treatmentForScheduling: TreatmentForScheduling | null = useMemo(() => {
+    if (!selectedTreatment) return null;
     return {
-      available: availableCount > 0,
-      availableCount,
-      overlappingCount
+      id: selectedTreatment.id,
+      duration: totalDuration,
+      buffer_before_minutes: selectedTreatment.buffer_before_minutes,
+      buffer_after_minutes: selectedTreatment.buffer_after_minutes,
+      advance_min_hours: selectedTreatment.advance_min_hours,
+      advance_max_days: selectedTreatment.advance_max_days,
+      staff_ids: selectedTreatment.staff_ids,
+      availability: selectedTreatment.availability,
     };
-  };
+  }, [selectedTreatment, totalDuration]);
 
-  // Generate available time slots with enhanced visual feedback
-  const generateAvailableTimeSlots = (): TimeSlot[] => {
-    if (!formData.staffId || !selectedTreatment || businessHoursLoading || schedulingConfigLoading) {
-      return [];
+  const staffForScheduling: StaffForScheduling[] = useMemo(() => {
+    return staffProfiles.map(p => ({
+      id: p.id,
+      name: p.full_name || p.email || 'Staff',
+      // Profile docs don't carry treatment_ids/default_buffer; those live on the
+      // staff metadata. For now we pass undefined (no restriction).
+    }));
+  }, [staffProfiles]);
+
+  const existingAppointmentsForScheduling = useMemo(() => {
+    return appointments.map(apt => ({
+      staff_id: apt.staff_id,
+      appointment_date: apt.appointment_date,
+      appointment_time: apt.appointment_time,
+      duration: apt.duration,
+      buffer_before_minutes: apt.buffer_before_minutes,
+      buffer_after_minutes: apt.buffer_after_minutes,
+      status: apt.status,
+    }));
+  }, [appointments]);
+
+  // New unified slot generator. Returns slots across all candidate staff for
+  // the selected date. When a specific staffId is picked, the caller filters.
+  const availabilitySlots = useAvailableSlots({
+    date: selectedTreatment && !useCustomTime ? selectedDateString : null,
+    treatment: treatmentForScheduling,
+    staffList: staffForScheduling,
+    existingAppointments: existingAppointmentsForScheduling,
+    businessHours,
+    schedulingConfigs,
+    slotIntervalMinutes: businessInfo?.slot_interval_minutes,
+  });
+
+  // Adapter: collapse multi-staff slots into the legacy TimeSlot[] shape so the
+  // existing modal markup keeps working until Phase 1's UI changes land.
+  // When a staff is selected, only that staff's slots are shown; otherwise we
+  // show one row per time with the count of available staff.
+  const availableTimeSlots: TimeSlot[] = useMemo(() => {
+    if (!availabilitySlots.slots.length) return [];
+    if (formData.staffId) {
+      return availabilitySlots.slots
+        .filter(s => s.staff_id === formData.staffId)
+        .map(s => ({
+          time: s.time,
+          available: true,
+          availableCount: 1,
+          maxCount: 1,
+          displayText: s.time,
+          staff_id: s.staff_id,
+        }));
     }
+    // No staff picked — show one entry per time with how many staff are free
+    return Array.from(availabilitySlots.byTime.entries())
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([time, staffIds]) => ({
+        time,
+        available: true,
+        availableCount: staffIds.length,
+        maxCount: staffIds.length,
+        displayText: staffIds.length > 1 ? `${time} (${staffIds.length} staff free)` : time,
+      }));
+  }, [availabilitySlots.slots, availabilitySlots.byTime, formData.staffId]);
 
-    const dayOfWeek = selectedDate.getDay();
-    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    
-    const schedulingConfig = getApplicableSchedulingConfig();
-    
-    const dayHours = schedulingConfig 
-      ? { 
-          enabled: true, 
-          openTime: schedulingConfig.start_time, 
-          closeTime: schedulingConfig.end_time 
-        }
-      : businessHours.find((_, index) => index === adjustedDayOfWeek);
-    
-    if (!dayHours || !dayHours.enabled) {
-      return [];
-    }
-
-    const slots: TimeSlot[] = [];
-    const startTime = dayHours.openTime;
-    const endTime = dayHours.closeTime;
-    const treatmentDuration = totalDuration;
-
-    const timeInterval = schedulingConfig
-      ? schedulingConfig.time_interval_minutes
-      : treatmentDuration;
-
-    const maxConcurrent = schedulingConfig
-      ? schedulingConfig.max_concurrent_appointments
-      : 1;
-
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-
-    let currentHour = startHour;
-    let currentMinute = startMinute;
-
-    while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-      const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-      
-      const availabilityInfo = getTimeSlotAvailability(timeString, formData.staffId, treatmentDuration, maxConcurrent);
-      
-      // Create display text with availability info
-      let displayText = timeString;
-      if (maxConcurrent > 1) {
-        displayText += ` (${availabilityInfo.availableCount}/${maxConcurrent} available)`;
-      }
-      if (!availabilityInfo.available) {
-        displayText += ' - FULL';
-      }
-      
-      slots.push({
-        time: timeString,
-        available: availabilityInfo.available,
-        availableCount: availabilityInfo.availableCount,
-        maxCount: maxConcurrent,
-        displayText
-      });
-
-      currentMinute += timeInterval;
-      if (currentMinute >= 60) {
-        currentHour += Math.floor(currentMinute / 60);
-        currentMinute = currentMinute % 60;
-      }
-    }
-
-    // Filter slots that would end before business hours close
-    const validSlots = slots.filter(slot => {
-      const [slotHour, slotMinute] = slot.time.split(':').map(Number);
-      const slotEndMinute = slotMinute + treatmentDuration;
-      const slotEndHour = slotHour + Math.floor(slotEndMinute / 60);
-      const finalEndMinute = slotEndMinute % 60;
-      
-      return slotEndHour < endHour || (slotEndHour === endHour && finalEndMinute <= endMinute);
+  // For the custom-time mode: returns a conflict descriptor if the typed time
+  // overlaps an existing appointment for the chosen staff (advisory only).
+  const customTimeConflict = useMemo(() => {
+    if (!useCustomTime || !customTime || !formData.staffId || !selectedTreatment) return null;
+    return checkCustomTimeConflict({
+      staffId: formData.staffId,
+      date: selectedDateString,
+      time: customTime,
+      duration: totalDuration,
+      existingAppointments: existingAppointmentsForScheduling,
     });
+  }, [useCustomTime, customTime, formData.staffId, selectedTreatment, selectedDateString, totalDuration, existingAppointmentsForScheduling]);
 
-    return validSlots;
-  };
-
-  // Validate appointment booking before submission
+  // Validation: only blocks on missing required fields. Slot conflicts in
+  // standard mode are already filtered out by the picker. Custom-time mode is
+  // intentionally permissive — staff override is intentional (walk-ins / VIPs).
   const validateAppointmentBooking = (): string | null => {
-    if (!selectedTreatment || !formData.staffId || !formData.time) {
-      return "Please select treatment, staff, and time slot";
+    if (!selectedTreatment || !formData.staffId) {
+      return 'Please select treatment and staff';
     }
-
-    const schedulingConfig = getApplicableSchedulingConfig();
-    const maxConcurrent = schedulingConfig 
-      ? schedulingConfig.max_concurrent_appointments 
-      : 1;
-
-    const availabilityInfo = getTimeSlotAvailability(
-      formData.time,
-      formData.staffId,
-      totalDuration,
-      maxConcurrent
-    );
-
-    if (!availabilityInfo.available) {
-      return `This time slot is fully booked (${maxConcurrent}/${maxConcurrent} appointments)`;
+    const effectiveTime = useCustomTime ? customTime : formData.time;
+    if (!effectiveTime) {
+      return useCustomTime ? 'Please enter a time' : 'Please select a time slot';
     }
-
+    if (useCustomTime && !/^\d{2}:\d{2}$/.test(customTime)) {
+      return 'Custom time must be in HH:MM format';
+    }
     return null;
   };
 
@@ -311,8 +264,6 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     
     return 'Room X';
   };
-
-  const availableTimeSlots = generateAvailableTimeSlots();
 
   /**
    * Decrements session counts on the purchase document when a booking consumes
@@ -383,14 +334,20 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
     refreshPackages,
     getNextAvailableRoomId,
     validateAppointmentBooking,
-      loading: {
-        treatments: treatmentsLoading,
-        addons: addonsLoading,
-        staff: staffLoading,
-        packages: packagesLoading,
-        businessHours: businessHoursLoading,
-        schedulingConfig: schedulingConfigLoading
-      },
-    selectedDateString
+    // Custom-time override (Phase 1)
+    useCustomTime,
+    setUseCustomTime,
+    customTime,
+    setCustomTime,
+    customTimeConflict,
+    loading: {
+      treatments: treatmentsLoading,
+      addons: addonsLoading,
+      staff: staffLoading,
+      packages: packagesLoading,
+      businessHours: businessHoursLoading,
+      slots: availabilitySlots.loading,
+    },
+    selectedDateString,
   };
 };

@@ -26,6 +26,8 @@ import { TreatmentManagement } from '@/components/TreatmentManagement';
 import { AddonManagement } from '@/components/AddonManagement';
 import { SchedulingConfiguration } from '@/components/SchedulingConfiguration';
 import { BusinessHours } from '@/components/BusinessHours';
+import { StaffSchedulesSection } from '@/components/staff/StaffSchedulesSection';
+import { SchedulerLinks } from '@/components/settings/SchedulerLinks';
 import { BusinessInfoEditor } from '@/components/BusinessInfoEditor';
 import { DropdownDataManagement } from '@/components/DropdownDataManagement';
 import EnhancedProductManagement from '@/components/EnhancedProductManagement';
@@ -234,6 +236,10 @@ const Settings = () => {
             </Card>
           </div>
         );
+      case 'staff-schedules':
+        return <StaffSchedulesSection />;
+      case 'scheduler-links':
+        return <SchedulerLinks />;
       case 'waivers':
         return (
           <Card>

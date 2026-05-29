@@ -20,6 +20,7 @@ import Auth from './pages/Auth';
 import Index from './pages/Index';
 import WaiverForm from './pages/WaiverForm';
 import ClientPortal from './pages/ClientPortal';
+import PublicBookingPage from './pages/PublicBookingPage';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { IdleLogoutGuard } from '@/components/auth/IdleLogoutGuard';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
@@ -65,6 +66,7 @@ function App() {
                             <Route path="/" element={<Index />} />
                             <Route path="/auth" element={<Auth />} />
                             <Route path="/waiver/:token" element={<WaiverForm />} />
+                            <Route path="/book/:token" element={<PublicBookingPage />} />
                             <Route path="/client" element={<ClientPortal />} />
                             <Route path="/client/:orgSlug" element={<ClientPortal />} />
                             

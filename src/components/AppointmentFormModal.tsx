@@ -87,6 +87,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     refreshPackages,
     getNextAvailableRoomId,
     validateAppointmentBooking,
+    useCustomTime,
+    setUseCustomTime,
+    customTime,
+    setCustomTime,
+    customTimeConflict,
     loading,
     selectedDateString
   } = useAppointmentForm(clientId, clientName);
@@ -254,6 +259,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     }
 
     const treatmentPrice = selectedPackage ? 0 : (parseFloat(formData.price) || 0);
+    const effectiveTime = useCustomTime ? customTime : formData.time;
 
     try {
       await addAppointment({
@@ -262,7 +268,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         client_phone: formData.clientPhone,
         client_email: formData.clientEmail,
         appointment_date: selectedDateString,
-        appointment_time: formData.time,
+        appointment_time: effectiveTime,
         treatment_id: formData.treatmentId || null,
         treatment_name: selectedTreatment.name,
         staff_id: formData.staffId || null,
@@ -284,6 +290,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         })),
         addons_total_price: addonsTotalPrice,
         addons_total_duration: addonsTotalDuration,
+        // Snapshot treatment buffers at write time so future overlap checks
+        // don't need to re-fetch the treatment doc.
+        buffer_before_minutes: selectedTreatment.buffer_before_minutes ?? 0,
+        buffer_after_minutes: selectedTreatment.buffer_after_minutes ?? 0,
+        is_custom_time: useCustomTime || undefined,
       });
 
       onSaved?.();
@@ -300,6 +311,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
         price: '',
         selectedAddonIds: []
       });
+      setUseCustomTime(false);
+      setCustomTime('');
       setSelectedClient(null);
       setSelectedPackage(null);
       setSelectedDate(new Date());
@@ -353,6 +366,11 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
               availableTimeSlots={availableTimeSlots}
               selectedPackage={selectedPackage}
               onTimeChange={handleTimeChange}
+              useCustomTime={useCustomTime}
+              setUseCustomTime={setUseCustomTime}
+              customTime={customTime}
+              setCustomTime={setCustomTime}
+              customTimeConflict={customTimeConflict}
               loading={loading}
             />
 

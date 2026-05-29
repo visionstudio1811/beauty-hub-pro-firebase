@@ -46,6 +46,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { DateStrip, buildDateWindow } from '@/components/scheduling/DateStrip';
+import { TimeGrid, type MergedTimeSlot } from '@/components/scheduling/TimeGrid';
 import {
   Select,
   SelectContent,
@@ -484,6 +487,11 @@ export default function ClientPortal() {
     notes: '',
     addonIds: [] as string[],
   });
+  // Slot picker state
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, MergedTimeSlot[]>>({});
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
+  const dateWindow = useMemo(() => buildDateWindow(14), []);
 
   useEffect(() => {
     const loadOrg = async () => {
@@ -655,6 +663,55 @@ export default function ClientPortal() {
     if (!confirmation || !otp.trim()) return;
     await confirmation.confirm(otp.trim());
   };
+
+  // Fetch available slots for the 14-day window whenever the chosen treatment
+  // (or org) changes. Uses the same getAvailableSlots CF as the public page,
+  // taking the authenticated path since portal users are signed in.
+  useEffect(() => {
+    if (!org?.id || !requestForm.treatmentId) {
+      setSlotsByDate({});
+      return;
+    }
+    let cancelled = false;
+    setLoadingSlots(true);
+    const fn = httpsCallable<
+      {
+        organizationId: string;
+        treatmentId: string;
+        fromDate: string;
+        toDate: string;
+        merge: boolean;
+      },
+      { slotsByDate: Record<string, MergedTimeSlot[]> }
+    >(functions, 'getAvailableSlots');
+    const isoDay = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    };
+    fn({
+      organizationId: org.id,
+      treatmentId: requestForm.treatmentId,
+      fromDate: isoDay(dateWindow[0]),
+      toDate: isoDay(dateWindow[dateWindow.length - 1]),
+      merge: true,
+    })
+      .then((res) => {
+        if (!cancelled) setSlotsByDate(res.data.slotsByDate ?? {});
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to load slots', err);
+        setSlotsByDate({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSlots(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [org?.id, requestForm.treatmentId, dateWindow]);
 
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -904,18 +961,66 @@ export default function ClientPortal() {
                     </div>
                   </div>
                 )}
-                <Field label="Preferred date">
-                  <Input type="date" value={requestForm.date} onChange={(event) => setRequestForm((prev) => ({ ...prev, date: event.target.value }))} />
-                </Field>
-                <Field label="Preferred time">
-                  <Input type="time" value={requestForm.time} onChange={(event) => setRequestForm((prev) => ({ ...prev, time: event.target.value }))} />
-                </Field>
-                <Field label="Backup date">
-                  <Input type="date" value={requestForm.altDate} onChange={(event) => setRequestForm((prev) => ({ ...prev, altDate: event.target.value }))} />
-                </Field>
-                <Field label="Backup time">
-                  <Input type="time" value={requestForm.altTime} onChange={(event) => setRequestForm((prev) => ({ ...prev, altTime: event.target.value }))} />
-                </Field>
+                {/* Preferred slot — date strip + time grid (replaces HTML date/time inputs) */}
+                <div className="md:col-span-2 space-y-3">
+                  <Label className="text-sm">Pick a date</Label>
+                  {!requestForm.treatmentId ? (
+                    <p className="text-sm text-muted-foreground">Choose a treatment first to see available times.</p>
+                  ) : (
+                    <DateStrip
+                      dates={dateWindow}
+                      selectedDate={requestForm.date || null}
+                      onSelect={(iso) => setRequestForm((prev) => ({ ...prev, date: iso, time: '' }))}
+                      isDayEnabled={(iso) => (slotsByDate[iso]?.length ?? 0) > 0}
+                      loading={loadingSlots}
+                    />
+                  )}
+                  {requestForm.date && (
+                    <>
+                      <Label className="text-sm">Pick a time</Label>
+                      <TimeGrid
+                        slots={slotsByDate[requestForm.date] ?? []}
+                        selectedTime={requestForm.time || null}
+                        onSelect={(t) => setRequestForm((prev) => ({ ...prev, time: t }))}
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Backup slot — optional, toggled in */}
+                <div className="md:col-span-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={showBackup}
+                      onCheckedChange={(v) => {
+                        setShowBackup(v);
+                        if (!v) {
+                          setRequestForm((prev) => ({ ...prev, altDate: '', altTime: '' }));
+                        }
+                      }}
+                      aria-label="Add a backup slot"
+                    />
+                    <Label className="text-sm m-0">Add a backup slot (optional)</Label>
+                  </div>
+                  {showBackup && requestForm.treatmentId && (
+                    <>
+                      <DateStrip
+                        dates={dateWindow}
+                        selectedDate={requestForm.altDate || null}
+                        onSelect={(iso) => setRequestForm((prev) => ({ ...prev, altDate: iso, altTime: '' }))}
+                        isDayEnabled={(iso) => (slotsByDate[iso]?.length ?? 0) > 0}
+                        loading={loadingSlots}
+                      />
+                      {requestForm.altDate && (
+                        <TimeGrid
+                          slots={slotsByDate[requestForm.altDate] ?? []}
+                          selectedTime={requestForm.altTime || null}
+                          onSelect={(t) => setRequestForm((prev) => ({ ...prev, altTime: t }))}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="request-notes">Notes</Label>
                   <Textarea id="request-notes" value={requestForm.notes} onChange={(event) => setRequestForm((prev) => ({ ...prev, notes: event.target.value }))} />

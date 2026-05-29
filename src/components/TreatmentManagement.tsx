@@ -9,9 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Edit, Trash, Settings } from 'lucide-react';
+import { Plus, Edit, Trash, Settings, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { useSupabaseTreatments, Treatment } from '@/hooks/useSupabaseTreatments';
+import { useSupabaseTreatments, Treatment, TreatmentAvailabilityWindow } from '@/hooks/useSupabaseTreatments';
+import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -32,9 +34,48 @@ const PRESET_COLORS = [
   '#F43F5E', // rose
 ];
 
+// Mon-first ordering (matches the businessHours + scheduling utility convention).
+const SCHED_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+interface DayRow {
+  enabled: boolean;
+  start_time: string;
+  end_time: string;
+}
+
+const defaultDayRow = (): DayRow => ({ enabled: true, start_time: '10:00', end_time: '18:00' });
+
+const availabilityToRows = (availability: TreatmentAvailabilityWindow[] | undefined): DayRow[] => {
+  // Returns 7 rows (Mon..Sun). Days not present in `availability` start as
+  // enabled=false (= closed for this treatment in strict mode).
+  const rows: DayRow[] = Array.from({ length: 7 }, () => ({
+    enabled: false,
+    start_time: '10:00',
+    end_time: '18:00',
+  }));
+  for (const a of availability ?? []) {
+    if (a.day_of_week < 0 || a.day_of_week > 6) continue;
+    rows[a.day_of_week] = {
+      enabled: a.is_active,
+      start_time: a.start_time,
+      end_time: a.end_time,
+    };
+  }
+  return rows;
+};
+
+const rowsToAvailability = (rows: DayRow[]): TreatmentAvailabilityWindow[] =>
+  rows.map((row, dow) => ({
+    day_of_week: dow,
+    start_time: row.start_time,
+    end_time: row.end_time,
+    is_active: row.enabled,
+  }));
+
 export const TreatmentManagement: React.FC = () => {
   const { treatments, loading, addTreatment, updateTreatment } = useSupabaseTreatments();
   const { currentOrganization } = useOrganization();
+  const { profiles } = useSupabaseProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -45,8 +86,22 @@ export const TreatmentManagement: React.FC = () => {
     description: '',
     category: '',
     color: '',
+    staff_ids: [] as string[],
+    // Per-treatment scheduling fields. Empty / "limit" toggles off = inherit
+    // org defaults (preserves pre-Phase-2 behavior).
+    buffer_before_minutes: '',
+    buffer_after_minutes: '',
+    advance_min_hours: '',
+    advance_max_days: '',
+    limit_availability: false,                                  // master toggle
+    day_rows: Array.from({ length: 7 }, defaultDayRow) as DayRow[],
   });
   const { toast } = useToast();
+
+  // Staff who can perform treatments — staff/admin/beautician roles.
+  const eligibleStaff = profiles.filter(
+    p => p.is_active && (p.role === 'staff' || p.role === 'admin' || p.role === 'beautician')
+  );
 
   useEffect(() => {
     if (!currentOrganization?.id) return;
@@ -74,7 +129,14 @@ export const TreatmentManagement: React.FC = () => {
   }, [currentOrganization?.id, isDialogOpen]);
 
   const resetForm = () => {
-    setFormData({ name: '', price: '', duration: '', description: '', category: '', color: '' });
+    setFormData({
+      name: '', price: '', duration: '', description: '', category: '', color: '',
+      staff_ids: [],
+      buffer_before_minutes: '', buffer_after_minutes: '',
+      advance_min_hours: '', advance_max_days: '',
+      limit_availability: false,
+      day_rows: Array.from({ length: 7 }, defaultDayRow),
+    });
     setEditingTreatment(null);
   };
 
@@ -92,6 +154,13 @@ export const TreatmentManagement: React.FC = () => {
       description: treatment.description || '',
       category: treatment.category || '',
       color: treatment.color || '',
+      staff_ids: treatment.staff_ids ?? [],
+      buffer_before_minutes: treatment.buffer_before_minutes?.toString() ?? '',
+      buffer_after_minutes: treatment.buffer_after_minutes?.toString() ?? '',
+      advance_min_hours: treatment.advance_min_hours?.toString() ?? '',
+      advance_max_days: treatment.advance_max_days?.toString() ?? '',
+      limit_availability: (treatment.availability ?? []).length > 0,
+      day_rows: availabilityToRows(treatment.availability),
     });
     setIsDialogOpen(true);
   };
@@ -107,6 +176,11 @@ export const TreatmentManagement: React.FC = () => {
     }
 
     try {
+      const parseOptInt = (s: string): number | undefined => {
+        const n = parseInt(s, 10);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      };
+
       const treatmentData = {
         name: formData.name,
         price: formData.price ? parseFloat(formData.price) : undefined,
@@ -115,6 +189,20 @@ export const TreatmentManagement: React.FC = () => {
         category: formData.category || undefined,
         color: formData.color || undefined,
         is_active: true,
+        // Empty array means "any staff." Store undefined in that case so the
+        // doc stays clean and the scheduling utility's check (length > 0)
+        // continues to treat absence as no restriction.
+        staff_ids: formData.staff_ids.length > 0 ? formData.staff_ids : undefined,
+        // Scheduling fields. Empty inputs → undefined (use org/staff defaults).
+        buffer_before_minutes: parseOptInt(formData.buffer_before_minutes),
+        buffer_after_minutes: parseOptInt(formData.buffer_after_minutes),
+        advance_min_hours: parseOptInt(formData.advance_min_hours),
+        advance_max_days: parseOptInt(formData.advance_max_days),
+        // Save the day grid only when "Limit availability" is on. Otherwise
+        // store undefined so the algorithm inherits staff/business hours.
+        availability: formData.limit_availability
+          ? rowsToAvailability(formData.day_rows)
+          : undefined,
       };
 
       if (editingTreatment) {
@@ -321,6 +409,187 @@ export const TreatmentManagement: React.FC = () => {
                     Used to color appointment blocks on the calendar.
                   </p>
                 </div>
+                <div className="grid gap-2">
+                  <Label className="text-sm">Staff who can perform this treatment</Label>
+                  {eligibleStaff.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No active staff yet. Add staff under Settings → Users first.
+                    </p>
+                  ) : (
+                    <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
+                      {eligibleStaff.map(p => {
+                        const checked = formData.staff_ids.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 p-1 text-sm cursor-pointer hover:bg-accent rounded"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...formData.staff_ids, p.id]
+                                  : formData.staff_ids.filter(id => id !== p.id);
+                                setFormData({ ...formData, staff_ids: next });
+                              }}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <span className="truncate">{p.full_name || p.email}</span>
+                            <span className="text-xs text-muted-foreground">({p.role})</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to let any active staff perform this treatment.
+                  </p>
+                </div>
+
+                {/* ============ Scheduling section ============ */}
+                <div className="rounded-md border border-dashed bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-purple-600" />
+                    <Label className="text-sm font-medium">Scheduling</Label>
+                  </div>
+
+                  {/* Buffers */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Buffer before (min)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={formData.buffer_before_minutes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, buffer_before_minutes: e.target.value })
+                        }
+                        placeholder="0"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Buffer after (min)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={formData.buffer_after_minutes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, buffer_after_minutes: e.target.value })
+                        }
+                        placeholder="0"
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Padding before and after each appointment for cleanup / prep. Leave blank for none.
+                  </p>
+
+                  {/* Advance booking window */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Earliest booking (hours)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={formData.advance_min_hours}
+                        onChange={(e) =>
+                          setFormData({ ...formData, advance_min_hours: e.target.value })
+                        }
+                        placeholder="0"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Latest booking (days)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={formData.advance_max_days}
+                        onChange={(e) =>
+                          setFormData({ ...formData, advance_max_days: e.target.value })
+                        }
+                        placeholder="60"
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    "Earliest" blocks bookings closer than this many hours from now.
+                    "Latest" blocks bookings further out than this many days.
+                  </p>
+
+                  {/* Limit availability toggle */}
+                  <div className="flex items-start gap-3 pt-2 border-t border-dashed">
+                    <Switch
+                      checked={formData.limit_availability}
+                      onCheckedChange={(v) =>
+                        setFormData({ ...formData, limit_availability: v })
+                      }
+                      aria-label="Limit availability to specific days"
+                    />
+                    <div className="flex-1">
+                      <Label className="text-sm">Limit to specific days/hours</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Off: this treatment is bookable whenever staff & business hours are open.
+                        On: only the days/hours you enable below are bookable.
+                      </p>
+                    </div>
+                  </div>
+
+                  {formData.limit_availability && (
+                    <div className="space-y-2 pt-1">
+                      {SCHED_DAYS.map((dayName, dow) => {
+                        const row = formData.day_rows[dow];
+                        return (
+                          <div
+                            key={dow}
+                            className="grid grid-cols-[80px_60px_1fr_1fr] gap-2 items-center"
+                          >
+                            <div className="text-xs font-medium">{dayName.slice(0, 3)}</div>
+                            <Switch
+                              checked={row.enabled}
+                              onCheckedChange={(v) => {
+                                const rows = [...formData.day_rows];
+                                rows[dow] = { ...rows[dow], enabled: v };
+                                setFormData({ ...formData, day_rows: rows });
+                              }}
+                              aria-label={`Toggle ${dayName}`}
+                            />
+                            <Input
+                              type="time"
+                              value={row.start_time}
+                              disabled={!row.enabled}
+                              onChange={(e) => {
+                                const rows = [...formData.day_rows];
+                                rows[dow] = { ...rows[dow], start_time: e.target.value };
+                                setFormData({ ...formData, day_rows: rows });
+                              }}
+                              className="text-xs h-8"
+                            />
+                            <Input
+                              type="time"
+                              value={row.end_time}
+                              disabled={!row.enabled}
+                              onChange={(e) => {
+                                const rows = [...formData.day_rows];
+                                rows[dow] = { ...rows[dow], end_time: e.target.value };
+                                setFormData({ ...formData, day_rows: rows });
+                              }}
+                              className="text-xs h-8"
+                            />
+                          </div>
+                        );
+                      })}
+                      <p className="text-xs text-muted-foreground">
+                        Days toggled off are closed for this treatment regardless of staff schedule.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="description" className="text-sm">Description</Label>
                   <Textarea
