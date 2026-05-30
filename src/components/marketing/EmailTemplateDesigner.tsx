@@ -75,6 +75,18 @@ const TEMPLATE_TYPES = {
     name: 'Appointment Reminder Template',
     variables: ["appointment_date", "appointment_time", "service_name", "staff_name", "location", ...COMMON_VARS],
   },
+  booking_request_received: {
+    name: 'Booking Request Received (Visitor)',
+    variables: ["treatment", "date", "time", "staff", ...COMMON_VARS],
+  },
+  booking_request_admin_alert: {
+    name: 'Booking Request Alert (Admin)',
+    variables: ["visitor_name", "visitor_email", "visitor_phone", "visitor_notes", "treatment", "date", "time", ...COMMON_VARS],
+  },
+  booking_request_declined: {
+    name: 'Booking Declined (Visitor)',
+    variables: ["treatment", "date", "time", "reason", ...COMMON_VARS],
+  },
 } as const;
 
 const AUTO_FILLED_VARS = new Set([

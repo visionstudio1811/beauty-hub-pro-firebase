@@ -72,9 +72,31 @@ function renderAutomationContent(template: string, vars: Record<string, string>)
   });
 }
 
+/**
+ * Resolves Handlebars-style {{#if X}}body{{else}}other{{/if}} blocks. Iterates
+ * innermost-first so arbitrary nesting depth works.
+ */
+function processConditionals(html: string, variables: Record<string, string>): string {
+  let current = html;
+  for (let i = 0; i < 50; i++) {
+    const next = current.replace(
+      /\{\{#if\s+(\w+)\}\}((?:(?!\{\{#if|\{\{\/if\}\})[\s\S])*?)(?:\{\{else\}\}((?:(?!\{\{#if|\{\{\/if\}\})[\s\S])*?))?\{\{\/if\}\}/g,
+      (_match, varName: string, ifBody: string, elseBody?: string) => {
+        const value = variables[varName];
+        const truthy = typeof value === 'string' && value.length > 0;
+        return truthy ? ifBody : (elseBody ?? '');
+      },
+    );
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
 /** Replace {{var}} placeholders inside the branded email template HTML. */
 function renderTemplate(html: string, variables: Record<string, string>): string {
-  return html.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+  const resolved = processConditionals(html, variables);
+  return resolved.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const v = variables[key];
     return v !== undefined ? v : match;
   });
@@ -172,18 +194,34 @@ export const appointmentScheduledNotification = onDocumentCreated(
       return;
     }
 
-    // Pull the org's branded email templates from the Resend integration doc
-    // (same shape sendClientEmail uses). Prefer a dedicated
-    // 'appointment_confirmation' template; fall back to 'general' → 'default'
-    // → built-in stub so orgs without a template still get an email.
+    // Pull the org's branded email templates from the Resend integration doc.
+    // Prefer the dedicated 'appointment_confirmation' template; then fall back
+    // through the other common transactional designs, then ANY designed
+    // template the org has, so brand colors / logos still carry over even if
+    // the admin didn't design an appointment-specific one. The built-in plain
+    // stub is only reached when no designed template exists at all.
     const emailTemplates = (integrationData.email_templates ?? {}) as Record<
       string,
       { html?: string; settings?: Record<string, unknown> } | undefined
     >;
+    const pickFirstWithHtml = (keys: string[]) =>
+      keys
+        .map((k) => emailTemplates[k])
+        .find((t) => typeof t?.html === 'string' && t!.html!.length > 0);
     const template =
-      emailTemplates['appointment_confirmation'] ||
-      emailTemplates['general'] ||
-      emailTemplates['default'];
+      pickFirstWithHtml([
+        'appointment_confirmation',
+        'appointment_reminder',
+        'general',
+        'default',
+        'welcome',
+        'package_renewal',
+        'birthday',
+        'inactive',
+      ]) ||
+      Object.values(emailTemplates).find(
+        (t) => typeof t?.html === 'string' && t!.html!.length > 0,
+      );
     const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
     const templateSettings = (template?.settings ?? {}) as Record<string, string>;
     const headerImageUrl = String(integrationData.email_header_image_url ?? '');

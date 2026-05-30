@@ -63,8 +63,36 @@ export function renderAutomationContent(template: string, vars: Record<string, s
   });
 }
 
+/**
+ * Resolves {{#if VAR}}body{{else}}other{{/if}} blocks against the variables
+ * map. A variable counts as truthy when it's a non-empty string. Handles
+ * arbitrary nesting depth by repeatedly substituting innermost blocks first
+ * (the negative-lookahead ensures we only match leaf blocks per pass).
+ */
+function processConditionals(html: string, variables: Record<string, string>): string {
+  let current = html;
+  // Safety cap; in practice 4-5 iterations is plenty even for deep nesting.
+  for (let i = 0; i < 50; i++) {
+    const next = current.replace(
+      /\{\{#if\s+(\w+)\}\}((?:(?!\{\{#if|\{\{\/if\}\})[\s\S])*?)(?:\{\{else\}\}((?:(?!\{\{#if|\{\{\/if\}\})[\s\S])*?))?\{\{\/if\}\}/g,
+      (_match, varName: string, ifBody: string, elseBody?: string) => {
+        const value = variables[varName];
+        const truthy = typeof value === 'string' && value.length > 0;
+        return truthy ? ifBody : (elseBody ?? '');
+      },
+    );
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
 export function renderTemplate(html: string, variables: Record<string, string>): string {
-  return html.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+  // First collapse conditionals so {{#if x}}..{{/if}} blocks resolve to either
+  // their body or their else branch. Then do plain {{var}} substitution on the
+  // remainder.
+  const resolved = processConditionals(html, variables);
+  return resolved.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const v = variables[key];
     return v !== undefined ? v : match;
   });
@@ -127,10 +155,28 @@ export async function resolveEmailContext(
     string,
     { html?: string; settings?: Record<string, unknown> } | undefined
   >;
+  // Fallback chain: try the specific templateKey first, then the common
+  // transactional designs, then ANY designed template the org has — so brand
+  // colors / logos / header images carry over even when the admin hasn't
+  // designed a template named to match the new triggers. The built-in plain
+  // stub is only reached when no designed template exists at all.
+  const pickFirstWithHtml = (keys: string[]) =>
+    keys.map((k) => emailTemplates[k]).find((t) => typeof t?.html === 'string' && t!.html!.length > 0);
   const template =
     emailTemplates[templateKey] ||
-    emailTemplates['general'] ||
-    emailTemplates['default'];
+    pickFirstWithHtml([
+      'appointment_confirmation',
+      'appointment_reminder',
+      'general',
+      'default',
+      'welcome',
+      'package_renewal',
+      'birthday',
+      'inactive',
+    ]) ||
+    Object.values(emailTemplates).find(
+      (t) => typeof t?.html === 'string' && t!.html!.length > 0,
+    );
   const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
   const templateSettings = (template?.settings ?? {}) as Record<string, string>;
   const headerImageUrl = String(integrationData.email_header_image_url ?? '');
@@ -215,6 +261,23 @@ export async function renderAndSend(args: RenderAndSendArgs): Promise<void> {
     treatment: vars.TREATMENT,
     time: vars.TIME,
     staff: vars.STAFF,
+    // Aliases — when this email falls back to the appointment_reminder /
+    // appointment_confirmation wrapper (because the org hasn't designed a
+    // dedicated booking_request_* template yet), these template variables
+    // pick up the same values so the email still renders fully filled in.
+    service_name: vars.TREATMENT,
+    appointment_date: vars.DATE,
+    appointment_time: vars.TIME,
+    staff_name: vars.STAFF,
+    location: String(ctx.orgData.address || ''),
+    // Public-booking-specific variables — passed through to the Layer 2
+    // templates so admin-alert and decline emails can render the visitor's
+    // info and the staff response inside the branded HTML wrapper.
+    visitor_name: vars.VISITOR_NAME ?? '',
+    visitor_email: vars.VISITOR_EMAIL ?? '',
+    visitor_phone: vars.VISITOR_PHONE ?? '',
+    visitor_notes: vars.VISITOR_NOTES ?? '',
+    reason: vars.REASON ?? vars.STAFF_RESPONSE ?? '',
   };
 
   const html = renderTemplate(ctx.templateHtml, templateVariables);

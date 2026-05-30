@@ -214,7 +214,9 @@ export const submitPublicBookingRequest = onCall(async (request) => {
       duration,
       staff_id: staffId,
       staff_name: staffName,
-      preferred_slot: { date: data.date, time: data.time, staff_id: staffId ?? undefined },
+      preferred_slot: staffId
+        ? { date: data.date, time: data.time, staff_id: staffId }
+        : { date: data.date, time: data.time },
       alternative_slots: [],
       notes: data.notes ? String(data.notes).slice(0, 500) : null,
       // Snapshot buffers for the overlap check during approval

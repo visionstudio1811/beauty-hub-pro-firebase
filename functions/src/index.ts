@@ -13,6 +13,7 @@ export { acuityWebhook } from './acuityWebhook';
 export { acuitySync } from './acuitySync';
 export { adminCreateUser } from './adminCreateUser';
 export { seedOrgDefaultTemplates } from './seedOrgDefaultTemplates';
+export { autoSeedNewOrg } from './autoSeedNewOrg';
 export { packageExpiryNotifications } from './packageExpiryNotifications';
 export { createInvoice } from './createInvoice';
 export { voidInvoice } from './voidInvoice';

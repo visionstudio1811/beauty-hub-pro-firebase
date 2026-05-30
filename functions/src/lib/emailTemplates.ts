@@ -1,6 +1,11 @@
 /**
  * Default HTML templates for marketing/transactional emails.
  *
+ * DUPLICATE of src/components/marketing/emailTemplates.ts — keep in sync.
+ * We duplicate (rather than import) because functions/ has its own tsconfig
+ * scoped to `functions/src` and can't reach into ../../src. Same pattern as
+ * the scheduling availability.ts duplication.
+ *
  * Handlebars-style merge tags resolved at send time. Table-based layouts for
  * maximum email client compatibility (Outlook, Gmail, iOS Mail, Apple Mail).
  *
