@@ -315,7 +315,14 @@ service cloud.firestore {
                       // depth — sendWaiver always writes the field, but a
                       // token created by hand wouldn't).
                       && 'expiresAt' in get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.keys()
-                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time;
+                      && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time
+                      // If the token was issued with OTP required, the signer
+                      // must have proved phone possession via verifyFormOtp
+                      // (which flips otpVerified to true). Tokens without
+                      // requiresOtp == true pass freely — covers email/device
+                      // delivery and legacy SMS without OTP.
+                      && (get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.requiresOtp != true
+                          || get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.otpVerified == true);
       }
 
       match /auditLogs/{logId} {

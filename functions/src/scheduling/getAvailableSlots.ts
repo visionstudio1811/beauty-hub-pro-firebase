@@ -90,11 +90,15 @@ export const getAvailableSlots = onCall(async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentication required');
     }
+    // Read org + treatment from the request payload, then verify the caller
+    // is allowed to query that org. Prior to this, both were initialized to
+    // '' and the next check always threw — silently breaking the authenticated
+    // slot picker for the staff CRM and the client portal.
+    resolvedOrgId = data.organizationId ?? '';
+    resolvedTreatmentId = data.treatmentId ?? '';
     if (!resolvedOrgId || !resolvedTreatmentId) {
       throw new HttpsError('invalid-argument', 'organizationId and treatmentId are required');
     }
-    resolvedOrgId = resolvedOrgId;
-    resolvedTreatmentId = resolvedTreatmentId;
 
     const callerUid = request.auth.uid;
     const callerUserSnap = await db.collection('users').doc(callerUid).get();

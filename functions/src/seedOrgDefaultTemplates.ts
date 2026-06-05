@@ -32,10 +32,24 @@ function applyBrandToken(value: unknown, orgName: string): unknown {
 // uses the same shipped HTML the EmailTemplateDesigner generates as its default,
 // so admins can later customize them via the designer if they want.
 const BOOKING_EMAIL_TEMPLATE_DEFS: Array<{
-  key: 'booking_request_received' | 'booking_request_admin_alert' | 'booking_request_declined';
+  key:
+    | 'appointment_confirmation'
+    | 'booking_request_received'
+    | 'booking_request_admin_alert'
+    | 'booking_request_declined';
   name: string;
   variables: string[];
 }> = [
+  {
+    key: 'appointment_confirmation',
+    name: 'Appointment Confirmation',
+    variables: [
+      'treatment', 'date', 'time', 'staff',
+      'client_name', 'organization_name', 'organization_phone',
+      'organization_address', 'organization_email', 'logo_url',
+      'header_image_url', 'sender_name', 'cta_url',
+    ],
+  },
   {
     key: 'booking_request_received',
     name: 'Booking Request Received',

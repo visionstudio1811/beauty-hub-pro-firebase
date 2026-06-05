@@ -419,7 +419,7 @@ export const createInvoice = onCall(async (request) => {
     phone: (businessInfo.phone as string) ?? '',
     email: (businessInfo.email as string) ?? '',
     website: (businessInfo.website as string) ?? '',
-    logo_url: (org.logoUrl as string) ?? '',
+    logo_url: (org.logo_url as string) ?? '',
     tax_id: (businessInfo.tax_id as string) ?? '',
     payment_terms: (businessInfo.invoice_payment_terms as string) ?? '',
     notes: (businessInfo.invoice_notes as string) ?? '',

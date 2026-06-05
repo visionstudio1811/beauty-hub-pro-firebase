@@ -162,6 +162,16 @@ export async function resolveEmailContext(
   // stub is only reached when no designed template exists at all.
   const pickFirstWithHtml = (keys: string[]) =>
     keys.map((k) => emailTemplates[k]).find((t) => typeof t?.html === 'string' && t!.html!.length > 0);
+  // See appointmentScheduledNotification.ts for the same exclusion — these
+  // wrappers carry their own outcome-specific copy and break when used as a
+  // generic shell. Safe to skip in the any-template fallback even when the
+  // caller's requested templateKey is itself a booking_request_* (that hits
+  // the explicit lookup above first).
+  const TRANSACTIONAL_OUTCOME_KEYS = new Set([
+    'booking_request_received',
+    'booking_request_admin_alert',
+    'booking_request_declined',
+  ]);
   const template =
     emailTemplates[templateKey] ||
     pickFirstWithHtml([
@@ -174,9 +184,12 @@ export async function resolveEmailContext(
       'birthday',
       'inactive',
     ]) ||
-    Object.values(emailTemplates).find(
-      (t) => typeof t?.html === 'string' && t!.html!.length > 0,
-    );
+    Object.entries(emailTemplates).find(
+      ([k, t]) =>
+        !TRANSACTIONAL_OUTCOME_KEYS.has(k) &&
+        typeof t?.html === 'string' &&
+        t!.html!.length > 0,
+    )?.[1];
   const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
   const templateSettings = (template?.settings ?? {}) as Record<string, string>;
   const headerImageUrl = String(integrationData.email_header_image_url ?? '');

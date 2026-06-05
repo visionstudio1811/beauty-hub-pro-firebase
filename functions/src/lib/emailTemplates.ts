@@ -20,6 +20,7 @@ export type TemplateType =
   | 'inactive'
   | 'package_renewal'
   | 'appointment_reminder'
+  | 'appointment_confirmation'
   | 'booking_request_received'
   | 'booking_request_admin_alert'
   | 'booking_request_declined';
@@ -595,6 +596,75 @@ ${ctaButton('Open Booking Requests')}
         </td>
       </tr>`;
 
+const APPT_CONFIRMATION_BODY = `      <tr>
+        <td class="px" style="padding: 40px 40px 16px 40px; text-align: center;">
+          <p style="margin: 0 0 12px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: {{secondary_text}};">
+            Appointment confirmed
+          </p>
+          <h1 class="h1" style="margin: 0 0 16px 0; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 28px; line-height: 38px; font-weight: 400; color: {{primary_color}};">
+            Hi {{client_name}},
+          </h1>
+          <p style="margin: 0 0 24px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 26px; color: {{text_color}};">
+            Your appointment is booked and we're already looking forward to taking care of you.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td class="px" style="padding: 0 40px 24px 40px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: {{content_background}}; border-radius: 8px;">
+            <tr>
+              <td style="padding: 28px 32px;">
+                <p style="margin: 0 0 16px 0; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; color: {{primary_color}}; text-align: center;">
+                  {{treatment}}
+                </p>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: {{secondary_text}};">
+                      Date
+                    </td>
+                    <td align="right" style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: {{text_color}};">
+                      {{date}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: {{secondary_text}};">
+                      Time
+                    </td>
+                    <td align="right" style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: {{text_color}};">
+                      {{time}}
+                    </td>
+                  </tr>
+                  {{#if staff}}
+                  <tr>
+                    <td style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: {{secondary_text}};">
+                      With
+                    </td>
+                    <td align="right" style="padding: 8px 0; border-top: 1px solid #eeeae3; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: {{text_color}};">
+                      {{staff}}
+                    </td>
+                  </tr>
+                  {{/if}}
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="px" style="padding: 0 40px 24px 40px;">
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 20px; color: {{secondary_text}}; text-align: center;">
+            Need to reschedule? Reply to this email or call <a href="tel:{{organization_phone}}" style="color: {{primary_color}}; text-decoration: none;">{{organization_phone}}</a>.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td class="px" style="padding: 0 40px 32px 40px;">
+          <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: {{text_color}}; text-align: center;">
+            See you soon,<br /><em style="color: {{primary_color}};">{{sender_name}}</em>
+          </p>
+        </td>
+      </tr>`;
+
 const BOOKING_DECLINED_BODY = `      <tr>
         <td class="px" style="padding: 40px 40px 16px 40px; text-align: center;">
           <p style="margin: 0 0 12px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: {{secondary_text}};">
@@ -661,6 +731,8 @@ export function getDefaultTemplateHtml(type: TemplateType): string {
       return shell(`${HEADER}\n${RENEWAL_BODY}\n${FOOTER}`);
     case 'appointment_reminder':
       return shell(`${HEADER}\n${APPT_REMINDER_BODY}\n${FOOTER}`);
+    case 'appointment_confirmation':
+      return shell(`${HEADER}\n${APPT_CONFIRMATION_BODY}\n${FOOTER}`);
     case 'booking_request_received':
       return shell(`${HEADER}\n${BOOKING_RECEIVED_BODY}\n${FOOTER}`);
     case 'booking_request_admin_alert':

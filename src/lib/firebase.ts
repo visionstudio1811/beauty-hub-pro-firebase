@@ -21,6 +21,7 @@ export const auth = getAuth(app);
 // that look like rule-denials but are actually transport stalls.
 export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
+  ignoreUndefinedProperties: true,
 });
 export const functions = getFunctions(app);
 export const storage = getStorage(app);

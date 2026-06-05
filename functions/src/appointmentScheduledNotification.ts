@@ -208,6 +208,16 @@ export const appointmentScheduledNotification = onDocumentCreated(
       keys
         .map((k) => emailTemplates[k])
         .find((t) => typeof t?.html === 'string' && t!.html!.length > 0);
+    // Seeded booking_request_* wrappers are complete branded emails for their
+    // own outcomes (received/declined). They have no {{message}} slot and
+    // include hardcoded copy like "unable to confirm your booking" + a literal
+    // {{reason}} token — using one as a generic confirmation shell sends the
+    // wrong email entirely. Exclude them from the any-template fallback.
+    const TRANSACTIONAL_OUTCOME_KEYS = new Set([
+      'booking_request_received',
+      'booking_request_admin_alert',
+      'booking_request_declined',
+    ]);
     const template =
       pickFirstWithHtml([
         'appointment_confirmation',
@@ -219,9 +229,12 @@ export const appointmentScheduledNotification = onDocumentCreated(
         'birthday',
         'inactive',
       ]) ||
-      Object.values(emailTemplates).find(
-        (t) => typeof t?.html === 'string' && t!.html!.length > 0,
-      );
+      Object.entries(emailTemplates).find(
+        ([k, t]) =>
+          !TRANSACTIONAL_OUTCOME_KEYS.has(k) &&
+          typeof t?.html === 'string' &&
+          t!.html!.length > 0,
+      )?.[1];
     const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
     const templateSettings = (template?.settings ?? {}) as Record<string, string>;
     const headerImageUrl = String(integrationData.email_header_image_url ?? '');

@@ -206,15 +206,34 @@ export async function executeCampaign(
 
   const campaignRef = db.collection('organizations').doc(organizationId)
     .collection('marketingCampaigns').doc(campaignId);
-  const campaignSnap = await campaignRef.get();
-  if (!campaignSnap.exists) throw new HttpsError('not-found', 'Campaign not found');
-  const campaign = campaignSnap.data() as Campaign;
 
-  if (!dryRun) {
-    if (campaign.status === 'sending')
-      throw new HttpsError('failed-precondition', 'Campaign is already sending');
-    if (campaign.status === 'completed')
-      throw new HttpsError('failed-precondition', 'Campaign has already been sent');
+  // Atomically claim the campaign so concurrent executions (e.g. two cron
+  // firings catching the same scheduled window, or an admin clicking "Send"
+  // twice) cannot both pass the status check. The first txn flips the status
+  // to 'sending'; any other waiting txn re-reads, sees 'sending' or
+  // 'completed', and throws — no double-send. Dry runs skip the flip so the
+  // preview doesn't lock the campaign out of a real send.
+  let campaign: Campaign;
+  if (dryRun) {
+    const campaignSnap = await campaignRef.get();
+    if (!campaignSnap.exists) throw new HttpsError('not-found', 'Campaign not found');
+    campaign = campaignSnap.data() as Campaign;
+  } else {
+    campaign = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(campaignRef);
+      if (!snap.exists) throw new HttpsError('not-found', 'Campaign not found');
+      const c = snap.data() as Campaign;
+      if (c.status === 'sending')
+        throw new HttpsError('failed-precondition', 'Campaign is already sending');
+      if (c.status === 'completed')
+        throw new HttpsError('failed-precondition', 'Campaign has already been sent');
+      tx.update(campaignRef, {
+        status: 'sending',
+        started_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: new Date().toISOString(),
+      });
+      return c;
+    });
   }
 
   const needsSms = campaign.type === 'sms' || campaign.type === 'both';
@@ -259,10 +278,10 @@ export async function executeCampaign(
       return { success: true, total_recipients: 0, sent: 0, failed: 0 };
     }
 
+    // Status + started_at were stamped in the claim transaction above. Just
+    // attach the audience size + provider here so the UI shows correct totals.
     await campaignRef.update({
-      status: 'sending',
       total_recipients: recipients.length,
-      started_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: new Date().toISOString(),
       ...(needsSms && smsProvider ? { sms_provider: smsProvider } : {}),
     });

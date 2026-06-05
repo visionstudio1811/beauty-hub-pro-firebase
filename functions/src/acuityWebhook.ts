@@ -170,7 +170,12 @@ export const acuityWebhook = onRequest(
       }
 
       const contentType = req.headers['content-type'] || '';
-      const rawBody = JSON.stringify(req.body);
+      // Acuity signs the raw wire bytes (form-encoded by default). Express
+      // already parsed req.body into an object; JSON.stringify-ing it back
+      // produces different bytes than what Acuity actually signed, so the
+      // HMAC never matches. Use req.rawBody (preserved by Cloud Functions v2)
+      // so the signature input matches the source bytes.
+      const rawBody = req.rawBody ? req.rawBody.toString('utf8') : '';
 
       let payload: WebhookPayload;
       if (contentType.includes('application/json')) {

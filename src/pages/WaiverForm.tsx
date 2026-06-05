@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
-import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -726,8 +726,13 @@ export default function WaiverForm() {
       if (!tokenSnap.exists()) throw new Error('Token not found');
       const { organizationId: orgId, waiverId } = tokenSnap.data();
 
-      // Update the waiver with signature data
-      await updateDoc(doc(db, 'organizations', orgId, 'clientWaivers', waiverId), {
+      // Commit the waiver sign + token-flip atomically so a partial failure
+      // can't leave the waiver `signed` but the token `pending` (which would
+      // allow another visitor to re-sign and double-fire the org-notify
+      // trigger). writeBatch commits both writes in one network round trip;
+      // each is evaluated against its own rule independently.
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'organizations', orgId, 'clientWaivers', waiverId), {
         status: 'signed',
         signer_name: signerName,
         signer_email: signerEmail,
@@ -736,8 +741,8 @@ export default function WaiverForm() {
         pdf_url: pdfUrl,
         signed_at: new Date().toISOString(),
       });
-      // Mark token as used
-      await updateDoc(doc(db, 'waiverTokens', token!), { status: 'signed' });
+      batch.update(doc(db, 'waiverTokens', token!), { status: 'signed' });
+      await batch.commit();
 
       setDone(true);
     } catch (err: unknown) {
