@@ -21,6 +21,10 @@ import Index from './pages/Index';
 import WaiverForm from './pages/WaiverForm';
 import ClientPortal from './pages/ClientPortal';
 import PublicBookingPage from './pages/PublicBookingPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
+import SmsTerms from './pages/SmsTerms';
+import AcceptableUsePolicy from './pages/AcceptableUsePolicy';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { IdleLogoutGuard } from '@/components/auth/IdleLogoutGuard';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
@@ -69,6 +73,12 @@ function App() {
                             <Route path="/book/:token" element={<PublicBookingPage />} />
                             <Route path="/client" element={<ClientPortal />} />
                             <Route path="/client/:orgSlug" element={<ClientPortal />} />
+
+                            {/* Legal / compliance pages */}
+                            <Route path="/privacy" element={<PrivacyPolicy />} />
+                            <Route path="/terms" element={<TermsOfUse />} />
+                            <Route path="/sms-terms" element={<SmsTerms />} />
+                            <Route path="/acceptable-use" element={<AcceptableUsePolicy />} />
                             
                             {/* Admin routes */}
                             <Route path="/admin" element={

@@ -34,6 +34,7 @@ function applyBrandToken(value: unknown, orgName: string): unknown {
 const BOOKING_EMAIL_TEMPLATE_DEFS: Array<{
   key:
     | 'appointment_confirmation'
+    | 'appointment_reminder'
     | 'booking_request_received'
     | 'booking_request_admin_alert'
     | 'booking_request_declined';
@@ -48,6 +49,17 @@ const BOOKING_EMAIL_TEMPLATE_DEFS: Array<{
       'client_name', 'organization_name', 'organization_phone',
       'organization_address', 'organization_email', 'logo_url',
       'header_image_url', 'sender_name', 'cta_url',
+    ],
+  },
+  {
+    key: 'appointment_reminder',
+    name: 'Appointment Reminder',
+    variables: [
+      'service_name', 'appointment_date', 'appointment_time',
+      'staff_name', 'location', 'client_name',
+      'organization_name', 'organization_phone', 'organization_address',
+      'organization_email', 'logo_url', 'header_image_url',
+      'sender_name', 'cta_url',
     ],
   },
   {

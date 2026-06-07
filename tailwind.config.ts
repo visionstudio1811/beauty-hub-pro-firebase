@@ -19,7 +19,7 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+				sans: ['Rubik', 'system-ui', 'sans-serif'],
 				display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
 			},
 			colors: {
