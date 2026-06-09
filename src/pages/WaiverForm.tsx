@@ -123,35 +123,63 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
       prefill[block.id] = purchaseBlockValue(block, waiver);
       continue;
     }
-    if (block.type === 'city') {
+
+    const lbl = (block.label ?? '').toLowerCase();
+
+    // Label matchers — defined once per block so the if/else chain stays readable.
+    const isBirthdayLabel =
+      lbl.includes('birthday') ||
+      lbl.includes('date of birth') ||
+      lbl.includes('dob') ||
+      lbl.includes('birth date') ||
+      lbl.includes('born');
+    const isGenderLabel =
+      lbl.includes('gender') || /\bsex\b/.test(lbl);
+    const isCityLabel =
+      lbl === 'city' ||
+      lbl.startsWith('city ') ||
+      lbl.includes('what city') ||
+      lbl.includes('your city');
+    const isReferralLabel =
+      lbl.includes('referral') ||
+      lbl.includes('hear about') ||
+      lbl.includes('how did you find') ||
+      lbl.includes('find us') ||
+      lbl.includes('refer you');
+
+    // Dedicated block types — these match even without a label, and the
+    // type-match is the canonical signal. Label matches below act as fallbacks
+    // for templates built with generic short_answer / date blocks.
+    if (block.type === 'city' || isCityLabel) {
       if (waiver.client_city) prefill[block.id] = waiver.client_city;
       continue;
     }
-    if (block.type === 'referral_source') {
+    if (block.type === 'referral_source' || isReferralLabel) {
       if (waiver.client_referral_source) prefill[block.id] = waiver.client_referral_source;
       continue;
     }
+
+    // Skip blocks that need a label to match (email/phone work without one
+    // because the block type alone is enough).
     if (!block.label && block.type !== 'email' && block.type !== 'phone') continue;
-    const lbl = (block.label ?? '').toLowerCase();
-    const isBirthdayLabel =
-      lbl.includes('birthday') || lbl.includes('date of birth') ||
-      lbl.includes('dob') || lbl.includes('birth date');
 
     if (block.type === 'email' || lbl.includes('email')) {
       if (waiver.client_email) prefill[block.id] = waiver.client_email;
-    } else if (block.type === 'phone' || lbl.includes('phone')) {
+    } else if (block.type === 'phone' || lbl.includes('phone') || lbl.includes('mobile') || lbl.includes('cell')) {
       if (waiver.client_phone) prefill[block.id] = waiver.client_phone;
     } else if (lbl.includes('first name')) {
       if (firstName) prefill[block.id] = firstName;
-    } else if (lbl.includes('last name')) {
+    } else if (lbl.includes('last name') || lbl.includes('surname') || lbl.includes('family name')) {
       if (lastName) prefill[block.id] = lastName;
-    } else if (lbl.includes('full name') || lbl === 'name') {
+    } else if (lbl.includes('full name') || lbl === 'name' || lbl === 'your name') {
       if (waiver.client_name) prefill[block.id] = waiver.client_name;
     } else if (isBirthdayLabel) {
       if (waiver.client_birthday) prefill[block.id] = waiver.client_birthday;
+    } else if (isGenderLabel) {
+      if (waiver.client_gender) prefill[block.id] = waiver.client_gender;
     } else if (lbl.includes('age')) {
       if (waiver.client_age != null) prefill[block.id] = String(waiver.client_age);
-    } else if (lbl.includes('address')) {
+    } else if (lbl.includes('address') || lbl.includes('street')) {
       if (waiver.client_address) prefill[block.id] = waiver.client_address;
     } else if (
       lbl.includes('name of program') ||
