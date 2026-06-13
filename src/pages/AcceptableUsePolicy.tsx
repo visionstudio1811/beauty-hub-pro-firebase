@@ -57,7 +57,8 @@ const AcceptableUsePolicy: React.FC = () => {
         <li>Have all rights and consents necessary to upload, store, and process the Customer Data you put into the Platform, including the rights to send marketing communications to the contacts in your audience;</li>
         <li>Keep your records of consent and provide them to us within fifteen (15) days of a written request;</li>
         <li>Delete records that are no longer needed and respond promptly to data subject access, deletion, and correction requests from your end clients;</li>
-        <li>Not share login credentials between users — every staff member must have their own account so role and audit trails are accurate.</li>
+        <li>Not use the Platform to store Protected Health Information (PHI) as a HIPAA covered entity or business associate unless you have a signed Business Associate Agreement with us. The Platform is not HIPAA-compliant by default (see Section 5 of the <a href="/terms">Terms of Use</a>);</li>
+        <li>Not share login credentials between users. Every staff member must have their own account so role and audit trails are accurate.</li>
       </ul>
 
       <h2>6. Security</h2>
@@ -67,7 +68,7 @@ const AcceptableUsePolicy: React.FC = () => {
 
       <h2>7. Reporting violations</h2>
       <p>
-        If you become aware of a violation of this AUP — whether by you, your team, your end clients, or any third party — report it to <a href="mailto:thegoldencircle.skincare@gmail.com">thegoldencircle.skincare@gmail.com</a>. We will investigate reports in good faith and may take action consistent with this AUP and the <a href="/terms">Terms of Use</a>.
+        If you become aware of a violation of this AUP, whether by you, your team, your end clients, or any third party, report it to <a href="mailto:thegoldencircle.skincare@gmail.com">thegoldencircle.skincare@gmail.com</a>. We will investigate reports in good faith and may take action consistent with this AUP and the <a href="/terms">Terms of Use</a>.
       </p>
 
       <h2>8. Enforcement</h2>

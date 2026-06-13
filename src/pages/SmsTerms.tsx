@@ -31,7 +31,7 @@ const SmsTerms: React.FC = () => {
       </p>
       <ul>
         <li><strong>Transactional:</strong> one message per booking, plus occasional reminders or follow-ups.</li>
-        <li><strong>Marketing:</strong> the sending business sets the cadence — typically no more than four (4) messages per month per customer, but you should refer to the business's own messaging policy for specifics.</li>
+        <li><strong>Marketing:</strong> the sending business sets the cadence, typically no more than four (4) messages per month per customer, but you should refer to the business's own messaging policy for specifics.</li>
       </ul>
 
       <h2>4. Carrier charges</h2>
@@ -62,7 +62,7 @@ const SmsTerms: React.FC = () => {
 
       <h2>8. OTP (one-time passcode) messages</h2>
       <p>
-        Beauty Hub Pro sends one-time passcodes via SMS to verify identity for certain high-trust actions, such as signing a waiver, intake form, or agreement. OTP messages are transactional and cannot be unsubscribed while the action is in progress. Codes expire and become invalid after a short window. Never share an OTP with anyone, including someone who claims to be from Beauty Hub Pro or the sending business — we will never ask for your OTP over phone, chat, or email.
+        Beauty Hub Pro sends one-time passcodes via SMS to verify identity for certain high-trust actions, such as signing a waiver, intake form, or agreement. OTP messages are transactional and cannot be unsubscribed while the action is in progress. Codes expire and become invalid after a short window. Never share an OTP with anyone, including someone who claims to be from Beauty Hub Pro or the sending business. We will never ask for your OTP over phone, chat, or email.
       </p>
 
       <h2>9. Reporting abuse</h2>

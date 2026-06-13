@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LoginFloralCorner } from '@/components/auth/LoginFloralCorner';
 import { auth } from '@/lib/firebase';
 import { LOGIN_HERO_URL } from '@/lib/loginBranding';
+import { Wordmark } from '@/components/public-site/Wordmark';
 import { cn } from '@/lib/utils';
 
 const GoogleIcon = () => (
@@ -108,10 +109,10 @@ export default function Auth() {
   } as const;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#e4dfd8] p-0 sm:p-6 md:p-8">
+    <div className="gc-site flex min-h-screen flex-col items-center justify-center bg-cream p-0 sm:p-6 md:p-8">
       <div
         className={cn(
-          'flex w-full max-w-6xl flex-1 flex-col overflow-hidden bg-[#f7f4f0] shadow-2xl ring-1 ring-black/5',
+          'flex w-full max-w-6xl flex-1 flex-col overflow-hidden bg-[rgb(var(--c-cream2))] shadow-2xl ring-1 ring-black/5',
           'sm:max-h-[min(920px,calc(100vh-3rem))] sm:flex-initial sm:rounded-2xl lg:flex-row lg:min-h-[580px]',
         )}
       >
@@ -121,7 +122,7 @@ export default function Auth() {
         >
           <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-l-2xl" aria-hidden />
           <div className="relative z-10">
-            <p className="font-display text-4xl font-semibold tracking-tight drop-shadow-md">BeautyHub Pro</p>
+            <Wordmark className="text-4xl text-white drop-shadow-md" />
             <p className="mt-2 font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/85">Staff workspace</p>
           </div>
 
@@ -138,7 +139,7 @@ export default function Auth() {
           </p>
         </div>
 
-        <div className="relative flex flex-1 flex-col justify-center bg-[#f7f4f0] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-r-2xl lg:px-12 lg:py-14">
+        <div className="relative flex flex-1 flex-col justify-center bg-[rgb(var(--c-cream2))] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-r-2xl lg:px-12 lg:py-14">
           <LoginFloralCorner className="absolute right-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 sm:h-64 sm:w-64" />
 
           <div className="relative z-10 mx-auto w-full max-w-md space-y-8">
@@ -166,7 +167,7 @@ export default function Auth() {
                   <span className="w-full border-t border-border/70" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-[#f7f4f0] px-3 font-medium uppercase tracking-wide text-muted-foreground">or</span>
+                  <span className="bg-[rgb(var(--c-cream2))] px-3 font-medium uppercase tracking-wide text-muted-foreground">or</span>
                 </div>
               </div>
 

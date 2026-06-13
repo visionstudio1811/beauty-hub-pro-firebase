@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -134,21 +127,6 @@ export const QuoteRequestForm: React.FC = () => {
             required
           />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="quote-tier">Plan you're interested in</Label>
-        <Select value={form.tier} onValueChange={update('tier')}>
-          <SelectTrigger id="quote-tier">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="essentials">Essentials — $99/mo</SelectItem>
-            <SelectItem value="signature">Signature — $149/mo</SelectItem>
-            <SelectItem value="suite">Suite — $259/mo</SelectItem>
-            <SelectItem value="unsure">Not sure yet</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-2">

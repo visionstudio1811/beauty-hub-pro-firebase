@@ -3,6 +3,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────────
+   The Golden Circle brand tokens (RGB triplets, used via rgb(var(--c-*)) ).
+   ADDITIVE ONLY — these names exist nowhere else in the app, so adding them
+   here cannot affect the CRM, client portal, or waiver form. They are consumed
+   exclusively by marketing/login/legal pages wrapped in `.gc-site`.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --c-cream:  249 248 246;
+  --c-cream2: 243 240 236;
+  --c-ink:     35  33  31;
+  --c-ink2:    58  55  51;
+  --c-muted:  109 100  90;
+  --c-gold:   180 162 121;
+  --c-gold2:  157 139 101;
+  --c-line:   231 227 223;
+  --c-white:  255 255 255;
+  --shadow-soft:     0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.10);
+  --shadow-gold:     0 8px 24px -8px rgb(var(--c-gold) / 0.45);
+  --shadow-gc-elevated: 0 14px 40px -10px rgb(0 0 0 / 0.18);
+}
+
 @layer base {
   :root {
     /* Black / beige / cream / white — beautyhubpro by The Golden Circle Consulting */
@@ -136,4 +157,130 @@
   .subtle-gradient {
     background: linear-gradient(180deg, hsl(30 20% 98%), hsl(30 25% 94%));
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   The Golden Circle look — SCOPED to `.gc-site` (marketing/login/legal pages).
+   Typography rules are nested under `.gc-site` so the CRM + client portal (which
+   never carry that class) keep Rubik/Cormorant. Color utilities reference only
+   the new --c-* tokens and are unused outside marketing, so they're inert app-wide.
+   ────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  /* Scoped base typography */
+  .gc-site {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  .gc-site h1, .gc-site h2, .gc-site h3,
+  .gc-site h4, .gc-site h5, .gc-site h6 {
+    font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
+    font-weight: 800;
+    font-variation-settings: "opsz" 96, "wdth" 100;
+    letter-spacing: -0.04em;
+  }
+  .gc-site h1, .gc-site h2 { line-height: 0.96; }
+  .gc-site h3 { line-height: 1.12; }
+  /* Signature italic-serif emphasis inside headings */
+  .gc-site h1 em, .gc-site h1 i,
+  .gc-site h2 em, .gc-site h2 i,
+  .gc-site h3 em, .gc-site h3 i,
+  .gc-site .font-display em, .gc-site .font-display i {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  /* Scoped .font-display → Bricolage. Outside .gc-site (e.g. ClientPortal) the
+     global Tailwind `font-display` utility (Cormorant) still wins. */
+  .gc-site .font-display {
+    font-family: 'Bricolage Grotesque', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 96, "wdth" 100;
+    font-weight: 800;
+  }
+
+  /* Color / surface utilities */
+  .gold-ink   { color: rgb(var(--c-gold)); }
+  .bg-ink     { background-color: rgb(var(--c-ink)); }
+  .bg-cream   { background-color: rgb(var(--c-cream)); }
+  .bg-cream2  { background-color: rgb(var(--c-cream2)); }
+  .text-ink   { color: rgb(var(--c-ink)); }
+  .text-cream { color: rgb(var(--c-cream)); }
+  .text-muted-ink { color: rgb(var(--c-muted)); }
+  .border-line { border-color: rgb(var(--c-line)); }
+
+  /* Hero effects */
+  .soft-grad {
+    background: radial-gradient(ellipse at top, rgb(var(--c-gold) / 0.14), transparent 62%);
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgb(var(--c-gold) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--c-gold) / 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Dark island — re-binds --c-* to dark values + sets surface colors. Drop this
+     class on the hero / trusted-by / footer so descendants using bg-cream /
+     text-ink / gold-ink resolve to the dark palette, while the page stays cream. */
+  .is-dark {
+    --c-cream:  15  14  13;
+    --c-cream2: 26  24  22;
+    --c-ink:   245 242 236;
+    --c-ink2:  201 195 184;
+    --c-muted: 215 207 195;
+    --c-gold:  212 185 140;
+    --c-gold2: 195 168 117;
+    --c-line:   58  52  46;
+    background-color: rgb(var(--c-cream));
+    color: rgb(var(--c-ink));
+  }
+
+  /* Card lift on hover */
+  .lift {
+    transition: transform 0.25s cubic-bezier(.16, 1, .3, 1),
+                box-shadow 0.25s ease,
+                border-color 0.25s ease;
+  }
+  .lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px -16px rgb(var(--c-gold) / 0.45);
+    border-color: rgb(var(--c-gold) / 0.45);
+  }
+
+  /* Scroll reveal */
+  .gc-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.7s cubic-bezier(.16, 1, .3, 1),
+                transform 0.7s cubic-bezier(.16, 1, .3, 1);
+    will-change: opacity, transform;
+  }
+  .gc-reveal.in-view { opacity: 1; transform: none; }
+  .gc-reveal-d1 { transition-delay: 0.08s; }
+  .gc-reveal-d2 { transition-delay: 0.16s; }
+  .gc-reveal-d3 { transition-delay: 0.24s; }
+  .gc-reveal-d4 { transition-delay: 0.32s; }
+  .gc-reveal-d5 { transition-delay: 0.40s; }
+
+  /* Shadows + layout primitives */
+  .shadow-soft     { box-shadow: var(--shadow-soft); }
+  .shadow-gold     { box-shadow: var(--shadow-gold); }
+  .shadow-gc-elevated { box-shadow: var(--shadow-gc-elevated); }
+  .section-spacing { @apply py-16 lg:py-20; }
+  .container-padding { @apply px-6 lg:px-8; }
+  .text-balance { text-wrap: balance; }
+}
+
+/* Marquee — top-level so the keyframes register globally; only `.gc-site` markup
+   uses .animate-marquee, so it never affects the CRM. */
+@keyframes gc-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.animate-marquee {
+  animation: gc-marquee 38s linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee { animation: none; }
 }

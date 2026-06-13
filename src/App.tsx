@@ -25,6 +25,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import SmsTerms from './pages/SmsTerms';
 import AcceptableUsePolicy from './pages/AcceptableUsePolicy';
+import DataProcessingAddendum from './pages/DataProcessingAddendum';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { IdleLogoutGuard } from '@/components/auth/IdleLogoutGuard';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
@@ -79,6 +80,7 @@ function App() {
                             <Route path="/terms" element={<TermsOfUse />} />
                             <Route path="/sms-terms" element={<SmsTerms />} />
                             <Route path="/acceptable-use" element={<AcceptableUsePolicy />} />
+                            <Route path="/dpa" element={<DataProcessingAddendum />} />
                             
                             {/* Admin routes */}
                             <Route path="/admin" element={

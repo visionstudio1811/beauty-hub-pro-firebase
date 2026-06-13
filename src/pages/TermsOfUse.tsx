@@ -31,7 +31,7 @@ const TermsOfUse: React.FC = () => {
       <h2>3. Eligibility and accounts</h2>
       <ul>
         <li>You must be at least 18 years old and able to form a binding contract under applicable law.</li>
-        <li>Account creation by self-signup is not available — accounts are provisioned through an onboarding process. Once provisioned, only an admin may create additional users for your organization.</li>
+        <li>Account creation by self-signup is not available. Accounts are provisioned through an onboarding process, and only an admin may create additional users for your organization.</li>
         <li>You are responsible for maintaining the confidentiality of your credentials and for all activity under your account.</li>
         <li>You must promptly notify us of any unauthorized use or suspected compromise of your account.</li>
         <li>We reserve the right to refuse, suspend, or terminate accounts at our discretion, including for violation of these Terms or our <a href="/acceptable-use">Acceptable Use Policy</a>.</li>
@@ -52,6 +52,16 @@ const TermsOfUse: React.FC = () => {
       </p>
       <p>
         You are responsible for: (a) the accuracy and lawfulness of Customer Data, (b) having all necessary rights and consents (including from your end clients) to upload Customer Data and to send messages through the Platform, and (c) any third-party claims arising from Customer Data.
+      </p>
+
+      <h3>Data processing</h3>
+      <p>
+        Where we process personal data contained in Customer Data on your behalf, we act as a processor and you act as the controller. That processing is governed by our <a href="/dpa">Data Processing Addendum</a> ("DPA"), which is incorporated into these Terms by reference. If there is a conflict between the DPA and these Terms regarding the processing of personal data, the DPA controls.
+      </p>
+
+      <h3>Health data and HIPAA</h3>
+      <p>
+        The Platform may be used to store general client intake information that is not regulated health data (for example, allergies, skin type, or treatment preferences collected by a salon or spa that is not a HIPAA covered entity), subject to the <a href="/privacy">Privacy Policy</a> and your own consents. However, <strong>the Platform is not a HIPAA-compliant service, and we do not currently enter into Business Associate Agreements.</strong> If you are a "covered entity" or "business associate" as defined under the U.S. Health Insurance Portability and Accountability Act ("HIPAA"), you must not use the Platform to create, receive, maintain, or transmit Protected Health Information ("PHI") as defined under HIPAA unless and until you have entered into a signed Business Associate Agreement with us. You are solely responsible for determining whether your use involves PHI and for obtaining any required agreements before such use.
       </p>
 
       <h2>6. Acceptable use</h2>

@@ -25,6 +25,10 @@
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         {
+          "source": "/u",
+          "function": { "functionId": "unsubscribeEmail", "region": "us-central1" }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

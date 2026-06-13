@@ -17,7 +17,7 @@ const PrivacyPolicy: React.FC = () => {
         Beauty Hub Pro is the software arm of The Golden Circle Consulting LLC, a Florida limited liability company. Throughout this policy, references to "the Platform" or "the Service" mean the Beauty Hub Pro web application, client portal, and related Cloud Functions, regardless of whether they are accessed at beautyhubpro.com or a white-label domain operated by one of our customers (for example, crm.your-salon.com).
       </p>
       <p>
-        When you are a customer's client (for example, a client of a salon that uses our Platform), our customer — not Beauty Hub Pro — is the controller of your personal data, and we act as a processor. This Privacy Policy describes the practices Beauty Hub Pro follows in either role.
+        When you are a customer's client (for example, a client of a salon that uses our Platform), our customer (not Beauty Hub Pro) is the controller of your personal data, and we act as a processor. This Privacy Policy describes the practices Beauty Hub Pro follows in either role.
       </p>
 
       <h2>2. Information we collect</h2>
@@ -49,7 +49,7 @@ const PrivacyPolicy: React.FC = () => {
         <li>Operate, secure, and improve the Platform;</li>
         <li>Provision accounts, authenticate users, and enforce role-based access;</li>
         <li>Process bookings, package consumption, invoices, and the transactional messages tied to those actions;</li>
-        <li>Send marketing and operational communications you have requested or that our customer has configured (subject to opt-out — see Section 6);</li>
+        <li>Send marketing and operational communications you have requested or that our customer has configured (subject to opt-out; see Section 6);</li>
         <li>Provide customer support, onboarding, data migration, and consulting services;</li>
         <li>Detect, prevent, and respond to fraud, abuse, security incidents, and rule violations;</li>
         <li>Comply with applicable law, court orders, and regulatory obligations.</li>
@@ -69,7 +69,7 @@ const PrivacyPolicy: React.FC = () => {
       <h2>5. How we share information</h2>
       <p>We do not sell personal information. We share information in the following limited ways:</p>
       <ul>
-        <li><strong>Sub-processors and infrastructure providers</strong> who help us operate the Platform — see Section 7 for a current list.</li>
+        <li><strong>Sub-processors and infrastructure providers</strong> who help us operate the Platform; see Section 7 for a current list.</li>
         <li><strong>Our customers (the salons, spas, and studios on the Platform)</strong> where you are their client. They control your data within their organization's tenant.</li>
         <li><strong>Professional advisers</strong> (lawyers, accountants, auditors) under confidentiality.</li>
         <li><strong>Business transfers:</strong> in connection with a merger, acquisition, financing, or sale of assets, subject to the new entity continuing to honor this policy.</li>
@@ -87,12 +87,12 @@ const PrivacyPolicy: React.FC = () => {
       <h2>7. Sub-processors and third-party services</h2>
       <p>We rely on the following sub-processors to provide the Platform:</p>
       <ul>
-        <li><strong>Google Cloud / Firebase</strong> — hosting, authentication, Firestore database, Cloud Functions, Cloud Storage (United States).</li>
-        <li><strong>Twilio, Inc.</strong> — SMS delivery in the United States and other supported countries.</li>
-        <li><strong>Infobip Ltd.</strong> — SMS delivery as an alternative to Twilio.</li>
-        <li><strong>Resend (Resend Inc.)</strong> — transactional and marketing email delivery.</li>
-        <li><strong>Acuity Scheduling (Squarespace, Inc.)</strong> — calendar sync, optional per organization.</li>
-        <li><strong>Google Drive (Google LLC)</strong> — automatic backup of signed waivers and issued invoices when a customer enables Drive backup.</li>
+        <li><strong>Google Cloud / Firebase</strong>: hosting, authentication, Firestore database, Cloud Functions, Cloud Storage (United States).</li>
+        <li><strong>Twilio, Inc.</strong>: SMS delivery in the United States and other supported countries.</li>
+        <li><strong>Infobip Ltd.</strong>: SMS delivery as an alternative to Twilio.</li>
+        <li><strong>Resend (Resend Inc.)</strong>: transactional and marketing email delivery.</li>
+        <li><strong>Acuity Scheduling (Squarespace, Inc.)</strong>: calendar sync, optional per organization.</li>
+        <li><strong>Google Drive (Google LLC)</strong>: automatic backup of signed waivers and issued invoices when a customer enables Drive backup.</li>
       </ul>
       <p>
         Each sub-processor processes personal data only on documented instructions, under written contracts that require appropriate technical and organizational measures. We review this list periodically; updates will be reflected in this Section with an updated "Last updated" date at the top of this policy.
@@ -117,7 +117,7 @@ const PrivacyPolicy: React.FC = () => {
 
       <h2>10. Data retention</h2>
       <p>
-        We retain personal data for as long as needed to provide the Platform and comply with our legal obligations. Account data is retained for the life of the account and for up to twelve (12) months after termination so customers can reactivate without losing history. Auditable records — invoices, signed waivers, audit logs — are retained for a minimum of seven (7) years to meet tax and recordkeeping obligations, even after account termination, unless a shorter retention is required by law.
+        We retain personal data for as long as needed to provide the Platform and comply with our legal obligations. Account data is retained for the life of the account and for up to twelve (12) months after termination so customers can reactivate without losing history. Auditable records (invoices, signed waivers, audit logs) are retained for a minimum of seven (7) years to meet tax and recordkeeping obligations, even after account termination, unless a shorter retention is required by law.
       </p>
 
       <h2>11. Your rights</h2>
@@ -133,12 +133,12 @@ const PrivacyPolicy: React.FC = () => {
         <li>Lodge a complaint with a supervisory authority (GDPR / UK GDPR).</li>
       </ul>
       <p>
-        If you are a client of one of our customers, please direct rights requests to that customer first — they are the controller of your data inside their tenant. We will assist them in honoring your request. For requests about data we control directly (for example, account holders, quote requesters, marketing recipients), contact us using the details in Section 14.
+        If you are a client of one of our customers, please direct rights requests to that customer first; they are the controller of your data inside their tenant. We will assist them in honoring your request. For requests about data we control directly (for example, account holders, quote requesters, marketing recipients), contact us using the details in Section 14.
       </p>
 
       <h2>12. Children</h2>
       <p>
-        The Platform is intended for use by businesses and the adult clients of those businesses. We do not knowingly collect personal data from children under the age of thirteen (13) — or under the age of sixteen (16) where applicable in the EEA — without parental consent. If you believe a child has provided personal data to us without appropriate consent, contact us and we will delete it.
+        The Platform is intended for use by businesses and the adult clients of those businesses. We do not knowingly collect personal data from children under the age of thirteen (13), or under the age of sixteen (16) where applicable in the EEA, without parental consent. If you believe a child has provided personal data to us without appropriate consent, contact us and we will delete it.
       </p>
 
       <h2>13. Security</h2>

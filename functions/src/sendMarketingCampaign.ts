@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from './rateLimit';
 import { sendSms, resolveProvider, ensureOptOutSuffix, SmsProvider } from './lib/smsProviders';
+import { computeUnsubToken } from './lib/unsubscribeToken';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -287,7 +288,13 @@ export async function executeCampaign(
     });
 
     const resend = resendCfg ? new Resend(resendCfg.apiKey) : null;
-    const orgName = (await db.collection('organizations').doc(organizationId).get()).data()?.name ?? '';
+    const orgSnapData = (await db.collection('organizations').doc(organizationId).get()).data() ?? {};
+    const orgName = (orgSnapData.name as string) ?? '';
+    // CAN-SPAM requires a valid physical postal address + a working opt-out in
+    // every commercial email. Pull both from the org record so the footer below
+    // can include them.
+    const orgAddress = (orgSnapData.address as string) ?? '';
+    const orgUnsubEmail = (orgSnapData.email as string) || resendCfg?.fromEmail || '';
 
     let sent = 0;
     let failed = 0;
@@ -329,12 +336,33 @@ export async function executeCampaign(
         else {
           try {
             const personalized = personalize(campaign.content, client);
-            const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333"><div style="line-height:1.6">${escapeHtml(personalized).replace(/\n/g, '<br>')}</div><br><p style="color:#9ca3af;font-size:12px">You're receiving this because you're a client of ${escapeHtml(orgName)}. Reply to this email to unsubscribe.</p></body></html>`;
+            // CAN-SPAM compliant footer: sender identity, a working opt-out, and
+            // the sender's physical postal address. The opt-out is a real
+            // one-click unsubscribe URL (verified, sets email_opt_out) plus a
+            // mailto fallback.
+            const unsubToken = computeUnsubToken(resendCfg.apiKey, organizationId, client.id);
+            const unsubUrl = `https://beautyhubpro.com/u?o=${encodeURIComponent(organizationId)}&c=${encodeURIComponent(client.id)}&t=${encodeURIComponent(unsubToken)}`;
+            const unsubMailto = orgUnsubEmail
+              ? `mailto:${orgUnsubEmail}?subject=Unsubscribe`
+              : '';
+            const footerLines = [
+              `You're receiving this because you're a client of ${escapeHtml(orgName)}.`,
+              `To stop receiving marketing emails, <a href="${unsubUrl}" style="color:#6b7280">unsubscribe here</a>${unsubMailto ? ' or reply with "unsubscribe"' : ''}.`,
+              orgAddress ? escapeHtml(orgAddress) : '',
+            ].filter(Boolean).join('<br>');
+            const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333"><div style="line-height:1.6">${escapeHtml(personalized).replace(/\n/g, '<br>')}</div><br><p style="color:#9ca3af;font-size:12px">${footerLines}</p></body></html>`;
+            // RFC 8058: List-Unsubscribe (URL + mailto) and one-click POST so
+            // Gmail/Apple Mail surface a native unsubscribe button.
+            const listUnsub = unsubMailto ? `<${unsubUrl}>, <${unsubMailto}>` : `<${unsubUrl}>`;
             const resp = await resend.emails.send({
               from: `${resendCfg.fromName} <${resendCfg.fromEmail}>`,
               to: [client.email],
               subject: campaign.subject || campaign.name,
               html,
+              headers: {
+                'List-Unsubscribe': listUnsub,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
             });
             if (resp.error) {
               emailStatus = 'failed';
