@@ -56,6 +56,11 @@ export interface SupabaseAppointment {
   buffer_before_minutes?: number; // Snapshotted from treatment at write time
   buffer_after_minutes?: number;
   is_custom_time?: boolean;       // True when staff used the "Custom time" override
+  // Two-way confirmation (set by Cloud Functions / staff)
+  confirmed_at?: string;
+  confirmed_via?: 'sms' | 'email' | 'staff';
+  cancellation_requested?: boolean;
+  reschedule_requested?: boolean;
 }
 
 const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
@@ -102,6 +107,13 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   buffer_after_minutes:
     typeof data.buffer_after_minutes === 'number' ? data.buffer_after_minutes : undefined,
   is_custom_time: typeof data.is_custom_time === 'boolean' ? data.is_custom_time : undefined,
+  confirmed_at: typeof data.confirmed_at === 'string' ? data.confirmed_at : undefined,
+  confirmed_via:
+    data.confirmed_via === 'sms' || data.confirmed_via === 'email' || data.confirmed_via === 'staff'
+      ? data.confirmed_via
+      : undefined,
+  cancellation_requested: data.cancellation_requested === true ? true : undefined,
+  reschedule_requested: data.reschedule_requested === true ? true : undefined,
 });
 
 export const useSupabaseAppointments = () => {

@@ -27,19 +27,22 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
   const { currentOrganization } = useOrganization();
   
   const [config, setConfig] = useState({
-    apiKey: integration?.configuration?.apiKey || '',
+    apiKey: '', // write-only — never prefilled; blank means "keep saved key"
     fromEmail: integration?.configuration?.fromEmail || '',
     fromName: integration?.configuration?.fromName || '',
     isEnabled: integration?.is_enabled || false
   });
+
+  const hasSecret = Boolean(integration?.has_secret);
+  const secretLast4 = integration?.secret_last4 as string | undefined;
 
   const handleSave = async () => {
     if (!currentOrganization?.id) return;
 
     setLoading(true);
     try {
+      // Non-secret config only — the apiKey goes to the write-only secret store.
       const configData = {
-        apiKey: config.apiKey,
         fromEmail: config.fromEmail,
         fromName: config.fromName
       };
@@ -57,6 +60,12 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
         },
         { merge: true }
       );
+
+      if (config.apiKey.trim()) {
+        const saveSecret = httpsCallable(functions, 'saveIntegrationSecret');
+        await saveSecret({ organizationId: currentOrganization.id, provider: 'resend', secret: { apiKey: config.apiKey.trim() } });
+        setConfig((c) => ({ ...c, apiKey: '' }));
+      }
 
       toast({
         title: "Resend configuration saved",
@@ -147,9 +156,12 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
               id="apiKey"
               value={config.apiKey}
               onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-              placeholder="Enter your Resend API key"
+              placeholder={hasSecret ? `••••${secretLast4 ?? ''} (saved)` : 'Enter your Resend API key'}
               type="password"
             />
+            {hasSecret && (
+              <p className="text-xs text-muted-foreground mt-1">Leave blank to keep your saved key.</p>
+            )}
           </div>
 
           <div>

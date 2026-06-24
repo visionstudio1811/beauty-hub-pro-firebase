@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from './rateLimit';
+import { loadSecret } from './lib/integrationSecrets';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -117,7 +118,9 @@ export const sendClientEmail = onCall(
     const config = emailConfig.configuration as EmailConfig;
     const fromName = config.fromName || 'Beauty Hub Pro';
     const fromEmail = config.fromEmail || 'info@beautyhubpro.com';
-    const apiKey = config.apiKey;
+    // apiKey now lives in the write-only secret subdoc (legacy
+    // configuration.apiKey is the fallback for un-migrated orgs).
+    const { apiKey } = await loadSecret(organizationId, 'resend', emailConfig);
 
     if (!apiKey) {
       throw new HttpsError('internal', 'Email API key not configured');

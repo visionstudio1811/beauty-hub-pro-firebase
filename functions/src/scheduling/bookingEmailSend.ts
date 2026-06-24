@@ -7,6 +7,7 @@
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from '../rateLimit';
+import { loadSecret } from '../lib/integrationSecrets';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -146,7 +147,9 @@ export async function resolveEmailContext(
 
   const integrationData = integrationSnap.docs[0].data();
   const config = (integrationData.configuration ?? {}) as ResendIntegrationConfig;
-  if (!config.apiKey) return null;
+  // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
+  const { apiKey } = await loadSecret(orgId, 'resend', integrationData);
+  if (!apiKey) return null;
   const fromName = config.fromName || String(orgData.name || 'Beauty Hub Pro');
   const fromEmail = config.fromEmail;
   if (!fromEmail) return null;
@@ -198,7 +201,7 @@ export async function resolveEmailContext(
     orgData,
     fromName,
     fromEmail,
-    resend: new Resend(config.apiKey),
+    resend: new Resend(apiKey),
     templateHtml,
     templateSettings,
     headerImageUrl,

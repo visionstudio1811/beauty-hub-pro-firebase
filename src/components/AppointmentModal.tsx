@@ -49,6 +49,9 @@ export interface Appointment {
   addons_total_duration?: number;
   acuity_appointment_id?: string | null;
   sync_status?: string;
+  confirmed_via?: 'sms' | 'email' | 'staff';
+  cancellation_requested?: boolean;
+  reschedule_requested?: boolean;
 }
 
 interface AppointmentModalProps {
@@ -185,6 +188,21 @@ const AppointmentModal = ({ appointment, isOpen, onClose, onStatusChange, onDele
                   title={`Acuity sync: ${appointment.sync_status}`}
                 >
                   Sync: {appointment.sync_status}
+                </span>
+              )}
+              {appointment.confirmed_via && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
+                  Confirmed ✓ via {appointment.confirmed_via}
+                </span>
+              )}
+              {appointment.cancellation_requested && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                  Cancellation requested
+                </span>
+              )}
+              {appointment.reschedule_requested && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                  Reschedule requested
                 </span>
               )}
             </div>

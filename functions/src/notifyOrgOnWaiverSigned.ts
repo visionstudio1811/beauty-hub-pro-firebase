@@ -2,6 +2,7 @@ import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import { backfillClientFromSignedWaiver } from './backfillClient';
 import { consumeRateLimit } from './rateLimit';
+import { loadSecret } from './lib/integrationSecrets';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -16,9 +17,11 @@ async function loadOrgResendSender(orgId: string): Promise<{ apiKey: string; fro
     .collection('marketingIntegrations').doc('resend')
     .get();
   if (!snap.exists || !snap.data()?.is_enabled) return null;
-  const cfg = snap.data()!.configuration as { apiKey?: string; fromEmail?: string; fromName?: string };
-  if (!cfg.apiKey || !cfg.fromEmail) return null;
-  return { apiKey: cfg.apiKey, fromEmail: cfg.fromEmail, fromName: cfg.fromName || 'Beauty Hub Pro' };
+  const cfg = snap.data()!.configuration as { fromEmail?: string; fromName?: string };
+  // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
+  const { apiKey } = await loadSecret(orgId, 'resend', snap.data());
+  if (!apiKey || !cfg.fromEmail) return null;
+  return { apiKey, fromEmail: cfg.fromEmail, fromName: cfg.fromName || 'Beauty Hub Pro' };
 }
 
 function escapeHtml(str: string): string {

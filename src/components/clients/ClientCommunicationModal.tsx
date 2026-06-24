@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/hooks/useClients';
+import { personalizeSms, smsSegments } from '@/lib/smsPersonalize';
 import {
   collection,
   getDocs,
@@ -39,6 +41,12 @@ interface Communication {
   status: string;
 }
 
+interface SmsTemplate {
+  id: string;
+  name: string;
+  body: string;
+}
+
 interface ClientCommunicationModalProps {
   client: Client | null;
   isOpen: boolean;
@@ -55,6 +63,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('sms');
+  const [smsTemplates, setSmsTemplates] = useState<SmsTemplate[]>([]);
   const [formData, setFormData] = useState({
     subject: '',
     message: ''
@@ -63,8 +72,24 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
   useEffect(() => {
     if (client && isOpen) {
       fetchCommunications();
+      fetchSmsTemplates();
     }
   }, [client, isOpen]);
+
+  const fetchSmsTemplates = async () => {
+    if (!currentOrganization?.id) return;
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'organizations', currentOrganization.id, 'smsTemplates'),
+          orderBy('updated_at', 'desc'),
+        ),
+      );
+      setSmsTemplates(snap.docs.map((d) => ({ id: d.id, name: d.data().name ?? '', body: d.data().body ?? '' })));
+    } catch (error) {
+      console.error('Error fetching SMS templates:', error);
+    }
+  };
 
   const fetchCommunications = async () => {
     if (!client || !currentOrganization?.id) return;
@@ -100,6 +125,27 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
 
     setLoading(true);
     try {
+      // SMS actually sends via the Cloud Function (which logs to clientCommunications).
+      if (type === 'sms') {
+        if (!client.phone) throw new Error('This client has no phone number on file.');
+        const sendSmsFn = httpsCallable(functions, 'sendClientSms');
+        await sendSmsFn({
+          to: client.phone,
+          message: formData.message,
+          clientId: client.id,
+          organizationId: currentOrganization.id,
+        });
+        const sentAt = new Date().toISOString();
+        setCommunications((prev) => [
+          { id: `local-${sentAt}`, type: 'sms', message: formData.message, sent_at: sentAt, status: 'delivered' },
+          ...prev,
+        ]);
+        setFormData({ subject: '', message: '' });
+        toast({ title: 'Success', description: 'SMS sent successfully' });
+        setLoading(false);
+        return;
+      }
+
       const now = new Date().toISOString();
       const commRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'clientCommunications'),
@@ -193,8 +239,28 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
           <TabsContent value="sms" className="space-y-4">
             <div className="p-4 border rounded-lg bg-gray-50">
               <h4 className="font-medium mb-2">Send SMS</h4>
-              <p className="text-sm text-gray-600 mb-3">To: {client.phone}</p>
+              <p className="text-sm text-gray-600 mb-3">To: {client.phone || 'No phone number'}</p>
               <div className="space-y-3">
+                {smsTemplates.length > 0 && (
+                  <div>
+                    <Label>Template</Label>
+                    <Select
+                      onValueChange={(id) => {
+                        const tpl = smsTemplates.find((t) => t.id === id);
+                        if (tpl) setFormData({ ...formData, message: personalizeSms(tpl.body, { name: client.name }) });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Load a saved template (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {smsTemplates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name || 'Untitled'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="sms-message">Message</Label>
                   <Textarea
@@ -204,10 +270,16 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
                     placeholder="Type your SMS message..."
                     rows={4}
                   />
+                  {formData.message && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {smsSegments(formData.message).chars} chars · {smsSegments(formData.message).segments} segment
+                      {smsSegments(formData.message).segments === 1 ? '' : 's'}
+                    </p>
+                  )}
                 </div>
-                <Button 
-                  onClick={() => handleSendCommunication('sms')} 
-                  disabled={loading || !formData.message.trim()}
+                <Button
+                  onClick={() => handleSendCommunication('sms')}
+                  disabled={loading || !formData.message.trim() || !client.phone}
                   className="w-full"
                 >
                   {loading ? 'Sending...' : 'Send SMS'}

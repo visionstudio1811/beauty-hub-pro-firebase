@@ -9,11 +9,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
-
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;          // 30 min
-const WARN_BEFORE_MS = 2 * 60 * 1000;            // show warning at 28 min
-const ACTIVITY_THROTTLE_MS = 1000;
-const ACTIVITY_KEY = 'bh:lastActivity';
+import {
+  IDLE_TIMEOUT_MS,
+  WARN_BEFORE_MS,
+  ACTIVITY_THROTTLE_MS,
+  ACTIVITY_KEY,
+  markActivity,
+  isSessionExpired,
+} from '@/lib/idleSession';
 
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
   'mousedown',
@@ -88,11 +91,7 @@ export const IdleLogoutGuard: React.FC = () => {
     const now = Date.now();
     if (now - lastWriteRef.current >= ACTIVITY_THROTTLE_MS) {
       lastWriteRef.current = now;
-      try {
-        localStorage.setItem(ACTIVITY_KEY, String(now));
-      } catch {
-        // localStorage can throw in private mode — ignore.
-      }
+      markActivity(now);
     }
     // While the warning dialog is open, ignore background activity so the user
     // is forced to acknowledge the dialog (clicking "Stay signed in" inside it
@@ -112,6 +111,26 @@ export const IdleLogoutGuard: React.FC = () => {
     }
   }, [scheduleTimers, warningOpen]);
 
+  // Tab visibility governs the "30 min open vs 1 hr away" split:
+  //  - Hidden (backgrounded/minimized): pause the in-app idle timer so being
+  //    away doesn't trip the 30-min limit — the 1-hour away window applies.
+  //  - Visible again: if the user has been away longer than the away limit,
+  //    sign out; otherwise treat the return as activity and restart the timer.
+  const handleVisibility = useCallback(() => {
+    if (document.visibilityState === 'hidden') {
+      clearAllTimers();
+      setWarningOpen(false);
+      return;
+    }
+    // becoming visible
+    if (isSessionExpired()) {
+      void handleSignOut();
+      return;
+    }
+    markActivity();
+    scheduleTimers();
+  }, [clearAllTimers, handleSignOut, scheduleTimers]);
+
   useEffect(() => {
     if (!user) {
       clearAllTimers();
@@ -121,23 +140,21 @@ export const IdleLogoutGuard: React.FC = () => {
 
     ACTIVITY_EVENTS.forEach(ev => window.addEventListener(ev, handleLocalActivity, { passive: true }));
     window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibility);
     scheduleTimers();
 
     return () => {
       ACTIVITY_EVENTS.forEach(ev => window.removeEventListener(ev, handleLocalActivity));
       window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearAllTimers();
     };
-  }, [user, handleLocalActivity, handleStorage, scheduleTimers, clearAllTimers]);
+  }, [user, handleLocalActivity, handleStorage, handleVisibility, scheduleTimers, clearAllTimers]);
 
   const handleStaySignedIn = () => {
     setWarningOpen(false);
     scheduleTimers();
-    try {
-      localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
-    } catch {
-      // ignore
-    }
+    markActivity();
   };
 
   if (!user) return null;

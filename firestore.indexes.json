@@ -9,6 +9,16 @@
       ]
     },
     {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "appointment_date", "order": "ASCENDING" },
+        { "fieldPath": "appointment_time", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "treatments",
       "queryScope": "COLLECTION",
       "fields": [

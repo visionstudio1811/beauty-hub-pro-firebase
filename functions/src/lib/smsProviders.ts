@@ -1,9 +1,10 @@
 import * as admin from 'firebase-admin';
+import { loadSecret } from './integrationSecrets';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-export type SmsProvider = 'twilio' | 'infobip';
+export type SmsProvider = 'twilio' | 'infobip' | 'quo';
 
 interface TwilioConfig {
   accountSid: string;
@@ -17,6 +18,12 @@ interface InfobipConfig {
   baseUrl: string;
 }
 
+interface QuoConfig {
+  apiKey: string;
+  fromNumber: string;
+  userId?: string;
+}
+
 async function loadIntegration(orgId: string, provider: SmsProvider) {
   const snap = await db
     .collection('organizations').doc(orgId)
@@ -25,7 +32,12 @@ async function loadIntegration(orgId: string, provider: SmsProvider) {
   if (!snap.exists) return null;
   const data = snap.data()!;
   if (!data.is_enabled) return null;
-  return data.configuration as TwilioConfig | InfobipConfig;
+  // Merge the write-only secret subdoc (apiKey/authToken/accountSid) over the
+  // public configuration. Falls back to legacy configuration.<secret> when the
+  // secret subdoc doesn't exist yet (un-migrated org).
+  const secret = await loadSecret(orgId, provider, data);
+  const configuration = { ...(data.configuration ?? {}), ...secret };
+  return configuration as TwilioConfig | InfobipConfig | QuoConfig;
 }
 
 export async function sendViaTwilio(
@@ -70,6 +82,32 @@ export async function sendViaInfobip(
   if (!res.ok) throw new Error(`Infobip error: ${await res.text()}`);
 }
 
+export async function sendViaQuo(
+  orgId: string,
+  to: string,
+  body: string,
+): Promise<void> {
+  const cfg = (await loadIntegration(orgId, 'quo')) as QuoConfig | null;
+  if (!cfg) throw new Error('Quo integration not configured or disabled.');
+  if (!cfg.apiKey || !cfg.fromNumber) throw new Error('Quo credentials incomplete.');
+  // Quo auth uses the raw API key — NOT a Bearer/Basic prefix.
+  const res = await fetch('https://api.quo.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      Authorization: cfg.apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      content: body,
+      from: cfg.fromNumber,
+      to: [to],
+      ...(cfg.userId ? { userId: cfg.userId } : {}),
+    }),
+  });
+  // Quo returns 202 Accepted on success; res.ok covers the 2xx range.
+  if (!res.ok) throw new Error(`Quo error (${res.status}): ${await res.text()}`);
+}
+
 /**
  * Best-effort E.164 normalizer. Returns null when the input clearly cannot
  * be sent (empty, too short, too long).
@@ -104,34 +142,41 @@ export async function sendSms(
 ): Promise<void> {
   const normalized = normalizePhoneE164(to);
   if (!normalized) throw new Error(`Invalid phone number: "${to}"`);
-  if (provider === 'infobip') return sendViaInfobip(orgId, normalized, body);
-  return sendViaTwilio(orgId, normalized, body);
+  switch (provider) {
+    case 'infobip': return sendViaInfobip(orgId, normalized, body);
+    case 'quo':     return sendViaQuo(orgId, normalized, body);
+    case 'twilio':
+    default:        return sendViaTwilio(orgId, normalized, body);
+  }
 }
+
+// Order matters: the first enabled provider in this list becomes the default
+// when no `is_primary` flag is set. Infobip stays first to preserve historical
+// behavior; Quo is opt-in (selected per-send or promoted via is_primary).
+const PROVIDER_PRIORITY: SmsProvider[] = ['infobip', 'twilio', 'quo'];
 
 /**
  * Pick a provider for an org when the caller hasn't specified one.
- * Prefers an explicitly enabled provider; if both are enabled, returns
- * whichever is marked is_primary, falling back to infobip.
- * Throws if neither is enabled.
+ * Among the enabled providers: an explicit `is_primary: true` wins; otherwise
+ * the first enabled provider in PROVIDER_PRIORITY order is used.
+ * Throws if none is enabled.
  */
 export async function resolveProvider(orgId: string): Promise<SmsProvider> {
-  const [twilioSnap, infobipSnap] = await Promise.all([
-    db.collection('organizations').doc(orgId)
-      .collection('marketingIntegrations').doc('twilio').get(),
-    db.collection('organizations').doc(orgId)
-      .collection('marketingIntegrations').doc('infobip').get(),
-  ]);
-  const twilioEnabled = twilioSnap.exists && twilioSnap.data()?.is_enabled === true;
-  const infobipEnabled = infobipSnap.exists && infobipSnap.data()?.is_enabled === true;
+  const base = db.collection('organizations').doc(orgId).collection('marketingIntegrations');
+  const snaps = await Promise.all(PROVIDER_PRIORITY.map((p) => base.doc(p).get()));
 
-  if (twilioEnabled && infobipEnabled) {
-    if (infobipSnap.data()?.is_primary === true) return 'infobip';
-    if (twilioSnap.data()?.is_primary === true) return 'twilio';
-    return 'infobip';
+  const enabled = PROVIDER_PRIORITY
+    .map((provider, i) => ({ provider, data: snaps[i].exists ? snaps[i].data() : undefined }))
+    .filter((x) => x.data?.is_enabled === true);
+
+  if (enabled.length === 0) {
+    throw new Error('No SMS provider configured. Enable Twilio, Infobip, or Quo in Marketing → Integrations.');
   }
-  if (infobipEnabled) return 'infobip';
-  if (twilioEnabled) return 'twilio';
-  throw new Error('No SMS provider configured. Enable Twilio or Infobip in Marketing → Integrations.');
+
+  const primary = enabled.find((x) => x.data?.is_primary === true);
+  if (primary) return primary.provider;
+
+  return enabled[0].provider;
 }
 
 const STOP_REGEX = /reply\s+stop|text\s+stop|stop\s+to\s+(unsubscribe|opt\s*out)/i;

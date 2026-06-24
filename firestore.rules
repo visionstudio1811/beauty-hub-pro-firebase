@@ -343,6 +343,22 @@ service cloud.firestore {
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
 
+      // Reusable SMS message templates (admin-managed).
+      match /smsTemplates/{templateId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      // Staff worklist for SMS/email cancellation + reschedule requests.
+      // Created only by Cloud Functions (Admin SDK); staff read + resolve.
+      match /appointmentAlerts/{alertId} {
+        allow read: if belongsToOrg(orgId) && isReception();
+        allow update: if belongsToOrg(orgId) && isReception();
+        allow create: if false;
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
       match /marketingAutomations/{automationId} {
         allow read: if belongsToOrg(orgId) && isAdmin();
         allow create, update: if belongsToOrg(orgId) && isAdmin();
@@ -361,6 +377,14 @@ service cloud.firestore {
         allow list: if false;
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
+
+        // Write-only API secrets (API keys, auth tokens, webhook signing
+        // secrets). Admin SDK (Cloud Functions) ONLY — the browser can never
+        // read or write these, even with a stolen admin session. The parent
+        // doc keeps only non-secret config + has_secret/secret_last4 hints.
+        match /secret/{secretId} {
+          allow read, write: if false;
+        }
       }
 
       match /acuitySyncConfig/{docId} {

@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from './rateLimit';
+import { loadSecret } from './lib/integrationSecrets';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -36,12 +37,14 @@ export const testResendIntegration = onCall(async (request) => {
     throw new HttpsError('not-found', 'Resend integration not configured or disabled.');
   }
 
-  const cfg = snap.data()!.configuration as { apiKey?: string; fromEmail?: string; fromName?: string };
+  const cfg = snap.data()!.configuration as { fromEmail?: string; fromName?: string };
+  // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
+  const { apiKey } = await loadSecret(orgId, 'resend', snap.data());
 
-  if (!cfg.apiKey) throw new HttpsError('invalid-argument', 'API key is missing.');
+  if (!apiKey) throw new HttpsError('invalid-argument', 'API key is missing.');
   if (!cfg.fromEmail) throw new HttpsError('invalid-argument', 'From email is missing.');
 
-  const resend = new Resend(cfg.apiKey);
+  const resend = new Resend(apiKey);
   const fromName = cfg.fromName || 'Beauty Hub Pro';
 
   const result = await resend.emails.send({

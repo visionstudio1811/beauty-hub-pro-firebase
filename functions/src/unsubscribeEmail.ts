@@ -1,28 +1,13 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { verifyUnsubToken } from './lib/unsubscribeToken';
+import { loadResendApiKey } from './lib/resendKey';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
-
-/** Loads the org's Resend API key (same source the campaign sender uses). */
-async function loadResendApiKey(orgId: string): Promise<string | null> {
-  try {
-    const snap = await db
-      .collection('organizations')
-      .doc(orgId)
-      .collection('marketingIntegrations')
-      .doc('resend')
-      .get();
-    const cfg = snap.exists ? (snap.data()?.configuration as { apiKey?: string } | undefined) : undefined;
-    return cfg?.apiKey || process.env.RESEND_API_KEY || null;
-  } catch {
-    return process.env.RESEND_API_KEY || null;
-  }
-}
 
 /** Minimal branded confirmation page. */
 function page(heading: string, message: string): string {

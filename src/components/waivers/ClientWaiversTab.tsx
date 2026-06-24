@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { safeFormatters } from '@/lib/safeDateFormatter';
+import { SmsProvider, SMS_PROVIDER_LABELS } from '@/types/sms';
 
 type TemplateKind = 'waiver' | 'intake' | 'agreement';
 
@@ -70,7 +71,6 @@ interface Props {
 }
 
 type SendMode = 'sms' | 'email' | 'device';
-type SmsProvider = 'twilio' | 'infobip';
 
 const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; historyTitle: string; empty: string }> = {
   waiver: {
@@ -337,7 +337,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
             <div className="rounded-lg border border-border bg-background p-3 space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">SMS Provider</Label>
               <div className="flex gap-2">
-                {(['infobip', 'twilio'] as SmsProvider[]).map(p => (
+                {(['infobip', 'twilio', 'quo'] as SmsProvider[]).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -348,7 +348,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                         : 'border-border hover:border-primary/50 hover:bg-muted/30'
                     }`}
                   >
-                    {p === 'infobip' ? 'Infobip' : 'Twilio'}
+                    {SMS_PROVIDER_LABELS[p]}
                   </button>
                 ))}
               </div>

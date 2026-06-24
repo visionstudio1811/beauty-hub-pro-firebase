@@ -27,22 +27,22 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
   const { currentOrganization } = useOrganization();
   
   const [config, setConfig] = useState({
-    accountSid: integration?.configuration?.accountSid || '',
-    authToken: integration?.configuration?.authToken || '',
+    accountSid: '', // write-only — never prefilled
+    authToken: '',  // write-only — never prefilled
     phoneNumber: integration?.configuration?.phoneNumber || '',
     isEnabled: integration?.is_enabled || false
   });
+
+  const hasSecret = Boolean(integration?.has_secret);
+  const secretLast4 = integration?.secret_last4 as string | undefined;
 
   const handleSave = async () => {
     if (!currentOrganization?.id) return;
 
     setLoading(true);
     try {
-      const configData = {
-        accountSid: config.accountSid,
-        authToken: config.authToken,
-        phoneNumber: config.phoneNumber
-      };
+      // Non-secret config only — accountSid/authToken go to the write-only secret store.
+      const configData = { phoneNumber: config.phoneNumber };
 
       await setDoc(
         doc(db, 'organizations', currentOrganization.id!, 'marketingIntegrations', 'twilio'),
@@ -57,6 +57,15 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
         },
         { merge: true }
       );
+
+      const secret: Record<string, string> = {};
+      if (config.accountSid.trim()) secret.accountSid = config.accountSid.trim();
+      if (config.authToken.trim()) secret.authToken = config.authToken.trim();
+      if (Object.keys(secret).length > 0) {
+        const saveSecret = httpsCallable(functions, 'saveIntegrationSecret');
+        await saveSecret({ organizationId: currentOrganization.id, provider: 'twilio', secret });
+        setConfig((c) => ({ ...c, accountSid: '', authToken: '' }));
+      }
 
       toast({
         title: "Twilio configuration saved",
@@ -147,7 +156,7 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
               id="accountSid"
               value={config.accountSid}
               onChange={(e) => setConfig({ ...config, accountSid: e.target.value })}
-              placeholder="Enter your Twilio Account SID"
+              placeholder={hasSecret ? '•••• (saved)' : 'Enter your Twilio Account SID'}
               type="password"
             />
           </div>
@@ -158,9 +167,14 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
               id="authToken"
               value={config.authToken}
               onChange={(e) => setConfig({ ...config, authToken: e.target.value })}
-              placeholder="Enter your Twilio Auth Token"
+              placeholder={hasSecret ? `••••${secretLast4 ?? ''} (saved)` : 'Enter your Twilio Auth Token'}
               type="password"
             />
+            {hasSecret && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave both blank to keep your saved credentials; re-enter both to rotate.
+              </p>
+            )}
           </div>
 
           <div>

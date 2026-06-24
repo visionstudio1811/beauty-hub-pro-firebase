@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 import { consumeRateLimit } from './rateLimit';
 import { sendSms, resolveProvider, ensureOptOutSuffix, SmsProvider } from './lib/smsProviders';
 import { computeUnsubToken } from './lib/unsubscribeToken';
+import { loadResendCredentials } from './lib/resendKey';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -154,23 +155,11 @@ async function resolveAudience(
 }
 
 async function loadResendConfig(orgId: string): Promise<{ apiKey: string; fromName: string; fromEmail: string } | null> {
-  const snap = await db.collection('organizations').doc(orgId)
-    .collection('marketingIntegrations').doc('resend').get();
-  if (snap.exists && snap.data()?.is_enabled) {
-    const cfg = snap.data()!.configuration as { apiKey?: string; fromName?: string; fromEmail?: string };
-    if (cfg.apiKey) {
-      return {
-        apiKey: cfg.apiKey,
-        fromName: cfg.fromName || 'Beauty Hub Pro',
-        fromEmail: cfg.fromEmail || 'info@beautyhubpro.com',
-      };
-    }
-  }
-  const envKey = process.env.RESEND_API_KEY;
-  if (envKey) {
-    return { apiKey: envKey, fromName: 'Beauty Hub Pro', fromEmail: 'info@beautyhubpro.com' };
-  }
-  return null;
+  // Secret apiKey resolves from the write-only secret subdoc (legacy
+  // configuration.apiKey fallback) then the global RESEND_API_KEY env.
+  const creds = await loadResendCredentials(orgId);
+  if (!creds) return null;
+  return { apiKey: creds.apiKey, fromName: creds.fromName, fromEmail: creds.fromEmail };
 }
 
 const CONCURRENCY = 8;

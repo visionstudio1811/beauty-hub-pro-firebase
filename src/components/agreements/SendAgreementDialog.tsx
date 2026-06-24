@@ -6,6 +6,7 @@ import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useToast } from '@/hooks/use-toast';
 import { Client } from '@/hooks/useClients';
+import { SmsProvider, SMS_PROVIDER_LABELS } from '@/types/sms';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,6 @@ import {
 interface AgreementTemplate { id: string; title: string }
 
 type SendMode = 'sms' | 'email' | 'device';
-type SmsProvider = 'twilio' | 'infobip';
 
 interface Props {
   client: Client;
@@ -154,7 +154,7 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">SMS Provider</Label>
               <div className="flex gap-2">
-                {(['infobip', 'twilio'] as SmsProvider[]).map(p => (
+                {(['infobip', 'twilio', 'quo'] as SmsProvider[]).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -165,7 +165,7 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
                         : 'border-border hover:border-primary/50 hover:bg-background'
                     }`}
                   >
-                    {p === 'infobip' ? 'Infobip' : 'Twilio'}
+                    {SMS_PROVIDER_LABELS[p]}
                   </button>
                 ))}
               </div>

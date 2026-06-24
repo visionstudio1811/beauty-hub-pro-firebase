@@ -86,6 +86,9 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
         addons_total_duration: typeof apt.addons_total_duration === 'number' ? apt.addons_total_duration : 0,
         acuity_appointment_id: apt.acuity_appointment_id ?? null,
         sync_status: apt.sync_status,
+        confirmed_via: apt.confirmed_via,
+        cancellation_requested: apt.cancellation_requested,
+        reschedule_requested: apt.reschedule_requested,
       };
       
       // Log any transformations that required sanitization

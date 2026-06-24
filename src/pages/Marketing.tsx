@@ -48,7 +48,7 @@ interface Campaign {
   template_id: string | null;
   created_at: string;
   updated_at: string;
-  sms_provider?: 'twilio' | 'infobip';
+  sms_provider?: 'twilio' | 'infobip' | 'quo';
 }
 
 interface MarketingStats {

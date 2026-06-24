@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, functions } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, MessageSquare, ExternalLink } from 'lucide-react';
@@ -21,11 +22,14 @@ export const InfobipIntegration: React.FC<InfobipIntegrationProps> = ({ integrat
   const { currentOrganization } = useOrganization();
 
   const [config, setConfig] = useState({
-    apiKey:    integration?.configuration?.apiKey    || '',
+    apiKey:    '', // write-only — never prefilled; blank means "keep saved key"
     sender:    integration?.configuration?.sender    || '',
     baseUrl:   integration?.configuration?.baseUrl   || 'https://api.infobip.com',
     isEnabled: integration?.is_enabled || false,
   });
+
+  const hasSecret = Boolean(integration?.has_secret);
+  const secretLast4 = integration?.secret_last4 as string | undefined;
 
   const handleSave = async () => {
     if (!currentOrganization?.id) return;
@@ -36,8 +40,8 @@ export const InfobipIntegration: React.FC<InfobipIntegrationProps> = ({ integrat
         {
           organization_id: currentOrganization.id,
           provider: 'infobip',
+          // Non-secret config only — apiKey goes to the write-only secret store.
           configuration: {
-            apiKey:  config.apiKey,
             sender:  config.sender,
             baseUrl: config.baseUrl,
           },
@@ -48,6 +52,13 @@ export const InfobipIntegration: React.FC<InfobipIntegrationProps> = ({ integrat
         },
         { merge: true }
       );
+
+      if (config.apiKey.trim()) {
+        const saveSecret = httpsCallable(functions, 'saveIntegrationSecret');
+        await saveSecret({ organizationId: currentOrganization.id, provider: 'infobip', secret: { apiKey: config.apiKey.trim() } });
+        setConfig((c) => ({ ...c, apiKey: '' }));
+      }
+
       toast({ title: 'Infobip configuration saved' });
       onUpdate();
     } catch (error: any) {
@@ -90,8 +101,11 @@ export const InfobipIntegration: React.FC<InfobipIntegrationProps> = ({ integrat
               type="password"
               value={config.apiKey}
               onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-              placeholder="Your Infobip API key"
+              placeholder={hasSecret ? `••••${secretLast4 ?? ''} (saved)` : 'Your Infobip API key'}
             />
+            {hasSecret && (
+              <p className="text-xs text-muted-foreground mt-1">Leave blank to keep your saved key.</p>
+            )}
           </div>
 
           <div>

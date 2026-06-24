@@ -5,11 +5,12 @@ import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
-import { Users } from 'lucide-react';
+import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
 import type { Treatment } from '@/hooks/useSupabaseTreatments';
 import type { Staff } from '@/hooks/useSupabaseStaff';
@@ -73,6 +74,78 @@ interface Props {
   onSlotSelect?: (start: Date, staffId?: string) => void;
 }
 
+const VIEW_LABELS: Record<string, string> = {
+  day: 'Day',
+  week: 'Week',
+  month: 'Month',
+  work_week: 'Work Week',
+  agenda: 'Agenda',
+};
+
+/**
+ * Compact, mobile-friendly replacement for react-big-calendar's default toolbar.
+ * The default wraps Today/Back/Next + the date label + Day/Week/Month onto
+ * multiple rows on narrow screens, stealing height from the grid. This keeps
+ * everything on one row: Today + prev/next chevrons, the date label, and the
+ * view switcher collapsed into a dropdown.
+ */
+interface ToolbarProps {
+  label: string;
+  view: View;
+  views: View[] | { [k: string]: boolean };
+  onNavigate: (action: 'PREV' | 'NEXT' | 'TODAY') => void;
+  onView: (view: View) => void;
+}
+
+const CalendarToolbar: React.FC<ToolbarProps> = ({ label, view, views, onNavigate, onView }) => {
+  const viewList: View[] = Array.isArray(views)
+    ? views
+    : (Object.keys(views).filter((k) => (views as Record<string, boolean>)[k]) as View[]);
+
+  return (
+    <div className="flex items-center gap-2 pb-2">
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={() => onNavigate('TODAY')}>
+          Today
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onNavigate('PREV')}
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onNavigate('NEXT')}
+          aria-label="Next"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <span className="flex-1 min-w-0 truncate text-center text-sm font-semibold">{label}</span>
+
+      <Select value={view} onValueChange={(v) => onView(v as View)}>
+        <SelectTrigger className="h-8 w-[104px] flex-shrink-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {viewList.map((v) => (
+            <SelectItem key={v} value={v}>
+              {VIEW_LABELS[v] ?? v}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 function buildEventDate(dateStr: string, timeStr: string): Date {
   // appointment_date is YYYY-MM-DD, appointment_time is HH:MM or HH:MM:SS
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -87,10 +160,10 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   defaultView = 'week',
   defaultDate,
   showResources = true,
-  // Default fills the viewport minus a generous offset for app chrome
-  // (top bar + page header + this card's own padding). Override via prop
-  // for embeds in smaller containers.
-  height = 'calc(100vh - 16rem)',
+  // Default fills the viewport minus an offset for app chrome (top bar + page
+  // header + this card's padding). A min-height keeps it usably tall on mobile
+  // where 100vh is small. Override via prop for embeds in smaller containers.
+  height = 'calc(100vh - 13rem)',
   onSelectEvent,
   onSlotSelect,
 }) => {
@@ -264,7 +337,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   const showStaffFilter = activeStaff.length > 1;
 
   return (
-    <div className="rbc-shadcn-wrap flex flex-col" style={{ height }}>
+    <div className="rbc-shadcn-wrap flex flex-col" style={{ height, minHeight: '34rem' }}>
       <div className="flex items-center justify-between pb-2 gap-2 flex-wrap">
         <div className="text-xs text-muted-foreground">
           Times shown in <span className="font-medium">{tz}</span>
@@ -351,7 +424,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         onSelectSlot={handleSelectSlot}
         onSelectEvent={handleSelectEvent}
         eventPropGetter={eventPropGetter}
-        components={{ event: EventBlock }}
+        components={{ toolbar: CalendarToolbar, event: EventBlock }}
           popup
           showMultiDayTimes
           dayLayoutAlgorithm="no-overlap"

@@ -112,7 +112,11 @@ const Appointments = () => {
 
     updateAppointment(appointmentId, {
       status: statusMap[newStatus],
-      notes: notes ? notes : undefined
+      notes: notes ? notes : undefined,
+      // Stamp who/when confirmed so the UI can show "Confirmed ✓ via staff".
+      ...(newStatus === 'confirmed'
+        ? { confirmed_at: new Date().toISOString(), confirmed_via: 'staff' as const }
+        : {}),
     });
 
     // Decrement package session when an appointment is marked complete

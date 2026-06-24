@@ -29,6 +29,10 @@
           "function": { "functionId": "unsubscribeEmail", "region": "us-central1" }
         },
         {
+          "source": "/a",
+          "function": { "functionId": "confirmAppointment", "region": "us-central1" }
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

@@ -6,12 +6,21 @@ import {
   sendOrgEmail,
   alreadySent,
 } from './lib/orgEmail';
+import { resolveProvider, sendSms, ensureOptOutSuffix } from './lib/smsProviders';
+import { consumeRateLimit } from './rateLimit';
+import { RECONFIRM_FOOTER } from './lib/appointmentConfirm';
+import { buildAppointmentButtons } from './lib/appointmentEmailButtons';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+/** Replace [TOKEN] placeholders in a reminder SMS body. */
+function renderTokens(template: string, vars: Record<string, string>): string {
+  return template.replace(/\[([A-Z_]+)\]/g, (m, key) => (vars[key] !== undefined ? vars[key] : m));
+}
 
 /**
  * Formats an "HH:mm" 24-hour string as a friendly 12-hour time, e.g.
@@ -172,6 +181,8 @@ export const appointmentReminderEmails = onSchedule(
             automationKey: 'appointment_reminder',
             refType: 'appointment',
             refId: appointmentId,
+            // Confirm + Cancel buttons signed with the org's Resend key.
+            appendHtml: buildAppointmentButtons(orgId, appointmentId, ctx.apiKey),
           });
         } catch (err) {
           console.error(
@@ -179,6 +190,63 @@ export const appointmentReminderEmails = onSchedule(
             err,
           );
           // Continue with other appointments
+        }
+
+        // ----------------------------------------------------------- SMS reminder
+        if (cfg.sms_enabled) {
+          try {
+            if (await alreadySent(orgId, 'appointment_reminder_sms', 'appointment', appointmentId)) {
+              continue;
+            }
+
+            // Resolve phone + opt-out (denormalized first, then client doc).
+            let phone = appt.client_phone ? String(appt.client_phone) : '';
+            let optedOut = appt.sms_opt_out === true;
+            if ((!phone || appt.sms_opt_out === undefined) && appt.client_id) {
+              const clientSnap = await db
+                .collection('organizations').doc(orgId).collection('clients').doc(String(appt.client_id)).get();
+              if (clientSnap.exists) {
+                const c = clientSnap.data() ?? {};
+                if (!phone && c.phone) phone = String(c.phone);
+                if (c.sms_opt_out === true) optedOut = true;
+              }
+            }
+            if (!phone || optedOut) continue;
+
+            const provider = await resolveProvider(orgId);
+            const smsVars: Record<string, string> = {
+              NAME: clientName || 'there',
+              DATE: prettyDate,
+              TIME: prettyTime,
+              TREATMENT: appt.treatment_name ? String(appt.treatment_name) : 'your appointment',
+              STAFF: appt.staff_name ? String(appt.staff_name) : '',
+              ORG: String(orgData.name || ''),
+            };
+            const template = cfg.sms_body || 'Reminder: [NAME], you have [TREATMENT] on [DATE] at [TIME].';
+            const body = ensureOptOutSuffix(`${renderTokens(template, smsVars)}\n\n${RECONFIRM_FOOTER}`);
+
+            await consumeRateLimit(orgId, 'appointmentReminderSms', 500);
+            await sendSms(orgId, phone, body, provider);
+
+            await db.collection('organizations').doc(orgId).collection('clientCommunications').add({
+              clientId: appt.client_id ? String(appt.client_id) : null,
+              type: 'sms',
+              direction: 'outbound',
+              status: 'delivered',
+              message: body,
+              to: phone,
+              sentBy: 'system:appointmentReminderEmails',
+              automationKey: 'appointment_reminder_sms',
+              refType: 'appointment',
+              refId: appointmentId,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          } catch (err) {
+            console.error(
+              `Failed to send appointment reminder SMS for appointment ${appointmentId} in org ${orgId}:`,
+              err,
+            );
+          }
         }
       }
     }

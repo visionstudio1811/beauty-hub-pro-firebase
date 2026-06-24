@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarIcon, Users, Mail, MessageSquare, Gift, UserCheck, RotateCcw } from 'lucide-react';
-import { collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
+import { SmsProvider } from '@/types/sms';
 
 interface CampaignCreationModalProps {
   open: boolean;
@@ -83,9 +84,10 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
     scheduleType: 'now' as 'now' | 'scheduled',
     scheduledDate: '',
     scheduledTime: '',
-    smsProvider: '' as '' | 'twilio' | 'infobip',
+    smsProvider: '' as '' | SmsProvider,
   });
-  const [providerOptions, setProviderOptions] = useState<{ twilio: boolean; infobip: boolean }>({ twilio: false, infobip: false });
+  const [providerOptions, setProviderOptions] = useState<{ twilio: boolean; infobip: boolean; quo: boolean }>({ twilio: false, infobip: false, quo: false });
+  const [smsTemplates, setSmsTemplates] = useState<{ id: string; name: string; body: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
@@ -93,21 +95,36 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
   useEffect(() => {
     if (!open || !currentOrganization?.id) return;
     const loadProviders = async () => {
-      const [twilioSnap, infobipSnap] = await Promise.all([
+      const [twilioSnap, infobipSnap, quoSnap] = await Promise.all([
         getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'twilio')),
         getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'infobip')),
+        getDoc(doc(db, 'organizations', currentOrganization.id, 'marketingIntegrations', 'quo')),
       ]);
       const twilioEnabled = twilioSnap.exists() && twilioSnap.data()?.is_enabled === true;
       const infobipEnabled = infobipSnap.exists() && infobipSnap.data()?.is_enabled === true;
-      setProviderOptions({ twilio: twilioEnabled, infobip: infobipEnabled });
+      const quoEnabled = quoSnap.exists() && quoSnap.data()?.is_enabled === true;
+      setProviderOptions({ twilio: twilioEnabled, infobip: infobipEnabled, quo: quoEnabled });
       setFormData((prev) => {
         if (prev.smsProvider) return prev;
         if (infobipEnabled) return { ...prev, smsProvider: 'infobip' };
         if (twilioEnabled) return { ...prev, smsProvider: 'twilio' };
+        if (quoEnabled) return { ...prev, smsProvider: 'quo' };
         return prev;
       });
     };
     loadProviders();
+
+    const loadSmsTemplates = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'organizations', currentOrganization.id, 'smsTemplates'), orderBy('updated_at', 'desc')),
+        );
+        setSmsTemplates(snap.docs.map((d) => ({ id: d.id, name: d.data().name ?? '', body: d.data().body ?? '' })));
+      } catch (err) {
+        console.error('Error loading SMS templates:', err);
+      }
+    };
+    loadSmsTemplates();
   }, [open, currentOrganization?.id]);
 
   React.useEffect(() => {
@@ -328,7 +345,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                   <Label htmlFor="smsProvider">SMS Provider</Label>
                   <Select
                     value={formData.smsProvider || undefined}
-                    onValueChange={(value: 'twilio' | 'infobip') =>
+                    onValueChange={(value: SmsProvider) =>
                       setFormData(prev => ({ ...prev, smsProvider: value }))
                     }
                   >
@@ -342,12 +359,35 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                       <SelectItem value="twilio" disabled={!providerOptions.twilio}>
                         Twilio {!providerOptions.twilio && '(not configured)'}
                       </SelectItem>
+                      <SelectItem value="quo" disabled={!providerOptions.quo}>
+                        Quo {!providerOptions.quo && '(not configured)'}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
-                  {!providerOptions.twilio && !providerOptions.infobip && (
+                  {!providerOptions.twilio && !providerOptions.infobip && !providerOptions.quo && (
                     <p className="text-xs text-destructive">
                       No SMS provider is enabled. Configure one in Marketing → Integrations.
                     </p>
+                  )}
+                  {smsTemplates.length > 0 && (
+                    <div className="space-y-1">
+                      <Label htmlFor="smsTemplate">Load SMS template</Label>
+                      <Select
+                        onValueChange={(id) => {
+                          const tpl = smsTemplates.find((t) => t.id === id);
+                          if (tpl) setFormData((prev) => ({ ...prev, content: tpl.body }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a saved template (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {smsTemplates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>{t.name || 'Untitled'}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
                   <p className="text-xs text-muted-foreground">
                     A "Reply STOP to unsubscribe" footer is added automatically to comply with carrier rules.

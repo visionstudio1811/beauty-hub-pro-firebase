@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { randomUUID, randomInt } from 'crypto';
 import { consumeRateLimit } from './rateLimit';
 import { sendSms, SmsProvider } from './lib/smsProviders';
+import { loadSecret } from './lib/integrationSecrets';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -190,8 +191,10 @@ export const sendWaiver = onCall(
         .get();
 
       if (orgIntegrationSnap.exists && orgIntegrationSnap.data()?.is_enabled) {
-        const cfg = orgIntegrationSnap.data()!.configuration as { apiKey?: string; fromEmail?: string; fromName?: string };
-        if (cfg.apiKey) resendKey = cfg.apiKey;
+        const cfg = orgIntegrationSnap.data()!.configuration as { fromEmail?: string; fromName?: string };
+        // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
+        const secret = await loadSecret(organizationId, 'resend', orgIntegrationSnap.data());
+        if (secret.apiKey) resendKey = secret.apiKey;
         if (cfg.fromEmail) fromEmail = cfg.fromEmail;
         if (cfg.fromName) fromName = cfg.fromName;
       }

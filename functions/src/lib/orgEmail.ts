@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
+import { loadSecret } from './integrationSecrets';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -12,7 +13,8 @@ export type AutomationKey =
   | 'birthday'
   | 'inactive'
   | 'package_renewal'
-  | 'appointment_reminder';
+  | 'appointment_reminder'
+  | 'appointment_reminder_sms';
 
 export interface AutomationConfig {
   is_active?: boolean;
@@ -21,6 +23,10 @@ export interface AutomationConfig {
   days_threshold?: number;
   days_before_expiry?: number;
   hours_before?: number;
+  /** Reminder SMS: send a text alongside the reminder email. */
+  sms_enabled?: boolean;
+  /** Reminder SMS body (supports [NAME]/[DATE]/[TIME]/… tokens). */
+  sms_body?: string;
 }
 
 export interface OrgEmailContext {
@@ -52,11 +58,14 @@ export async function loadOrgEmailContext(orgId: string): Promise<OrgEmailContex
   if (integration.is_enabled === false) return null;
 
   const config = (integration.configuration ?? {}) as {
-    apiKey?: string;
     fromName?: string;
     fromEmail?: string;
   };
-  if (!config.apiKey) return null;
+  // Secret apiKey now lives in the write-only secret subdoc (legacy
+  // configuration.apiKey is the fallback for un-migrated orgs). No env fallback
+  // here — this context requires a per-org Resend key, as before.
+  const { apiKey } = await loadSecret(orgId, 'resend', integration);
+  if (!apiKey) return null;
 
   const orgData = orgSnap.data() ?? {};
 
@@ -65,11 +74,11 @@ export async function loadOrgEmailContext(orgId: string): Promise<OrgEmailContex
     orgData,
     fromName: config.fromName || orgData.name || 'Beauty Hub Pro',
     fromEmail: config.fromEmail || 'info@beautyhubpro.com',
-    apiKey: config.apiKey,
+    apiKey,
     emailTemplates: (integration.email_templates ?? {}) as OrgEmailContext['emailTemplates'],
     headerImageUrl: (integration.email_header_image_url as string | undefined) ?? '',
     automations: (integration.email_automations ?? {}) as OrgEmailContext['automations'],
-    resend: new Resend(config.apiKey),
+    resend: new Resend(apiKey),
   };
 }
 
@@ -132,6 +141,8 @@ interface SendOrgEmailOptions {
   /** Optional foreign-key (purchaseId, appointmentId) attached to the log */
   refType?: string;
   refId?: string;
+  /** Optional HTML injected just before </body> (e.g. appointment CTA buttons). */
+  appendHtml?: string;
 }
 
 /**
@@ -139,7 +150,7 @@ interface SendOrgEmailOptions {
  * and sends via Resend. Logs the send to clientCommunications.
  */
 export async function sendOrgEmail(opts: SendOrgEmailOptions): Promise<{ messageId: string | null; status: 'delivered' | 'failed'; error?: string }> {
-  const { ctx, to, subject, templateType, variables = {}, clientId, automationKey, refType, refId } = opts;
+  const { ctx, to, subject, templateType, variables = {}, clientId, automationKey, refType, refId, appendHtml } = opts;
 
   const template = ctx.emailTemplates[templateType] || ctx.emailTemplates['general'] || ctx.emailTemplates['default'];
   const templateHtml = template?.html || FALLBACK_TEMPLATE;
@@ -166,7 +177,10 @@ export async function sendOrgEmail(opts: SendOrgEmailOptions): Promise<{ message
     ...Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, String(v ?? '')])),
   };
 
-  const html = renderTemplate(templateHtml, mergeVars);
+  let html = renderTemplate(templateHtml, mergeVars);
+  if (appendHtml) {
+    html = html.includes('</body>') ? html.replace('</body>', `${appendHtml}</body>`) : html + appendHtml;
+  }
 
   const res = await ctx.resend.emails.send({
     from: `${ctx.fromName} <${ctx.fromEmail}>`,
