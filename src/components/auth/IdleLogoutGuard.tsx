@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -41,6 +42,10 @@ export const IdleLogoutGuard: React.FC = () => {
   const logoutTimerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
   const lastWriteRef = useRef(0);
+  // Set when the user explicitly chooses "Log out" in the warning, so the
+  // dialog's onOpenChange (which otherwise treats a close as "stay") doesn't
+  // cancel the sign-out.
+  const intentionalLogoutRef = useRef(false);
 
   const clearAllTimers = useCallback(() => {
     if (warnTimerRef.current) {
@@ -163,15 +168,30 @@ export const IdleLogoutGuard: React.FC = () => {
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
   return (
-    <AlertDialog open={warningOpen} onOpenChange={(open) => { if (!open) handleStaySignedIn(); }}>
+    <AlertDialog
+      open={warningOpen}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Closing the dialog: a deliberate "Log out" already signed out; any
+        // other dismissal (Esc / click-away / "Stay signed in") keeps the session.
+        if (intentionalLogoutRef.current) {
+          intentionalLogoutRef.current = false;
+          return;
+        }
+        handleStaySignedIn();
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Still there?</AlertDialogTitle>
           <AlertDialogDescription>
-            You'll be signed out in {mm}:{ss} for security. Click below to stay signed in.
+            You'll be signed out in {mm}:{ss} for security. Stay signed in, or log out now.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => { intentionalLogoutRef.current = true; void handleSignOut(); }}>
+            Log out
+          </AlertDialogCancel>
           <AlertDialogAction onClick={handleStaySignedIn}>Stay signed in</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

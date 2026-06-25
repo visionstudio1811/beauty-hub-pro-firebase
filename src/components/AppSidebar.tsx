@@ -17,6 +17,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const SETTINGS_SECTIONS = [
   { id: 'general',          label: 'General',          icon: Settings },
@@ -61,6 +71,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const { currentOrganization } = useOrganization();
   const isAdmin = useIsAdmin();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -290,7 +301,7 @@ export function AppSidebar() {
           )}
           {!isCollapsed ? (
             <button
-              onClick={signOut}
+              onClick={() => setLogoutConfirmOpen(true)}
               className="ml-auto p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               title="Sign out"
             >
@@ -299,7 +310,7 @@ export function AppSidebar() {
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={signOut} className="p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+                <button onClick={() => setLogoutConfirmOpen(true)} className="p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
@@ -308,6 +319,21 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarFooter>
+
+      <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void signOut(); }}>Log out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }

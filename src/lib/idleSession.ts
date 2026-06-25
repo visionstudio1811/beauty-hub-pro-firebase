@@ -14,7 +14,7 @@ export const ACTIVITY_KEY = 'bh:lastActivity';
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 min open
 export const WARN_BEFORE_MS = 2 * 60 * 1000;   // warn at 28 min
 export const ACTIVITY_THROTTLE_MS = 1000;
-export const AWAY_LIMIT_MS = 60 * 60 * 1000;   // 1 hour away → re-login
+export const AWAY_LIMIT_MS = 10 * 60 * 1000;   // 10 min away (on another tab / closed) → re-login
 
 /** Last recorded activity (epoch ms), or 0 if unknown / unavailable. */
 export function getLastActivity(): number {
