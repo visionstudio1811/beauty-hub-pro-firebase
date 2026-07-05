@@ -177,7 +177,24 @@ export const submitPublicBookingRequest = onCall(async (request) => {
   const orgId = tokenData.organization_id as string;
   const treatmentId = (tokenData.treatment_id as string | null) ?? data.treatmentId;
   if (!treatmentId) throw new HttpsError('invalid-argument', 'Treatment is required for this link');
-  const staffId = (tokenData.staff_id as string | null) ?? data.staffId ?? null;
+  // Token-scoped staff is admin-set and trusted. A visitor-supplied staffId is
+  // attacker input — only honor it if the user actually belongs to this org and
+  // holds an active staff role; otherwise drop it (treat as unassigned) rather
+  // than persisting/booking against an arbitrary uid.
+  const scopedStaffId = (tokenData.staff_id as string | null) ?? null;
+  let staffId: string | null = scopedStaffId;
+  if (!staffId && data.staffId) {
+    const candidateSnap = await db.collection('users').doc(String(data.staffId)).get();
+    const candidate = candidateSnap.data();
+    if (
+      candidateSnap.exists &&
+      candidate?.organizationId === orgId &&
+      candidate?.isActive !== false &&
+      ['staff', 'admin', 'beautician'].includes(candidate?.role)
+    ) {
+      staffId = candidateSnap.id;
+    }
+  }
 
   await consumeRateLimit(orgId, 'publicBookingRequest', 100);
 

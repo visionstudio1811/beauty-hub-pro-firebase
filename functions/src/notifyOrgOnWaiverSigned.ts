@@ -137,6 +137,12 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
       }
     }
 
+    // Header-safe versions for the Subject line: strip CR/LF (header-injection
+    // guard) and cap length. Signer/template-controlled values only.
+    const headerSafe = (value: string) => value.replace(/[\r\n]+/g, ' ').slice(0, 120);
+    const subjectTitle = headerSafe(templateTitle);
+    const subjectSignerName = headerSafe(signerName);
+
     const safeOrgName = escapeHtml(orgName);
     const safeTitle = escapeHtml(templateTitle);
     const safeSignerName = escapeHtml(signerName);
@@ -154,7 +160,7 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     const body = {
       from: `${fromName} <${fromEmail}>`,
       to: [orgEmail],
-      subject: `✅ Signed ${kindNoun}: ${templateTitle} — ${signerName}`,
+      subject: `✅ Signed ${kindNoun}: ${subjectTitle} — ${subjectSignerName}`,
       html: `
         <p>A client has signed a ${kindNoun} for <strong>${safeOrgName}</strong>.</p>
         <table style="border-collapse:collapse;margin:16px 0">

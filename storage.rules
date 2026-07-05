@@ -2,19 +2,37 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Org of the currently signed-in user (from their Firestore profile).
+    function callerOrg() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.organizationId;
+    }
+    // Org that owns a given waiver token.
+    function waiverOrg(waiverToken) {
+      return firestore.get(/databases/(default)/documents/waiverTokens/$(waiverToken)).data.organizationId;
+    }
+
     // Waiver PDFs and photos. Public uploads were previously allowed (relying
     // on a UUID token in the filename as "the secret") but the rule never
     // validated the filename pattern — anyone could PUT 50 MB blobs at any
     // path under waivers/. Now: all writes deny, and the public form uploads
     // exclusively through the `uploadWaiverFile` callable (Admin SDK), which
     // validates the token + MIME + size before writing.
+    //
+    // Reads are scoped to staff of the OWNING org (defense in depth). These
+    // objects hold client PII + signatures; the previous `auth != null` let any
+    // authenticated user of ANY tenant read them by path. Legitimate access uses
+    // the download-token URL returned by uploadWaiverFile, which bypasses rules,
+    // so this only removes cross-tenant SDK reads. The object name is
+    // `{token}.pdf`, so the token is the filename minus its extension.
     match /waivers/{file} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null
+                  && waiverOrg(file.split('\\.')[0]) == callerOrg();
       allow write: if false;
     }
 
     match /waivers/{token}/photos/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null
+                  && waiverOrg(token) == callerOrg();
       allow write: if false;
     }
 

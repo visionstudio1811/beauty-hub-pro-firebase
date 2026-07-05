@@ -6,8 +6,13 @@ import { writeSecret, IntegrationProvider } from './lib/integrationSecrets';
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-/** Secret fields the client may set per provider. Anything else is rejected. */
-const ALLOWED_SECRET_KEYS: Record<IntegrationProvider, string[]> = {
+/**
+ * Secret fields the client may set per provider. Anything else is rejected.
+ * Intentionally omits `googleDrive`: its refresh token is issued by the OAuth
+ * callback (Admin SDK) and must never be settable from the browser, so a request
+ * with provider='googleDrive' falls through to the "Unknown provider" rejection.
+ */
+const ALLOWED_SECRET_KEYS: Partial<Record<IntegrationProvider, string[]>> = {
   twilio: ['accountSid', 'authToken'],
   infobip: ['apiKey'],
   quo: ['apiKey'],
@@ -44,8 +49,13 @@ export const saveIntegrationSecret = onCall(async (request) => {
 
   await consumeRateLimit(organizationId, 'saveIntegrationSecret', 100);
 
+  const allowedKeys = ALLOWED_SECRET_KEYS[provider];
+  if (!allowedKeys) {
+    throw new HttpsError('invalid-argument', 'Unknown provider');
+  }
+
   const fields: Record<string, string> = {};
-  for (const k of ALLOWED_SECRET_KEYS[provider]) {
+  for (const k of allowedKeys) {
     const v = secret[k];
     if (typeof v === 'string' && v.trim()) fields[k] = v.trim();
   }

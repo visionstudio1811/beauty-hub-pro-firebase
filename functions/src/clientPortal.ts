@@ -343,8 +343,23 @@ export const linkClientPortalAccount = onCall(async (request) => {
   }
 
   const orgId = assertString(request.data?.organizationId, 'organizationId');
-  const authEmail = normalizeEmail(request.auth.token.email);
+
+  // Only ever match a client card against a VERIFIED identity. A caller can put
+  // any string in their profile email, but Firebase sets email_verified=true only
+  // for Google sign-in or a confirmed email/password address, and populates
+  // token.phone_number only after a successful phone OTP. Trusting an unverified
+  // email here would let anyone claim another client's card by knowing their email.
+  const emailVerified = request.auth.token.email_verified === true;
+  const authEmail = emailVerified ? normalizeEmail(request.auth.token.email) : null;
   const authPhone = normalizePhone(request.auth.token.phone_number);
+
+  if (!authEmail && !authPhone) {
+    throw new HttpsError(
+      'failed-precondition',
+      'A verified email or phone number is required. Sign in with Google or verify your phone number, then try linking again.',
+    );
+  }
+
   const orgRef = db.collection('organizations').doc(orgId);
   const clientsRef = orgRef.collection('clients');
 
@@ -593,6 +608,19 @@ export const updateClientBookingRequest = onCall(
       const t = tSnap.data() ?? {};
       if (typeof t.buffer_before_minutes === 'number') pretxBufferBefore = t.buffer_before_minutes;
       if (typeof t.buffer_after_minutes === 'number') pretxBufferAfter = t.buffer_after_minutes;
+    }
+
+    // Re-check availability at approval time. Two pending requests for the same
+    // staff + slot could otherwise both be approved into a double-booking. This
+    // query can't live inside the transaction below (Firestore transactions
+    // can't run collection queries), so we check immediately before it — the
+    // same approach createClientBookingRequest uses at submission time.
+    const preSelectedSlot = asSlot(
+      request.data?.selectedSlot ?? bookingPreSnap.data()?.preferred_slot,
+      'selectedSlot',
+    );
+    if (preSelectedSlot.staff_id) {
+      await assertSlotAvailable(orgRef, preSelectedSlot, Number(bookingPreSnap.data()?.duration ?? 60));
     }
 
     const appointmentPayload = await db.runTransaction(async (tx) => {

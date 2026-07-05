@@ -105,6 +105,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // fresh activity window.
         markActivity();
         const p = await loadProfile(firebaseUser.uid);
+        // Enforce account deactivation: a profile explicitly flagged
+        // isActive === false must not be allowed to stay signed in. We check
+        // for a strict `false` only — accounts created before this field
+        // existed have it missing/undefined and are unaffected. Signing out
+        // clears the Firebase session, which makes onAuthStateChanged fire
+        // again with `null`; that branch does not re-load the profile, so
+        // there is no re-trigger loop.
+        if (p && p.isActive === false) {
+          try {
+            await firebaseSignOut(auth);
+          } catch (err) {
+            console.warn('Deactivated-account signOut failed', err);
+          }
+          setUser(null);
+          setProfile(null);
+          queryClient.clear();
+          setLoading(false);
+          return; // onAuthStateChanged will fire again with null
+        }
         setProfile(p);
       } else {
         setProfile(null);

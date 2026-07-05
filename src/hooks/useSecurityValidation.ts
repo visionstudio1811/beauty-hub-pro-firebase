@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 export const useSecurityValidation = () => {
   const { user, profile } = useAuth();
@@ -52,22 +50,13 @@ export const useSecurityValidation = () => {
     return hasPermission;
   };
 
-  const logSecurityEvent = async (action: string, details?: any) => {
-    if (!user) return;
-    try {
-      const orgId = profile?.organizationId;
-      if (orgId) {
-        await addDoc(collection(db, 'organizations', orgId, 'auditLogs'), {
-          action,
-          details: details ? JSON.stringify(details) : null,
-          severity: details?.severity || 'info',
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        });
-      }
-    } catch (error) {
-      console.error('Error logging security event:', error);
-    }
+  const logSecurityEvent = async (_action: string, _details?: any) => {
+    // Intentionally a no-op. `auditLogs` is an Admin-SDK-only collection
+    // (firestore.rules: `allow write: if false`), so a client addDoc here always
+    // failed with permission-denied — it recorded nothing and only spammed the
+    // console on every role/permission check. Genuine audit logging must be
+    // emitted from a Cloud Function (Admin SDK); wire this to a callable if/when
+    // real security telemetry is needed. Signature kept so callers don't change.
   };
 
   const hasPermission = async (permission: 'view' | 'manage', resource: string): Promise<boolean> => {

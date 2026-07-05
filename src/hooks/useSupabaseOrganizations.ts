@@ -119,6 +119,13 @@ export const useFirebaseOrganizations = () => {
     try {
       const docRef = await addDoc(collection(db, 'organizations'), {
         ...orgData,
+        // The `organizations` collection is camelCase — the client-portal
+        // resolver (getClientPortalOrg) and all CLAUDE.md-documented queries
+        // filter on `isActive`. Writing only the snake_case `is_active` (as the
+        // Organization type historically carried) meant every app-created org
+        // failed portal resolution. `isActive` MUST be present; we also keep
+        // the legacy `is_active` mirror during the transition.
+        isActive: (orgData as { is_active?: boolean }).is_active ?? true,
         created_by: user?.uid ?? null,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),

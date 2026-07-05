@@ -69,8 +69,14 @@ export const getAvailableSlots = onCall(async (request) => {
   let resolvedOrgId = '';
   let resolvedTreatmentId = '';
   let resolvedStaffId: string | undefined = data.staffId;
+  // Public path only: whether the visitor is allowed to see/pick individual
+  // staff. Off by default so an anonymous caller can't enumerate the org's
+  // named roster or reconstruct each staff member's free/busy schedule.
+  let isPublicPath = false;
+  let allowStaffSelection = false;
 
   if (data.linkToken) {
+    isPublicPath = true;
     const tokenSnap = await db.collection('schedulerLinkTokens').doc(data.linkToken).get();
     if (!tokenSnap.exists) throw new HttpsError('not-found', 'Link not found');
     const tokenData = tokenSnap.data() ?? {};
@@ -86,6 +92,10 @@ export const getAvailableSlots = onCall(async (request) => {
     if (!resolvedOrgId || !resolvedTreatmentId) {
       throw new HttpsError('invalid-argument', 'Treatment must be specified for unscoped links');
     }
+    // A link pre-scoped to one staff already commits the visitor to that
+    // staff, so exposing that single id is intentional. Otherwise the named
+    // roster stays hidden unless the admin explicitly enabled staff selection.
+    allowStaffSelection = tokenData.allow_staff_selection === true || Boolean(tokenData.staff_id);
   } else {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentication required');
@@ -276,7 +286,18 @@ export const getAvailableSlots = onCall(async (request) => {
     })
     .filter(a => candidateStaffIds.includes(a.staff_id ?? ''));
 
-  // Compute per-date slots
+  // Compute per-date slots.
+  //
+  // The unauthenticated public path never returns the named per-staff roster
+  // (generateSlots' { staff_id, staff_name } shape) — an anonymous caller could
+  // otherwise enumerate every staff member and reconstruct their free/busy
+  // schedule by flipping `merge: false`. Public callers always get merged
+  // time-only slots, and the available_staff_ids are stripped unless the admin
+  // explicitly enabled staff selection on the link. The authenticated/admin and
+  // portal path is unchanged and still honors `merge`.
+  const useMerged = isPublicPath ? true : Boolean(data.merge);
+  const stripStaffIds = isPublicPath && !allowStaffSelection;
+
   const nowIso = new Date().toISOString();
   const slotsByDate: Record<string, unknown> = {};
   for (const date of dates) {
@@ -290,7 +311,14 @@ export const getAvailableSlots = onCall(async (request) => {
       slotIntervalMinutes,
       nowIso,
     };
-    slotsByDate[date] = data.merge ? generateMergedSlots(input) : generateSlots(input);
+    if (useMerged) {
+      const merged = generateMergedSlots(input);
+      slotsByDate[date] = stripStaffIds
+        ? merged.map((s) => ({ time: s.time, available_staff_ids: [] as string[] }))
+        : merged;
+    } else {
+      slotsByDate[date] = generateSlots(input);
+    }
   }
 
   return { slotsByDate };

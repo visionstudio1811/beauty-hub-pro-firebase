@@ -415,14 +415,27 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
           if (slots && slots.length > 0 && matchedTreatment?.id) {
             const updatedSlots = slots.map(s => ({ ...s }));
             const slot = updatedSlots.find(s => s.treatment_id === matchedTreatment.id);
-            if (slot) {
-              slot.remaining = slot.remaining - 1;
+            // Guard: only consume a slot session when one remains. Re-reading
+            // inside the transaction means we never drive a slot negative even
+            // under concurrent completions. If nothing remains and staff have
+            // not explicitly confirmed over-consuming, fail the precondition.
+            if (!slot || slot.remaining <= 0) {
+              if (!opts.confirmedOverConsume) {
+                throw new Error('failed-precondition: no remaining sessions for this treatment.');
+              }
+            } else {
+              slot.remaining = Math.max(0, slot.remaining - 1);
             }
-            newTotal = updatedSlots.reduce((sum, s) => sum + s.remaining, 0);
+            newTotal = Math.max(0, updatedSlots.reduce((sum, s) => sum + s.remaining, 0));
             updates.sessions_by_treatment = updatedSlots;
             updates.sessions_remaining = newTotal;
           } else {
-            newTotal = (purchase.sessions_remaining ?? 0) - 1;
+            const current = purchase.sessions_remaining ?? 0;
+            // Guard the aggregate branch the same way — never go below zero.
+            if (current <= 0 && !opts.confirmedOverConsume) {
+              throw new Error('failed-precondition: no remaining sessions on this package.');
+            }
+            newTotal = Math.max(0, current - 1);
             updates.sessions_remaining = newTotal;
           }
 

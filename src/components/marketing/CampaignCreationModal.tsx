@@ -9,9 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarIcon, Users, Mail, MessageSquare, Gift, UserCheck, RotateCcw } from 'lucide-react';
 import { collection, addDoc, doc, getDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTimezone } from '@/hooks/useTimezone';
 import { toast } from '@/hooks/use-toast';
 import { SmsProvider } from '@/types/sms';
 
@@ -91,6 +93,45 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
+  const timezone = useTimezone();
+
+  // Resolve the entered wall-clock date/time as an instant in the org's
+  // configured timezone. Returns the UTC Date, or null if the inputs are
+  // missing or unparseable. This is the single source of truth for both the
+  // validation guard and the "resolved send time" preview — `fromZonedTime`
+  // interprets "YYYY-MM-DDTHH:mm" as local-to-`timezone` and yields the correct
+  // UTC instant, replacing the previous timezone-naive `new Date(string)` parse.
+  const resolveScheduledInstant = (): Date | null => {
+    if (formData.scheduleType !== 'scheduled') return null;
+    if (!formData.scheduledDate || !formData.scheduledTime) return null;
+    try {
+      const utc = fromZonedTime(`${formData.scheduledDate}T${formData.scheduledTime}`, timezone);
+      return isNaN(utc.getTime()) ? null : utc;
+    } catch {
+      return null;
+    }
+  };
+
+  const scheduledInstant = resolveScheduledInstant();
+
+  // Field-level validation. Returns null when the form is safe to submit, or a
+  // user-facing message describing the first problem. Guards against the
+  // Invalid-Date RangeError that a bad scheduled date/time would throw at
+  // `.toISOString()` time.
+  const getValidationError = (): string | null => {
+    if (!formData.name.trim()) return 'Please enter a campaign name.';
+    const needsEmail = formData.type === 'email' || formData.type === 'both';
+    if (needsEmail && !formData.subject.trim()) return 'Please enter an email subject.';
+    if (!formData.content.trim()) return 'Please enter message content.';
+    if (formData.scheduleType === 'scheduled') {
+      if (!formData.scheduledDate) return 'Please choose a date for the scheduled campaign.';
+      if (!formData.scheduledTime) return 'Please choose a time for the scheduled campaign.';
+      if (!scheduledInstant) return 'The scheduled date/time is invalid.';
+    }
+    return null;
+  };
+
+  const validationError = getValidationError();
 
   useEffect(() => {
     if (!open || !currentOrganization?.id) return;
@@ -149,6 +190,14 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
       return;
     }
 
+    // Block submission on validation errors instead of letting a bad scheduled
+    // date/time reach `.toISOString()` and throw an Invalid-Date RangeError.
+    const error = getValidationError();
+    if (error) {
+      toast({ title: 'Please fix the form', description: error, variant: 'destructive' });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const now = new Date().toISOString();
@@ -161,9 +210,14 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
         content: formData.content,
         target_audience: formData.targetAudience,
         status: formData.scheduleType === 'now' ? 'draft' : 'scheduled',
-        scheduled_at: formData.scheduleType === 'scheduled'
-          ? new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).toISOString()
+        // `scheduledInstant` is the UTC instant of the entered wall-clock time
+        // interpreted in the org timezone (see resolveScheduledInstant). We
+        // also persist the timezone the sender chose so downstream senders can
+        // display/interpret the intended local time unambiguously.
+        scheduled_at: formData.scheduleType === 'scheduled' && scheduledInstant
+          ? scheduledInstant.toISOString()
           : null,
+        scheduled_timezone: formData.scheduleType === 'scheduled' ? timezone : null,
         created_by: user?.uid ?? null,
         sent_count: 0,
         opened_count: 0,
@@ -446,25 +500,39 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                 </div>
 
                 {formData.scheduleType === 'scheduled' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Date</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={formData.scheduledDate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                      />
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="date">Date</Label>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={formData.scheduledDate}
+                          onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="time">Time</Label>
+                        <Input
+                          id="time"
+                          type="time"
+                          value={formData.scheduledTime}
+                          onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Time</Label>
-                      <Input
-                        id="time"
-                        type="time"
-                        value={formData.scheduledTime}
-                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                      />
-                    </div>
+                    {(!formData.scheduledDate || !formData.scheduledTime) && (
+                      <p className="text-xs text-destructive">
+                        Choose both a date and a time to schedule this campaign.
+                      </p>
+                    )}
+                    {scheduledInstant && (
+                      <p className="text-xs text-muted-foreground">
+                        Will send{' '}
+                        {formatInTimeZone(scheduledInstant, timezone, "EEE, MMM d, yyyy 'at' h:mm a")}{' '}
+                        ({timezone}).
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -477,9 +545,14 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
             Cancel
           </Button>
           {selectedTemplate && (
-            <Button onClick={handleCreateCampaign} disabled={isLoading || !formData.name.trim()}>
-              {isLoading ? "Creating..." : "Create Campaign"}
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button onClick={handleCreateCampaign} disabled={isLoading || !!validationError}>
+                {isLoading ? "Creating..." : "Create Campaign"}
+              </Button>
+              {validationError && (
+                <p className="text-xs text-destructive">{validationError}</p>
+              )}
+            </div>
           )}
         </DialogFooter>
       </DialogContent>

@@ -276,6 +276,11 @@ async function handleEvent(orgId: string, ev: QuoEvent): Promise<void> {
 /* ------------------------------------------------------------------ */
 /* Receiver                                                            */
 /* ------------------------------------------------------------------ */
+
+// Max allowed age (and future skew) for the Svix `webhook-timestamp`. Matches
+// Svix's own default replay-protection window.
+const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+
 export const quoWebhook = onRequest(async (req, res) => {
   // Server-to-server; no browser/CORS.
   if (req.method === 'OPTIONS') {
@@ -333,6 +338,20 @@ export const quoWebhook = onRequest(async (req, res) => {
     );
     if (!valid) {
       res.status(401).json({ error: 'Invalid webhook signature' });
+      return;
+    }
+
+    // The Svix timestamp is folded into the HMAC but the signature alone does
+    // not bound its age — a captured (still-signed) request could be replayed
+    // indefinitely. Reject anything outside a ±5 minute freshness window.
+    const tsSeconds = Number(webhookTimestamp);
+    if (!Number.isFinite(tsSeconds) || tsSeconds <= 0) {
+      res.status(400).json({ error: 'Missing or invalid webhook-timestamp' });
+      return;
+    }
+    const skewSeconds = Math.abs(Date.now() / 1000 - tsSeconds);
+    if (skewSeconds > WEBHOOK_TOLERANCE_SECONDS) {
+      res.status(400).json({ error: 'Webhook timestamp outside tolerance' });
       return;
     }
 

@@ -8,6 +8,7 @@ import {
   isAllowedReturnOrigin,
   verifyState,
 } from './driveOAuth';
+import { writeSecret } from '../lib/integrationSecrets';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -76,29 +77,40 @@ export const driveOAuthCallback = onRequest(
         throw new Error('Drive did not return a folder id');
       }
 
-      await db
+      // The long-lived refresh token goes ONLY into the write-only secret subdoc
+      // (Firestore rules deny all client read/write there). The parent doc — which
+      // org admins can read from the browser — keeps only non-secret hints.
+      await writeSecret(payload.orgId, 'googleDrive', { refresh_token: tokens.refreshToken });
+
+      const driveDoc = db
         .collection('organizations').doc(payload.orgId)
-        .collection('marketingIntegrations').doc('googleDrive')
-        .set(
-          {
-            organization_id: payload.orgId,
-            provider: 'googleDrive',
-            is_enabled: true,
-            status: 'connected',
-            error_message: null,
-            configuration: {
-              refresh_token: tokens.refreshToken,
-              user_email: email,
-              folder_id: folderId,
-              folder_name: folderName,
-              connected_at: new Date().toISOString(),
-              connected_by_uid: payload.uid,
-            },
-            updated_at: new Date().toISOString(),
-            updated_at_ts: admin.firestore.FieldValue.serverTimestamp(),
+        .collection('marketingIntegrations').doc('googleDrive');
+
+      await driveDoc.set(
+        {
+          organization_id: payload.orgId,
+          provider: 'googleDrive',
+          is_enabled: true,
+          status: 'connected',
+          error_message: null,
+          configuration: {
+            user_email: email,
+            folder_id: folderId,
+            folder_name: folderName,
+            connected_at: new Date().toISOString(),
+            connected_by_uid: payload.uid,
           },
-          { merge: true }
-        );
+          updated_at: new Date().toISOString(),
+          updated_at_ts: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Strip any legacy readable token left on the parent doc by an older build
+      // (merge above would otherwise preserve configuration.refresh_token).
+      await driveDoc
+        .update({ 'configuration.refresh_token': admin.firestore.FieldValue.delete() })
+        .catch(() => undefined);
 
       res.redirect(302, appendQuery(payload.returnTo, { drive_connected: '1', email }));
     } catch (err) {

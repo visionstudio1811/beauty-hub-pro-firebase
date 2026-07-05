@@ -78,6 +78,11 @@ service cloud.firestore {
                     && unchanged('email')
                     && unchanged('uid')
                     && unchanged('createdAt')
+                    // Account (de)activation is an admin action. A user editing
+                    // their own profile cannot flip isActive to re-enable a
+                    // disabled account; only a same-org admin may change it.
+                    && (unchanged('isActive')
+                        || (isAdmin() && belongsToOrg(resource.data.organizationId)))
                     && (unchanged('organizationId')
                         || (resource.data.organizationId == null
                             && request.resource.data.organizationId is string
@@ -194,7 +199,9 @@ service cloud.firestore {
       }
 
       match /config/{configId} {
-        allow read: if belongsToOrg(orgId) && isBeautician();
+        // General config is broadly readable, but the sequential invoiceCounter
+        // is admin-only — exposing it to every role leaks the invoice sequence.
+        allow read: if belongsToOrg(orgId) && (isAdmin() || configId != 'invoiceCounter');
         // invoiceCounter is managed exclusively by the createInvoice Cloud
         // Function — client writes here would let an admin skip / duplicate
         // invoice numbers and break the audit trail.
@@ -272,8 +279,12 @@ service cloud.firestore {
       }
 
       match /waiverTemplates/{templateId} {
-        // Staff reads + unauthenticated reads (public waiver/intake form needs the template blocks)
-        allow read: if (belongsToOrg(orgId) && isBeautician()) || request.auth == null;
+        // The public waiver/intake form fetches ONE template by id (getDoc), so
+        // allow unauthenticated get — but deny unauthenticated list so the full
+        // set of templates (incl. legal agreement text) can't be enumerated by
+        // anyone who knows an orgId. Staff may list.
+        allow get: if (belongsToOrg(orgId) && isBeautician()) || request.auth == null;
+        allow list: if belongsToOrg(orgId) && isBeautician();
         allow create, update: if belongsToOrg(orgId) && isAdmin();
         allow delete: if belongsToOrg(orgId) && isAdmin();
       }
@@ -292,7 +303,11 @@ service cloud.firestore {
                         && exists(/databases/$(database)/documents/waiverTokens/$(resource.data.token))
                         && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.waiverId == waiverId
                         && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.organizationId == orgId
-                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.status == 'pending');
+                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.status == 'pending'
+                        // Match the write path: an expired token must not grant
+                        // read access to the signer's PII either.
+                        && 'expiresAt' in get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.keys()
+                        && get(/databases/$(database)/documents/waiverTokens/$(resource.data.token)).data.expiresAt > request.time);
         allow create, update: if belongsToOrg(orgId) && isReception();
         allow delete: if belongsToOrg(orgId) && isAdmin();
 

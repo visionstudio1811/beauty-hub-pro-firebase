@@ -3,6 +3,7 @@ import { httpsCallable } from 'firebase/functions';
 import {
   collection,
   getDocs,
+  onSnapshot,
   query,
   where,
 } from 'firebase/firestore';
@@ -13,6 +14,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 type RequestSlot = {
@@ -57,26 +68,24 @@ export function BookingRequestsPanel() {
   const [loading, setLoading] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
+  // Pending approve/reject awaiting confirmation in the AlertDialog. Null when
+  // no dialog is open. `slot` is the chosen slot for approvals (undefined for
+  // rejects).
+  const [pendingReview, setPendingReview] = useState<{
+    request: BookingRequest;
+    action: 'approve' | 'reject';
+    slot?: RequestSlot;
+  } | null>(null);
 
   const canReview = profile?.role && ['admin', 'staff', 'reception'].includes(profile.role);
   const orgId = profile?.organizationId;
 
-  const loadRequests = useCallback(async () => {
+  // Staff names are effectively static for the panel's lifetime, so a one-time
+  // fetch is fine. Booking requests, by contrast, must be live (below).
+  const loadStaff = useCallback(async () => {
     if (!orgId || !canReview) return;
-    setLoading(true);
     try {
-      const orgRef = collection(db, 'organizations', orgId, 'bookingRequests');
-      const staffRef = collection(db, 'organizations', orgId, 'staff');
-      const [requestsSnap, staffSnap] = await Promise.all([
-        getDocs(query(orgRef, where('status', '==', 'pending'))),
-        getDocs(staffRef),
-      ]);
-
-      setRequests(
-        requestsSnap.docs
-          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as BookingRequest))
-          .sort((a, b) => String(a.preferred_slot?.date ?? '').localeCompare(String(b.preferred_slot?.date ?? ''))),
-      );
+      const staffSnap = await getDocs(collection(db, 'organizations', orgId, 'staff'));
       setStaff(Object.fromEntries(
         staffSnap.docs.map((docSnap) => [
           docSnap.id,
@@ -85,15 +94,45 @@ export function BookingRequestsPanel() {
       ));
     } catch (error) {
       console.error(error);
-      toast({ title: 'Booking requests failed to load', variant: 'destructive' });
-    } finally {
-      setLoading(false);
     }
-  }, [canReview, orgId, toast]);
+  }, [canReview, orgId]);
 
   useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+    loadStaff();
+  }, [loadStaff]);
+
+  // Live subscription to pending booking requests so the panel updates the
+  // moment any staffer approves/rejects one (no manual refresh, no stale
+  // duplicate approvals). The listener is torn down on unmount and whenever the
+  // org changes (or the user loses review permission).
+  useEffect(() => {
+    if (!orgId || !canReview) {
+      setRequests([]);
+      return;
+    }
+    setLoading(true);
+    const q = query(
+      collection(db, 'organizations', orgId, 'bookingRequests'),
+      where('status', '==', 'pending'),
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        setRequests(
+          snap.docs
+            .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as BookingRequest))
+            .sort((a, b) => String(a.preferred_slot?.date ?? '').localeCompare(String(b.preferred_slot?.date ?? ''))),
+        );
+        setLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        toast({ title: 'Booking requests failed to load', variant: 'destructive' });
+        setLoading(false);
+      },
+    );
+    return () => unsubscribe();
+  }, [canReview, orgId, toast]);
 
   const pendingCount = requests.length;
   const title = useMemo(() => (
@@ -125,7 +164,8 @@ export function BookingRequestsPanel() {
         title: action === 'approve' ? 'Request approved' : 'Request rejected',
         description: action === 'approve' ? 'An appointment was created.' : 'The client can see the updated request status.',
       });
-      await loadRequests();
+      // No manual refresh — the onSnapshot subscription drops the request from
+      // the list as soon as its status leaves 'pending'.
     } catch (error) {
       console.error(error);
       toast({ title: 'Could not update request', description: getErrorMessage(error), variant: 'destructive' });
@@ -137,6 +177,7 @@ export function BookingRequestsPanel() {
   if (!canReview) return null;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
@@ -195,7 +236,7 @@ export function BookingRequestsPanel() {
                 <Button
                   size="sm"
                   disabled={workingId === request.id}
-                  onClick={() => reviewRequest(request, 'approve', request.preferred_slot)}
+                  onClick={() => setPendingReview({ request, action: 'approve', slot: request.preferred_slot })}
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
                   Approve preferred
@@ -206,7 +247,7 @@ export function BookingRequestsPanel() {
                     size="sm"
                     variant="outline"
                     disabled={workingId === request.id}
-                    onClick={() => reviewRequest(request, 'approve', slot)}
+                    onClick={() => setPendingReview({ request, action: 'approve', slot })}
                   >
                     Approve backup {index + 1}
                   </Button>
@@ -220,7 +261,7 @@ export function BookingRequestsPanel() {
                   size="sm"
                   variant="destructive"
                   disabled={workingId === request.id}
-                  onClick={() => reviewRequest(request, 'reject')}
+                  onClick={() => setPendingReview({ request, action: 'reject' })}
                 >
                   <XCircle className="mr-2 h-4 w-4" />
                   Reject
@@ -231,5 +272,47 @@ export function BookingRequestsPanel() {
         ))}
       </CardContent>
     </Card>
+
+    <AlertDialog
+      open={!!pendingReview}
+      onOpenChange={(open) => { if (!open) setPendingReview(null); }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {pendingReview?.action === 'approve' ? 'Approve booking request?' : 'Reject booking request?'}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {pendingReview?.action === 'approve' ? (
+              <>
+                Book {pendingReview?.request.client_name || 'this client'} for{' '}
+                {pendingReview?.request.treatment_name || 'the treatment'} on{' '}
+                {slotLabel(pendingReview?.slot, staff)}? This creates a real appointment and uses one package session.
+              </>
+            ) : (
+              <>
+                Reject the booking request from {pendingReview?.request.client_name || 'this client'} for{' '}
+                {pendingReview?.request.treatment_name || 'the treatment'}? The client will see the updated status.
+              </>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className={pendingReview?.action === 'reject' ? 'bg-red-600 hover:bg-red-700' : undefined}
+            onClick={() => {
+              if (!pendingReview) return;
+              const { request, action, slot } = pendingReview;
+              setPendingReview(null);
+              reviewRequest(request, action, slot);
+            }}
+          >
+            {pendingReview?.action === 'approve' ? 'Book appointment' : 'Reject request'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

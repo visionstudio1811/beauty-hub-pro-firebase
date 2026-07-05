@@ -6,7 +6,22 @@ import { SECRET_KEYS, writeSecret, IntegrationProvider } from './lib/integration
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-const PROVIDERS: IntegrationProvider[] = ['twilio', 'infobip', 'quo', 'resend'];
+const PROVIDERS: IntegrationProvider[] = ['twilio', 'infobip', 'quo', 'resend', 'googleDrive'];
+
+/**
+ * Platform operators allowed to drive the cross-tenant `migrateAllOrgsSecrets`
+ * sweep. This is NOT the per-tenant `admin` role — an org admin must never be
+ * able to trigger work across every organization. Preferred gate is the
+ * `platformAdmin` custom auth claim; this allowlist is the fallback for
+ * environments with no claim provisioning. Add operator UIDs here as needed.
+ */
+const PLATFORM_OPERATOR_UIDS: string[] = [];
+
+function isPlatformOperator(request: { auth?: { uid: string; token?: Record<string, unknown> } }): boolean {
+  if (!request.auth) return false;
+  if (request.auth.token?.platformAdmin === true) return true;
+  return PLATFORM_OPERATOR_UIDS.includes(request.auth.uid);
+}
 
 /**
  * Core idempotent migration for ONE org: copies any legacy secret fields still
@@ -84,16 +99,25 @@ export const migrateIntegrationSecrets = onCall(async (request) => {
  * no tenant is left with a key exposed in its readable doc waiting for an admin
  * to visit the Integrations page. Idempotent and non-exposing (it only MOVES
  * secrets into the write-only store + strips the readable copy; it never returns
- * a secret value). Admin-gated + rate-limited.
+ * a secret value).
+ *
+ * Restricted to PLATFORM OPERATORS only (custom `platformAdmin` claim or the
+ * operator UID allowlist) — a per-tenant `admin` must never be able to drive a
+ * platform-wide sweep across every organization. Rate limit is unconditional:
+ * if the caller has no organizationId we use a synthetic '_platform' key so the
+ * sweep can never run uncapped.
  */
 export const migrateAllOrgsSecrets = onCall({ timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Unauthorized');
 
+  if (!isPlatformOperator(request)) {
+    throw new HttpsError('permission-denied', 'Platform operator access required');
+  }
+
+  // Unconditional rate limit — never let the cross-tenant sweep run uncapped.
   const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (!userDoc.exists) throw new HttpsError('permission-denied', 'User not found');
-  const u = userDoc.data()!;
-  if (u.role !== 'admin') throw new HttpsError('permission-denied', 'Admin role required');
-  if (u.organizationId) await consumeRateLimit(u.organizationId, 'migrateAllOrgsSecrets', 10);
+  const rateLimitKey = (userDoc.exists && userDoc.data()?.organizationId) || '_platform';
+  await consumeRateLimit(rateLimitKey, 'migrateAllOrgsSecrets', 10);
 
   const deadline = Date.now() + 480_000; // leave headroom before the 540s timeout
   const orgsSnap = await db.collection('organizations').select().get();

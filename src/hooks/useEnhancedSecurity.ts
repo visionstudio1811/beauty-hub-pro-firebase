@@ -1,4 +1,20 @@
-
+/**
+ * ⚠️ NOT WIRED INTO THE APP. This hook (and SecurityDashboard / SecurityMonitor,
+ * its only consumers) is not imported or rendered anywhere — it does not provide
+ * any active security control today. Treat it as reference/scaffolding.
+ *
+ * Known issues if you DO wire it up:
+ *  - fetchSecurityMetrics/Alerts query auditLogs on `created_at` (string), but
+ *    audit events are written with `createdAt` (Timestamp) — the queries return
+ *    nothing until the field name + type are reconciled and an index added.
+ *  - auditLogs is Admin-SDK-only (rules deny client writes), so acknowledgeAlert /
+ *    forcePasswordReset / lockUserAccount's addDoc calls fail — real telemetry
+ *    must be emitted from Cloud Functions.
+ *  - lockUserAccount's `isActive:false` write NOW has real login-time enforcement
+ *    (firestore.rules restricts isActive to same-org admins; AuthContext signs out
+ *    a user whose profile.isActive === false), so that part is safe to rely on
+ *    once an admin path calls it.
+ */
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {

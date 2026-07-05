@@ -243,6 +243,14 @@
       ]
     },
     {
+      "collectionGroup": "clientCommunications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "sent_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "packages",
       "queryScope": "COLLECTION",
       "fields": [

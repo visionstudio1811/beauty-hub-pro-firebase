@@ -41,6 +41,80 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
   }
 }
 
+// Replay window for the timestamp-based check (±5 minutes). Acuity's default
+// form-encoded payload has no signed timestamp, so this only applies when one
+// is present; otherwise we fall back to the id/action dedupe below.
+const REPLAY_WINDOW_MS = 5 * 60 * 1000;
+// How long a processed-webhook marker lives before it may be pruned. A replay
+// beyond this window is effectively harmless because the underlying appointment
+// state is already reconciled, but keep it comfortably longer than the timestamp
+// window so short-TTL replays are always caught.
+const DEDUPE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Parse a webhook-provided unix timestamp (seconds or millis) into millis.
+ * Returns null when absent/unparseable so callers can fall back to dedupe.
+ */
+function parseWebhookTimestamp(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // Heuristic: 10-digit values are seconds, 13-digit are millis.
+  return n < 1e12 ? n * 1000 : n;
+}
+
+/**
+ * Best-effort replay guard. If Acuity provides a signed timestamp, reject
+ * anything outside a ±5 minute window. Otherwise, atomically record the
+ * webhook's id/action marker and reject if it was already processed within the
+ * dedupe TTL. Never throws — a failure here must not 500 the webhook (which
+ * would trigger an Acuity retry). Returns true when the request may proceed.
+ */
+async function passesReplayCheck(
+  organizationId: string,
+  payload: WebhookPayload,
+  signedTimestamp: number | null,
+): Promise<boolean> {
+  // Timestamp-based check (only when Acuity actually signs a timestamp).
+  if (signedTimestamp != null) {
+    if (Math.abs(Date.now() - signedTimestamp) > REPLAY_WINDOW_MS) return false;
+  }
+
+  // Short-TTL dedupe keyed by the appointment id + action. Sanitize the id so it
+  // is safe as a Firestore document id (no '/').
+  const safeId = String(payload.id).replace(/[/]/g, '_');
+  const markerId = `${safeId}_${payload.action}`;
+  const markerRef = db
+    .collection('organizations')
+    .doc(organizationId)
+    .collection('processedWebhooks')
+    .doc(markerId);
+
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(markerRef);
+      const now = Date.now();
+      if (snap.exists) {
+        const processedAt = (snap.data()?.processedAtMs as number | undefined) ?? 0;
+        if (now - processedAt < DEDUPE_TTL_MS) return false; // replay within TTL
+      }
+      tx.set(markerRef, {
+        acuity_id: payload.id,
+        action: payload.action,
+        processedAtMs: now,
+        // Firestore TTL policy can be attached to expiresAt to auto-prune.
+        expiresAt: admin.firestore.Timestamp.fromMillis(now + DEDUPE_TTL_MS),
+      });
+      return true;
+    });
+  } catch (err) {
+    // Non-fatal: if the dedupe transaction fails, fail open so a transient
+    // Firestore error doesn't drop a legitimate webhook.
+    console.error('Acuity replay-check error:', err instanceof Error ? err.message : String(err));
+    return true;
+  }
+}
+
 async function handleAppointmentWebhook(payload: WebhookPayload, organizationId: string) {
   const email = payload.email || null;
   const phone = payload.phone || null;
@@ -252,6 +326,21 @@ export const acuityWebhook = onRequest(
       const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
       if (!isValid) {
         res.status(401).json({ error: 'Invalid webhook signature' });
+        return;
+      }
+
+      // Replay protection (runs only AFTER the signature is verified so an
+      // attacker can't spend Firestore writes on unauthenticated requests).
+      // Prefer a signed timestamp if Acuity provides one; otherwise dedupe on
+      // the appointment id + action within a short TTL.
+      const signedTimestamp = parseWebhookTimestamp(
+        (req.headers['x-acuity-timestamp'] as string | undefined) ||
+          (req.headers['x-acuity-request-timestamp'] as string | undefined),
+      );
+      const fresh = await passesReplayCheck(organizationId, payload, signedTimestamp);
+      if (!fresh) {
+        // 200 so Acuity does not retry a request we've intentionally dropped.
+        res.status(200).json({ success: true, duplicate: true });
         return;
       }
 

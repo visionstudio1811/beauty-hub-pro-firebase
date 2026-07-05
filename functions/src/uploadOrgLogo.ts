@@ -12,7 +12,6 @@ const ALLOWED_EXT: Record<string, string> = {
   'image/png':     'png',
   'image/jpeg':    'jpg',
   'image/webp':    'webp',
-  'image/svg+xml': 'svg',
   'image/gif':     'gif',
 };
 

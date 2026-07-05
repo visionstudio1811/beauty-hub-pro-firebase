@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-export type IntegrationProvider = 'twilio' | 'infobip' | 'quo' | 'resend';
+export type IntegrationProvider = 'twilio' | 'infobip' | 'quo' | 'resend' | 'googleDrive';
 
 /** Which `configuration.*` fields are secret per provider (used for read fallback + migration). */
 export const SECRET_KEYS: Record<IntegrationProvider, string[]> = {
@@ -11,6 +11,7 @@ export const SECRET_KEYS: Record<IntegrationProvider, string[]> = {
   infobip: ['apiKey'],
   quo: ['apiKey'], // quo webhook_* secrets handled separately
   resend: ['apiKey'],
+  googleDrive: ['refresh_token'], // long-lived OAuth token — never on the client-readable parent doc
 };
 
 function mainRef(orgId: string, provider: IntegrationProvider) {

@@ -125,8 +125,12 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [building, setBuilding] = useState(false);
-  const [idempotencyKey] = useState(
-    () => `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  // Idempotency key for the createInvoice call. Kept in a ref (not state) and
+  // regenerated at the START of each issue attempt so a second, distinct issue
+  // never reuses the first invoice's number/PDF. A retry of the *same* failed
+  // attempt reuses the same key because we only regenerate on a fresh Issue click.
+  const idempotencyKeyRef = useRef<string>(
+    `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   );
   const objectUrlRef = useRef<string | null>(null);
 
@@ -409,7 +413,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     });
 
     const subtotalC = lineItems.reduce((s, li) => s + li.subtotal_cents, 0);
-    const taxC = Math.round(subtotalC * businessInfo.tax_rate);
+    // tax_rate is stored as a percent (InvoiceSettingsEditor labels it "Tax rate (%)",
+    // max 100). Divide by 100 to match createInvoice's server-side math — otherwise
+    // the preview total is inflated 100x for any org with a non-zero tax rate.
+    const taxC = Math.round((subtotalC * businessInfo.tax_rate) / 100);
     const totalC = subtotalC + taxC;
 
     return {
@@ -549,6 +556,11 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       .filter(r => r.kind === 'addon')
       .map(r => ({ addon_id: r.item_id, quantity: r.quantity, unit_price: r.unit_price }));
 
+    // Fresh key for each distinct issue attempt so re-issuing (e.g. after a
+    // successful issue or a new set of line items) never collides with a
+    // previously issued invoice's number/PDF via the server idempotency check.
+    idempotencyKeyRef.current = `inv-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     setSubmitting(true);
     setMode('issuing');
     try {
@@ -574,7 +586,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         addon_items: addonItems,
         payment_method: paymentMethod || undefined,
         notes: notes.trim() || undefined,
-        idempotency_key: idempotencyKey,
+        idempotency_key: idempotencyKeyRef.current,
       });
 
       const invoice = res.data.invoice;
@@ -846,15 +858,18 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
             </div>
 
             <div className="space-y-2">
-              {rows.map(row => {
+              {rows.map((row, rowIndex) => {
                 const catalog = catalogForKind(row.kind);
                 const kindLabel = row.kind === 'treatment' ? 'facials' : row.kind === 'addon' ? 'add-ons' : 'products';
                 const placeholder = row.kind === 'treatment' ? 'Choose a facial' : row.kind === 'addon' ? 'Choose an add-on' : 'Choose a product';
+                // Human-readable handle for this row's a11y labels — the chosen
+                // item name when set, otherwise a 1-based row number.
+                const rowItemName = mapForKind(row.kind).get(row.item_id)?.name ?? `line ${rowIndex + 1}`;
                 return (
                   <div key={row.uid} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 md:col-span-2">
                       <Select value={row.kind} onValueChange={(v) => handleKindChange(row.uid, v as LineKind)}>
-                        <SelectTrigger>
+                        <SelectTrigger aria-label={`Line type for ${rowItemName}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -866,7 +881,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                     </div>
                     <div className="col-span-12 md:col-span-4">
                       <Select value={row.item_id} onValueChange={v => handleItemChange(row.uid, v)}>
-                        <SelectTrigger>
+                        <SelectTrigger aria-label={`Item for ${rowItemName}`}>
                           <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
                         <SelectContent>
@@ -898,6 +913,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         value={row.quantity}
                         onChange={e => updateRow(row.uid, { quantity: parseInt(e.target.value) || 1 })}
                         placeholder="Qty"
+                        aria-label={`Quantity for ${rowItemName}`}
                       />
                     </div>
                     <div className="col-span-6 md:col-span-3">
@@ -908,6 +924,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         value={row.unit_price}
                         onChange={e => updateRow(row.uid, { unit_price: parseFloat(e.target.value) || 0 })}
                         placeholder="Price"
+                        aria-label={`Unit price for ${rowItemName}`}
                       />
                     </div>
                     <div className="col-span-2 md:col-span-1 flex justify-end">
@@ -918,6 +935,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         onClick={() => removeRow(row.uid)}
                         disabled={rows.length <= 1}
                         className="text-destructive hover:text-destructive"
+                        aria-label={`Remove ${rowItemName}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

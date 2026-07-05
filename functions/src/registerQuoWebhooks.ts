@@ -47,14 +47,29 @@ export const registerQuoWebhooks = onCall(async (request) => {
   const token = existing.webhook_token || crypto.randomUUID();
   const url = receiverUrl(orgId, token);
 
-  // Scope the webhooks to the org's own Quo number when we can resolve it.
-  let resourceIds: string[] | '*' = '*';
+  // Scope the webhooks to the org's own Quo number. We must NEVER fall back to
+  // workspace-wide ('*') scope: that would deliver every other tenant's
+  // messages/calls on this workspace to this org's receiver. If the org's own
+  // phone number id can't be resolved, fail the registration outright so the
+  // webhooks are always scoped to the org's own resourceIds.
+  let phoneNumberId: string | null = null;
   try {
-    const phoneNumberId = await findQuoPhoneNumberId(cfg.apiKey, cfg.fromNumber);
-    if (phoneNumberId) resourceIds = [phoneNumberId];
-  } catch {
-    // Non-fatal: fall back to workspace-wide scope.
+    phoneNumberId = await findQuoPhoneNumberId(cfg.apiKey, cfg.fromNumber);
+  } catch (err) {
+    throw new HttpsError(
+      'failed-precondition',
+      `Could not resolve this organization's Quo phone number (${cfg.fromNumber}) to scope the webhooks: ${
+        err instanceof Error ? err.message : String(err)
+      }. Refusing to register workspace-wide webhooks. Verify the number is provisioned in Quo and the API key has access.`,
+    );
   }
+  if (!phoneNumberId) {
+    throw new HttpsError(
+      'failed-precondition',
+      `This organization's Quo number (${cfg.fromNumber}) was not found in the Quo workspace, so webhooks cannot be scoped to it. Refusing to register workspace-wide webhooks. Provision the number in Quo, then retry.`,
+    );
+  }
+  const resourceIds: string[] = [phoneNumberId];
 
   const webhookIds: Record<string, string> = { ...(data.webhook_ids ?? {}) };
   const webhookSecrets: Record<string, string> = { ...(existing.webhook_secrets ?? {}) };

@@ -1,6 +1,7 @@
 import { google, drive_v3 } from 'googleapis';
 import * as admin from 'firebase-admin';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { loadSecret } from '../lib/integrationSecrets';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -127,14 +128,21 @@ interface OrgDriveConfig {
 }
 
 async function loadOrgDriveConfig(orgId: string): Promise<OrgDriveConfig | null> {
-  const snap = await db
+  const mainRef = db
     .collection('organizations').doc(orgId)
-    .collection('marketingIntegrations').doc('googleDrive')
-    .get();
+    .collection('marketingIntegrations').doc('googleDrive');
+  const snap = await mainRef.get();
   if (!snap.exists) return null;
   const data = snap.data();
   if (!data?.is_enabled) return null;
-  return (data.configuration ?? null) as OrgDriveConfig | null;
+  const cfg = { ...(data.configuration ?? {}) } as OrgDriveConfig;
+
+  // Refresh token now lives in the write-only secret subdoc. loadSecret() reads it
+  // there first and falls back to the legacy configuration.refresh_token for orgs
+  // connected before that split, so this is safe for both.
+  const secret = await loadSecret(orgId, 'googleDrive', data);
+  if (secret.refresh_token) cfg.refresh_token = secret.refresh_token;
+  return cfg;
 }
 
 export async function getDriveClientForOrg(orgId: string): Promise<{

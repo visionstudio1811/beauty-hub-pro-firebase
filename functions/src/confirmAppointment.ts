@@ -13,6 +13,16 @@ import {
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
+/** Escape stored/user-derived strings before interpolating into the HTML page. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /** Minimal branded page. `bodyExtra` lets the cancel step embed a POST form. */
 function page(heading: string, message: string, bodyExtra = ''): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
@@ -74,7 +84,9 @@ export const confirmAppointment = onRequest(
     }
 
     const tz = await getOrgTimezone(o);
-    const whenLabel = describeAppointment(apptData, tz);
+    // describeAppointment can echo the raw stored appointment_date/time on its
+    // date-parse fallback path; escape before it reaches the HTML page.
+    const whenLabel = escapeHtml(describeAppointment(apptData, tz));
 
     try {
       if (action === 'confirm') {

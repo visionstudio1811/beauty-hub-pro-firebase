@@ -24,6 +24,7 @@ import {
   where,
   getDoc,
   serverTimestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -300,6 +301,11 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
       };
       if (slotsClean.length > 0) {
         updateData.sessions_by_treatment = slotsClean;
+      } else {
+        // All per-treatment slots were removed. Clear the persisted array so it
+        // doesn't leave stale slots that desync from the aggregate
+        // `sessions_remaining` we just computed from the manual field.
+        updateData.sessions_by_treatment = deleteField();
       }
       if (edit.expiry) {
         updateData.expiry_date = edit.expiry;

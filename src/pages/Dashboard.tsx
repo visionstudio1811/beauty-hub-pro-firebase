@@ -63,21 +63,35 @@ const Dashboard = () => {
 
   const handleStatusChange = useCallback(
     (appointmentId: string, newStatus: UIAppointment['status'], notes?: string) => {
+      const appt = appointments.find((a) => a.id === appointmentId);
+      const previousStatus = appt?.status;
+      const alreadyConsumed = Boolean(
+        (appt as { session_consumed_at?: unknown } | undefined)?.session_consumed_at,
+      );
+      // Only consume a session on a genuine transition INTO completed. Re-saving
+      // an already-completed appointment must not decrement again (idempotent),
+      // matching the guard in Appointments.tsx.
+      const willConsume =
+        newStatus === 'completed' &&
+        previousStatus !== 'completed' &&
+        !alreadyConsumed &&
+        Boolean(appt?.session_used) &&
+        Boolean(appt?.purchase_id) &&
+        Boolean(profile?.organizationId);
+
       updateAppointment(appointmentId, {
         status: newStatus,
         notes: notes ? notes : undefined,
+        ...(willConsume ? { session_consumed_at: new Date().toISOString() } : {}),
       });
 
-      if (newStatus === 'completed' && profile?.organizationId) {
-        const appt = appointments.find((a) => a.id === appointmentId);
-        if (appt?.session_used && appt.purchase_id) {
-          decrementSessionForAppointment(
-            profile.organizationId,
-            appt.purchase_id,
-            appt.treatment_id ?? null,
-            appt.client_id ?? null,
-          ).catch((err) => console.error('Failed to decrement session:', err));
-        }
+      if (willConsume && appt && profile?.organizationId) {
+        decrementSessionForAppointment(
+          profile.organizationId,
+          appt.purchase_id!,
+          appt.treatment_id ?? null,
+          appt.client_id ?? null,
+        ).catch((err) => console.error('Failed to decrement session:', err));
       }
     },
     [updateAppointment, appointments, profile],

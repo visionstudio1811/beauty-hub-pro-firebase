@@ -1,3 +1,12 @@
+/**
+ * ⚠️ NOT WIRED INTO THE APP. Only consumer is SessionManager, which is not
+ * rendered anywhere. It does NOT provide real session revocation: "terminate
+ * session" flips an is_active flag on a Firestore doc but never revokes the
+ * Firebase refresh token, so the target device stays signed in. Do not present
+ * this as a security control unless it is backed by a Cloud Function calling
+ * admin.auth().revokeRefreshTokens(uid) plus a client onSnapshot that signs out
+ * when the flag flips. Treat as reference/scaffolding for now.
+ */
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';

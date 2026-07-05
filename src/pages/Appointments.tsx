@@ -110,6 +110,21 @@ const Appointments = () => {
       'no-show': 'no-show'
     };
 
+    const appt = appointments.find(a => a.id === appointmentId);
+    const previousStatus = appt?.status;
+
+    // Only decrement a package session when the appointment TRANSITIONS into
+    // 'completed' from some other status — and only once. Re-completing an
+    // already-completed appointment (or one that already consumed its session)
+    // must not double-decrement. `session_consumed_at` is stamped below the
+    // first time we decrement so a repeat completion is a no-op.
+    const shouldDecrement =
+      newStatus === 'completed' &&
+      previousStatus !== 'completed' &&
+      Boolean(appt?.session_used) &&
+      Boolean(appt?.purchase_id) &&
+      !(appt as { session_consumed_at?: unknown } | undefined)?.session_consumed_at;
+
     updateAppointment(appointmentId, {
       status: statusMap[newStatus],
       notes: notes ? notes : undefined,
@@ -117,19 +132,21 @@ const Appointments = () => {
       ...(newStatus === 'confirmed'
         ? { confirmed_at: new Date().toISOString(), confirmed_via: 'staff' as const }
         : {}),
+      // Stamp an idempotency marker the moment we consume the session so a
+      // second completion can't decrement again.
+      ...(shouldDecrement
+        ? ({ session_consumed_at: new Date().toISOString() } as Partial<typeof appointments[0]>)
+        : {}),
     });
 
-    // Decrement package session when an appointment is marked complete
-    if (newStatus === 'completed' && profile?.organizationId) {
-      const appt = appointments.find(a => a.id === appointmentId);
-      if (appt?.session_used && appt.purchase_id) {
-        decrementSessionForAppointment(
-          profile.organizationId,
-          appt.purchase_id,
-          appt.treatment_id ?? null,
-          appt.client_id ?? null,
-        ).catch(err => console.error('Failed to decrement session:', err));
-      }
+    // Decrement package session when an appointment first transitions to complete.
+    if (shouldDecrement && profile?.organizationId && appt?.purchase_id) {
+      decrementSessionForAppointment(
+        profile.organizationId,
+        appt.purchase_id,
+        appt.treatment_id ?? null,
+        appt.client_id ?? null,
+      ).catch(err => console.error('Failed to decrement session:', err));
     }
   }, [updateAppointment, appointments, profile]);
 

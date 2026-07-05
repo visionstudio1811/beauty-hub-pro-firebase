@@ -24,6 +24,7 @@ import {
   updateDoc,
   doc,
   query,
+  where,
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -95,14 +96,17 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
     if (!client || !currentOrganization?.id) return;
 
     try {
+      // Filter by client_id server-side so we only read this client's
+      // communications instead of the whole org's collection. Requires the
+      // clientCommunications (client_id ASC + sent_at DESC) composite index.
       const snap = await getDocs(
         query(
           collection(db, 'organizations', currentOrganization.id, 'clientCommunications'),
+          where('client_id', '==', client.id),
           orderBy('sent_at', 'desc')
         )
       );
       const typedData: Communication[] = snap.docs
-        .filter(d => d.data().client_id === client.id)
         .map(d => {
           const data = d.data();
           return {

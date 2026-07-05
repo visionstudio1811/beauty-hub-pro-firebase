@@ -9,6 +9,12 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 
+// Per-token upload caps. The callable is public (no App Check), so a single
+// valid token must not permit unbounded 15MB uploads. A completed waiver needs
+// at most one rendered PDF plus a handful of ID/consent photos.
+const MAX_PDF_UPLOADS_PER_TOKEN = 1;
+const MAX_PHOTO_UPLOADS_PER_TOKEN = 10;
+
 interface UploadWaiverFileRequest {
   token: string;
   fileBase64: string;
@@ -27,6 +33,30 @@ async function validateToken(token: string): Promise<void> {
   if (expiresAt && typeof expiresAt.toMillis === 'function' && expiresAt.toMillis() <= Date.now()) {
     throw new HttpsError('failed-precondition', 'Link expired');
   }
+}
+
+/**
+ * Atomically claims one upload slot of the given kind against the token,
+ * rejecting once the per-token cap is reached. Increments a counter field on
+ * the waiverTokens/{token} doc so the public callable can't be abused to push
+ * unbounded files through a single valid token.
+ */
+async function reserveUploadSlot(token: string, kind: 'pdf' | 'photo'): Promise<void> {
+  const ref = db.collection('waiverTokens').doc(token);
+  const field = kind === 'pdf' ? 'pdf_upload_count' : 'photo_upload_count';
+  const cap = kind === 'pdf' ? MAX_PDF_UPLOADS_PER_TOKEN : MAX_PHOTO_UPLOADS_PER_TOKEN;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError('not-found', 'Invalid token');
+    const current = (snap.data()?.[field] as number) ?? 0;
+    if (current >= cap) {
+      throw new HttpsError('failed-precondition', 'Upload limit reached for this form');
+    }
+    tx.update(ref, {
+      [field]: current + 1,
+      lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
 }
 
 export const uploadWaiverFile = onCall(
@@ -53,6 +83,11 @@ export const uploadWaiverFile = onCall(
       const safeName = (filename ?? 'photo').replace(/[^a-zA-Z0-9._-]/g, '_');
       path = `waivers/${token}/photos/${Date.now()}-${safeName}`;
     }
+
+    // Claim a per-token upload slot only after MIME/size checks pass, so a
+    // rejected oversize/bad-type request doesn't burn the cap. Throws
+    // failed-precondition once the token's PDF/photo budget is exhausted.
+    await reserveUploadSlot(token, kind);
 
     const bucket = admin.storage().bucket();
     const file = bucket.file(path);
