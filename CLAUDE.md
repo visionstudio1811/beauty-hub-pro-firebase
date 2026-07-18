@@ -181,7 +181,7 @@ Auth is in `src/contexts/AuthContext.tsx`. Use `useAuth()` for `user`, `profile`
 
 ### Idle session timeout
 
-`src/components/auth/IdleLogoutGuard.tsx` is mounted once inside `AuthProvider` and runs whenever a user is signed in (staff CRM **and** client portal — anything that goes through Firebase Auth). After **30 minutes of no activity** it calls `signOut()`. At **28 minutes** it opens an `AlertDialog` with a live "Sign out in MM:SS — Stay signed in" countdown. Activity events tracked: `mousedown`, `mousemove`, `keydown`, `scroll`, `touchstart` (throttled to 1s). Tabs coordinate via `localStorage` key `bh:lastActivity` so activity in one tab keeps all tabs alive. The timers tear down immediately when `user` becomes null, so there's zero overhead on `/`, `/auth`, and `/waiver/:token`.
+`src/components/auth/IdleLogoutGuard.tsx` is mounted once inside `AuthProvider` and runs whenever a user is signed in (staff CRM **and** client portal — anything that goes through Firebase Auth). After **60 minutes of no activity** it calls `signOut()`. At **58 minutes** it opens an `AlertDialog` with a live "Sign out in MM:SS — Stay signed in" countdown. Activity events tracked: `mousedown`, `mousemove`, `keydown`, `scroll`, `touchstart` (throttled to 1s). Tabs coordinate via `localStorage` key `bh:lastActivity` so activity in one tab keeps all tabs alive. The timers tear down immediately when `user` becomes null, so there's zero overhead on `/`, `/auth`, and `/waiver/:token`.
 
 ### OrganizationProtectedRoute fallback states
 

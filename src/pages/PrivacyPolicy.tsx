@@ -33,7 +33,7 @@ const PrivacyPolicy: React.FC = () => {
       <ul>
         <li><strong>Device and usage data:</strong> IP address, browser type, operating system, device identifiers, language preference, referring URL, pages visited, and timestamps.</li>
         <li><strong>Cookies and similar technologies:</strong> see Section 9 for details.</li>
-        <li><strong>Authentication signals:</strong> session tokens, sign-in timestamps, and idle activity events used to enforce the 30-minute session timeout.</li>
+        <li><strong>Authentication signals:</strong> session tokens, sign-in timestamps, and idle activity events used to enforce the 60-minute session timeout.</li>
       </ul>
 
       <h3>2.3 Information from third parties</h3>

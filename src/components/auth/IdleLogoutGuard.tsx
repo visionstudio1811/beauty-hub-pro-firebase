@@ -28,8 +28,8 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 ];
 
 // Idle-session guard. While a user is signed in, listens for activity across
-// the document. After 28 minutes of inactivity it shows a "Stay signed in?"
-// dialog with a 2-minute countdown; after 30 minutes total it signs the user
+// the document. After 58 minutes of inactivity it shows a "Stay signed in?"
+// dialog with a 2-minute countdown; after 60 minutes total it signs the user
 // out. Activity in any tab keeps all tabs alive via a localStorage broadcast.
 export const IdleLogoutGuard: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -116,9 +116,9 @@ export const IdleLogoutGuard: React.FC = () => {
     }
   }, [scheduleTimers, warningOpen]);
 
-  // Tab visibility governs the "30 min open vs 1 hr away" split:
+  // Tab visibility governs the "60 min open vs 10 min away" split:
   //  - Hidden (backgrounded/minimized): pause the in-app idle timer so being
-  //    away doesn't trip the 30-min limit — the 1-hour away window applies.
+  //    away doesn't trip the 60-min limit — the 10-min away window applies.
   //  - Visible again: if the user has been away longer than the away limit,
   //    sign out; otherwise treat the return as activity and restart the timer.
   const handleVisibility = useCallback(() => {
