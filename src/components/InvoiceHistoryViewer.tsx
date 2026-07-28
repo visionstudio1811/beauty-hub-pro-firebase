@@ -141,20 +141,6 @@ export const InvoiceHistoryViewer: React.FC = () => {
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
-  if (profile && profile.role !== 'admin') {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-          <h3 className="font-medium">Admins only</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            You need admin access to view org-wide invoice history.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const cutoff = startOfRange(dateFilter);
@@ -194,6 +180,23 @@ export const InvoiceHistoryViewer: React.FC = () => {
     () => clients.filter((c) => !c.deleted_at).sort((a, b) => a.name.localeCompare(b.name)),
     [clients],
   );
+
+  // Admin-only guard. Kept below all hooks so hook order stays stable across
+  // renders (profile resolves async — an early return above the hooks would
+  // change the hook count and crash with "rendered fewer hooks than expected").
+  if (profile && profile.role !== 'admin') {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+          <h3 className="font-medium">Admins only</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            You need admin access to view org-wide invoice history.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handleVoid = async (inv: Invoice) => {
     if (!currentOrganization?.id) return;

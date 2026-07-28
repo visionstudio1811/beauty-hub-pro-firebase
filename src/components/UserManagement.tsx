@@ -60,7 +60,7 @@ export const UserManagement: React.FC = () => {
         await fetchProfiles();
         await logSecurityEvent('USER_MANAGEMENT_ACCESS', { success: true });
       } else {
-        await logSecurityEvent('USER_MANAGEMENT_ACCESS_DENIED', { userId: user?.id });
+        await logSecurityEvent('USER_MANAGEMENT_ACCESS_DENIED', { userId: user?.uid });
       }
     } catch (error) {
       console.error('Error checking permissions:', error);

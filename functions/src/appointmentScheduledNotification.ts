@@ -69,6 +69,16 @@ function formatTimeForDisplay(timeStr: string): string {
   return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
 }
 
+/** HTML-escapes a value so untrusted text can't inject markup into an email. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /** Replace [TOKEN] placeholders in user-authored automation content. */
 function renderAutomationContent(template: string, vars: Record<string, string>): string {
   if (!template) return '';
@@ -99,12 +109,19 @@ function processConditionals(html: string, variables: Record<string, string>): s
   return current;
 }
 
+// `message` is trusted, pre-rendered HTML (the Layer-1 automation body); every
+// other template variable is plain text/URL and must be HTML-escaped so an
+// attacker-controlled appointment field (e.g. a visitor name from a public
+// booking) can't inject markup into the confirmation email.
+const RAW_HTML_TEMPLATE_KEYS = new Set(['message']);
+
 /** Replace {{var}} placeholders inside the branded email template HTML. */
 function renderTemplate(html: string, variables: Record<string, string>): string {
   const resolved = processConditionals(html, variables);
   return resolved.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const v = variables[key];
-    return v !== undefined ? v : match;
+    if (v === undefined) return match;
+    return RAW_HTML_TEMPLATE_KEYS.has(key) ? v : escapeHtml(v);
   });
 }
 
@@ -241,7 +258,13 @@ export const appointmentScheduledNotification = onDocumentCreated(
             await consumeRateLimit(orgId, 'appointmentScheduledEmail', 500);
 
             const subject = renderAutomationContent(String(data.subject || 'Your appointment is confirmed'), vars);
-            const renderedBody = renderAutomationContent(String(data.content || ''), vars);
+            // Body renders into the wrapper as raw {{message}} HTML, so escape the
+            // substituted token VALUES (e.g. an attacker-controlled visitor name)
+            // first. The subject is a plain-text email header and stays unescaped.
+            const bodyVars = Object.fromEntries(
+              Object.entries(vars).map(([k, v]) => [k, escapeHtml(String(v ?? ''))]),
+            );
+            const renderedBody = renderAutomationContent(String(data.content || ''), bodyVars);
 
             const templateVariables: Record<string, string> = {
               ...Object.fromEntries(Object.entries(templateSettings).map(([k, v]) => [k, String(v ?? '')])),

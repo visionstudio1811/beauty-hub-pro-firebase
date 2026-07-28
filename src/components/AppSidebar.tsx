@@ -96,8 +96,8 @@ export function AppSidebar() {
 
   const isCollapsed = state === 'collapsed';
   const orgName = currentOrganization?.name || 'Beauty Hub';
-  const userInitial = (user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase();
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const userInitial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
 
   const itemClass = (isActive: boolean) =>
     `group h-9 rounded-lg transition-colors duration-150

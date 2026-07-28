@@ -57,9 +57,14 @@ service cloud.firestore {
       // can populate the appointment-form staff and beautician selectors. The list query
       // in useSupabaseProfiles must filter by organizationId; without that filter this rule
       // will deny the query as soon as it returns a user from a different org.
+      //
+      // Do NOT add a bare `|| isAdmin()` branch here. isAdmin() checks only the
+      // CALLER's role (not the target doc's org), so it would let any tenant admin
+      // read — and, since read is not split get/list, unfiltered-`list` — every
+      // user doc across ALL organizations (cross-tenant PII leak). Same-org admins
+      // are already covered by the belongsToOrg branch below.
       allow read: if isAuthenticated()
                   && (request.auth.uid == userId
-                      || isAdmin()
                       || belongsToOrg(resource.data.organizationId));
 
       // User doc creation is done exclusively by the adminCreateUser Cloud Function

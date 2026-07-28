@@ -23,7 +23,7 @@ const Layout = () => {
     Object.entries(PAGE_TITLES).find(([p]) => location.pathname.startsWith(p + '/'))?.[1] ??
     'App';
 
-  const userInitial = (user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase();
+  const userInitial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
     <TooltipProvider delayDuration={0}>
