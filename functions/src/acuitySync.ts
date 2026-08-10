@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import { consumeRateLimit } from './rateLimit';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -277,6 +278,10 @@ export const acuitySync = onCall(
     if (userData.role !== 'admin' || userData.organizationId !== organization_id) {
       throw new HttpsError('permission-denied', 'Admin access required');
     }
+
+    // Manual sync is infrequent; cap paginated Acuity REST calls against the
+    // shared global credentials so one org can't exhaust the account limit.
+    await consumeRateLimit(organization_id, 'acuitySync', 50);
 
     const configSnap = await db
       .collection('organizations')

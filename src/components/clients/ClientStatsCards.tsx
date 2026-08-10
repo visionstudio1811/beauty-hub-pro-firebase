@@ -8,14 +8,26 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 interface ClientStatsCardsProps {
   clients: Client[];
   totalCount?: number;
+  // Org-wide aggregates computed in usePaginatedClients over the full filtered
+  // client universe (not the paginated slice). Passing these keeps Total Revenue,
+  // VIP, and New Clients constant across page changes and coherent with totalCount.
+  totalRevenue?: number;
+  vipCount?: number;
+  newCount?: number;
 }
 
-export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({ clients, totalCount }) => {
+export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({
+  clients,
+  totalCount,
+  totalRevenue: totalRevenueProp,
+  vipCount,
+  newCount,
+}) => {
   const isAdmin = useIsAdmin();
   const totalClients = totalCount ?? clients.length;
-  const newClients = clients.filter(client => client.status === 'New').length;
-  const vipClients = clients.filter(client => client.has_membership).length;
-  const totalRevenue = clients.reduce((sum, client) => sum + (client.totalRevenue || 0), 0);
+  const newClients = newCount ?? 0;
+  const vipClients = vipCount ?? 0;
+  const totalRevenue = totalRevenueProp ?? 0;
 
   const stats = [
     {

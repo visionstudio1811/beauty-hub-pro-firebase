@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, doc, getDocs, getDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -39,23 +39,17 @@ export const useClientPackages = (clientId?: string) => {
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
 
-  useEffect(() => {
-    if (clientId && currentOrganization?.id) {
-      fetchClientPackages(clientId);
-    } else {
-      setPackages([]);
-    }
-  }, [clientId, currentOrganization?.id]);
+  const orgId = currentOrganization?.id;
 
-  const fetchClientPackages = async (cId: string) => {
-    if (!currentOrganization?.id) return;
+  const fetchClientPackages = useCallback(async (cId: string) => {
+    if (!orgId) return;
     try {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
 
       const purchasesSnap = await getDocs(
         query(
-          collection(db, 'organizations', currentOrganization.id, 'purchases'),
+          collection(db, 'organizations', orgId, 'purchases'),
           where('client_id', '==', cId),
           where('payment_status', '==', 'active')
         )
@@ -73,7 +67,7 @@ export const useClientPackages = (clientId?: string) => {
         let pkgData: any = {};
         if (purchase.package_id) {
           const pkgSnap = await getDoc(
-            doc(db, 'organizations', currentOrganization.id, 'packages', purchase.package_id)
+            doc(db, 'organizations', orgId, 'packages', purchase.package_id)
           );
           if (pkgSnap.exists()) pkgData = pkgSnap.data();
         }
@@ -109,16 +103,28 @@ export const useClientPackages = (clientId?: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, toast]);
 
-  const refreshPackages = () => {
+  useEffect(() => {
+    if (clientId && orgId) {
+      fetchClientPackages(clientId);
+    } else {
+      setPackages([]);
+    }
+  }, [clientId, orgId, fetchClientPackages]);
+
+  const refreshPackages = useCallback(() => {
     if (clientId) fetchClientPackages(clientId);
-  };
+  }, [clientId, fetchClientPackages]);
+
+  const refetch = useCallback(() => {
+    if (clientId) fetchClientPackages(clientId);
+  }, [clientId, fetchClientPackages]);
 
   return {
     packages,
     loading,
-    refetch: () => clientId && fetchClientPackages(clientId),
+    refetch,
     refreshPackages,
   };
 };

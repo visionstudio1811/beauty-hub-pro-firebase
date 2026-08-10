@@ -142,26 +142,26 @@ export const createInvoice = onCall(async (request) => {
   // Idempotency:
   // - For purchase-based: dedupe on purchase_id + status='issued'.
   // - For standalone: dedupe on idempotency_key (if provided) + status='issued'.
-  if (purchaseId) {
-    const existingSnap = await orgRef
-      .collection('invoices')
-      .where('purchase_id', '==', purchaseId)
-      .where('status', '==', 'issued')
-      .limit(1)
-      .get();
+  // These are equality-only filters, so no composite index is required. The same
+  // query is re-run INSIDE the issuing transaction (via tx.get) as the
+  // authoritative guard against concurrent double-issues; the check here is just
+  // a cheap early-out so we can skip the expensive read/build phase on retries.
+  const dedupQuery = purchaseId
+    ? orgRef
+        .collection('invoices')
+        .where('purchase_id', '==', purchaseId)
+        .where('status', '==', 'issued')
+        .limit(1)
+    : idempotency_key
+      ? orgRef
+          .collection('invoices')
+          .where('idempotency_key', '==', idempotency_key)
+          .where('status', '==', 'issued')
+          .limit(1)
+      : null;
 
-    if (!existingSnap.empty) {
-      const existing = existingSnap.docs[0];
-      return { invoice: { id: existing.id, ...existing.data() }, reused: true };
-    }
-  } else if (idempotency_key) {
-    const existingSnap = await orgRef
-      .collection('invoices')
-      .where('idempotency_key', '==', idempotency_key)
-      .where('status', '==', 'issued')
-      .limit(1)
-      .get();
-
+  if (dedupQuery) {
+    const existingSnap = await dedupQuery.get();
     if (!existingSnap.empty) {
       const existing = existingSnap.docs[0];
       return { invoice: { id: existing.id, ...existing.data() }, reused: true };
@@ -336,6 +336,9 @@ export const createInvoice = onCall(async (request) => {
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? product.price ?? 0);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new HttpsError('invalid-argument', `Invalid unit price for product line "${item.name || product.name || item.product_id}"`);
+      }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
       return {
@@ -357,6 +360,9 @@ export const createInvoice = onCall(async (request) => {
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? treatment.price ?? 0);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new HttpsError('invalid-argument', `Invalid unit price for treatment line "${item.name || treatment.name || item.treatment_id}"`);
+      }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
       return {
@@ -378,6 +384,9 @@ export const createInvoice = onCall(async (request) => {
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? addon.price ?? 0);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new HttpsError('invalid-argument', `Invalid unit price for add-on line "${item.name || addon.name || item.addon_id}"`);
+      }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
       return {
@@ -398,6 +407,16 @@ export const createInvoice = onCall(async (request) => {
 
   const taxAmountCents = Math.round((subtotalCents * taxRate) / 100);
   const totalCents = subtotalCents + taxAmountCents;
+
+  // Guard the immutable invoice against non-finite or negative monetary totals
+  // (e.g. a bad unit price or tax rate slipping through).
+  if (
+    !Number.isFinite(subtotalCents) || subtotalCents < 0 ||
+    !Number.isFinite(taxAmountCents) || taxAmountCents < 0 ||
+    !Number.isFinite(totalCents) || totalCents < 0
+  ) {
+    throw new HttpsError('invalid-argument', 'Computed invoice totals are invalid');
+  }
 
   // Resolve client snapshot.
   const clientSnap = await orgRef.collection('clients').doc(resolvedClientId).get();
@@ -434,10 +453,25 @@ export const createInvoice = onCall(async (request) => {
   const invoiceRef = orgRef.collection('invoices').doc();
   const counterRef = orgRef.collection('config').doc('invoiceCounter');
 
-  // Atomic: read + increment counter and write the invoice together. If this
-  // retries under contention, both writes retry together — we never issue an
-  // invoice without claiming a number, or claim a number without an invoice.
-  const invoiceNumberInt = await db.runTransaction(async (tx) => {
+  // Atomic: authoritative dedup check + read/increment counter + write the
+  // invoice together. Firestore requires all reads before writes in a
+  // transaction, so we run the dedup query and the counter read first, then the
+  // writes. The dedup tx.get is what actually stops two concurrent calls
+  // (double-click / retry) from each claiming a distinct sequential number and
+  // producing two immutable issued invoices for one purchase. If it finds an
+  // existing issued invoice we bail out without touching the counter.
+  const txResult = await db.runTransaction(async (tx) => {
+    if (dedupQuery) {
+      const existingSnap = await tx.get(dedupQuery);
+      if (!existingSnap.empty) {
+        const existing = existingSnap.docs[0];
+        return {
+          reused: true as const,
+          existing: { id: existing.id, ...existing.data() },
+        };
+      }
+    }
+
     const counterSnap = await tx.get(counterRef);
     const next = counterSnap.exists
       ? Number((counterSnap.data() as any).next_number ?? 1)
@@ -477,14 +511,20 @@ export const createInvoice = onCall(async (request) => {
       created_by: request.auth!.uid,
     });
 
-    return next;
+    return { reused: false as const, next };
   });
+
+  // A concurrent call already issued this invoice — return the existing one with
+  // the exact same shape as the pre-transaction early-out.
+  if (txResult.reused) {
+    return { invoice: txResult.existing, reused: true };
+  }
 
   // Re-read so the returned doc has resolved serverTimestamps for `created_at`.
   const written = await invoiceRef.get();
   return {
     invoice: { id: invoiceRef.id, ...written.data() },
     reused: false,
-    invoiceNumberInt,
+    invoiceNumberInt: txResult.next,
   };
 });

@@ -363,42 +363,71 @@ export const linkClientPortalAccount = onCall(async (request) => {
   const orgRef = db.collection('organizations').doc(orgId);
   const clientsRef = orgRef.collection('clients');
 
-  let clientSnap: admin.firestore.QuerySnapshot | null = null;
+  // A single household often shares one phone/email across several client cards
+  // (mother/daughter, spouses). Matching a verified identity to an arbitrary card
+  // would let a portal user read another client's appointments, purchases, and
+  // invoices. So we fetch a bounded set of candidates, keep only ACTIVE cards, and
+  // only auto-link when exactly one active card matches. More than one -> refuse.
+  const isActiveClient = (client: admin.firestore.DocumentData): boolean =>
+    !client.deleted_at && !client.deletedAt;
+
+  const ambiguousMatchError = new HttpsError(
+    'failed-precondition',
+    'Multiple client records share this contact information, so we cannot link your account automatically. Please contact the spa front desk to have your account linked.',
+  );
+
+  let clientDoc: admin.firestore.QueryDocumentSnapshot | null = null;
   let matchedBy: 'email' | 'phone' | null = null;
 
   if (authEmail) {
-    clientSnap = await clientsRef.where('email', '==', authEmail).limit(1).get();
-    matchedBy = clientSnap.empty ? null : 'email';
+    const emailSnap = await clientsRef.where('email', '==', authEmail).limit(10).get();
+    const activeMatches = emailSnap.docs.filter((docSnap) => isActiveClient(docSnap.data()));
+    if (activeMatches.length > 1) {
+      throw ambiguousMatchError;
+    }
+    if (activeMatches.length === 1) {
+      clientDoc = activeMatches[0];
+      matchedBy = 'email';
+    }
   }
 
-  if ((!clientSnap || clientSnap.empty) && authPhone) {
-    clientSnap = await clientsRef.where('phone', '==', authPhone).limit(1).get();
-    matchedBy = clientSnap.empty ? null : 'phone';
+  if (!clientDoc && authPhone) {
+    const phoneSnap = await clientsRef.where('phone', '==', authPhone).limit(10).get();
+    const activeMatches = phoneSnap.docs.filter((docSnap) => isActiveClient(docSnap.data()));
+    if (activeMatches.length > 1) {
+      throw ambiguousMatchError;
+    }
+    if (activeMatches.length === 1) {
+      clientDoc = activeMatches[0];
+      matchedBy = 'phone';
+    }
   }
 
-  if (!clientSnap || clientSnap.empty || !matchedBy) {
+  if (!clientDoc) {
     const fallbackSnap = await clientsRef.limit(500).get();
-    const fallbackDoc = fallbackSnap.docs.find((docSnap) => {
+    const activeMatches = fallbackSnap.docs.filter((docSnap) => {
       const client = docSnap.data();
+      if (!isActiveClient(client)) {
+        return false;
+      }
       return (authEmail && normalizeEmail(client.email) === authEmail)
         || (authPhone && normalizePhone(client.phone) === authPhone);
     });
 
-    if (fallbackDoc) {
-      clientSnap = {
-        empty: false,
-        docs: [fallbackDoc],
-      } as admin.firestore.QuerySnapshot;
-      const client = fallbackDoc.data();
+    if (activeMatches.length > 1) {
+      throw ambiguousMatchError;
+    }
+    if (activeMatches.length === 1) {
+      clientDoc = activeMatches[0];
+      const client = clientDoc.data();
       matchedBy = authEmail && normalizeEmail(client.email) === authEmail ? 'email' : 'phone';
     }
   }
 
-  if (!clientSnap || clientSnap.empty || !matchedBy) {
+  if (!clientDoc || !matchedBy) {
     throw new HttpsError('permission-denied', 'No matching client card was found for this spa');
   }
 
-  const clientDoc = clientSnap.docs[0];
   const client = clientDoc.data();
   if (client.deleted_at || client.deletedAt) {
     throw new HttpsError('permission-denied', 'This client card is not active');

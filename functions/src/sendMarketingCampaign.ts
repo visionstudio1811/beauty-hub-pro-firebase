@@ -229,31 +229,38 @@ export async function executeCampaign(
   const needsSms = campaign.type === 'sms' || campaign.type === 'both';
   const needsEmail = campaign.type === 'email' || campaign.type === 'both';
 
-  let smsProvider: SmsProvider | null = null;
-  if (needsSms) {
-    smsProvider = opts.smsProviderOverride ?? campaign.sms_provider ?? (await resolveProvider(organizationId));
-  }
+  // Everything below runs AFTER the claim transaction flipped status to
+  // 'sending' (for a real send). Any throw here — provider resolution, missing
+  // Resend config, the send loop — must reset the campaign to 'failed' so it
+  // stays recoverable; otherwise it's stuck in 'sending' forever and the claim
+  // txn rejects every retry. Mirrors runScheduledCampaigns' failure handling.
+  // Dry runs never claimed the campaign, so they must not touch its status.
+  try {
+    let smsProvider: SmsProvider | null = null;
+    if (needsSms) {
+      smsProvider = opts.smsProviderOverride ?? campaign.sms_provider ?? (await resolveProvider(organizationId));
+    }
 
-  let resendCfg: Awaited<ReturnType<typeof loadResendConfig>> = null;
-  if (needsEmail) {
-    resendCfg = await loadResendConfig(organizationId);
-    if (!resendCfg)
-      throw new HttpsError('failed-precondition', 'Email provider not configured. Set up Resend in Marketing → Integrations or set RESEND_API_KEY.');
-  }
+    let resendCfg: Awaited<ReturnType<typeof loadResendConfig>> = null;
+    if (needsEmail) {
+      resendCfg = await loadResendConfig(organizationId);
+      if (!resendCfg)
+        throw new HttpsError('failed-precondition', 'Email provider not configured. Set up Resend in Marketing → Integrations or set RESEND_API_KEY.');
+    }
 
-  const recipients = await resolveAudience(organizationId, campaign.target_audience);
+    const recipients = await resolveAudience(organizationId, campaign.target_audience);
 
-  if (dryRun) {
-    return {
-      success: true,
-      dryRun: true,
-      total_recipients: recipients.length,
-      sms_provider: smsProvider,
-      sample_recipients: recipients.slice(0, 5).map((c) => ({
-        id: c.id, name: c.name, email: c.email, phone: c.phone,
-      })),
-    };
-  }
+    if (dryRun) {
+      return {
+        success: true,
+        dryRun: true,
+        total_recipients: recipients.length,
+        sms_provider: smsProvider,
+        sample_recipients: recipients.slice(0, 5).map((c) => ({
+          id: c.id, name: c.name, email: c.email, phone: c.phone,
+        })),
+      };
+    }
 
     if (recipients.length === 0) {
       await campaignRef.update({
@@ -385,16 +392,31 @@ export async function executeCampaign(
       });
     }, CONCURRENCY);
 
-  await campaignRef.update({
-    status: 'completed',
-    sent_count: sent,
-    delivered_count: sent,
-    failed_count: failed,
-    completed_at: admin.firestore.FieldValue.serverTimestamp(),
-    updated_at: new Date().toISOString(),
-  });
+    await campaignRef.update({
+      status: 'completed',
+      sent_count: sent,
+      delivered_count: sent,
+      failed_count: failed,
+      completed_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: new Date().toISOString(),
+    });
 
-  return { success: true, total_recipients: recipients.length, sent, failed };
+    return { success: true, total_recipients: recipients.length, sent, failed };
+  } catch (err) {
+    // Real send: the claim txn already flipped status to 'sending', so reset it
+    // to 'failed' before rethrowing — otherwise the campaign is wedged and the
+    // claim txn rejects every future retry. Best-effort so a Firestore write
+    // failure here doesn't mask the original error. Dry runs never claimed the
+    // campaign, so leave its status untouched.
+    if (!dryRun) {
+      await campaignRef.update({
+        status: 'failed',
+        last_error: err instanceof Error ? err.message : String(err),
+        updated_at: new Date().toISOString(),
+      }).catch(() => {});
+    }
+    throw err;
+  }
 }
 
 export const sendMarketingCampaign = onCall(

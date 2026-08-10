@@ -1,10 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import getDay from 'date-fns/getDay';
-import enUS from 'date-fns/locale/en-US';
+import { Calendar, dateFnsLocalizer, View, SlotInfo, Components } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { enUS } from 'date-fns/locale/en-US';
 import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -424,7 +421,10 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         onSelectSlot={handleSelectSlot}
         onSelectEvent={handleSelectEvent}
         eventPropGetter={eventPropGetter}
-        components={{ toolbar: CalendarToolbar, event: EventBlock }}
+          // react-big-calendar's ToolbarProps/EventProps generics don't line up
+          // with our concrete component signatures (a known RBC typing quirk);
+          // cast to RBC's own Components type — both render correctly at runtime.
+          components={{ toolbar: CalendarToolbar, event: EventBlock } as unknown as Components<CalendarEvent, { resourceId: string; resourceTitle: string }>}
           popup
           showMultiDayTimes
           dayLayoutAlgorithm="no-overlap"

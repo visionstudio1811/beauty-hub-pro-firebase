@@ -112,17 +112,23 @@ export const driveOAuthCallback = onRequest(
         .update({ 'configuration.refresh_token': admin.firestore.FieldValue.delete() })
         .catch(() => undefined);
 
-      res.redirect(302, appendQuery(payload.returnTo, { drive_connected: '1', email }));
+      // Do NOT put the connecting user's email in the redirect URL — it is PII and
+      // would be persisted in browser history / access logs. The SPA reads the
+      // connected account email from the marketingIntegrations/googleDrive doc
+      // (configuration.user_email, written above) instead.
+      res.redirect(302, appendQuery(payload.returnTo, { drive_connected: '1' }));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      // Log the real error server-side for debugging, but never leak the raw
+      // exception text into the redirect URL — it can disclose internal
+      // integration detail. The SPA shows a generic "connection failed" message.
       console.error('[driveOAuthCallback] failed:', err);
       try {
         res.redirect(
           302,
-          appendQuery(payload.returnTo, { drive_connected: '0', error: msg.slice(0, 200) })
+          appendQuery(payload.returnTo, { drive_connected: '0' })
         );
       } catch {
-        res.status(500).send(htmlError(msg));
+        res.status(500).send(htmlError('Connection failed. Please close this window and try again from settings.'));
       }
     }
   }

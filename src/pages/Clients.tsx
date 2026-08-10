@@ -89,7 +89,7 @@ const Clients = () => {
     }
   }, [isAdmin, purchaseFilter, setPurchaseFilter]);
 
-  const { clients: pagedClients, totalCount, loading } = usePaginatedClients({
+  const { clients: pagedClients, totalCount, aggregates, loading } = usePaginatedClients({
     searchTerm,
     filterStatus,
     purchaseFilter: isAdmin ? purchaseFilter : 'all',
@@ -207,7 +207,13 @@ const Clients = () => {
 
         {/* Client Stats */}
         <div className="w-full overflow-hidden">
-          <ClientStatsCards clients={pagedClients} totalCount={totalCount} />
+          <ClientStatsCards
+            clients={pagedClients}
+            totalCount={totalCount}
+            totalRevenue={aggregates.totalRevenue}
+            vipCount={aggregates.vipCount}
+            newCount={aggregates.newCount}
+          />
         </div>
 
         {/* Filters */}

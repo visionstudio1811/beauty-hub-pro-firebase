@@ -111,9 +111,21 @@ service cloud.firestore {
                     && getUserData().organizationId == null
                     && request.resource.data.created_by == request.auth.uid;
 
+      // Portal-resolution fields (crm_domain, custom_domain, domain,
+      // portal_domains, slug) are LOCKED from client writes. getClientPortalOrg
+      // resolves the portal org by matching the request hostname against these
+      // fields with no uniqueness check, so a freely-writable domain would let
+      // any org admin point their org at a victim org's live host and
+      // hijack/spoof that org's client portal. White-label domain changes must
+      // go through an Admin-SDK Cloud Function / the Firebase Console.
       allow update: if isAuthenticated() && belongsToOrg(orgId) && isAdmin()
                     && unchanged('created_by')
-                    && unchanged('created_at');
+                    && unchanged('created_at')
+                    && unchanged('crm_domain')
+                    && unchanged('custom_domain')
+                    && unchanged('domain')
+                    && unchanged('portal_domains')
+                    && unchanged('slug');
       allow delete: if false;
 
       match /clients/{clientId} {

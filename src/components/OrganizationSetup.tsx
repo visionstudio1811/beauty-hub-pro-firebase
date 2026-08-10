@@ -45,6 +45,9 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete
     try {
       await createOrganization({
         ...formData,
+        // Default the new org to the browser's IANA timezone; falls back to a
+        // sensible default. Admins can change it later in business settings.
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York',
         is_active: true
       });
       

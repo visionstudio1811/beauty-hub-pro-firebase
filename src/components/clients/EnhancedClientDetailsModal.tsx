@@ -232,7 +232,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       refetchPackages();
       refetchProducts();
     }
-  }, [isOpen, client, refetchPackages, refetchProducts]);
+  }, [isOpen, client?.id, refetchPackages, refetchProducts]);
 
   // Refetch lists whenever the parent signals an external save (e.g. a
   // booking from AppointmentFormModal). Without this the appointments tab
@@ -539,6 +539,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     const updatedClient = {
       ...client,
       ...formData,
+      // gender is constrained to the union on Client; the select only ever
+      // yields '', 'female', or 'male'.
+      gender: formData.gender as '' | 'female' | 'male',
       age: formData.age !== '' ? parseInt(formData.age as string) : undefined,
       purchases: [],
       totalRevenue: purchases.reduce((sum, purchase) => sum + Number(purchase.total_amount || 0), 0)
@@ -632,7 +635,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         const snap = await getDoc(doc(db, 'organizations', currentOrganization.id, 'clients', client.id));
         if (snap.exists()) {
           const c = snap.data();
-          setFormData({
+          setFormData(prev => ({
+            ...prev,
             name: c.name || '',
             phone: c.phone || '',
             email: c.email || '',
@@ -645,7 +649,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             city: c.city || '',
             referral_source: c.referral_source || '',
             has_membership: c.has_membership || false
-          });
+          }));
         }
         toast({ title: 'Client info updated', description: message });
       } else {

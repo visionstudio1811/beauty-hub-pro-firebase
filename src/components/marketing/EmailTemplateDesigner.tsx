@@ -377,7 +377,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
       ...DEFAULT_TEMPLATE,
       name: TEMPLATE_TYPES[selectedTemplateType].name,
       html: getDefaultTemplateHtml(selectedTemplateType),
-      variables: TEMPLATE_TYPES[selectedTemplateType].variables
+      variables: [...TEMPLATE_TYPES[selectedTemplateType].variables]
     };
     
     setTemplates(prev => ({

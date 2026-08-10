@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Client } from '@/contexts/ClientsContext';
+import { validateDate } from '@/lib/timeUtils';
 import type { PurchaseFilter, SortField, SortDir } from '@/hooks/useClientFilters';
 
 export const PAGE_SIZE = 25;
@@ -24,9 +25,16 @@ interface UsePaginatedClientsParams {
   version?: number;
 }
 
+interface StatsAggregates {
+  totalRevenue: number;
+  vipCount: number;
+  newCount: number;
+}
+
 interface UsePaginatedClientsResult {
   clients: Client[];
   totalCount: number;
+  aggregates: StatsAggregates;
   loading: boolean;
   refetch: () => void;
 }
@@ -61,6 +69,11 @@ export const usePaginatedClients = ({
   const isAdmin = useIsAdmin();
   const [clients, setClients] = useState<Client[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [aggregates, setAggregates] = useState<StatsAggregates>({
+    totalRevenue: 0,
+    vipCount: 0,
+    newCount: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [fetchTick, setFetchTick] = useState(0);
 
@@ -70,6 +83,7 @@ export const usePaginatedClients = ({
     if (!currentOrganization?.id) {
       setClients([]);
       setTotalCount(0);
+      setAggregates({ totalRevenue: 0, vipCount: 0, newCount: 0 });
       setLoading(false);
       return;
     }
@@ -328,16 +342,41 @@ export const usePaginatedClients = ({
         });
 
         const total = allClients.length;
+
+        // Org-wide stat-card aggregates, computed over the SAME (search + status +
+        // purchase) filtered universe that `totalCount` counts — NOT the paginated
+        // slice — so Total Revenue / VIP / New Clients stay constant across page
+        // changes and stay coherent with the Total Clients card. `created_at` is an
+        // ISO string here (or a Timestamp upstream); parse via validateDate, never
+        // `new Date()` directly on a Timestamp.
+        const NEW_CLIENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+        const newCutoff = Date.now() - NEW_CLIENT_WINDOW_MS;
+        let aggTotalRevenue = 0;
+        let aggVipCount = 0;
+        let aggNewCount = 0;
+        for (const c of allClients) {
+          aggTotalRevenue += c.totalRevenue || 0;
+          if (c.has_membership) aggVipCount += 1;
+          const created = validateDate(c.created_at);
+          if (created && created.getTime() >= newCutoff) aggNewCount += 1;
+        }
+
         const from = (page - 1) * PAGE_SIZE;
         const paginated = allClients.slice(from, from + PAGE_SIZE);
 
         setClients(paginated);
         setTotalCount(total);
+        setAggregates({
+          totalRevenue: aggTotalRevenue,
+          vipCount: aggVipCount,
+          newCount: aggNewCount,
+        });
       } catch (err) {
         console.error('usePaginatedClients: fetch error', err);
         if (!cancelled) {
           setClients([]);
           setTotalCount(0);
+          setAggregates({ totalRevenue: 0, vipCount: 0, newCount: 0 });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -350,5 +389,5 @@ export const usePaginatedClients = ({
     };
   }, [currentOrganization?.id, isAdmin, searchTerm, filterStatus, purchaseFilter, sortField, sortDir, page, version, fetchTick]);
 
-  return { clients, totalCount, loading, refetch };
+  return { clients, totalCount, aggregates, loading, refetch };
 };

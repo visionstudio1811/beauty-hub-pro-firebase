@@ -110,7 +110,7 @@ Copy `.env.example` to `.env` and fill in values from the Firebase Console (Proj
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=beauty-hub-pro-app.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=beauty-hub-pro-app
-VITE_FIREBASE_STORAGE_BUCKET=beauty-hub-pro-app.appspot.com
+VITE_FIREBASE_STORAGE_BUCKET=beauty-hub-pro-app.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
@@ -502,4 +502,4 @@ These cannot be done via CLI and must be completed in the [Firebase Console](htt
 1. **Enable Email/Password and Google providers** → Authentication → Sign-in methods
 2. **Add authorized domains** → Authentication → Settings → Authorized domains (add production domain)
 3. **Firestore location** — set to `us-central1` during init
-4. **Storage** — enabled; bucket is `beauty-hub-pro-app.appspot.com`. Rules are managed via `storage.rules` in the repo.
+4. **Storage** — enabled; bucket is `beauty-hub-pro-app.firebasestorage.app`. Rules are managed via `storage.rules` in the repo.

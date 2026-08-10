@@ -779,7 +779,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                   <span className="tabular-nums">{formatMoney(previewInvoice.subtotal_cents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Tax ({(previewInvoice.tax_rate * 100).toFixed(2)}%)</span>
+                  <span>Tax ({previewInvoice.tax_rate.toFixed(2)}%)</span>
                   <span className="tabular-nums">{formatMoney(previewInvoice.tax_amount_cents)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-base pt-1 border-t">

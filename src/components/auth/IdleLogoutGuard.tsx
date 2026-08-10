@@ -42,10 +42,20 @@ export const IdleLogoutGuard: React.FC = () => {
   const logoutTimerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
   const lastWriteRef = useRef(0);
+  // Mirrors `warningOpen` so the activity handlers can read the current warning
+  // state without listing `warningOpen` in their deps. Keeping those handlers
+  // stable is what stops the main effect from re-running (and tearing down the
+  // just-armed logout timer) the moment the warning dialog opens.
+  const warningOpenRef = useRef(false);
   // Set when the user explicitly chooses "Log out" in the warning, so the
   // dialog's onOpenChange (which otherwise treats a close as "stay") doesn't
   // cancel the sign-out.
   const intentionalLogoutRef = useRef(false);
+
+  // Keep the ref in lockstep with the state it mirrors.
+  useEffect(() => {
+    warningOpenRef.current = warningOpen;
+  }, [warningOpen]);
 
   const clearAllTimers = useCallback(() => {
     if (warnTimerRef.current) {
@@ -102,19 +112,19 @@ export const IdleLogoutGuard: React.FC = () => {
     // is forced to acknowledge the dialog (clicking "Stay signed in" inside it
     // resets the timer explicitly). Otherwise a stray scroll could silently
     // dismiss the warning.
-    if (!warningOpen) {
+    if (!warningOpenRef.current) {
       scheduleTimers();
     }
-  }, [scheduleTimers, warningOpen]);
+  }, [scheduleTimers]);
 
   // Cross-tab: when another tab writes a fresh activity timestamp, treat it
   // as activity here too.
   const handleStorage = useCallback((e: StorageEvent) => {
     if (e.key !== ACTIVITY_KEY || !e.newValue) return;
-    if (!warningOpen) {
+    if (!warningOpenRef.current) {
       scheduleTimers();
     }
-  }, [scheduleTimers, warningOpen]);
+  }, [scheduleTimers]);
 
   // Tab visibility governs the "60 min open vs 10 min away" split:
   //  - Hidden (backgrounded/minimized): pause the in-app idle timer so being

@@ -265,6 +265,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "scheduled_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "invoiceDrafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "updated_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

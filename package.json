@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:emulators": "VITE_USE_EMULATORS=true vite",
-    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "build": "npm run typecheck && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
