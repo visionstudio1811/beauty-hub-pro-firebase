@@ -126,9 +126,9 @@ export const IdleLogoutGuard: React.FC = () => {
     }
   }, [scheduleTimers]);
 
-  // Tab visibility governs the "60 min open vs 10 min away" split:
+  // Tab visibility governs the "60 min open vs 30 min away" split:
   //  - Hidden (backgrounded/minimized): pause the in-app idle timer so being
-  //    away doesn't trip the 60-min limit — the 10-min away window applies.
+  //    away doesn't trip the 60-min limit — the 30-min away window applies.
   //  - Visible again: if the user has been away longer than the away limit,
   //    sign out; otherwise treat the return as activity and restart the timer.
   const handleVisibility = useCallback(() => {
