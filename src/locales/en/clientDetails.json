@@ -1,0 +1,315 @@
+{
+  "statuses": {
+    "haveMembership": "Have Membership",
+    "noMembership": "Don't Have Membership",
+    "membershipEnded": "Membership Ended",
+    "scheduled": "Scheduled",
+    "confirmed": "Confirmed",
+    "arrived": "Arrived",
+    "inProgress": "In progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "noShow": "No-show",
+    "pending": "Pending",
+    "assigned": "Assigned",
+    "delivered": "Delivered",
+    "issued": "Issued",
+    "void": "Void",
+    "active": "Active"
+  },
+  "enhanced": {
+    "title": {
+      "edit": "Edit Client",
+      "view": "Client Details"
+    },
+    "description": {
+      "edit": "Update client information",
+      "view": "View client details, appointments, and package history"
+    },
+    "sectionsNav": "Client sections",
+    "tabs": {
+      "details": "Details",
+      "appointments": "Appointments ({{count}})",
+      "packages": "Packages ({{count}})",
+      "membership": "Membership",
+      "actions": "Actions",
+      "waivers": "Waivers",
+      "intake": "Intake Forms",
+      "agreements": "Agreements of Purchase",
+      "invoices": "Invoices ({{count}})"
+    },
+    "details": {
+      "fillFromForm": "Fill from latest signed form",
+      "filling": "Filling…",
+      "fields": {
+        "name": "Name",
+        "phone": "Phone",
+        "email": "Email",
+        "birthday": "Birthday",
+        "age": "Age",
+        "gender": "Gender",
+        "city": "City",
+        "referralSource": "How did you hear about us?",
+        "address": "Address",
+        "allergies": "Allergies / Medical alerts",
+        "notes": "Notes"
+      },
+      "agePlaceholder": "e.g. 35",
+      "pickDate": "Pick a date",
+      "selectGender": "Select Gender",
+      "female": "Female",
+      "male": "Male",
+      "selectCity": "Select City",
+      "selectSource": "Select Source",
+      "internalOnly": "Internal — not visible to clients",
+      "allergiesPlaceholder": "e.g. Latex, nuts, fragrance sensitivity",
+      "hasMembership": "Has Membership",
+      "smsOptOut": "Opted out of SMS marketing",
+      "emailOptOut": "Opted out of email marketing",
+      "stats": {
+        "status": "Status:",
+        "totalVisits": "Total Visits: {{count}}",
+        "lastVisit": "Last Visit: {{date}}",
+        "never": "Never",
+        "totalRevenue": "Total Revenue: ${{amount}}",
+        "activePackages": "Active Packages: {{count}}",
+        "activeProducts": "Active Products: {{count}}"
+      }
+    },
+    "appointments": {
+      "title": "Appointment History",
+      "logPast": "Log Past Treatment",
+      "book": "Book Appointment",
+      "empty": "No appointments yet",
+      "bookFirst": "Book First Appointment",
+      "fromPackage": "From {{name}}",
+      "packageFallback": "Package",
+      "alaCarte": "Paid à la carte",
+      "dateTime": "{{date}} at {{time}} • {{duration}} min",
+      "staff": "Staff: {{name}}",
+      "notes": "Notes:"
+    },
+    "packages": {
+      "title": "Assigned Packages",
+      "manage": "Manage Packages",
+      "custom": "Custom Package",
+      "assign": "Assign Package",
+      "empty": "No packages assigned yet",
+      "assignFirst": "Assign First Package",
+      "unknownPackage": "Unknown Package",
+      "packageFallback": "Package",
+      "packagePrice": "Package • ${{amount}}",
+      "active": "Active",
+      "itemsOwed_one": "{{count}} item owed",
+      "itemsOwed_other": "{{count}} items owed",
+      "generateInvoice": "Generate Invoice",
+      "generating": "Generating…",
+      "sendAgreement": "Send Agreement",
+      "sessionsUsed": "Sessions: {{used}}/{{total}} used ({{remaining}} remaining)",
+      "sessionsByTreatment": "Sessions by treatment",
+      "treatmentFallback": "Treatment",
+      "slotUsage": "{{used}} used / {{remaining}} remaining",
+      "over": "({{count}} over)",
+      "includedProducts": "Included Products",
+      "productQty": "{{name}} × {{quantity}}",
+      "given": "{{delivered}}/{{quantity}} given",
+      "allDelivered": "All delivered",
+      "owed": "{{count}} owed"
+    },
+    "products": {
+      "title": "Assigned Products",
+      "manage": "Manage Products",
+      "assign": "Assign Product",
+      "empty": "No products assigned yet",
+      "assignFirst": "Assign First Product",
+      "unknownProduct": "Unknown Product",
+      "productLine": "Product • ${{amount}} • Qty: {{quantity}}",
+      "generateInvoice": "Generate Invoice",
+      "notes": "Notes:"
+    },
+    "actions": {
+      "quickActions": "Quick Actions",
+      "bookNew": "Book New Appointment",
+      "assignPackage": "Assign Package",
+      "assignProduct": "Assign Product",
+      "sendMessage": "Send Message",
+      "contactOptions": "Contact Options",
+      "call": "Call",
+      "email": "Email",
+      "clearHistory": "Clear All History",
+      "clearHistoryDescription": "This will permanently delete all appointment and purchase history for this client. This action cannot be undone.",
+      "clearHistoryConfirm": "Clear History"
+    },
+    "invoices": {
+      "title": "Invoices",
+      "hint": "Generate invoices from the <strong>Packages</strong> tab.",
+      "empty": "No invoices issued yet",
+      "packageFallback": "Package",
+      "download": "Download",
+      "email": "Email",
+      "sending": "Sending…",
+      "emailTitle": "Email invoice to client"
+    },
+    "footer": {
+      "saveChanges": "Save Changes"
+    },
+    "paymentMethod": {
+      "title": "Select Payment Method",
+      "description": "Choose how the client paid for this package.",
+      "placeholder": "Select a payment method",
+      "options": {
+        "cash": "Cash",
+        "creditCard": "Credit Card",
+        "check": "Check",
+        "other": "Other"
+      },
+      "generate": "Generate Invoice"
+    },
+    "pastLog": {
+      "title": "Log Past Treatment",
+      "description": "Add a treatment that was already performed. Optionally attach it to one of the client's packages to consume a session.",
+      "treatment": "Treatment *",
+      "noTreatmentsInPackage": "No treatments in this package",
+      "selectTreatment": "Select a treatment",
+      "noTreatmentsAvailable": "No treatments available for this package.",
+      "date": "Date *",
+      "pickDate": "Pick a date",
+      "staffName": "Staff Name",
+      "staffPlaceholder": "e.g. Sarah",
+      "duration": "Duration (minutes)",
+      "price": "Price ($)",
+      "addons": "Add-ons (optional)",
+      "oneMaxWithPackage": "One max with package",
+      "addonPrice": "+${{price}}",
+      "addonDuration": "· +{{minutes}}m",
+      "packageSessionWithAddons": "Package session — treatment free, add-ons charged separately",
+      "packageSessionFree": "Package session — no additional charge",
+      "notes": "Notes",
+      "notesPlaceholder": "Optional notes about the treatment",
+      "save": "Save Treatment",
+      "saving": "Saving…"
+    },
+    "overConsume": {
+      "title": "No remaining sessions",
+      "description": "No remaining sessions for {{treatment}} in this package. Save anyway? The package session counter will go below zero.",
+      "saveAnyway": "Save Anyway"
+    },
+    "toasts": {
+      "loadPackagesFailed": "Failed to load packages",
+      "missingFields": "Missing fields",
+      "missingFieldsDescription": "Treatment name and date are required.",
+      "tooManyAddons": "Too many add-ons",
+      "tooManyAddonsDescription": "Package sessions are limited to one add-on. Remove the extras to continue.",
+      "packageGone": "Package no longer exists.",
+      "noRemainingForTreatment": "No remaining sessions for this treatment.",
+      "noRemainingOnPackage": "No remaining sessions on this package.",
+      "treatmentAdded": "Treatment added",
+      "treatmentAddedDescription": "Past treatment has been logged.",
+      "saveTreatmentFailed": "Failed to save treatment.",
+      "clientUpdated": "Client Updated",
+      "clientUpdatedDescription": "Client information has been updated successfully.",
+      "historyCleared": "History Cleared",
+      "historyClearedDescription": "All appointment and purchase history has been deleted.",
+      "clearHistoryFailed": "Failed to clear history",
+      "tryAgain": "Please try again.",
+      "clientInfoUpdated": "Client info updated",
+      "nothingToFill": "Nothing to fill",
+      "backfillFailed": "Backfill failed",
+      "backfillFailedDescription": "Could not auto-fill from latest form.",
+      "invoice": "Invoice",
+      "invoiceOpened": "Opened {{number}}.",
+      "invoiceGenerated": "Invoice generated",
+      "invoiceReady": "{{number}} is ready.",
+      "dailyInvoiceLimit": "Daily invoice limit reached for this organization.",
+      "invoiceGenerateFailed": "Failed to generate invoice",
+      "pdfNotReady": "PDF not ready",
+      "pdfNotReadyDescription": "This invoice does not yet have a PDF. Re-generate from the package row.",
+      "noEmail": "No email on file",
+      "noEmailDescription": "This client has no email address.",
+      "generatePdfFirst": "Generate the invoice PDF first.",
+      "invoiceSent": "Invoice sent",
+      "invoiceSentDescription": "Emailed to {{email}}.",
+      "sendFailed": "Failed to send",
+      "sendFailedDescription": "Could not send invoice email."
+    },
+    "invoiceEmail": {
+      "subject": "Your Invoice {{number}}",
+      "greetingFallback": "there",
+      "body": "Hi {{name}},\n\nPlease find your invoice below.\n\nInvoice #: {{number}}\nTotal: {{total}}\n\nView / Download your invoice:\n{{url}}\n\nThank you!"
+    }
+  },
+  "legacy": {
+    "title": {
+      "edit": "Edit Client",
+      "view": "Client Details"
+    },
+    "description": {
+      "edit": "Update client information",
+      "view": "View client details and purchase history"
+    },
+    "tabs": {
+      "details": "Details",
+      "purchases": "Purchases",
+      "appointments": "Appointments"
+    },
+    "fields": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "birthday": "Birthday",
+      "city": "City",
+      "referralSource": "How did you hear about us?",
+      "address": "Address",
+      "notes": "Notes"
+    },
+    "selectCity": "Select City",
+    "selectSource": "Select Source",
+    "stats": {
+      "status": "Status:",
+      "totalVisits": "Total Visits: {{count}}",
+      "lastVisit": "Last Visit: {{date}}",
+      "never": "Never",
+      "totalRevenue": "Total Revenue: ${{amount}}",
+      "review": "Review:",
+      "reviewReceived": "Received",
+      "reviewPending": "Pending"
+    },
+    "purchases": {
+      "title": "Purchase History",
+      "manage": "Manage Purchases",
+      "empty": "No purchases yet",
+      "package": "Package",
+      "product": "Product",
+      "typePrice": "{{type}} • ${{price}}",
+      "sessionsUsed": "Sessions: {{used}}/{{total}} used ({{remaining}} remaining)"
+    },
+    "appointments": {
+      "title": "Appointment History",
+      "clearHistory": "Clear All History",
+      "clearHistoryDescription": "This will permanently delete all appointment and purchase history for this client. This action cannot be undone.",
+      "clearHistoryConfirm": "Clear History",
+      "dateTime": "{{date}} at {{time}} • {{duration}} min",
+      "staff": "Staff: {{name}}",
+      "notes": "Notes:"
+    },
+    "mock": {
+      "time1": "10:00 AM",
+      "treatment1": "Classic Facial",
+      "notes1": "Client requested extra focus on T-zone",
+      "time2": "2:00 PM",
+      "treatment2": "Glow Dermaplane Facial",
+      "notes2": "First dermaplaning treatment, tolerated well",
+      "time3": "11:30 AM",
+      "treatment3": "LED Skin Tightening"
+    },
+    "footer": {
+      "saveChanges": "Save Changes"
+    },
+    "toasts": {
+      "clientUpdated": "Client Updated",
+      "clientUpdatedDescription": "Client information has been updated successfully.",
+      "historyCleared": "History Cleared",
+      "historyClearedDescription": "All appointment and purchase history has been cleared."
+    }
+  }
+}

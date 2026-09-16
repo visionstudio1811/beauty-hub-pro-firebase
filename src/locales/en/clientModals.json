@@ -1,0 +1,145 @@
+{
+  "addClientModal": {
+    "title": "Add New Client",
+    "description": "Add a new client to your database. Required fields are marked with *.",
+    "toasts": {
+      "cityAdded": "City added",
+      "cityAddedDescription": "\"{{name}}\" is now available in the list.",
+      "cityAddFailed": "Failed to add city.",
+      "sourceAdded": "Source added",
+      "sourceAddedDescription": "\"{{name}}\" is now available in the list.",
+      "sourceAddFailed": "Failed to add source.",
+      "validationError": "Validation Error",
+      "nameAndPhoneRequired": "Name and phone are required fields."
+    },
+    "matches": {
+      "likelyDuplicate": "Likely duplicate",
+      "similarClients": "Similar clients",
+      "matchCount_one": "{{count}} match",
+      "matchCount_other": "{{count}} matches",
+      "hide": "Hide",
+      "show": "Show",
+      "nameMatch": "name match",
+      "emailMatch": "email match",
+      "phoneMatch": "phone match"
+    },
+    "fields": {
+      "name": "Name *",
+      "phone": "Phone *",
+      "email": "Email",
+      "dateOfBirth": "Date of Birth",
+      "city": "City",
+      "selectCity": "Select City",
+      "addNewCity": "+ Add new city…",
+      "enterNewCity": "Enter new city",
+      "referralSource": "How did you hear about us?",
+      "selectSource": "Select Source",
+      "addNewSource": "+ Add new source…",
+      "enterNewSource": "Enter new source",
+      "address": "Address",
+      "internalOnly": "Internal — not visible to clients",
+      "allergies": "Allergies / Medical alerts",
+      "allergiesPlaceholder": "Any known allergies...",
+      "notes": "Notes",
+      "notesPlaceholder": "Additional notes about the client...",
+      "hasMembership": "Has Membership"
+    },
+    "actions": {
+      "addClient": "Add Client",
+      "addAnyway": "Add Anyway"
+    },
+    "duplicateDialog": {
+      "title": "Likely duplicate",
+      "description": "A client with this {{identifier}} already exists. Add a duplicate record anyway?",
+      "identifierEmail": "email",
+      "identifierPhone": "phone number"
+    }
+  },
+  "clientSelector": {
+    "placeholder": "Select client...",
+    "searchPlaceholder": "Search clients...",
+    "noClientFound": "No client found.",
+    "createNewClient": "Create New Client"
+  },
+  "clientPackageSelector": {
+    "noActivePackages": "No active packages found for this client",
+    "noExpiry": "No expiry",
+    "availablePackages": "Available Packages",
+    "noPackageTitle": "No Package — charge separately",
+    "noPackageDescription": "Book this treatment outside of any package",
+    "selected": "Selected",
+    "sessionsOf": "{{remaining}} of {{total}} sessions",
+    "expiringSoon": "Expiring Soon",
+    "free": "FREE",
+    "perSession": "${{price}} per session"
+  },
+  "staffTransferModal": {
+    "title": "Transfer Appointment",
+    "toastTitle": "Appointment Transferred",
+    "toastDescription": "Appointment transferred from {{from}} to {{to}}",
+    "currentAssignment": "Current Assignment",
+    "transferTo": "Transfer to Staff Member",
+    "selectStaff": "Select staff member",
+    "reason": "Transfer Reason (Optional)",
+    "reasonPlaceholder": "Reason for transfer...",
+    "transfer": "Transfer Appointment"
+  },
+  "assignmentModal": {
+    "title": "Assign Product",
+    "description": "Assign a product to {{name}}",
+    "loadingProducts": "Loading products...",
+    "noActiveProducts": "No active products found",
+    "assign": "Assign",
+    "toastTitle": "Product Assigned",
+    "toastDescription": "{{product}} has been assigned to {{client}}"
+  },
+  "manageClientProductsModal": {
+    "title": "Manage {{name}}'s Products",
+    "description": "Edit assigned price, quantity, status, or remove products from this client.",
+    "statusOptions": {
+      "assigned": "Assigned",
+      "delivered": "Delivered"
+    },
+    "unknownProduct": "Unknown product",
+    "loadFailed": "Failed to load assigned products",
+    "invalidValues": "Invalid values",
+    "invalidValuesDescription": "Price must be ≥ 0 and quantity ≥ 1.",
+    "saved": "Saved",
+    "savedDescription": "{{product}} updated.",
+    "saveFailed": "Failed to save product",
+    "confirmRemove": "Remove \"{{product}}\" from {{client}}?",
+    "removed": "Removed",
+    "removedDescription": "{{product}} removed from {{client}}.",
+    "removeFailed": "Failed to remove product",
+    "empty": "No products assigned to this client",
+    "emptyHint": "Use \"Assign Product\" to add one.",
+    "basePrice": "Base price: ${{price}}",
+    "fromPackageBadge": "From {{package}}",
+    "packageFallback": "Package",
+    "fromPackageLabel": "From package",
+    "standalone": "Standalone (not from a package)",
+    "packageIncludes": "{{name}} — includes {{quantity}}",
+    "packageDoesNotInclude": "{{name}} (does not include this product)",
+    "priceLabel": "Price ($)",
+    "removeProduct": "Remove product",
+    "notesPlaceholder": "Optional notes"
+  },
+  "productAssignmentModal": {
+    "title": "Assign Product to Client",
+    "description": "Assign \"{{product}}\" to a client with custom pricing",
+    "validationError": "Validation Error",
+    "fillRequired": "Please fill in all required fields",
+    "noOrganization": "No organization selected",
+    "successTitle": "Assignment Successful",
+    "successDescription": "{{product}} has been assigned to {{client}}",
+    "assignFailed": "Failed to assign product",
+    "basePrice": "Base Price: ${{price}}",
+    "selectClient": "Select Client *",
+    "chooseClient": "Choose a client",
+    "assignedPrice": "Assigned Price *",
+    "notesOptional": "Notes (Optional)",
+    "notesPlaceholder": "Add any notes about this assignment...",
+    "assigning": "Assigning...",
+    "assignProduct": "Assign Product"
+  }
+}

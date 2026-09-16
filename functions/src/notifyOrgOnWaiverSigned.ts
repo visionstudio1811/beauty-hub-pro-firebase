@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { backfillClientFromSignedWaiver } from './backfillClient';
 import { consumeRateLimit } from './rateLimit';
 import { loadSecret } from './lib/integrationSecrets';
+import { defineStrings, makeT, orgLanguageFromData, htmlDirAttrs, formatDateTime } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -10,6 +11,53 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
+
+// This email goes to the org's own admins, so it follows the ORG language.
+const STRINGS = defineStrings({
+  en: {
+    org_fallback: 'Your organization',
+    signer_fallback: 'A client',
+    title_waiver: 'Waiver',
+    title_intake: 'Intake Form',
+    title_agreement: 'Agreement of Purchase',
+    // lower-case noun used mid-sentence
+    kind_waiver: 'waiver',
+    kind_intake: 'intake form',
+    kind_agreement: 'Agreement of Purchase',
+    subject: '✅ Signed {{kind}}: {{title}} — {{signer}}',
+    intro: 'A client has signed a {{kind}} for <strong>{{org}}</strong>.',
+    label_client: 'Client',
+    label_email: 'Email',
+    label_phone: 'Phone',
+    label_signed: 'Signed',
+    attached: 'The signed PDF is attached{{photos}}.',
+    attached_photos_suffix: ' and any uploaded photos are linked below',
+    photos_heading: 'Uploaded photos ({{count}}):',
+    photo_n: 'Photo {{n}}',
+    view_pdf: 'View the PDF online →',
+  },
+  he: {
+    org_fallback: 'הארגון שלך',
+    signer_fallback: 'לקוח/ה',
+    title_waiver: 'כתב ויתור',
+    title_intake: 'טופס קליטה',
+    title_agreement: 'הסכם רכישה',
+    kind_waiver: 'כתב ויתור',
+    kind_intake: 'טופס קליטה',
+    kind_agreement: 'הסכם רכישה',
+    subject: '✅ {{kind}} נחתם: {{title}} — {{signer}}',
+    intro: 'לקוח/ה חתם/ה על {{kind}} עבור <strong>{{org}}</strong>.',
+    label_client: 'לקוח/ה',
+    label_email: 'אימייל',
+    label_phone: 'טלפון',
+    label_signed: 'נחתם',
+    attached: 'קובץ ה-PDF החתום מצורף{{photos}}.',
+    attached_photos_suffix: ', וקישורים לתמונות שהועלו מופיעים למטה',
+    photos_heading: 'תמונות שהועלו ({{count}}):',
+    photo_n: 'תמונה {{n}}',
+    view_pdf: '← צפייה ב-PDF אונליין',
+  },
+});
 
 async function loadOrgResendSender(orgId: string): Promise<{ apiKey: string; fromEmail: string; fromName: string } | null> {
   const snap = await db
@@ -44,6 +92,17 @@ function safeHttpUrl(url: string): string {
 }
 
 /**
+ * Attachment-filename sanitizer — unchanged ASCII-only behaviour (Resend/MIME
+ * filename headers are safest in ASCII). `fallback` is used only when the
+ * sanitized value has no letters/digits at all (e.g. a purely Hebrew title that
+ * would otherwise collapse to underscores).
+ */
+function fileSafe(value: string, fallback: string): string {
+  const safe = value.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return /[a-zA-Z0-9]/.test(safe) ? safe : fallback;
+}
+
+/**
  * Fires when a waiver transitions from pending → signed and emails the
  * organization's contact address with the signed PDF attached.
  */
@@ -64,8 +123,11 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     const orgDoc = await db.collection('organizations').doc(orgId).get();
     if (!orgDoc.exists) return;
     const org = orgDoc.data()!;
+    const lang = orgLanguageFromData(org);
+    const t = makeT(STRINGS, lang);
+    const orgTz = (org.timezone as string) || 'America/New_York';
     const orgEmail = org.email as string | undefined;
-    const orgName = (org.name as string) ?? 'Your organization';
+    const orgName = (org.name as string) ?? t('org_fallback');
     if (!orgEmail) {
       console.warn(`Org ${orgId} has no email — skipping waiver notification`);
       return;
@@ -91,20 +153,24 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     }
 
     // Load template title + kind for the email body
-    let templateTitle = 'Waiver';
     let kind: 'waiver' | 'intake' | 'agreement' = (after.kind as 'waiver' | 'intake' | 'agreement') ?? 'waiver';
+    const defaultTitleFor = (k: typeof kind) =>
+      k === 'intake' ? t('title_intake') : k === 'agreement' ? t('title_agreement') : t('title_waiver');
+    let templateTitle = t('title_waiver');
     if (after.templateId) {
       const tplDoc = await db.collection('organizations').doc(orgId).collection('waiverTemplates').doc(after.templateId).get();
       if (tplDoc.exists) {
         const td = tplDoc.data() ?? {};
-        templateTitle = (td.title as string) ?? (kind === 'intake' ? 'Intake Form' : kind === 'agreement' ? 'Agreement of Purchase' : 'Waiver');
+        // Same order as before the i18n pass: the default title derives from
+        // `after.kind` (pre-refinement), then `kind` is refined from the template.
+        templateTitle = (td.title as string) ?? defaultTitleFor(kind);
         if (!after.kind) kind = (td.kind as 'waiver' | 'intake' | 'agreement') ?? 'waiver';
       }
     }
-    const kindNoun = kind === 'intake' ? 'intake form' : kind === 'agreement' ? 'Agreement of Purchase' : 'waiver';
-    const kindNounUpper = kind === 'intake' ? 'Intake Form' : kind === 'agreement' ? 'Agreement of Purchase' : 'Waiver';
+    const kindNoun = kind === 'intake' ? t('kind_intake') : kind === 'agreement' ? t('kind_agreement') : t('kind_waiver');
+    const kindNounUpper = defaultTitleFor(kind);
 
-    const signerName = (after.signer_name as string) ?? 'A client';
+    const signerName = (after.signer_name as string) ?? t('signer_fallback');
     const signerEmail = (after.signer_email as string) ?? '';
     const signerPhone = (after.signer_phone as string) ?? '';
     const signedAt = (after.signed_at as string) ?? new Date().toISOString();
@@ -129,7 +195,7 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
         const file = bucket.file(`waivers/${token}.pdf`);
         const [buffer] = await file.download();
         attachment = {
-          filename: `${templateTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}-${signerName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+          filename: `${fileSafe(templateTitle, kind)}-${fileSafe(signerName, 'client')}.pdf`,
           content: buffer.toString('base64'),
         };
       } catch (err) {
@@ -151,28 +217,44 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
     const safePdfUrl = safeHttpUrl(pdfUrl);
     const safeImageUrls = imageUrls.map(safeHttpUrl).filter(Boolean);
 
+    // English keeps the exact pre-i18n rendering (server-default toLocaleString).
+    // Hebrew renders in he-IL in the org timezone; falls back to the raw value on bad input.
+    const signedAtDate = new Date(signedAt);
+    let signedAtDisplay = signedAtDate.toLocaleString();
+    if (lang !== 'en' && !Number.isNaN(signedAtDate.getTime())) {
+      try {
+        signedAtDisplay = formatDateTime(signedAtDate, lang, orgTz, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch {
+        signedAtDisplay = signedAtDate.toLocaleString();
+      }
+    }
+
+    const { dir, align } = htmlDirAttrs(lang);
+
     const imagesHtml = safeImageUrls.length
-      ? `<p><strong>Uploaded photos (${safeImageUrls.length}):</strong></p><ul>${safeImageUrls
-          .map((u, i) => `<li><a href="${escapeHtml(u)}">Photo ${i + 1}</a></li>`)
+      ? `<p><strong>${t('photos_heading', { count: safeImageUrls.length })}</strong></p><ul>${safeImageUrls
+          .map((u, i) => `<li><a href="${escapeHtml(u)}">${t('photo_n', { n: i + 1 })}</a></li>`)
           .join('')}</ul>`
       : '';
 
     const body = {
       from: `${fromName} <${fromEmail}>`,
       to: [orgEmail],
-      subject: `✅ Signed ${kindNoun}: ${subjectTitle} — ${subjectSignerName}`,
+      subject: t('subject', { kind: kindNoun, title: subjectTitle, signer: subjectSignerName }),
       html: `
-        <p>A client has signed a ${kindNoun} for <strong>${safeOrgName}</strong>.</p>
+        <div dir="${dir}" style="text-align:${align}">
+        <p>${t('intro', { kind: kindNoun, org: safeOrgName })}</p>
         <table style="border-collapse:collapse;margin:16px 0">
           <tr><td style="padding:4px 12px;color:#6b7280">${kindNounUpper}</td><td style="padding:4px 12px"><strong>${safeTitle}</strong></td></tr>
-          <tr><td style="padding:4px 12px;color:#6b7280">Client</td><td style="padding:4px 12px">${safeSignerName}</td></tr>
-          ${safeSignerEmail ? `<tr><td style="padding:4px 12px;color:#6b7280">Email</td><td style="padding:4px 12px">${safeSignerEmail}</td></tr>` : ''}
-          ${safeSignerPhone ? `<tr><td style="padding:4px 12px;color:#6b7280">Phone</td><td style="padding:4px 12px">${safeSignerPhone}</td></tr>` : ''}
-          <tr><td style="padding:4px 12px;color:#6b7280">Signed</td><td style="padding:4px 12px">${escapeHtml(new Date(signedAt).toLocaleString())}</td></tr>
+          <tr><td style="padding:4px 12px;color:#6b7280">${t('label_client')}</td><td style="padding:4px 12px">${safeSignerName}</td></tr>
+          ${safeSignerEmail ? `<tr><td style="padding:4px 12px;color:#6b7280">${t('label_email')}</td><td style="padding:4px 12px">${safeSignerEmail}</td></tr>` : ''}
+          ${safeSignerPhone ? `<tr><td style="padding:4px 12px;color:#6b7280">${t('label_phone')}</td><td style="padding:4px 12px">${safeSignerPhone}</td></tr>` : ''}
+          <tr><td style="padding:4px 12px;color:#6b7280">${t('label_signed')}</td><td style="padding:4px 12px">${escapeHtml(signedAtDisplay)}</td></tr>
         </table>
-        <p>The signed PDF is attached${safeImageUrls.length ? ` and any uploaded photos are linked below` : ''}.</p>
+        <p>${t('attached', { photos: safeImageUrls.length ? t('attached_photos_suffix') : '' })}</p>
         ${imagesHtml}
-        ${safePdfUrl ? `<p style="margin-top:24px"><a href="${escapeHtml(safePdfUrl)}">View the PDF online →</a></p>` : ''}
+        ${safePdfUrl ? `<p style="margin-top:24px"><a href="${escapeHtml(safePdfUrl)}">${t('view_pdf')}</a></p>` : ''}
+        </div>
       `,
       ...(attachment ? { attachments: [attachment] } : {}),
     };
@@ -206,7 +288,7 @@ export const notifyOrgOnWaiverSigned = onDocumentUpdated(
         kind,
       });
       if (result.filled.length > 0) {
-        console.log(`Backfilled ${result.filled.length} field(s) on client ${clientId} from ${kindNoun}: ${result.filled.join(', ')}`);
+        console.log(`Backfilled ${result.filled.length} field(s) on client ${clientId} from ${kind}: ${result.filled.join(', ')}`);
       }
     } catch (err) {
       // Backfill is best-effort — don't fail the whole trigger

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
+import { useTranslation, Trans } from 'react-i18next';
 import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, onClose }: Props) {
+  const { t } = useTranslation('waivers');
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
 
@@ -86,20 +88,20 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
         ...(mode === 'sms' ? { smsProvider, requiresOtp } : {}),
       });
       const data = result.data as { success?: boolean; error?: string; waiver_url?: string };
-      if (!data?.success) throw new Error(data?.error ?? 'Unknown error');
+      if (!data?.success) throw new Error(data?.error ?? t('send.unknownError'));
 
       if (mode === 'device' && data.waiver_url) {
         window.open(data.waiver_url, '_blank');
-        toast({ title: 'Agreement of Purchase ready', description: 'Hand the device to the client to sign.' });
+        toast({ title: t('sendAgreementDialog.toasts.readyTitle'), description: t('sendAgreementDialog.toasts.readyDescription') });
       } else if (mode === 'email') {
-        toast({ title: 'Agreement of Purchase sent', description: `Email sent to ${client.email}` });
+        toast({ title: t('sendAgreementDialog.toasts.sentTitle'), description: t('send.emailSentTo', { email: client.email }) });
       } else {
-        toast({ title: 'Agreement of Purchase sent', description: `SMS sent to ${client.phone}` });
+        toast({ title: t('sendAgreementDialog.toasts.sentTitle'), description: t('send.smsSentTo', { phone: client.phone }) });
       }
       onClose();
     } catch (err: unknown) {
       toast({
-        title: 'Failed to send Agreement of Purchase',
+        title: t('sendAgreementDialog.toasts.sendFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });
@@ -114,12 +116,26 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSignature className="h-5 w-5" />
-            Send Agreement of Purchase
+            {t('sendAgreementDialog.title')}
           </DialogTitle>
           <DialogDescription>
             {packageName
-              ? <>Send <strong>{client.name}</strong> a prefilled Agreement of Purchase for <strong>{packageName}</strong>.</>
-              : <>Send <strong>{client.name}</strong> a prefilled Agreement of Purchase.</>}
+              ? (
+                <Trans
+                  t={t}
+                  i18nKey="sendAgreementDialog.descriptionWithPackage"
+                  values={{ name: client.name, packageName }}
+                  components={{ b: <strong /> }}
+                />
+              )
+              : (
+                <Trans
+                  t={t}
+                  i18nKey="sendAgreementDialog.description"
+                  values={{ name: client.name }}
+                  components={{ b: <strong /> }}
+                />
+              )}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,29 +146,32 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
         ) : templates.length === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              No Agreement of Purchase templates yet. Create one in{' '}
-              <span className="font-medium">Settings → Agreements of Purchase</span>, then come back here.
+              <Trans
+                t={t}
+                i18nKey="sendAgreementDialog.noTemplates"
+                components={{ b: <span className="font-medium" /> }}
+              />
             </p>
-            <Button variant="outline" className="w-full" onClick={onClose}>Skip for now</Button>
+            <Button variant="outline" className="w-full" onClick={onClose}>{t('sendAgreementDialog.skipForNow')}</Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label className="text-xs">Template</Label>
+              <Label className="text-xs">{t('send.template')}</Label>
               <Select value={selectedTpl} onValueChange={setSelectedTpl}>
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select template" />
+                  <SelectValue placeholder={t('send.selectTemplate')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  {templates.map(tpl => (
+                    <SelectItem key={tpl.id} value={tpl.id}>{tpl.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">SMS Provider</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t('send.smsProvider')}</Label>
               <div className="flex gap-2">
                 {(['infobip', 'twilio', 'quo'] as SmsProvider[]).map(p => (
                   <button
@@ -177,7 +196,7 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
                 />
                 <Label htmlFor="agreement-otp" className="text-xs flex items-center gap-1.5 cursor-pointer">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  Require OTP verification
+                  {t('send.requireOtp')}
                 </Label>
               </div>
             </div>
@@ -188,20 +207,20 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
                 disabled={sendingMode !== null || !selectedTpl || !client.phone}
                 variant="outline"
                 className="gap-1.5 h-9"
-                title={!client.phone ? 'Client has no phone number' : undefined}
+                title={!client.phone ? t('send.noPhone') : undefined}
               >
                 {sendingMode === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                Send via SMS {requiresOtp ? '+ OTP' : ''}
+                {requiresOtp ? t('send.sendViaSmsOtp') : t('send.sendViaSms')}
               </Button>
               <Button
                 onClick={() => send('email')}
                 disabled={sendingMode !== null || !selectedTpl || !client.email}
                 variant="outline"
                 className="gap-1.5 h-9"
-                title={!client.email ? 'Client has no email on file' : undefined}
+                title={!client.email ? t('send.noEmail') : undefined}
               >
                 {sendingMode === 'email' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Send via Email
+                {t('send.sendViaEmail')}
               </Button>
               <Button
                 onClick={() => send('device')}
@@ -209,12 +228,12 @@ export function SendAgreementDialog({ client, purchaseId, packageName, isOpen, o
                 className="gap-1.5 h-9"
               >
                 {sendingMode === 'device' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tablet className="h-4 w-4" />}
-                Sign on this device
+                {t('sendAgreementDialog.signOnDevice')}
               </Button>
             </div>
 
             <Button variant="ghost" className="w-full" onClick={onClose} disabled={sendingMode !== null}>
-              Skip for now
+              {t('sendAgreementDialog.skipForNow')}
             </Button>
           </div>
         )}

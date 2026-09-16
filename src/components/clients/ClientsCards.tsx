@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ClientCommunicationModal } from './ClientCommunicationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useTranslation } from 'react-i18next';
 
 interface ClientsCardsProps {
   clients: Client[];
@@ -31,6 +32,7 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
   onDeleteClient,
   onSendWaiver,
 }) => {
+  const { t } = useTranslation('clients');
   const isMobile = useIsMobile();
   const isAdmin = useIsAdmin();
   const [communicationClient, setCommunicationClient] = useState<Client | null>(null);
@@ -104,7 +106,7 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
           <Card key={client.id} className="hover:shadow-md transition-shadow">
             <CardHeader className={`${isMobile ? 'pb-2' : 'pb-3'}`}>
               <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0 flex-1">
                   <User className="h-5 w-5 text-gray-400 flex-shrink-0" />
                   <CardTitle className={`${isMobile ? 'text-base' : 'text-lg'} truncate`}>
                     {client.name}
@@ -114,7 +116,7 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={(e) => handleEditClient(client, e)}
-                  title="Edit Client"
+                  title={t('actions.editClient')}
                   className="min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-auto"
                 >
                   <Edit className="h-4 w-4" />
@@ -123,27 +125,27 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
             </CardHeader>
             <CardContent className={`space-y-2 ${isMobile ? 'space-y-2' : 'space-y-3'}`}>
               <div className="space-y-1 sm:space-y-2">
-                <div className="flex items-center space-x-2 text-sm">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse text-sm">
                   <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{client.phone}</span>
+                  <span className="truncate ltr-inline">{client.phone}</span>
                 </div>
                 {client.email && (
-                  <div className="flex items-center space-x-2 text-sm">
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse text-sm">
                     <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="truncate">{client.email}</span>
+                    <span className="truncate ltr-inline">{client.email}</span>
                   </div>
                 )}
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Status:</span>
+                <span className="text-sm text-gray-600">{t('cards.statusLabel')}</span>
                 {client.status === 'Membership Ended' ? (
                   // Ended is derived from package lifecycle — not user-editable
                   // from this dropdown. Show a read-only red badge; staff can
                   // still flip has_membership manually via the client details
                   // modal or by assigning a new package.
                   <span className={`px-2 py-1 rounded text-xs ${getStatusColor(client.status)}`}>
-                    Membership Ended
+                    {t('status.membershipEnded')}
                   </span>
                 ) : (
                   <select
@@ -154,15 +156,15 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                     }}
                     className={`px-2 py-1 rounded text-xs border-none ${getStatusColor(client.status)} max-w-[140px]`}
                   >
-                    <option value="Have Membership">Have Membership</option>
-                    <option value="Don't Have Membership">Don't Have Membership</option>
+                    <option value="Have Membership">{t('status.haveMembership')}</option>
+                    <option value="Don't Have Membership">{t('status.noMembership')}</option>
                   </select>
                 )}
               </div>
 
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Visits: {client.totalVisits}</span>
-                <span className="truncate">Last: {client.lastVisit}</span>
+                <span>{t('cards.visits', { count: client.totalVisits })}</span>
+                <span className="truncate">{t('cards.lastVisit', { date: client.lastVisit })}</span>
               </div>
 
               <div className={`grid gap-1 pt-2 ${isMobile ? 'grid-cols-2' : 'grid-cols-3'}`}>
@@ -170,28 +172,28 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                   size="sm"
                   variant="outline"
                   onClick={(e) => handleViewDetails(client, e)}
-                  title="View Details"
+                  title={t('actions.viewDetails')}
                   className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                 >
                   <Eye className="h-3 w-3" />
-                  {!isMobile && <span className="ml-1 text-xs">View</span>}
+                  {!isMobile && <span className="ms-1 text-xs">{t('actions.view')}</span>}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={(e) => handleCommunication(client, e)}
-                  title="Send Message"
+                  title={t('actions.sendMessage')}
                   className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                 >
                   <MessageSquare className="h-3 w-3" />
-                  {!isMobile && <span className="ml-1 text-xs">Message</span>}
+                  {!isMobile && <span className="ms-1 text-xs">{t('actions.message')}</span>}
                 </Button>
                 {!isMobile && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={(e) => handleBookAppointment(client, e)}
-                    title="Book Appointment"
+                    title={t('actions.bookAppointment')}
                     className="h-8"
                   >
                     <Calendar className="h-3 w-3" />
@@ -205,11 +207,11 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                     size="sm"
                     variant="outline"
                     onClick={(e) => handleBookAppointment(client, e)}
-                    title="Book Appointment"
+                    title={t('actions.bookAppointment')}
                     className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                   >
-                    <Calendar className="h-3 w-3 mr-1" />
-                    <span className="text-xs">Book</span>
+                    <Calendar className="h-3 w-3 me-1" />
+                    <span className="text-xs">{t('actions.book')}</span>
                   </Button>
                 )}
                 {isAdmin && (
@@ -217,11 +219,11 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                     size="sm"
                     variant="outline"
                     onClick={(e) => handleAssignPackage(client, e)}
-                    title="Assign Package"
+                    title={t('actions.assignPackage')}
                     className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                   >
-                    <Package className="h-3 w-3 mr-1" />
-                    <span className="text-xs">Package</span>
+                    <Package className="h-3 w-3 me-1" />
+                    <span className="text-xs">{t('actions.package')}</span>
                   </Button>
                 )}
                 {onSendWaiver && (
@@ -229,11 +231,11 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                     size="sm"
                     variant="outline"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSendWaiver(client); }}
-                    title="Send Waiver"
+                    title={t('actions.sendWaiver')}
                     className="h-8 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                   >
-                    <FileSignature className="h-3 w-3 mr-1" />
-                    <span className="text-xs">Waiver</span>
+                    <FileSignature className="h-3 w-3 me-1" />
+                    <span className="text-xs">{t('actions.waiver')}</span>
                   </Button>
                 )}
                 {onDeleteClient && (
@@ -242,31 +244,30 @@ export const ClientsCards: React.FC<ClientsCardsProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        title="Delete Client"
+                        title={t('actions.deleteClient')}
                         className="h-8 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 min-w-[44px] min-h-[44px] sm:min-w-auto sm:min-h-8"
                         onClick={(e) => {
                           e.stopPropagation();
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
-                        {!isMobile && <span className="ml-1 text-xs">Delete</span>}
+                        {!isMobile && <span className="ms-1 text-xs">{t('actions.delete')}</span>}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will move "{client.name}" to trash for 30 days. You can restore them during this period.
-                          After 30 days, the client data will be permanently deleted.
+                          {t('deleteDialog.description', { name: `"${client.name}"` })}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
                         <AlertDialogAction 
                           onClick={(e) => handleDeleteClient(client.id, e)}
                           className="bg-red-600 hover:bg-red-700"
                         >
-                          Move to Trash
+                          {t('deleteDialog.confirm')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

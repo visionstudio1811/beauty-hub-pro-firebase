@@ -14,9 +14,49 @@ import {
   todayInTimezone,
   describeAppointment,
 } from './lib/appointmentConfirm';
+import { defineStrings, getOrgLanguage, makeT } from './lib/i18n';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
+
+// Two audiences, both in the org's language:
+//  - Auto-reply SMS sent back to CLIENTS after they answer 1/2/3 (or a keyword)
+//    to an appointment reminder.
+//  - STAFF-facing labels written into clientCommunications at webhook time
+//    (call summary line + transcript speaker labels). These are frozen in the
+//    org's language as of the write, which matches how the timeline is read.
+const STRINGS = defineStrings({
+  en: {
+    noUpcoming: "We couldn't find an upcoming appointment to update. Please call us and we'll help.",
+    confirmed: 'Thank you! Your appointment is confirmed ✅',
+    confirmedOn: 'Thank you! Your appointment on {{when}} is confirmed ✅',
+    cancelRequested: "We've passed your cancellation request to our team, who will follow up shortly.",
+    cancelRequestedFor: "We've passed your cancellation request for {{when}} to our team, who will follow up shortly.",
+    rescheduleRequested: "We've passed your reschedule request to our team, who will reach out to find a new time.",
+    rescheduleRequestedFor: "We've passed your reschedule request for {{when}} to our team, who will reach out to find a new time.",
+    callIncoming: 'Incoming call',
+    callOutgoing: 'Outgoing call',
+    callDuration: ' · {{seconds}}s',
+    callStatus: ' ({{status}})',
+    speakerStaff: 'Staff',
+    speakerClient: 'Client',
+  },
+  he: {
+    noUpcoming: 'לא מצאנו תור קרוב לעדכון. אנא התקשרו אלינו ונשמח לעזור.',
+    confirmed: 'תודה! התור שלכם אושר ✅',
+    confirmedOn: 'תודה! התור שלכם ב{{when}} אושר ✅',
+    cancelRequested: 'העברנו את בקשת הביטול שלכם לצוות שלנו, שיחזור אליכם בהקדם.',
+    cancelRequestedFor: 'העברנו את בקשת הביטול שלכם לתור ב{{when}} לצוות שלנו, שיחזור אליכם בהקדם.',
+    rescheduleRequested: 'העברנו את בקשת שינוי המועד שלכם לצוות שלנו, שיפנה אליכם לקביעת מועד חדש.',
+    rescheduleRequestedFor: 'העברנו את בקשת שינוי המועד שלכם לתור ב{{when}} לצוות שלנו, שיפנה אליכם לקביעת מועד חדש.',
+    callIncoming: 'שיחה נכנסת',
+    callOutgoing: 'שיחה יוצאת',
+    callDuration: ' · {{seconds}} שנ׳',
+    callStatus: ' ({{status}})',
+    speakerStaff: 'צוות',
+    speakerClient: 'לקוח/ה',
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* Quo webhook payload shapes (subset we consume)                      */
@@ -152,25 +192,26 @@ async function interpretReply(orgId: string, ev: QuoEvent): Promise<void> {
     const clientId = await findClientIdByPhone(orgId, sender);
     if (!clientId) return;
 
-    const tz = await getOrgTimezone(orgId);
+    const [tz, lang] = await Promise.all([getOrgTimezone(orgId), getOrgLanguage(orgId)]);
+    const t = makeT(STRINGS, lang);
     const appt = await findNearestUpcomingAppointment(orgId, clientId, todayInTimezone(tz));
     if (!appt) {
-      await ackSms(orgId, sender, "We couldn't find an upcoming appointment to update. Please call us and we'll help.");
+      await ackSms(orgId, sender, t('noUpcoming'));
       return;
     }
 
-    const when = describeAppointment(appt.data, tz);
+    const when = describeAppointment(appt.data, tz, lang);
     if (intent === 'confirm') {
       await confirmAppointment(orgId, appt.id, 'sms');
-      await ackSms(orgId, sender, `Thank you! Your appointment${when ? ` on ${when}` : ''} is confirmed ✅`);
+      await ackSms(orgId, sender, when ? t('confirmedOn', { when }) : t('confirmed'));
     } else if (intent === 'cancel') {
       await requestCancellation(orgId, appt.id, 'sms');
       await alertStaff(orgId, appt.id, 'cancellation', String(appt.data.client_name || ''));
-      await ackSms(orgId, sender, `We've passed your cancellation request${when ? ` for ${when}` : ''} to our team, who will follow up shortly.`);
+      await ackSms(orgId, sender, when ? t('cancelRequestedFor', { when }) : t('cancelRequested'));
     } else {
       await requestReschedule(orgId, appt.id, 'sms');
       await alertStaff(orgId, appt.id, 'reschedule', String(appt.data.client_name || ''));
-      await ackSms(orgId, sender, `We've passed your reschedule request${when ? ` for ${when}` : ''} to our team, who will reach out to find a new time.`);
+      await ackSms(orgId, sender, when ? t('rescheduleRequestedFor', { when }) : t('rescheduleRequested'));
     }
   } catch (err) {
     console.error('Quo interpretReply error:', err instanceof Error ? err.message : String(err));
@@ -227,9 +268,13 @@ async function handleEvent(orgId: string, ev: QuoEvent): Promise<void> {
       if (!callId) return;
       const direction = mapCallDirection(resource.direction);
       const dur = typeof resource.duration === 'number' ? resource.duration : null;
-      const label = `${direction === 'inbound' ? 'Incoming' : 'Outgoing'} call${
-        dur != null ? ` · ${dur}s` : ''
-      }${resource.status ? ` (${resource.status})` : ''}`;
+      // Staff-facing timeline line, in the org's language (60s-cached read).
+      // resource.status is Quo's raw enum and stays as data.
+      const t = makeT(STRINGS, await getOrgLanguage(orgId));
+      const label =
+        t(direction === 'inbound' ? 'callIncoming' : 'callOutgoing') +
+        (dur != null ? t('callDuration', { seconds: dur }) : '') +
+        (resource.status ? t('callStatus', { status: resource.status }) : '');
       return upsertCallRow(orgId, callId, counterparty, {
         direction,
         message: label,
@@ -252,8 +297,11 @@ async function handleEvent(orgId: string, ev: QuoEvent): Promise<void> {
     case 'call.transcript.completed': {
       const callId = resource.callId;
       if (!callId) return;
+      // Speaker labels are staff-facing; the external identifier (phone
+      // number) is data and is preferred over the generic "Client" label.
+      const t = makeT(STRINGS, await getOrgLanguage(orgId));
       const transcript = (resource.dialogue ?? [])
-        .map((d) => `${d.userId ? 'Staff' : d.identifier || 'Client'}: ${d.content ?? ''}`)
+        .map((d) => `${d.userId ? t('speakerStaff') : d.identifier || t('speakerClient')}: ${d.content ?? ''}`)
         .join('\n');
       return upsertCallRow(orgId, callId, counterparty, { transcript });
     }

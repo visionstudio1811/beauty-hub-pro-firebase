@@ -10,6 +10,7 @@ import { db, functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
+import { Trans, useTranslation } from 'react-i18next';
 import { Loader2, MessageSquare, TestTube, ExternalLink, PhoneIncoming, PhoneOff } from 'lucide-react';
 
 interface QuoIntegrationProps {
@@ -22,6 +23,7 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { currentOrganization } = useOrganization();
+  const { t } = useTranslation('integrations');
 
   const [config, setConfig] = useState({
     apiKey: '', // write-only — never prefilled; blank means "keep saved key"
@@ -68,13 +70,13 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
       }
 
       toast({
-        title: 'Quo configuration saved',
-        description: 'Your Quo settings have been saved successfully.',
+        title: t('quo.savedToast'),
+        description: t('quo.savedToastDescription'),
       });
 
       onUpdate();
     } catch (error: any) {
-      toast({ title: 'Error saving configuration', description: error.message, variant: 'destructive' });
+      toast({ title: t('shared.errorSavingConfiguration'), description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -83,8 +85,8 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
   const handleTest = async () => {
     if (!integration) {
       toast({
-        title: 'Save configuration first',
-        description: 'Please save your Quo configuration before testing.',
+        title: t('shared.saveConfigurationFirst'),
+        description: t('quo.saveFirstDescription'),
         variant: 'destructive',
       });
       return;
@@ -97,13 +99,13 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
       const data = result.data as { success?: boolean; error?: string };
 
       if (data.success) {
-        toast({ title: 'Test successful', description: 'Quo connection is working properly.' });
+        toast({ title: t('shared.testSuccessful'), description: t('quo.testSuccessDescription') });
         onUpdate();
       } else {
-        throw new Error(data.error || 'Test failed');
+        throw new Error(data.error || t('shared.testFailedGeneric'));
       }
     } catch (error: any) {
-      toast({ title: 'Test failed', description: error.message, variant: 'destructive' });
+      toast({ title: t('shared.testFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setTesting(false);
     }
@@ -112,8 +114,8 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
   const handleToggleWebhooks = async () => {
     if (!integration) {
       toast({
-        title: 'Save configuration first',
-        description: 'Save and test your Quo configuration before enabling history sync.',
+        title: t('shared.saveConfigurationFirst'),
+        description: t('quo.saveAndTestFirst'),
         variant: 'destructive',
       });
       return;
@@ -125,17 +127,17 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
       const fn = httpsCallable(functions, fnName);
       const result = await fn({ organizationId: currentOrganization?.id });
       const data = result.data as { success?: boolean; error?: string };
-      if (!data.success) throw new Error(data.error || 'Request failed');
+      if (!data.success) throw new Error(data.error || t('quo.requestFailed'));
 
       toast({
-        title: webhooksRegistered ? 'History sync disabled' : 'History sync enabled',
+        title: webhooksRegistered ? t('quo.historySyncDisabled') : t('quo.historySyncEnabled'),
         description: webhooksRegistered
-          ? 'Quo will no longer send inbound SMS and call events to this CRM.'
-          : 'Inbound SMS replies and call records will now appear in each client\'s history.',
+          ? t('quo.historySyncDisabledDescription')
+          : t('quo.historySyncEnabledDescription'),
       });
       onUpdate();
     } catch (error: any) {
-      toast({ title: 'Could not update history sync', description: error.message, variant: 'destructive' });
+      toast({ title: t('quo.historySyncUpdateFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setSyncing(false);
     }
@@ -146,86 +148,85 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2" />
-            Quo SMS &amp; Call Sync
+            <MessageSquare className="h-5 w-5 me-2" />
+            {t('quo.title')}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.open('https://my.quo.com/', '_blank')}
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Quo Dashboard
+              <ExternalLink className="h-4 w-4 me-2" />
+              {t('quo.dashboardButton')}
             </Button>
             {integration?.status && (
               <Badge variant={integration.status === 'connected' ? 'default' : 'secondary'}>
-                {integration.status}
+                {t(`shared.status.${integration.status}`, { defaultValue: integration.status })}
               </Badge>
             )}
           </div>
         </CardTitle>
         <CardDescription>
-          Send SMS campaigns and waivers through Quo, and sync inbound SMS replies and call
-          records (with transcripts and summaries) into each client's history. Note: Quo's API
-          cannot place outbound calls — it logs calls that happen through the Quo app.
+          {t('quo.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="quoApiKey">API Key</Label>
+            <Label htmlFor="quoApiKey">{t('shared.apiKey')}</Label>
             <Input
               id="quoApiKey"
               value={config.apiKey}
               onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-              placeholder={hasSecret ? `••••${secretLast4 ?? ''} (saved)` : 'Enter your Quo API key'}
+              placeholder={hasSecret ? t('shared.savedKeyPlaceholder', { last4: secretLast4 ?? '' }) : t('quo.apiKeyPlaceholder')}
               type="password"
             />
             {hasSecret && (
-              <p className="text-xs text-muted-foreground mt-1">Leave blank to keep your saved key.</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('shared.leaveBlankToKeepKey')}</p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="quoFromNumber">Quo Phone Number</Label>
+            <Label htmlFor="quoFromNumber">{t('quo.phoneNumberLabel')}</Label>
             <Input
               id="quoFromNumber"
               value={config.fromNumber}
               onChange={(e) => setConfig({ ...config, fromNumber: e.target.value })}
-              placeholder="+1234567890"
+              placeholder={t('quo.phoneNumberPlaceholder')}
+              dir="ltr"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Must be a number owned by your Quo workspace, in E.164 format.
+              {t('quo.phoneNumberHelp')}
             </p>
           </div>
 
           <div>
-            <Label htmlFor="quoUserId">Sender User ID (optional)</Label>
+            <Label htmlFor="quoUserId">{t('quo.userIdLabel')}</Label>
             <Input
               id="quoUserId"
               value={config.userId}
               onChange={(e) => setConfig({ ...config, userId: e.target.value })}
-              placeholder="US123abc — leave blank to send as the number owner"
+              placeholder={t('quo.userIdPlaceholder')}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="quoEnabled"
               checked={config.isEnabled}
               onCheckedChange={(checked) => setConfig({ ...config, isEnabled: checked })}
             />
-            <Label htmlFor="quoEnabled">Enable Quo SMS</Label>
+            <Label htmlFor="quoEnabled">{t('quo.enableLabel')}</Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="quoPrimary"
               checked={config.isPrimary}
               onCheckedChange={(checked) => setConfig({ ...config, isPrimary: checked })}
             />
-            <Label htmlFor="quoPrimary">Make Quo the default SMS provider</Label>
+            <Label htmlFor="quoPrimary">{t('quo.primaryLabel')}</Label>
           </div>
         </div>
 
@@ -237,38 +238,38 @@ export const QuoIntegration: React.FC<QuoIntegrationProps> = ({ integration, onU
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={handleSave} disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Save Configuration
+            {loading && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+            {t('shared.saveConfiguration')}
           </Button>
 
           {integration && (
             <Button variant="outline" onClick={handleTest} disabled={testing}>
-              {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <TestTube className="h-4 w-4 mr-2" />}
-              Test Connection
+              {testing ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <TestTube className="h-4 w-4 me-2" />}
+              {t('shared.testConnection')}
             </Button>
           )}
 
           {integration && (
             <Button variant="outline" onClick={handleToggleWebhooks} disabled={syncing}>
               {syncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : webhooksRegistered ? (
-                <PhoneOff className="h-4 w-4 mr-2" />
+                <PhoneOff className="h-4 w-4 me-2" />
               ) : (
-                <PhoneIncoming className="h-4 w-4 mr-2" />
+                <PhoneIncoming className="h-4 w-4 me-2" />
               )}
-              {webhooksRegistered ? 'Disable History Sync' : 'Enable Call & SMS History Sync'}
+              {webhooksRegistered ? t('quo.disableHistorySync') : t('quo.enableHistorySync')}
             </Button>
           )}
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p className="font-medium mb-2">Setup Instructions:</p>
+          <p className="font-medium mb-2">{t('shared.setupInstructions')}</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>In Quo → Workspace Settings → API, generate an API key</li>
-            <li>Enter the key and one of your Quo phone numbers above</li>
-            <li>Save, then click <strong>Test Connection</strong></li>
-            <li>Click <strong>Enable Call &amp; SMS History Sync</strong> to log inbound replies and calls</li>
+            <li>{t('quo.steps.generateKey')}</li>
+            <li>{t('quo.steps.enterKey')}</li>
+            <li><Trans t={t} i18nKey="quo.steps.saveThenTest" components={{ b: <strong /> }} /></li>
+            <li><Trans t={t} i18nKey="quo.steps.enableSync" components={{ b: <strong /> }} /></li>
           </ol>
         </div>
       </CardContent>

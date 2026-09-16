@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PurchasesSection } from '@/components/dashboard/PurchasesSection';
 
 const Sales: React.FC = () => {
+  const { t } = useTranslation('dashboard');
   const [dateFilter, setDateFilter] = useState<string>('');
 
   return (
@@ -14,15 +16,13 @@ const Sales: React.FC = () => {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-violet-600" />
-            Sales
+            {t('sales.title')}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            All revenue from packages, product sales, and facials.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t('sales.subtitle')}</p>
         </div>
         <div className="flex items-end gap-2">
           <div className="grid gap-1">
-            <Label htmlFor="sales-date" className="text-xs">Date</Label>
+            <Label htmlFor="sales-date" className="text-xs">{t('sales.date')}</Label>
             <Input
               id="sales-date"
               type="date"
@@ -33,7 +33,7 @@ const Sales: React.FC = () => {
           </div>
           {dateFilter && (
             <Button variant="outline" size="sm" onClick={() => setDateFilter('')}>
-              Show all
+              {t('sales.showAll')}
             </Button>
           )}
         </div>
@@ -41,11 +41,11 @@ const Sales: React.FC = () => {
 
       <PurchasesSection
         dateFilter={dateFilter}
-        title="Revenue Detail"
+        title={t('sales.revenueDetail')}
         description={
           dateFilter
-            ? `Showing purchases on ${dateFilter}.`
-            : 'Showing all purchases across all time. Pick a date to narrow.'
+            ? t('sales.showingOnDate', { date: dateFilter })
+            : t('sales.showingAll')
         }
       />
     </div>

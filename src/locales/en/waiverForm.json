@@ -1,0 +1,160 @@
+{
+  "defaults": {
+    "waiver": "Waiver",
+    "form": "Form",
+    "subHeadline": "Please read carefully and complete all required fields.",
+    "city": "City",
+    "referralSource": "How did you hear about us?",
+    "email": "Email",
+    "phone": "Phone",
+    "date": "Date",
+    "time": "Time",
+    "signature": "Signature",
+    "uploadPhotos": "Upload photo(s)"
+  },
+  "purchaseLabels": {
+    "package_name": "Package",
+    "package_price": "Price",
+    "package_sessions": "Sessions",
+    "purchase_date": "Purchase date",
+    "expiry_date": "Valid until"
+  },
+  "pdf": {
+    "signedBy": "Signed by: {{name}}",
+    "email": "Email: {{email}}",
+    "phone": "Phone: {{phone}}",
+    "date": "Date: {{date}}",
+    "esignConsent": "Signer agreed to use electronic records and signatures.",
+    "notSigned": "(not signed)",
+    "noImages": "(no images uploaded)",
+    "answer": "Answer: {{answer}}",
+    "yesAgreed": "Yes / Agreed",
+    "yes": "Yes",
+    "no": "No",
+    "files_one": "{{count}} file",
+    "files_two": "{{count}} files",
+    "files_many": "{{count}} files",
+    "files_other": "{{count}} files",
+    "signatureHeading": "Signature:"
+  },
+  "errors": {
+    "submissionFailed": "Submission failed. Please try again.",
+    "readFile": "Failed to read file",
+    "readImage": "Failed to read image",
+    "tokenNotFound": "Token not found",
+    "server": {
+      "invalidToken": "Invalid link.",
+      "alreadySubmitted": "Form already submitted.",
+      "linkExpired": "Link expired.",
+      "uploadLimit": "Upload limit reached for this form.",
+      "pdfTooLarge": "PDF too large.",
+      "imageTooLarge": "Image too large.",
+      "unsupportedImage": "Unsupported image type."
+    }
+  },
+  "states": {
+    "connectionError": {
+      "title": "Connection error",
+      "description": "Could not load the form. Check your connection and try again.",
+      "retry": "Try Again"
+    },
+    "notFound": {
+      "title": "Link not found",
+      "description": "This waiver link is invalid or has expired."
+    },
+    "alreadySigned": {
+      "title": "Already submitted",
+      "description": "This waiver has already been signed. Thank you!"
+    },
+    "expired": {
+      "title": "Link expired",
+      "description": "This waiver link has expired. Please contact the business for a new link."
+    },
+    "done": {
+      "title": "Thank you, {{name}}!",
+      "description": "Your waiver has been signed and saved. You may close this page."
+    }
+  },
+  "otp": {
+    "title": "Verify your identity",
+    "subtitle": "Enter the 6-digit code sent to your phone.",
+    "label": "Verification Code",
+    "placeholder": "123456",
+    "verifying": "Verifying…",
+    "verify": "Verify & Open Form",
+    "noCode": "Didn't receive a code? Contact the salon to resend the form.",
+    "invalidLength": "Please enter the 6-digit code from your SMS.",
+    "invalidCode": "Invalid code. Please try again."
+  },
+  "signer": {
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Your full name",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 555 123 4567"
+  },
+  "signature": {
+    "label": "Signature",
+    "consentPrefix": "I agree to use ",
+    "consentLink": "electronic records and signatures",
+    "consentSuffix": ".",
+    "alt": "Your signature",
+    "saved": "Signature saved",
+    "enableHint": "Check the box above to enable signing",
+    "captured": "Signature captured — scroll freely",
+    "draw": "Draw your signature above",
+    "consentRequired": "Consent required before signing",
+    "resign": "Re-sign"
+  },
+  "submit": {
+    "button": "Submit & Sign",
+    "submitting": "Submitting…"
+  },
+  "validation": {
+    "name": "Please enter your full name.",
+    "email": "Please enter your email.",
+    "emailInvalid": "Please enter a valid email address.",
+    "phone": "Please enter your phone number.",
+    "phoneInvalid": "Please enter a valid phone number.",
+    "image": "Please upload at least one image.",
+    "signature": "Please draw your signature.",
+    "required": "This field is required.",
+    "consent": "Please agree to use electronic records and signatures."
+  },
+  "blocks": {
+    "yourAnswer": "Your answer",
+    "emailPlaceholder": "name@example.com",
+    "phonePlaceholder": "+1 555 123 4567",
+    "selectCity": "Select City",
+    "selectSource": "Select Source",
+    "otherCity": "+ Other city…",
+    "otherSource": "+ Other source…",
+    "enterCity": "Enter your city",
+    "enterSource": "Enter source",
+    "uploadAlt": "Upload {{index}}",
+    "removeImage": "Remove image",
+    "tapToAddPhoto": "Tap to add photo ({{remaining}} left)",
+    "tapToAddAnother": "Tap to add another photo ({{remaining}} left)",
+    "formats": "JPG, PNG — up to 10 MB each",
+    "maxReached_one": "Maximum of {{count}} image reached",
+    "maxReached_two": "Maximum of {{count}} images reached",
+    "maxReached_many": "Maximum of {{count}} images reached",
+    "maxReached_other": "Maximum of {{count}} images reached",
+    "skippedTooBig": "Skipped (over 10 MB): {{names}}",
+    "couldNotRead": "Could not read: {{names}}. Try again from your camera or gallery."
+  },
+  "disclosure": {
+    "title": "Electronic records & signatures — consumer disclosure",
+    "description": "Terms for signing this document electronically.",
+    "intro": "By ticking the agreement box, you consent to use electronic records and electronic signatures for this document, and to conduct business with us through our online signing system instead of on paper. Your electronic signature has the same legal effect as a handwritten one.",
+    "paperCopiesTitle": "Getting paper copies",
+    "paperCopies": "You may request a paper copy of any record we send you electronically, at no charge, by contacting the business. You may also print or save this document from your device after signing.",
+    "withdrawTitle": "Withdrawing consent",
+    "withdraw": "You may withdraw your consent to receive electronic records at any time by contacting us. Withdrawal of consent does not affect the validity of documents already signed electronically.",
+    "systemTitle": "System requirements",
+    "system": "To sign electronically you need an internet-connected device with a modern web browser, a valid email address on file, and the ability to view and download PDF documents.",
+    "contactTitle": "How to contact us",
+    "contact": "Contact the business directly (by phone, email, or in person) to request paper copies, update your contact details, or withdraw consent."
+  }
+}

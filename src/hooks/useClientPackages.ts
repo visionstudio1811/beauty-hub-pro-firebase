@@ -3,6 +3,7 @@ import { collection, doc, getDocs, getDoc, query, where } from 'firebase/firesto
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface SessionSlot {
   treatment_id: string;
@@ -37,6 +38,7 @@ export const useClientPackages = (clientId?: string) => {
   const [packages, setPackages] = useState<ClientPackage[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const orgId = currentOrganization?.id;
@@ -99,11 +101,11 @@ export const useClientPackages = (clientId?: string) => {
       setPackages(transformedPackages);
     } catch (error) {
       console.error('Error fetching client packages:', error);
-      toast({ title: 'Error', description: 'Failed to load client packages', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('clientPackages.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [orgId, toast]);
+  }, [orgId, toast, t]);
 
   useEffect(() => {
     if (clientId && orgId) {

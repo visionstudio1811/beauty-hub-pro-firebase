@@ -6,8 +6,10 @@ import { Plus, Package as PackageIcon, Loader2 } from 'lucide-react';
 import { usePackages, Package } from '@/contexts/PackageContext';
 import { PackageCard } from './PackageCard';
 import { PackageForm } from './PackageForm';
+import { useTranslation } from 'react-i18next';
 
 export const PackageManagement: React.FC = () => {
+  const { t } = useTranslation('packages');
   const { packages, loading, error, deletePackage, togglePackageStatus } = usePackages();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
@@ -41,13 +43,13 @@ export const PackageManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <PackageIcon className="h-5 w-5 text-purple-600" />
-            Package Management
+            {t('packageManagement.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <span className="ml-2 text-sm">Loading packages...</span>
+            <span className="ms-2 text-sm">{t('packageManagement.loading')}</span>
           </div>
         </CardContent>
       </Card>
@@ -60,12 +62,12 @@ export const PackageManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <PackageIcon className="h-5 w-5 text-purple-600" />
-            Package Management
+            {t('packageManagement.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-red-600">
-            <p className="text-sm">Error loading packages: {error}</p>
+            <p className="text-sm">{t('packageManagement.loadError', { error })}</p>
           </div>
         </CardContent>
       </Card>
@@ -78,11 +80,11 @@ export const PackageManagement: React.FC = () => {
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
           <CardTitle className="flex items-center gap-2 min-w-0 flex-1 text-lg">
             <PackageIcon className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <span className="truncate">Package Management</span>
+            <span className="truncate">{t('packageManagement.title')}</span>
           </CardTitle>
           <Button onClick={openAddModal} className="w-full sm:w-auto shrink-0">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Package
+            <Plus className="h-4 w-4 me-2" />
+            {t('packageManagement.addPackage')}
           </Button>
         </div>
       </CardHeader>
@@ -90,7 +92,7 @@ export const PackageManagement: React.FC = () => {
         {packages.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <PackageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">No packages found. Create your first package to get started.</p>
+            <p className="text-sm">{t('packageManagement.empty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

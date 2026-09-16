@@ -1,0 +1,127 @@
+{
+  "common": {
+    "noOrganization": "No organization selected",
+    "notSignedIn": "Not signed in"
+  },
+  "fallbacks": {
+    "unknownClient": "Unknown Client",
+    "unknownTreatment": "Unknown Treatment",
+    "unknownStaff": "Unknown Staff",
+    "noPhone": "No Phone",
+    "noEmail": "No Email",
+    "addon": "Add-on",
+    "unknown": "Unknown",
+    "package": "Package",
+    "product": "Product",
+    "customPackage": "Custom package",
+    "facial": "Facial",
+    "staff": "Staff"
+  },
+  "appointments": {
+    "loadFailed": "Failed to load appointments. Please try refreshing the page.",
+    "mustBeLoggedIn": "You must be logged in to create appointments",
+    "profileNeedsOrganization": "User profile must be associated with an organization",
+    "created": "Appointment created successfully",
+    "createFailed": "Failed to create appointment",
+    "updated": "Appointment updated successfully",
+    "updateFailed": "Failed to update appointment",
+    "deleted": "Appointment deleted successfully",
+    "deleteFailed": "Failed to delete appointment"
+  },
+  "appointmentForm": {
+    "selectTreatmentAndStaff": "Please select treatment and staff",
+    "enterTime": "Please enter a time",
+    "selectTimeSlot": "Please select a time slot",
+    "customTimeFormat": "Custom time must be in HH:MM format",
+    "staffFree_one": "{{time}} ({{count}} staff member free)",
+    "staffFree_two": "{{time}} ({{count}} staff free)",
+    "staffFree_other": "{{time}} ({{count}} staff free)"
+  },
+  "organizations": {
+    "loadFailed": "Failed to load organization",
+    "created": "Organization created successfully",
+    "createFailed": "Failed to create organization",
+    "updated": "Organization updated successfully",
+    "updateFailed": "Failed to update organization",
+    "switchNotAvailableTitle": "Not available",
+    "switchNotAvailable": "Organization switching must be performed by an administrator.",
+    "switchDisabled": "Organization switching is disabled on the client."
+  },
+  "automations": {
+    "noOrganizationTitle": "No organization",
+    "cannotCreate": "Cannot create automation.",
+    "saveFailed": "Failed to save automation",
+    "updateFailed": "Failed to update automation",
+    "deleteFailed": "Failed to delete automation"
+  },
+  "treatments": {
+    "loadFailed": "Failed to load treatments",
+    "added": "Treatment added successfully",
+    "addFailed": "Failed to add treatment",
+    "updated": "Treatment updated successfully",
+    "updateFailed": "Failed to update treatment"
+  },
+  "addons": {
+    "loadFailed": "Failed to load add-ons",
+    "indexBuilding": "Index is still building. Wait 1–2 min and refresh.",
+    "rulesNotDeployed": "Firestore rules not deployed. Run firebase deploy --only firestore.",
+    "added": "Add-on added successfully",
+    "addFailed": "Failed to add add-on",
+    "updated": "Add-on updated successfully",
+    "updateFailed": "Failed to update add-on"
+  },
+  "schedulingConfig": {
+    "loadFailed": "Failed to load scheduling configurations",
+    "added": "Scheduling configuration added successfully",
+    "addFailed": "Failed to add scheduling configuration",
+    "updated": "Scheduling configuration updated successfully",
+    "updateFailed": "Failed to update scheduling configuration",
+    "deleted": "Scheduling configuration deleted successfully",
+    "deleteFailed": "Failed to delete scheduling configuration"
+  },
+  "dropdownData": {
+    "loadFailed": "Failed to load dropdown data",
+    "cityRemoved": "City removed successfully",
+    "cityRemoveFailed": "Failed to remove city",
+    "referralSourceRemoved": "Referral source removed successfully",
+    "referralSourceRemoveFailed": "Failed to remove referral source"
+  },
+  "businessHours": {
+    "loadFailed": "Failed to load business hours",
+    "updated": "Business hours updated successfully",
+    "updateFailed": "Failed to update business hours"
+  },
+  "clientPackages": {
+    "loadFailed": "Failed to load client packages"
+  },
+  "clientOperations": {
+    "packageAssigned": "Package assigned successfully",
+    "productAssigned": "Product assigned successfully",
+    "appointmentBooked": "Appointment booked successfully"
+  },
+  "staff": {
+    "loadFailed": "Failed to load staff",
+    "added": "Staff member added successfully",
+    "addFailed": "Failed to add staff member",
+    "updated": "Staff member updated successfully",
+    "updateFailed": "Failed to update staff member"
+  },
+  "deletedClients": {
+    "loadFailed": "Failed to load deleted clients",
+    "restored": "Client restored successfully",
+    "restoreFailed": "Failed to restore client",
+    "permanentlyDeleted": "Client permanently deleted",
+    "permanentDeleteFailed": "Failed to permanently delete client"
+  },
+  "businessInfo": {
+    "loadFailed": "Failed to load business information",
+    "updated": "Business information updated successfully",
+    "updateFailed": "Failed to update business information"
+  },
+  "profiles": {
+    "loadFailed": "Failed to load staff profiles"
+  },
+  "clientRevenue": {
+    "fetchFailed": "Failed to fetch revenue data"
+  }
+}

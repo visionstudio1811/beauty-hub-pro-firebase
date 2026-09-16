@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Settings as SettingsIcon,
@@ -41,6 +42,7 @@ import { InvoiceHistoryViewer } from '@/components/InvoiceHistoryViewer';
 
 
 const Settings = () => {
+  const { t } = useTranslation('settings');
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get('section') || 'general';
 
@@ -53,10 +55,10 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <SettingsIcon className="h-5 w-5" />
-                  General Settings
+                  {t('sections.general.title')}
                 </CardTitle>
                 <CardDescription>
-                  Manage your application's general settings and preferences
+                  {t('sections.general.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -65,9 +67,9 @@ const Settings = () => {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Brand Logo</CardTitle>
+                <CardTitle>{t('sections.brandLogo.title')}</CardTitle>
                 <CardDescription>
-                  Upload your business logo — it appears in the sidebar and as the browser tab icon
+                  {t('sections.brandLogo.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -76,9 +78,9 @@ const Settings = () => {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Dropdown Data Management</CardTitle>
+                <CardTitle>{t('sections.dropdownData.title')}</CardTitle>
                 <CardDescription>
-                  Manage dropdown options for forms and selections
+                  {t('sections.dropdownData.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -93,10 +95,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                User Management
+                {t('sections.users.title')}
               </CardTitle>
               <CardDescription>
-                Manage user accounts, roles, and permissions
+                {t('sections.users.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -110,10 +112,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Package Management
+                {t('sections.packages.title')}
               </CardTitle>
               <CardDescription>
-                Create and manage service packages for your clients
+                {t('sections.packages.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -127,10 +129,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Treatment Management
+                {t('sections.treatments.title')}
               </CardTitle>
               <CardDescription>
-                Manage your available treatments and services
+                {t('sections.treatments.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -144,10 +146,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                Add-ons
+                {t('sections.addons.title')}
               </CardTitle>
               <CardDescription>
-                Optional extras that staff and clients can attach to any appointment (e.g. eye mask, scalp massage)
+                {t('sections.addons.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -161,10 +163,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5" />
-                Product Management
+                {t('sections.products.title')}
               </CardTitle>
               <CardDescription>
-                Manage your products and retail inventory
+                {t('sections.products.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -178,10 +180,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                Categories
+                {t('sections.categories.title')}
               </CardTitle>
               <CardDescription>
-                Categorize products, facials, or both — pick the scope when creating each one.
+                {t('sections.categories.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -195,10 +197,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="h-5 w-5" />
-                Product Brands
+                {t('sections.brands.title')}
               </CardTitle>
               <CardDescription>
-                Manage the brands you carry — these appear as a dropdown when editing a product
+                {t('sections.brands.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -213,10 +215,10 @@ const Settings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Scheduling Configuration
+                  {t('sections.scheduling.title')}
                 </CardTitle>
                 <CardDescription>
-                  Configure your appointment scheduling settings and availability
+                  {t('sections.scheduling.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -225,9 +227,9 @@ const Settings = () => {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Business Hours</CardTitle>
+                <CardTitle>{t('sections.businessHours.title')}</CardTitle>
                 <CardDescription>
-                  Set your operating hours for each day of the week
+                  {t('sections.businessHours.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -246,10 +248,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSignature className="h-5 w-5" />
-                Waiver Templates
+                {t('sections.waivers.title')}
               </CardTitle>
               <CardDescription>
-                Create and manage consent waiver forms to send to clients before their appointments
+                {t('sections.waivers.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -263,10 +265,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
-                Intake Form Templates
+                {t('sections.intake.title')}
               </CardTitle>
               <CardDescription>
-                Create and manage new-client intake forms — collect medical history, contact info, photos, etc.
+                {t('sections.intake.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -280,10 +282,10 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileSignature className="h-5 w-5" />
-                Agreement of Purchase Templates
+                {t('sections.agreements.title')}
               </CardTitle>
               <CardDescription>
-                Templates sent automatically after a package is assigned to a client. Build the template once with package blocks (Package Name, Price, Sessions, Purchase Date, Expiry) and standard blocks (text, signature, etc.) — purchase + client fields prefill from the linked purchase.
+                {t('sections.agreements.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -306,9 +308,9 @@ const Settings = () => {
     <div className="w-full max-w-none mx-auto px-2 sm:px-4 lg:px-6">
       <div className="space-y-6 w-full overflow-hidden">
         <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{t('page.title')}</h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1">
-            Manage your application settings and preferences
+            {t('page.subtitle')}
           </p>
         </div>
         <div className="w-full overflow-hidden">

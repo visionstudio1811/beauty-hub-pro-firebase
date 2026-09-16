@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calendar as CalendarIcon, AlertCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/i18n/dateLocale';
 import { cn } from '@/lib/utils';
 
 interface Treatment {
@@ -107,6 +109,7 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
   customTimeConflict,
   loading
 }) => {
+  const { t } = useTranslation('appointments');
   const toggleAddon = (addonId: string) => {
     const isSelected = formData.selectedAddonIds.includes(addonId);
     const nextIds = isSelected
@@ -134,18 +137,18 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
     <>
       {/* Date Selection */}
       <div>
-        <Label htmlFor="date">Appointment Date</Label>
+        <Label htmlFor="date">{t('form.details.date')}</Label>
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={cn(
-                "w-full justify-start text-left font-normal",
+                "w-full justify-start text-start font-normal",
                 !selectedDate && "text-muted-foreground"
               )}
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+              <CalendarIcon className="me-2 h-4 w-4" />
+              {selectedDate ? format(selectedDate, "PPP", { locale: getDateFnsLocale() }) : <span>{t('form.details.pickDate')}</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -164,7 +167,7 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
       {/* Treatment and Staff Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="treatment">Treatment</Label>
+          <Label htmlFor="treatment">{t('form.details.treatment')}</Label>
           <Select
             value={formData.treatmentId}
             onValueChange={(value) => {
@@ -177,20 +180,20 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
             disabled={loading.treatments}
           >
             <SelectTrigger>
-              <SelectValue placeholder={loading.treatments ? "Loading treatments..." : "Select treatment"} />
+              <SelectValue placeholder={loading.treatments ? t('form.details.loadingTreatments') : t('form.details.selectTreatment')} />
             </SelectTrigger>
             <SelectContent>
               {availableTreatments.map((treatment) => (
                 <SelectItem key={treatment.id} value={treatment.id}>
                   <div className="flex items-center justify-between w-full">
-                    <span>{treatment.name} ({treatment.duration} min)</span>
+                    <span>{treatment.name} ({t('durationMin', { count: treatment.duration })})</span>
                     {selectedPackage ? (
-                      <Badge variant="default" className="ml-2 bg-green-100 text-green-800">
-                        FREE
+                      <Badge variant="default" className="ms-2 bg-green-100 text-green-800">
+                        {t('form.details.free')}
                       </Badge>
                     ) : (
                       treatment.price && (
-                        <span className="ml-2 text-sm text-gray-600">
+                        <span className="ms-2 text-sm text-gray-600" dir="ltr">
                           ${treatment.price}
                         </span>
                       )
@@ -202,25 +205,25 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
           </Select>
           {selectedPackage && availableTreatments.length === 0 && (
             <p className="text-sm text-amber-600 mt-1">
-              No treatments available for the selected package
+              {t('form.details.noTreatmentsForPackage')}
             </p>
           )}
           {formData.treatmentId && addonsTotalDuration > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              Total time with add-ons: {totalDuration} min
+              {t('form.details.totalTimeWithAddons', { count: totalDuration })}
             </p>
           )}
         </div>
 
         <div>
-          <Label htmlFor="staff">Staff Member</Label>
+          <Label htmlFor="staff">{t('form.details.staff')}</Label>
           <Select
             value={formData.staffId}
             onValueChange={(value) => onFormDataChange({ staffId: value, time: '' })}
             disabled={loading.staff}
           >
             <SelectTrigger>
-              <SelectValue placeholder={loading.staff ? "Loading..." : "Select staff"} />
+              <SelectValue placeholder={loading.staff ? t('form.details.loading') : t('form.details.selectStaff')} />
             </SelectTrigger>
             <SelectContent>
               {eligibleStaff.map((profile) => (
@@ -232,7 +235,7 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
           </Select>
           {selectedTreatment?.staff_ids && selectedTreatment.staff_ids.length > 0 && eligibleStaff.length === 0 && (
             <p className="text-xs text-amber-600 mt-1">
-              No eligible staff for this treatment. Update the treatment's "Staff who can perform this" list in Settings.
+              {t('form.details.noEligibleStaff')}
             </p>
           )}
         </div>
@@ -242,10 +245,10 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
       {availableAddons.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <Label>Add-ons (optional)</Label>
+            <Label>{t('form.details.addons')}</Label>
             {selectedPackage && (
               <span className="text-xs text-muted-foreground">
-                Package sessions include one add-on max
+                {t('form.details.packageAddonCap')}
               </span>
             )}
           </div>
@@ -272,11 +275,11 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
                     <span className="truncate">{addon.name}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="secondary" className="text-xs">+${addon.price}</Badge>
+                    <Badge variant="secondary" className="text-xs" dir="ltr">{t('form.details.addonPrice', { price: addon.price })}</Badge>
                     {addon.duration_minutes && addon.duration_minutes > 0 ? (
-                      <Badge variant="outline" className="text-xs">+{addon.duration_minutes} min</Badge>
+                      <Badge variant="outline" className="text-xs">{t('form.details.addonDuration', { count: addon.duration_minutes })}</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-xs">No extra time</Badge>
+                      <Badge variant="outline" className="text-xs">{t('form.details.noExtraTime')}</Badge>
                     )}
                   </div>
                 </label>
@@ -291,13 +294,13 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
         formData.treatmentId && (
           <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
             {addonsTotalPrice > 0
-              ? `Package session — treatment free, add-ons $${addonsTotalPrice.toFixed(2)}`
-              : 'Package session — no additional charge'}
+              ? t('form.details.packageSessionWithAddons', { price: addonsTotalPrice.toFixed(2) })
+              : t('form.details.packageSessionNoCharge')}
           </div>
         )
       ) : (
         <div>
-          <Label>Treatment Price ($)</Label>
+          <Label>{t('form.details.treatmentPrice')}</Label>
           <Input
             type="number"
             step="0.01"
@@ -309,8 +312,10 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
           />
           {addonsTotalPrice > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              + ${addonsTotalPrice.toFixed(2)} in add-ons. Total: $
-              {((parseFloat(formData.price) || 0) + addonsTotalPrice).toFixed(2)}
+              {t('form.details.addonsTotal', {
+                addons: addonsTotalPrice.toFixed(2),
+                total: ((parseFloat(formData.price) || 0) + addonsTotalPrice).toFixed(2),
+              })}
             </p>
           )}
         </div>
@@ -319,9 +324,9 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
       {/* Time selection — slot picker (default) or custom time override */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <Label htmlFor="time">{useCustomTime ? 'Custom Time' : 'Available Time Slots'}</Label>
+          <Label htmlFor="time">{useCustomTime ? t('form.details.customTime') : t('form.details.availableTimeSlots')}</Label>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Custom time</span>
+            <span className="text-xs text-muted-foreground">{t('form.details.customTimeToggle')}</span>
             <Switch
               checked={useCustomTime}
               onCheckedChange={(v) => {
@@ -330,7 +335,7 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
                 if (v) onFormDataChange({ time: '' });
                 else setCustomTime('');
               }}
-              aria-label="Toggle custom time"
+              aria-label={t('form.details.toggleCustomTime')}
             />
           </div>
         </div>
@@ -345,14 +350,16 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
               className="w-full"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Bypasses schedule + advance-booking rules. Use for walk-ins, VIPs, or after-hours bookings.
+              {t('form.details.customTimeHelp')}
             </p>
             {customTimeConflict && (
               <div className="mt-2 p-2 rounded border border-amber-300 bg-amber-50 text-sm text-amber-800 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <div>
-                  Overlaps an existing appointment at {customTimeConflict.appointment_time}
-                  &ndash;{customTimeConflict.appointment_end}. You can book anyway.
+                  {t('form.details.customTimeConflict', {
+                    start: customTimeConflict.appointment_time,
+                    end: customTimeConflict.appointment_end,
+                  })}
                 </div>
               </div>
             )}
@@ -363,11 +370,11 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
               {formData.staffId && formData.treatmentId && !loading.businessHours && !loading.slots && (
                 <div className="text-muted-foreground">
                   {availableSlotCount > 0 ? (
-                    <span className="text-green-600">{availableSlotCount}/{totalSlotCount} slots available</span>
+                    <span className="text-green-600">{t('form.details.slotsAvailable', { available: availableSlotCount, total: totalSlotCount })}</span>
                   ) : (
                     <span className="text-red-600 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
-                      No slots available — flip the "Custom time" toggle to override
+                      {t('form.details.noSlotsFlipToggle')}
                     </span>
                   )}
                 </div>
@@ -381,20 +388,20 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
             >
               <SelectTrigger>
                 <SelectValue placeholder={
-                  loading.businessHours || loading.slots ? "Loading..." :
-                  !formData.staffId || !formData.treatmentId ? "Select treatment and staff first" :
-                  availableSlotCount === 0 ? "No available slots for this date" :
-                  "Select available time"
+                  loading.businessHours || loading.slots ? t('form.details.loading') :
+                  !formData.staffId || !formData.treatmentId ? t('form.details.selectTreatmentAndStaffFirst') :
+                  availableSlotCount === 0 ? t('form.details.noSlotsForDate') :
+                  t('form.details.selectAvailableTime')
                 } />
               </SelectTrigger>
               <SelectContent>
                 {availableTimeSlots.length === 0 ? (
                   <SelectItem value="no-slots" disabled>
                     {loading.businessHours || loading.slots
-                      ? "Loading time slots..."
+                      ? t('form.details.loadingTimeSlots')
                       : !formData.staffId || !formData.treatmentId
-                      ? "Select treatment and staff first"
-                      : "No available slots for this date"}
+                      ? t('form.details.selectTreatmentAndStaffFirst')
+                      : t('form.details.noSlotsForDate')}
                   </SelectItem>
                 ) : (
                   availableTimeSlots.map((slot) => (
@@ -409,8 +416,8 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
                           {slot.displayText}
                         </span>
                         {!slot.available && (
-                          <Badge variant="destructive" className="ml-2 text-xs">
-                            FULL
+                          <Badge variant="destructive" className="ms-2 text-xs">
+                            {t('form.details.full')}
                           </Badge>
                         )}
                       </div>
@@ -427,11 +434,11 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
                   if (selectedSlot) {
                     return (
                       <div className="flex items-center justify-between">
-                        <span>Selected: {selectedSlot.time}</span>
+                        <span>{t('form.details.selected', { time: selectedSlot.time })}</span>
                         <Badge variant={selectedSlot.available ? "default" : "destructive"}>
                           {selectedSlot.available
-                            ? `${selectedSlot.availableCount}/${selectedSlot.maxCount} available`
-                            : "FULL"
+                            ? t('form.details.slotAvailability', { available: selectedSlot.availableCount, max: selectedSlot.maxCount })
+                            : t('form.details.full')
                           }
                         </Badge>
                       </div>
@@ -447,12 +454,12 @@ export const AppointmentDetailsSection: React.FC<AppointmentDetailsSectionProps>
 
       {/* Notes */}
       <div>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">{t('form.details.notes')}</Label>
         <Textarea
           id="notes"
           value={formData.notes}
           onChange={(e) => onFormDataChange({ notes: e.target.value })}
-          placeholder="Any special notes or requirements..."
+          placeholder={t('form.details.notesPlaceholder')}
           rows={3}
         />
       </div>

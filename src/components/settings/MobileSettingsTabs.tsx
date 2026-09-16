@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Settings, 
@@ -29,6 +30,7 @@ export const MobileSettingsTabs: React.FC<MobileSettingsTabsProps> = ({
   activeTab,
   onTabChange
 }) => {
+  const { t } = useTranslation('settings');
   const activeTabData = tabs.find(tab => tab.id === activeTab);
   const ActiveIcon = activeTabData?.icon || Settings;
 
@@ -37,9 +39,9 @@ export const MobileSettingsTabs: React.FC<MobileSettingsTabsProps> = ({
       <Select value={activeTab} onValueChange={onTabChange}>
         <SelectTrigger className="w-full h-12">
           <SelectValue>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <ActiveIcon className="h-4 w-4" />
-              <span>{activeTabData?.label || 'Select Section'}</span>
+              <span>{activeTabData?.label || t('mobileTabs.selectSection')}</span>
             </div>
           </SelectValue>
         </SelectTrigger>
@@ -48,7 +50,7 @@ export const MobileSettingsTabs: React.FC<MobileSettingsTabsProps> = ({
             const Icon = tab.icon;
             return (
               <SelectItem key={tab.id} value={tab.id}>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <Icon className="h-4 w-4" />
                   <span>{tab.label}</span>
                 </div>

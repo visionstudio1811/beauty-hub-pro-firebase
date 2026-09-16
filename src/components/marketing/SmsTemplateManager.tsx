@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +30,7 @@ interface SmsTemplate {
 }
 
 export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpdate }) => {
+  const { t } = useTranslation('marketing');
   const { currentOrganization } = useOrganization();
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [selected, setSelected] = useState<SmsTemplate | null>(null);
@@ -46,7 +49,9 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
       );
       setTemplates(snap.docs.map((d) => ({ id: d.id, name: d.data().name ?? '', body: d.data().body ?? '' })));
     } catch (err) {
-      toast({ title: 'Error loading templates', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+      // Resolved through the i18n instance so `t` is not a dep of load() —
+      // a language switch must not re-fetch the template list.
+      toast({ title: i18n.t('marketing:smsTemplates.toasts.loadError'), description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     } finally {
       setLoadingList(false);
     }
@@ -62,10 +67,10 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
     setBody('');
   };
 
-  const selectTemplate = (t: SmsTemplate) => {
-    setSelected(t);
-    setName(t.name);
-    setBody(t.body);
+  const selectTemplate = (tpl: SmsTemplate) => {
+    setSelected(tpl);
+    setName(tpl.name);
+    setBody(tpl.body);
   };
 
   const insertToken = (token: string) => {
@@ -87,11 +92,11 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
   const save = async () => {
     if (!currentOrganization?.id) return;
     if (!name.trim()) {
-      toast({ title: 'Name required', description: 'Give the template a name.', variant: 'destructive' });
+      toast({ title: t('smsTemplates.toasts.nameRequired'), description: t('smsTemplates.toasts.nameRequiredDescription'), variant: 'destructive' });
       return;
     }
     if (!body.trim()) {
-      toast({ title: 'Message required', description: 'Add a message body.', variant: 'destructive' });
+      toast({ title: t('smsTemplates.toasts.messageRequired'), description: t('smsTemplates.toasts.messageRequiredDescription'), variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -116,26 +121,26 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
         });
         setSelected({ id: ref.id, name, body });
       }
-      toast({ title: 'Template saved' });
+      toast({ title: t('smsTemplates.toasts.saved') });
       await load();
       onUpdate?.();
     } catch (err) {
-      toast({ title: 'Error saving template', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+      toast({ title: t('smsTemplates.toasts.saveError'), description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
 
-  const remove = async (t: SmsTemplate) => {
+  const remove = async (tpl: SmsTemplate) => {
     if (!currentOrganization?.id) return;
     try {
-      await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'smsTemplates', t.id));
-      if (selected?.id === t.id) startNew();
-      toast({ title: 'Template deleted' });
+      await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'smsTemplates', tpl.id));
+      if (selected?.id === tpl.id) startNew();
+      toast({ title: t('smsTemplates.toasts.deleted') });
       await load();
       onUpdate?.();
     } catch (err) {
-      toast({ title: 'Error deleting template', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+      toast({ title: t('smsTemplates.toasts.deleteError'), description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     }
   };
 
@@ -145,12 +150,11 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
-          <MessageSquare className="h-5 w-5 mr-2" />
-          SMS Templates
+          <MessageSquare className="h-5 w-5 me-2" />
+          {t('smsTemplates.title')}
         </CardTitle>
         <CardDescription>
-          Save reusable SMS messages to load into campaigns, automations, and quick-sends. Use{' '}
-          <code>{'{first_name}'}</code> or <code>{'{name}'}</code> for personalization.
+          <Trans t={t} i18nKey="smsTemplates.description" components={{ code: <code /> }} />
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -158,27 +162,27 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
           {/* List */}
           <div className="space-y-2">
             <Button variant="outline" size="sm" className="w-full" onClick={startNew}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Template
+              <Plus className="h-4 w-4 me-2" />
+              {t('smsTemplates.newTemplate')}
             </Button>
             {loadingList ? (
               <div className="flex justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : templates.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No templates yet.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{t('smsTemplates.empty')}</p>
             ) : (
               <div className="space-y-1 max-h-80 overflow-y-auto">
-                {templates.map((t) => (
+                {templates.map((tpl) => (
                   <button
-                    key={t.id}
-                    onClick={() => selectTemplate(t)}
-                    className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-colors ${
-                      selected?.id === t.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
+                    key={tpl.id}
+                    onClick={() => selectTemplate(tpl)}
+                    className={`w-full text-start px-3 py-2 rounded-md border text-sm transition-colors ${
+                      selected?.id === tpl.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
                     }`}
                   >
-                    <p className="font-medium truncate">{t.name || 'Untitled'}</p>
-                    <p className="text-xs text-muted-foreground truncate">{t.body}</p>
+                    <p className="font-medium truncate">{tpl.name || t('smsTemplates.untitled')}</p>
+                    <p className="text-xs text-muted-foreground truncate">{tpl.body}</p>
                   </button>
                 ))}
               </div>
@@ -188,23 +192,23 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
           {/* Editor */}
           <div className="md:col-span-2 space-y-3">
             <div>
-              <Label htmlFor="tpl-name">Template Name</Label>
+              <Label htmlFor="tpl-name">{t('smsTemplates.fields.name')}</Label>
               <Input
                 id="tpl-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Appointment reminder"
+                placeholder={t('smsTemplates.fields.namePlaceholder')}
               />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="tpl-body">Message</Label>
+                <Label htmlFor="tpl-body">{t('smsTemplates.fields.message')}</Label>
                 <div className="flex gap-1">
                   <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => insertToken('{first_name}')}>
-                    + first name
+                    {t('smsTemplates.fields.insertFirstName')}
                   </Button>
                   <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => insertToken('{name}')}>
-                    + name
+                    {t('smsTemplates.fields.insertName')}
                   </Button>
                 </div>
               </div>
@@ -213,22 +217,26 @@ export const SmsTemplateManager: React.FC<{ onUpdate?: () => void }> = ({ onUpda
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Hi {first_name}, ..."
+                placeholder={t('smsTemplates.fields.bodyPlaceholder')}
                 rows={5}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {seg.chars} chars · {seg.segments} segment{seg.segments === 1 ? '' : 's'} · {seg.encoding}
+                {t('smsTemplates.stats', {
+                  chars: seg.chars,
+                  segments: t('smsTemplates.segments', { count: seg.segments }),
+                  encoding: seg.encoding,
+                })}
               </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={save} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {selected ? 'Save Changes' : 'Create Template'}
+                {saving && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+                {selected ? t('smsTemplates.saveChanges') : t('smsTemplates.createTemplate')}
               </Button>
               {selected && (
                 <Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => remove(selected)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  <Trash2 className="h-4 w-4 me-2" />
+                  {t('common:actions.delete')}
                 </Button>
               )}
             </div>

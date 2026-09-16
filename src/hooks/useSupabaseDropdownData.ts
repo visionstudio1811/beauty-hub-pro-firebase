@@ -13,6 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 interface DropdownData {
   cities: string[];
@@ -26,6 +27,7 @@ export const useSupabaseDropdownData = () => {
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchDropdownData = async () => {
@@ -50,7 +52,7 @@ export const useSupabaseDropdownData = () => {
       setDropdownData({ cities, referralSources });
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
-      toast({ title: 'Error', description: 'Failed to load dropdown data', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('dropdownData.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ export const useSupabaseDropdownData = () => {
   }, [currentOrganization?.id]);
 
   const addCity = async (city: string) => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     await addDoc(collection(db, 'organizations', currentOrganization.id, 'dropdownData'), {
       category: 'cities',
       value: city,
@@ -85,15 +87,15 @@ export const useSupabaseDropdownData = () => {
         await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'dropdownData', docSnap.id));
       }
       setDropdownData(prev => ({ ...prev, cities: prev.cities.filter(c => c !== city) }));
-      toast({ title: 'Success', description: 'City removed successfully' });
+      toast({ title: t('common:status.success'), description: t('dropdownData.cityRemoved') });
     } catch (error) {
       console.error('Error removing city:', error);
-      toast({ title: 'Error', description: 'Failed to remove city', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('dropdownData.cityRemoveFailed'), variant: 'destructive' });
     }
   };
 
   const addReferralSource = async (source: string) => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     await addDoc(collection(db, 'organizations', currentOrganization.id, 'dropdownData'), {
       category: 'referral_sources',
       value: source,
@@ -123,10 +125,10 @@ export const useSupabaseDropdownData = () => {
         ...prev,
         referralSources: prev.referralSources.filter(s => s !== source),
       }));
-      toast({ title: 'Success', description: 'Referral source removed successfully' });
+      toast({ title: t('common:status.success'), description: t('dropdownData.referralSourceRemoved') });
     } catch (error) {
       console.error('Error removing referral source:', error);
-      toast({ title: 'Error', description: 'Failed to remove referral source', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('dropdownData.referralSourceRemoveFailed'), variant: 'destructive' });
     }
   };
 

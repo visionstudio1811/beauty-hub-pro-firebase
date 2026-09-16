@@ -1,0 +1,298 @@
+{
+  "pdf": {
+    "invoiceFallbackName": "Invoice",
+    "invoiceTitle": "INVOICE",
+    "invoiceNumber": "Invoice #: {{number}}",
+    "date": "Date: {{date}}",
+    "taxId": "Tax ID: {{taxId}}",
+    "billTo": "BILL TO",
+    "description": "DESCRIPTION",
+    "includedTreatments": "INCLUDED TREATMENTS",
+    "includedProducts": "INCLUDED PRODUCTS",
+    "priceEach": "{{price}} each",
+    "included": "Included",
+    "lineSubtotal": "Subtotal: {{amount}}",
+    "subtotal": "Subtotal: {{amount}}",
+    "tax": "Tax ({{rate}}%): {{amount}}",
+    "total": "Total: {{amount}}",
+    "paymentMethod": "PAYMENT METHOD",
+    "paymentTerms": "PAYMENT TERMS"
+  },
+  "paymentMethods": {
+    "Zelle": "Zelle",
+    "Cherry": "Cherry",
+    "Affirm": "Affirm",
+    "Cash": "Cash",
+    "Credit Card": "Credit Card",
+    "Check": "Check",
+    "Venmo": "Venmo",
+    "Other": "Other"
+  },
+  "themes": {
+    "classic": { "label": "Classic", "tagline": "Minimal black & white — timeless" },
+    "rose-gold": { "label": "Rose Gold", "tagline": "Warm elegance — serif + cream" },
+    "sage-spa": { "label": "Sage Spa", "tagline": "Calm & natural — soft green" },
+    "deep-navy": { "label": "Deep Navy", "tagline": "Professional — navy + gold bar" },
+    "luxe-black": { "label": "Luxe Black", "tagline": "Modern premium — black + gold" }
+  },
+  "settings": {
+    "loading": "Loading invoice settings…",
+    "title": "Invoice Settings",
+    "description": "Branding and tax info that appear on every invoice PDF.",
+    "previewPdf": "Preview PDF",
+    "rendering": "Rendering…",
+    "saveChanges": "Save Changes",
+    "sample": "Sample",
+    "fields": {
+      "taxId": "Tax ID / VAT",
+      "taxIdPlaceholder": "optional",
+      "taxRate": "Tax rate (%)",
+      "currency": "Currency",
+      "prefix": "Invoice number prefix",
+      "nextNumber": "Next invoice number (preview)",
+      "nextNumberHelp": "Sequential per organization. Voided invoices never reuse numbers.",
+      "template": "Design template",
+      "templateHelp": "Pick a look for your PDFs. Applied to every invoice issued after saving — existing invoices keep the template they were issued with.",
+      "paymentTerms": "Payment terms",
+      "paymentTermsPlaceholder": "e.g. Net 30 — due within 30 days of issue",
+      "footerNotes": "Footer notes",
+      "footerNotesPlaceholder": "e.g. Thank you for your business!"
+    },
+    "currencies": {
+      "USD": "USD — US Dollar",
+      "EUR": "EUR — Euro",
+      "GBP": "GBP — British Pound",
+      "CAD": "CAD — Canadian Dollar",
+      "AUD": "AUD — Australian Dollar",
+      "NZD": "NZD — New Zealand Dollar",
+      "ILS": "ILS — Israeli Shekel",
+      "AED": "AED — UAE Dirham"
+    },
+    "toasts": {
+      "invalidTaxRate": "Invalid tax rate",
+      "invalidTaxRateDesc": "Enter a number between 0 and 100.",
+      "missingPrefix": "Missing prefix",
+      "missingPrefixDesc": "Invoice prefix cannot be empty.",
+      "saved": "Saved",
+      "savedDesc": "Invoice settings updated.",
+      "saveFailed": "Save failed",
+      "unknownError": "Unknown error",
+      "previewFailed": "Preview failed",
+      "previewFailedDesc": "Could not render preview."
+    },
+    "preview": {
+      "title": "Invoice preview",
+      "description": "Sample invoice rendered with your current settings and sample data. Actual client invoices use real client + purchase info.",
+      "iframeTitle": "Invoice preview"
+    },
+    "sampleData": {
+      "clientName": "Sample Client",
+      "clientAddress": "456 Client Ave, Customertown, NY 10002",
+      "businessName": "Your Business",
+      "packageName": "Sample Wellness Package",
+      "packageDescription": "5-session package combining facials and massages.",
+      "treatment1": "Signature Facial",
+      "treatment2": "Swedish Massage"
+    }
+  },
+  "history": {
+    "title": "Invoice History",
+    "description": "All invoices issued across the organization. Search, filter, or void.",
+    "adminsOnly": "Admins only",
+    "adminsOnlyDesc": "You need admin access to view org-wide invoice history.",
+    "stats": {
+      "revenue": "Revenue",
+      "invoices": "Invoices",
+      "voided": "Voided",
+      "average": "Average"
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Invoice # or client",
+      "client": "Client",
+      "allClients": "All clients",
+      "dateRange": "Date range",
+      "status": "Status",
+      "clear": "Clear filters"
+    },
+    "datePresets": {
+      "thisMonth": "This month",
+      "last30": "Last 30 days",
+      "last90": "Last 90 days",
+      "thisYear": "This year",
+      "all": "All time"
+    },
+    "statusOptions": {
+      "all": "All statuses",
+      "issued": "Issued only",
+      "void": "Voided only"
+    },
+    "statusBadge": {
+      "issued": "issued",
+      "void": "void"
+    },
+    "loading": "Loading invoices…",
+    "empty": "No invoices issued yet.",
+    "emptyHint": "Generate an invoice from a client's package row to get started.",
+    "noMatch": "No invoices match these filters.",
+    "unknownClient": "Unknown client",
+    "packageFallback": "Package",
+    "voidedAgo": "· voided {{when}}",
+    "relative": {
+      "justNow": "just now",
+      "minutes": "{{count}}m ago",
+      "hours": "{{count}}h ago",
+      "days": "{{count}}d ago",
+      "months": "{{count}}mo ago"
+    },
+    "actions": {
+      "downloadPdf": "Download PDF",
+      "noPdf": "No PDF on file",
+      "noEmail": "No email on file",
+      "emailInvoice": "Email invoice to client",
+      "voidInvoice": "Void invoice",
+      "keep": "Keep"
+    },
+    "voidDialog": {
+      "title": "Void invoice {{number}}?",
+      "description": "Voiding marks the invoice as cancelled — it stays on the record for audit and the number ({{number}}) is never reused. This can't be undone."
+    },
+    "toasts": {
+      "voided": "Invoice voided",
+      "voidedDesc": "{{number}} is now marked as void.",
+      "alreadyVoided": "This invoice is already voided.",
+      "voidLimit": "Daily void limit reached for this organization.",
+      "voidFailedDesc": "Failed to void invoice",
+      "voidFailed": "Void failed",
+      "pdfNotReady": "PDF not ready",
+      "pdfNotReadyDesc": "This invoice has no PDF on file.",
+      "generatePdfFirst": "Generate the invoice PDF first.",
+      "noEmail": "No email on file",
+      "noEmailDesc": "This client has no email address.",
+      "sent": "Invoice sent",
+      "sentDesc": "Emailed to {{email}}.",
+      "sendFailed": "Failed to send",
+      "sendFailedDesc": "Could not send invoice email."
+    },
+    "email": {
+      "subject": "Your Invoice {{number}}",
+      "greetingFallback": "there",
+      "body": "Hi {{name}},\n\nPlease find your invoice below.\n\nInvoice #: {{number}}\nTotal: {{total}}\n\nView / Download your invoice:\n{{url}}\n\nThank you!"
+    }
+  },
+  "createDialog": {
+    "titlePreview": "Invoice Preview",
+    "titleNew": "New Invoice",
+    "editingDraft": "Editing draft",
+    "descriptionPreview": "Preview the invoice before issuing. Numbers and totals will be finalized by the server when you click Issue.",
+    "descriptionNew": "Create an invoice for retail products, facials, or any combination — outside of a package.",
+    "drafts": {
+      "title": "Drafts ({{count}})",
+      "empty": "No saved drafts.",
+      "noClient": "No client",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines",
+      "continue": "Continue",
+      "delete": "Delete draft"
+    },
+    "preview": {
+      "billTo": "Bill to",
+      "lineItems": "Line items",
+      "subtotal": "Subtotal",
+      "tax": "Tax ({{rate}}%)",
+      "total": "Total",
+      "paymentMethod": "Payment method:",
+      "finalizedNote": "The invoice number and exact totals are finalized server-side when you click Issue.",
+      "invoiceNumberPlaceholder": "PREVIEW",
+      "iframeTitle": "Invoice preview",
+      "building": "Building PDF…"
+    },
+    "form": {
+      "client": "Client *",
+      "clientPlaceholder": "Select a client",
+      "lineItems": "Line Items *",
+      "addProduct": "Add product",
+      "addFacial": "Add facial",
+      "addAddon": "Add add-on",
+      "columns": {
+        "type": "Type",
+        "item": "Item",
+        "qty": "Qty",
+        "unitPrice": "Unit price ({{currency}})"
+      },
+      "kinds": {
+        "product": "Product",
+        "treatment": "Facial",
+        "addon": "Add-on"
+      },
+      "kindPlural": {
+        "product": "products",
+        "treatment": "facials",
+        "addon": "add-ons"
+      },
+      "choose": {
+        "product": "Choose a product",
+        "treatment": "Choose a facial",
+        "addon": "Choose an add-on"
+      },
+      "noActive": "No active {{kind}} found",
+      "minutes": "{{count}} min",
+      "lineFallback": "line {{index}}",
+      "aria": {
+        "lineType": "Line type for {{item}}",
+        "item": "Item for {{item}}",
+        "quantity": "Quantity for {{item}}",
+        "unitPrice": "Unit price for {{item}}",
+        "remove": "Remove {{item}}"
+      },
+      "qtyPlaceholder": "Qty",
+      "pricePlaceholder": "Price",
+      "paymentMethod": "Payment method",
+      "paymentMethodPlaceholder": "Select payment method",
+      "subtotal": "Subtotal",
+      "taxOnServer": "Tax is calculated on the server.",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Internal notes about this invoice"
+    },
+    "footer": {
+      "backToEdit": "Back to Edit",
+      "saveAsDraft": "Save as Draft",
+      "updateDraft": "Update Draft",
+      "saving": "Saving…",
+      "issueInvoice": "Issue Invoice",
+      "issuing": "Issuing…",
+      "drafts": "Drafts ({{count}})",
+      "preview": "Preview",
+      "building": "Building…"
+    },
+    "toasts": {
+      "draftNotFound": "Draft not found",
+      "draftNotFoundDesc": "It may have been deleted.",
+      "selectClient": "Select a client",
+      "selectClientDesc": "Pick a client to bill.",
+      "addLine": "Add at least one line",
+      "addLineDesc": "Pick a product or facial.",
+      "loading": "Loading…",
+      "loadingDesc": "Business info still loading. Try again in a second.",
+      "cannotPreview": "Cannot preview",
+      "cannotPreviewDesc": "Missing client or business info.",
+      "previewFailed": "Preview failed",
+      "previewFailedDesc": "Could not render preview.",
+      "nothingToSave": "Nothing to save",
+      "nothingToSaveDesc": "Pick a client or add at least one line item.",
+      "draftSaved": "Draft saved",
+      "draftSavedDesc": "You can finish it later from Drafts.",
+      "draftSaveFailed": "Failed to save draft.",
+      "draftDeleted": "Draft deleted",
+      "draftDeleteFailed": "Failed to delete draft.",
+      "invoice": "Invoice",
+      "opened": "Opened {{number}}.",
+      "generated": "Invoice generated",
+      "generatedDesc": "{{number}} is ready.",
+      "generateFailed": "Failed to generate invoice",
+      "dailyLimit": "Daily invoice limit reached for this organization."
+    },
+    "itemFallback": "Item",
+    "businessFallback": "Business"
+  }
+}

@@ -1,12 +1,70 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { consumeRateLimit } from './rateLimit';
+import { AppLanguage, DEFAULT_LANGUAGE, defineStrings, getOrgLanguage, isAppLanguage, makeT } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Staff-facing HttpsError messages — the CRM (CreateInvoiceDialog) shows
+// err.message verbatim in a toast, so they follow the caller's language.
+// Error codes and the English wording are unchanged; pure developer errors
+// (malformed payloads such as a missing organizationId) stay English.
+const STRINGS = defineStrings({
+  en: {
+    err_client_required: 'clientId is required for standalone invoices',
+    err_items_required: 'At least one product, treatment, or add-on line item is required for standalone invoices',
+    err_user_not_found: 'User not found',
+    err_org_mismatch: 'Organization mismatch',
+    err_admin_required: 'Admin access required',
+    err_purchase_not_found: 'Purchase not found',
+    err_purchase_wrong_org: 'Purchase does not belong to this organization',
+    err_purchase_no_client: 'Purchase has no client',
+    err_product_not_found: 'Product {{id}} not found',
+    err_treatment_not_found: 'Treatment {{id}} not found',
+    err_addon_not_found: 'Add-on {{id}} not found',
+    err_product_price: 'Invalid unit price for product line "{{name}}"',
+    err_treatment_price: 'Invalid unit price for treatment line "{{name}}"',
+    err_addon_price: 'Invalid unit price for add-on line "{{name}}"',
+    err_totals_invalid: 'Computed invoice totals are invalid',
+    err_client_not_found: 'Client not found',
+  },
+  he: {
+    err_client_required: 'יש לבחור לקוח עבור חשבונית עצמאית',
+    err_items_required: 'חשבונית עצמאית חייבת לכלול לפחות שורה אחת של מוצר, טיפול או תוסף',
+    err_user_not_found: 'המשתמש לא נמצא',
+    err_org_mismatch: 'אי-התאמה בין הארגונים',
+    err_admin_required: 'נדרשת הרשאת מנהל',
+    err_purchase_not_found: 'הרכישה לא נמצאה',
+    err_purchase_wrong_org: 'הרכישה אינה שייכת לארגון זה',
+    err_purchase_no_client: 'לרכישה לא משויך לקוח',
+    err_product_not_found: 'המוצר {{id}} לא נמצא',
+    err_treatment_not_found: 'הטיפול {{id}} לא נמצא',
+    err_addon_not_found: 'התוסף {{id}} לא נמצא',
+    err_product_price: 'מחיר יחידה לא תקין בשורת המוצר "{{name}}"',
+    err_treatment_price: 'מחיר יחידה לא תקין בשורת הטיפול "{{name}}"',
+    err_addon_price: 'מחיר יחידה לא תקין בשורת התוסף "{{name}}"',
+    err_totals_invalid: 'סכומי החשבונית שחושבו אינם תקינים',
+    err_client_not_found: 'הלקוח לא נמצא',
+  },
+});
+
+
+/**
+ * Caller (staff) language from the already-loaded users/{uid} doc: their own
+ * preference → their OWN org's default → en. Uses userData.organizationId (the
+ * verified identity), never the caller-supplied organizationId, so no other
+ * tenant's org doc is read before the membership check, and users/{uid} is
+ * read exactly once per invocation.
+ */
+async function callerLanguage(userData: FirebaseFirestore.DocumentData | undefined): Promise<AppLanguage> {
+  if (isAppLanguage(userData?.language)) return userData!.language as AppLanguage;
+  const ownOrg = userData?.organizationId;
+  return typeof ownOrg === 'string' && ownOrg ? getOrgLanguage(ownOrg) : DEFAULT_LANGUAGE;
+}
 
 interface ProductItemInput {
   product_id: string;
@@ -103,13 +161,20 @@ export const createInvoice = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'organizationId is required');
   }
 
+  // Caller lookup first: the language derives from it (user preference →
+  // caller's own org default → en), so the caller-supplied organizationId is
+  // never read before the membership check below. Read-only otherwise.
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const userData = userDoc.data();
+  const t = makeT(STRINGS, await callerLanguage(userData));
+
   const isStandalone = !purchaseId;
   if (isStandalone) {
     if (!clientId) {
-      throw new HttpsError('invalid-argument', 'clientId is required for standalone invoices');
+      throw new HttpsError('invalid-argument', t('err_client_required'));
     }
     if (productItems.length === 0 && treatmentItemsInput.length === 0 && addonItemsInput.length === 0) {
-      throw new HttpsError('invalid-argument', 'At least one product, treatment, or add-on line item is required for standalone invoices');
+      throw new HttpsError('invalid-argument', t('err_items_required'));
     }
     if (productItems.some(p => !p.product_id)) {
       throw new HttpsError('invalid-argument', 'Every product line item needs a product_id');
@@ -123,16 +188,14 @@ export const createInvoice = onCall(async (request) => {
   }
 
   // Caller must be an admin of this org.
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (!userDoc.exists) {
-    throw new HttpsError('permission-denied', 'User not found');
+  if (!userDoc.exists || !userData) {
+    throw new HttpsError('permission-denied', t('err_user_not_found'));
   }
-  const userData = userDoc.data()!;
   if (userData.organizationId !== organizationId) {
-    throw new HttpsError('permission-denied', 'Organization mismatch');
+    throw new HttpsError('permission-denied', t('err_org_mismatch'));
   }
   if (userData.role !== 'admin') {
-    throw new HttpsError('permission-denied', 'Admin access required');
+    throw new HttpsError('permission-denied', t('err_admin_required'));
   }
 
   await consumeRateLimit(organizationId, 'generateInvoice', 100);
@@ -187,15 +250,15 @@ export const createInvoice = onCall(async (request) => {
     const purchaseRef = orgRef.collection('purchases').doc(purchaseId);
     const purchaseSnap = await purchaseRef.get();
     if (!purchaseSnap.exists) {
-      throw new HttpsError('not-found', 'Purchase not found');
+      throw new HttpsError('not-found', t('err_purchase_not_found'));
     }
     const purchase = purchaseSnap.data()!;
 
     if (purchase.organization_id && purchase.organization_id !== organizationId) {
-      throw new HttpsError('permission-denied', 'Purchase does not belong to this organization');
+      throw new HttpsError('permission-denied', t('err_purchase_wrong_org'));
     }
     if (!purchase.client_id) {
-      throw new HttpsError('failed-precondition', 'Purchase has no client');
+      throw new HttpsError('failed-precondition', t('err_purchase_no_client'));
     }
     resolvedClientId = purchase.client_id;
 
@@ -332,12 +395,12 @@ export const createInvoice = onCall(async (request) => {
     const productLines = productItems.map((item) => {
       const product = productMap.get(item.product_id);
       if (!product) {
-        throw new HttpsError('not-found', `Product ${item.product_id} not found`);
+        throw new HttpsError('not-found', t('err_product_not_found', { id: item.product_id }));
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? product.price ?? 0);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw new HttpsError('invalid-argument', `Invalid unit price for product line "${item.name || product.name || item.product_id}"`);
+        throw new HttpsError('invalid-argument', t('err_product_price', { name: item.name || product.name || item.product_id }));
       }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
@@ -356,12 +419,12 @@ export const createInvoice = onCall(async (request) => {
     const treatmentLines = treatmentItemsInput.map((item) => {
       const treatment = treatmentMap.get(item.treatment_id);
       if (!treatment) {
-        throw new HttpsError('not-found', `Treatment ${item.treatment_id} not found`);
+        throw new HttpsError('not-found', t('err_treatment_not_found', { id: item.treatment_id }));
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? treatment.price ?? 0);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw new HttpsError('invalid-argument', `Invalid unit price for treatment line "${item.name || treatment.name || item.treatment_id}"`);
+        throw new HttpsError('invalid-argument', t('err_treatment_price', { name: item.name || treatment.name || item.treatment_id }));
       }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
@@ -380,12 +443,12 @@ export const createInvoice = onCall(async (request) => {
     const addonLines = addonItemsInput.map((item) => {
       const addon = addonMap.get(item.addon_id);
       if (!addon) {
-        throw new HttpsError('not-found', `Add-on ${item.addon_id} not found`);
+        throw new HttpsError('not-found', t('err_addon_not_found', { id: item.addon_id }));
       }
       const qty = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
       const unitPrice = Number(item.unit_price ?? addon.price ?? 0);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw new HttpsError('invalid-argument', `Invalid unit price for add-on line "${item.name || addon.name || item.addon_id}"`);
+        throw new HttpsError('invalid-argument', t('err_addon_price', { name: item.name || addon.name || item.addon_id }));
       }
       const unitPriceCents = Math.round(unitPrice * 100);
       const lineSubtotal = unitPriceCents * qty;
@@ -415,13 +478,13 @@ export const createInvoice = onCall(async (request) => {
     !Number.isFinite(taxAmountCents) || taxAmountCents < 0 ||
     !Number.isFinite(totalCents) || totalCents < 0
   ) {
-    throw new HttpsError('invalid-argument', 'Computed invoice totals are invalid');
+    throw new HttpsError('invalid-argument', t('err_totals_invalid'));
   }
 
   // Resolve client snapshot.
   const clientSnap = await orgRef.collection('clients').doc(resolvedClientId).get();
   if (!clientSnap.exists) {
-    throw new HttpsError('not-found', 'Client not found');
+    throw new HttpsError('not-found', t('err_client_not_found'));
   }
   const client = clientSnap.data()!;
 

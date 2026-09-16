@@ -1,0 +1,77 @@
+{
+  "page": {
+    "subtitle": "Here's what's happening today.",
+    "newAppointment": "New Appointment",
+    "todaysSchedule": "Today's Schedule"
+  },
+  "stats": {
+    "todaysAppointments": "Today's Appointments",
+    "todaysRevenue": "Today's Revenue",
+    "newClients": "New Clients",
+    "activeMembers": "Active Members",
+    "confirmedToday": "Confirmed Today"
+  },
+  "appointmentSection": {
+    "noAppointmentsToday": "No appointments today",
+    "noAppointmentsForDate": "No appointments for {{date}}",
+    "emptyTodayHint": "You don't have any appointments scheduled for today. Create a new appointment to get started.",
+    "emptyDateHint": "No appointments are scheduled for this date. Try selecting a different date or create a new appointment.",
+    "invalidDate": "Invalid Date",
+    "todaysAppointments": "Today's Appointments",
+    "appointmentsForDate": "Appointments - {{date}}",
+    "scheduledCount_one": "{{count}} appointment scheduled",
+    "scheduledCount_other": "{{count}} appointments scheduled",
+    "tapToAdd": "Tap + to add appointment",
+    "clickToAdd": "Click + to add an appointment",
+    "listView": "List view",
+    "gridView": "Grid view",
+    "calendarView": "Calendar view"
+  },
+  "appointmentViews": {
+    "minutes": "{{count}} min",
+    "appointmentsFor": "Appointments for {{date}}",
+    "noAppointmentsForDate": "No appointments for this date"
+  },
+  "purchases": {
+    "title": "Purchases",
+    "description": "Revenue from packages, product sales, and facials.",
+    "descriptionOnDate": "Revenue from packages, product sales, and facials on {{date}}.",
+    "totalRevenue": "Total Revenue",
+    "packagesSold": "Packages Sold",
+    "productsSold": "Products Sold",
+    "facialsSold": "Facials Sold",
+    "filters": {
+      "type": "Type",
+      "search": "Search",
+      "quick": "Quick",
+      "all": "All",
+      "packagesOnly": "Packages only",
+      "productsOnly": "Products only",
+      "facialsOnly": "Facials only",
+      "searchPlaceholder": "Client or item",
+      "clearFilters": "Clear filters"
+    },
+    "loading": "Loading purchases…",
+    "noMatches": "No purchases match these filters.",
+    "showingMatches": "Showing {{shown}} of {{total}} matches.",
+    "types": {
+      "package": "package",
+      "product": "product",
+      "facial": "facial"
+    }
+  },
+  "sales": {
+    "title": "Sales",
+    "subtitle": "All revenue from packages, product sales, and facials.",
+    "date": "Date",
+    "showAll": "Show all",
+    "revenueDetail": "Revenue Detail",
+    "showingOnDate": "Showing purchases on {{date}}.",
+    "showingAll": "Showing all purchases across all time. Pick a date to narrow."
+  },
+  "invoices": {
+    "title": "Invoices",
+    "subtitle": "Generate invoices for retail products, voids, and view full org history.",
+    "newInvoice": "New Invoice"
+  }
+}

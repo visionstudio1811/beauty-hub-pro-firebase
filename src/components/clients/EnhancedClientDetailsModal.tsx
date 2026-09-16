@@ -10,6 +10,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { useTranslation, Trans } from 'react-i18next';
+import i18n from '@/i18n';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { getDateFnsLocale } from '@/i18n/dateLocale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useDropdownData } from '@/contexts/DropdownDataContext';
@@ -53,6 +57,27 @@ import { useInvoices } from '@/hooks/useInvoices';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
 import { useSupabaseAddons } from '@/hooks/useSupabaseAddons';
 import type { Invoice } from '@/types/firestore';
+
+// Raw status values (stored in Firestore or derived in ClientsContext) -> label keys
+// under clientDetails:statuses.*. Unknown values fall back to the raw string.
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  'Have Membership': 'haveMembership',
+  "Don't Have Membership": 'noMembership',
+  'Membership Ended': 'membershipEnded',
+  scheduled: 'scheduled',
+  confirmed: 'confirmed',
+  arrived: 'arrived',
+  'in-progress': 'inProgress',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  'no-show': 'noShow',
+  pending: 'pending',
+  assigned: 'assigned',
+  delivered: 'delivered',
+  issued: 'issued',
+  void: 'void',
+  active: 'active',
+};
 
 interface SessionSlot {
   treatment_id: string;
@@ -124,9 +149,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   appointmentRefreshKey,
   onAppointmentSaved
 }) => {
+  const { t } = useTranslation('clientDetails');
+  const { locale } = useLanguage();
   const { toast } = useToast();
   const { dropdownData } = useDropdownData();
   const isMobile = useIsMobile();
+  const statusLabel = (raw: string) => {
+    const key = STATUS_LABEL_KEYS[raw];
+    return key ? t(`statuses.${key}`) : raw;
+  };
   const isAdmin = useIsAdmin();
   const { currentOrganization } = useOrganization();
   const [activeTab, setActiveTab] = useState(initialTab ?? 'details');
@@ -307,7 +338,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       setPurchases(results);
     } catch (error) {
       console.error('Error fetching purchases:', error);
-      toast({ title: 'Error', description: 'Failed to load packages', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('enhanced.toasts.loadPackagesFailed'), variant: 'destructive' });
     }
   };
 
@@ -350,17 +381,17 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const handleSavePastTreatment = async (opts: { confirmedOverConsume?: boolean } = {}) => {
     if (!client || !currentOrganization?.id) return;
     if (!pastTreatmentForm.treatment_name || !pastTreatmentForm.appointment_date) {
-      toast({ title: 'Missing fields', description: 'Treatment name and date are required.', variant: 'destructive' });
+      toast({ title: t('enhanced.toasts.missingFields'), description: t('enhanced.toasts.missingFieldsDescription'), variant: 'destructive' });
       return;
     }
 
     const orgId = currentOrganization.id;
-    const matchedTreatment = treatmentsList.find(t => t.name === pastTreatmentForm.treatment_name);
+    const matchedTreatment = treatmentsList.find(tr => tr.name === pastTreatmentForm.treatment_name);
 
     if (selectedPastPackage && pastTreatmentForm.selectedAddonIds.length > 1) {
       toast({
-        title: 'Too many add-ons',
-        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        title: t('enhanced.toasts.tooManyAddons'),
+        description: t('enhanced.toasts.tooManyAddonsDescription'),
         variant: 'destructive',
       });
       return;
@@ -405,7 +436,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
 
         sessionsAfter = await runTransaction(db, async (tx) => {
           const purchaseSnap = await tx.get(purchaseRef);
-          if (!purchaseSnap.exists()) throw new Error('Package no longer exists.');
+          if (!purchaseSnap.exists()) throw new Error(t('enhanced.toasts.packageGone'));
           const purchase = purchaseSnap.data();
 
           const slots = purchase.sessions_by_treatment as SessionSlot[] | undefined;
@@ -421,7 +452,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             // not explicitly confirmed over-consuming, fail the precondition.
             if (!slot || slot.remaining <= 0) {
               if (!opts.confirmedOverConsume) {
-                throw new Error('failed-precondition: no remaining sessions for this treatment.');
+                throw new Error(t('enhanced.toasts.noRemainingForTreatment'));
               }
             } else {
               slot.remaining = Math.max(0, slot.remaining - 1);
@@ -433,7 +464,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             const current = purchase.sessions_remaining ?? 0;
             // Guard the aggregate branch the same way — never go below zero.
             if (current <= 0 && !opts.confirmedOverConsume) {
-              throw new Error('failed-precondition: no remaining sessions on this package.');
+              throw new Error(t('enhanced.toasts.noRemainingOnPackage'));
             }
             newTotal = Math.max(0, current - 1);
             updates.sessions_remaining = newTotal;
@@ -512,7 +543,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
         });
       }
 
-      toast({ title: 'Treatment added', description: 'Past treatment has been logged.' });
+      toast({ title: t('enhanced.toasts.treatmentAdded'), description: t('enhanced.toasts.treatmentAddedDescription') });
       setPastTreatmentForm({ treatment_name: '', appointment_date: '', staff_name: '', duration: '60', notes: '', price: '', selectedAddonIds: [] });
       setSelectedPastPackage(null);
       setConfirmOverConsume(null);
@@ -524,8 +555,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     } catch (err) {
       console.error(err);
       toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to save treatment.',
+        title: t('common:status.error'),
+        description: err instanceof Error ? err.message : t('enhanced.toasts.saveTreatmentFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -549,8 +580,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     
     onSave(updatedClient);
     toast({
-      title: "Client Updated",
-      description: "Client information has been updated successfully."
+      title: t('enhanced.toasts.clientUpdated'),
+      description: t('enhanced.toasts.clientUpdatedDescription')
     });
     onClose();
   };
@@ -573,10 +604,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       setPurchases([]);
       setAppointments([]);
 
-      toast({ title: 'History Cleared', description: 'All appointment and purchase history has been deleted.' });
+      toast({ title: t('enhanced.toasts.historyCleared'), description: t('enhanced.toasts.historyClearedDescription') });
     } catch (error) {
       console.error('Error clearing history:', error);
-      toast({ title: 'Failed to clear history', description: 'Please try again.', variant: 'destructive' });
+      toast({ title: t('enhanced.toasts.clearHistoryFailed'), description: t('enhanced.toasts.tryAgain'), variant: 'destructive' });
     }
   };
 
@@ -651,13 +682,13 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             has_membership: c.has_membership || false
           }));
         }
-        toast({ title: 'Client info updated', description: message });
+        toast({ title: t('enhanced.toasts.clientInfoUpdated'), description: message });
       } else {
-        toast({ title: 'Nothing to fill', description: message });
+        toast({ title: t('enhanced.toasts.nothingToFill'), description: message });
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Could not auto-fill from latest form.';
-      toast({ title: 'Backfill failed', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('enhanced.toasts.backfillFailedDescription');
+      toast({ title: t('enhanced.toasts.backfillFailed'), description: msg, variant: 'destructive' });
     } finally {
       setBackfilling(false);
     }
@@ -683,11 +714,13 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       // If a previous invoice is already fully issued with a PDF, just open it.
       if (res.data.reused && invoice.pdf_url) {
         window.open(invoice.pdf_url, '_blank');
-        toast({ title: 'Invoice', description: `Opened ${invoice.invoice_number}.` });
+        toast({ title: t('enhanced.toasts.invoice'), description: t('enhanced.toasts.invoiceOpened', { number: invoice.invoice_number }) });
         return;
       }
 
-      const blob = await buildInvoicePdf(invoice);
+      const blob = await buildInvoicePdf(invoice, undefined, {
+        lang: currentOrganization?.language ?? 'en',
+      });
       const pdfBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -712,15 +745,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
 
       window.open(url, '_blank');
       toast({
-        title: 'Invoice generated',
-        description: `${invoice.invoice_number} is ready.`,
+        title: t('enhanced.toasts.invoiceGenerated'),
+        description: t('enhanced.toasts.invoiceReady', { number: invoice.invoice_number }),
       });
     } catch (err: any) {
       const message =
         err?.message?.includes('Daily generateInvoice limit')
-          ? 'Daily invoice limit reached for this organization.'
-          : err?.message ?? 'Failed to generate invoice';
-      toast({ title: 'Error', description: message, variant: 'destructive' });
+          ? t('enhanced.toasts.dailyInvoiceLimit')
+          : err?.message ?? t('enhanced.toasts.invoiceGenerateFailed');
+      toast({ title: t('common:status.error'), description: message, variant: 'destructive' });
     } finally {
       setGeneratingFor(null);
     }
@@ -730,8 +763,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     if (inv.pdf_url) window.open(inv.pdf_url, '_blank');
     else
       toast({
-        title: 'PDF not ready',
-        description: 'This invoice does not yet have a PDF. Re-generate from the package row.',
+        title: t('enhanced.toasts.pdfNotReady'),
+        description: t('enhanced.toasts.pdfNotReadyDescription'),
         variant: 'destructive',
       });
   };
@@ -739,28 +772,36 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const handleEmailInvoice = async (inv: Invoice) => {
     const recipientEmail = inv.client_snapshot?.email || client?.email;
     if (!recipientEmail) {
-      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      toast({ title: t('enhanced.toasts.noEmail'), description: t('enhanced.toasts.noEmailDescription'), variant: 'destructive' });
       return;
     }
     if (!inv.pdf_url) {
-      toast({ title: 'PDF not ready', description: 'Generate the invoice PDF first.', variant: 'destructive' });
+      toast({ title: t('enhanced.toasts.pdfNotReady'), description: t('enhanced.toasts.generatePdfFirst'), variant: 'destructive' });
       return;
     }
     if (!currentOrganization?.id) return;
     setEmailingInvoice(inv.id);
     try {
       const sendEmail = httpsCallable(functions, 'sendClientEmail');
-      const clientName = inv.client_snapshot?.name || client?.name || 'there';
+      // Client-facing content: rendered in the org's default language (falls back to English),
+      // never in the signed-in staff member's UI language.
+      const emailT = i18n.getFixedT(currentOrganization.language ?? 'en', 'clientDetails');
+      const clientName = inv.client_snapshot?.name || client?.name || emailT('enhanced.invoiceEmail.greetingFallback');
       await sendEmail({
         to: recipientEmail,
-        subject: `Your Invoice ${inv.invoice_number}`,
-        message: `Hi ${clientName},\n\nPlease find your invoice below.\n\nInvoice #: ${inv.invoice_number}\nTotal: ${formatCents(inv.total_cents, inv.currency)}\n\nView / Download your invoice:\n${inv.pdf_url}\n\nThank you!`,
+        subject: emailT('enhanced.invoiceEmail.subject', { number: inv.invoice_number }),
+        message: emailT('enhanced.invoiceEmail.body', {
+          name: clientName,
+          number: inv.invoice_number,
+          total: formatCents(inv.total_cents, inv.currency),
+          url: inv.pdf_url,
+        }),
         clientId: client?.id,
         organizationId: currentOrganization.id,
       });
-      toast({ title: 'Invoice sent', description: `Emailed to ${recipientEmail}.` });
+      toast({ title: t('enhanced.toasts.invoiceSent'), description: t('enhanced.toasts.invoiceSentDescription', { email: recipientEmail }) });
     } catch (err: any) {
-      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send invoice email.', variant: 'destructive' });
+      toast({ title: t('enhanced.toasts.sendFailed'), description: err?.message ?? t('enhanced.toasts.sendFailedDescription'), variant: 'destructive' });
     } finally {
       setEmailingInvoice(null);
     }
@@ -768,7 +809,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
 
   const formatCents = (cents: number, currency: string) => {
     try {
-      return new Intl.NumberFormat(undefined, {
+      return new Intl.NumberFormat(locale, {
         style: 'currency',
         currency: currency || 'USD',
       }).format(cents / 100);
@@ -780,7 +821,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   const formatInvoiceDate = (ts: any) => {
     const d = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : new Date(ts));
     try {
-      return d.toLocaleDateString();
+      return d.toLocaleDateString(locale);
     } catch {
       return '';
     }
@@ -793,33 +834,33 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
   if (!client) return null;
 
   const allTabs = [
-    { value: 'details', label: 'Details', icon: User },
-    { value: 'appointments', label: `Appointments (${appointments.length})`, icon: Calendar },
-    { value: 'packages', label: `Packages (${purchases.length})`, icon: Package },
-    { value: 'membership', label: 'Membership', icon: History },
-    { value: 'actions', label: 'Actions', icon: Settings },
-    { value: 'documents', label: 'Waivers', icon: FileSignature },
-    { value: 'intake', label: 'Intake Forms', icon: ClipboardList },
-    { value: 'agreements', label: 'Agreements of Purchase', icon: FileSignature },
-    { value: 'invoices', label: `Invoices (${invoices.length})`, icon: Receipt },
+    { value: 'details', label: t('enhanced.tabs.details'), icon: User },
+    { value: 'appointments', label: t('enhanced.tabs.appointments', { count: appointments.length }), icon: Calendar },
+    { value: 'packages', label: t('enhanced.tabs.packages', { count: purchases.length }), icon: Package },
+    { value: 'membership', label: t('enhanced.tabs.membership'), icon: History },
+    { value: 'actions', label: t('enhanced.tabs.actions'), icon: Settings },
+    { value: 'documents', label: t('enhanced.tabs.waivers'), icon: FileSignature },
+    { value: 'intake', label: t('enhanced.tabs.intake'), icon: ClipboardList },
+    { value: 'agreements', label: t('enhanced.tabs.agreements'), icon: FileSignature },
+    { value: 'invoices', label: t('enhanced.tabs.invoices', { count: invoices.length }), icon: Receipt },
   ];
 
   // Non-admin users don't see financial tabs.
   const tabOptions = isAdmin
     ? allTabs
-    : allTabs.filter(t => !adminOnlyTabs.includes(t.value));
+    : allTabs.filter(tab => !adminOnlyTabs.includes(tab.value));
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
+            <DialogTitle className="flex items-center space-x-2 rtl:space-x-reverse">
               <User className="h-5 w-5" />
-              <span>{isEditing ? 'Edit Client' : 'Client Details'}</span>
+              <span>{isEditing ? t('enhanced.title.edit') : t('enhanced.title.view')}</span>
             </DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update client information' : 'View client details, appointments, and package history'}
+              {isEditing ? t('enhanced.description.edit') : t('enhanced.description.view')}
             </DialogDescription>
           </DialogHeader>
 
@@ -837,7 +878,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       const Icon = tab.icon;
                       return (
                         <SelectItem key={tab.value} value={tab.value}>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse">
                             <Icon className="h-4 w-4" />
                             <span>{tab.label}</span>
                           </div>
@@ -849,8 +890,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               </div>
             ) : (
               <nav
-                className="md:w-56 md:flex-shrink-0 md:border-r md:border-border md:pr-4 md:sticky md:top-0 md:self-start space-y-1"
-                aria-label="Client sections"
+                className="md:w-56 md:flex-shrink-0 md:border-e md:border-border md:pe-4 md:sticky md:top-0 md:self-start space-y-1"
+                aria-label={t('enhanced.sectionsNav')}
               >
                 {tabOptions.map((tab) => {
                   const Icon = tab.icon;
@@ -859,7 +900,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     <button
                       key={tab.value}
                       onClick={() => setActiveTab(tab.value)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-start transition-colors ${
                         active
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -884,13 +925,13 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       onClick={handleBackfillFromLatestForm}
                       disabled={backfilling}
                     >
-                      <Sparkles className="h-4 w-4 mr-1" />
-                      {backfilling ? 'Filling…' : 'Fill from latest signed form'}
+                      <Sparkles className="h-4 w-4 me-1" />
+                      {backfilling ? t('enhanced.details.filling') : t('enhanced.details.fillFromForm')}
                     </Button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium">Name</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.name')}</label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -898,34 +939,36 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Phone</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.phone')}</label>
                       <Input
+                        dir="ltr"
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
                         disabled={!isEditing}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Email</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.email')}</label>
                       <Input
+                        dir="ltr"
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
                         disabled={!isEditing}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Birthday</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.birthday')}</label>
                       {isEditing ? (
                         <Popover open={birthdayOpen} onOpenChange={setBirthdayOpen}>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
-                              className={cn('w-full justify-start text-left font-normal mt-0', !formData.birthday && 'text-muted-foreground')}
+                              className={cn('w-full justify-start text-start font-normal mt-0', !formData.birthday && 'text-muted-foreground')}
                             >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <CalendarIcon className="me-2 h-4 w-4" />
                               {formData.birthday
-                                ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy')
-                                : 'Pick a date'}
+                                ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy', { locale: getDateFnsLocale() })
+                                : t('enhanced.details.pickDate')}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -945,13 +988,13 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                         </Popover>
                       ) : (
                         <Input
-                          value={formData.birthday ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy') : ''}
+                          value={formData.birthday ? format(new Date(formData.birthday + 'T12:00:00'), 'MMM d, yyyy', { locale: getDateFnsLocale() }) : ''}
                           disabled
                         />
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Age</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.age')}</label>
                       <Input
                         type="number"
                         min="0"
@@ -959,34 +1002,43 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                         value={formData.age}
                         onChange={(e) => setFormData({...formData, age: e.target.value})}
                         disabled={!isEditing}
-                        placeholder="e.g. 35"
+                        placeholder={t('enhanced.details.agePlaceholder')}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Gender</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.gender')}</label>
                       {isEditing ? (
                         <select
                           value={formData.gender}
                           onChange={(e) => setFormData({...formData, gender: e.target.value})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
-                          <option value="">Select Gender</option>
-                          <option value="female">Female</option>
-                          <option value="male">Male</option>
+                          <option value="">{t('enhanced.details.selectGender')}</option>
+                          <option value="female">{t('enhanced.details.female')}</option>
+                          <option value="male">{t('enhanced.details.male')}</option>
                         </select>
                       ) : (
-                        <Input value={formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : ''} disabled />
+                        <Input
+                          value={
+                            formData.gender === 'female'
+                              ? t('enhanced.details.female')
+                              : formData.gender === 'male'
+                                ? t('enhanced.details.male')
+                                : ''
+                          }
+                          disabled
+                        />
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium">City</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.city')}</label>
                       {isEditing ? (
                         <select
                           value={formData.city}
                           onChange={(e) => setFormData({...formData, city: e.target.value})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
-                          <option value="">Select City</option>
+                          <option value="">{t('enhanced.details.selectCity')}</option>
                           {dropdownData.cities.map((city) => (
                             <option key={city} value={city}>{city}</option>
                           ))}
@@ -996,14 +1048,14 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       )}
                     </div>
                     <div>
-                      <label className="text-sm font-medium">How did you hear about us?</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.referralSource')}</label>
                       {isEditing ? (
                         <select
                           value={formData.referral_source}
                           onChange={(e) => setFormData({...formData, referral_source: e.target.value})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         >
-                          <option value="">Select Source</option>
+                          <option value="">{t('enhanced.details.selectSource')}</option>
                           {dropdownData.referralSources.map((source) => (
                             <option key={source} value={source}>{source}</option>
                           ))}
@@ -1014,7 +1066,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Address</label>
+                    <label className="text-sm font-medium">{t('enhanced.details.fields.address')}</label>
                     <Input
                       value={formData.address}
                       onChange={(e) => setFormData({...formData, address: e.target.value})}
@@ -1024,24 +1076,24 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   <div className="rounded-md border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-3 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
-                        Internal — not visible to clients
+                        {t('enhanced.details.internalOnly')}
                       </span>
                     </div>
                     <div>
                       <label className="text-sm font-medium flex items-center gap-2">
-                        Allergies / Medical alerts
+                        {t('enhanced.details.fields.allergies')}
                       </label>
                       <textarea
                         className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-background"
                         rows={2}
-                        placeholder="e.g. Latex, nuts, fragrance sensitivity"
+                        placeholder={t('enhanced.details.allergiesPlaceholder')}
                         value={formData.allergies}
                         onChange={(e) => setFormData({...formData, allergies: e.target.value})}
                         disabled={!isEditing}
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">Notes</label>
+                      <label className="text-sm font-medium">{t('enhanced.details.fields.notes')}</label>
                       <textarea
                         className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-background"
                         rows={3}
@@ -1053,7 +1105,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   </div>
                   {isEditing && isAdmin && (
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <input
                           type="checkbox"
                           id="membership"
@@ -1061,9 +1113,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           onChange={(e) => setFormData({...formData, has_membership: e.target.checked})}
                           className="rounded"
                         />
-                        <label htmlFor="membership" className="text-sm font-medium">Has Membership</label>
+                        <label htmlFor="membership" className="text-sm font-medium">{t('enhanced.details.hasMembership')}</label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <input
                           type="checkbox"
                           id="sms_opt_out"
@@ -1072,10 +1124,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           className="rounded"
                         />
                         <label htmlFor="sms_opt_out" className="text-sm font-medium">
-                          Opted out of SMS marketing
+                          {t('enhanced.details.smsOptOut')}
                         </label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         <input
                           type="checkbox"
                           id="email_opt_out"
@@ -1084,22 +1136,22 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           className="rounded"
                         />
                         <label htmlFor="email_opt_out" className="text-sm font-medium">
-                          Opted out of email marketing
+                          {t('enhanced.details.emailOptOut')}
                         </label>
                       </div>
                     </div>
                   )}
                   <div className="flex flex-wrap gap-4 text-sm">
-                    <div>Status: <Badge>{client.status}</Badge></div>
-                    <div>Total Visits: {appointments.length}</div>
-                    <div>Last Visit: {appointments.length > 0 ? appointments[0].appointment_date : 'Never'}</div>
+                    <div>{t('enhanced.details.stats.status')} <Badge>{statusLabel(client.status)}</Badge></div>
+                    <div>{t('enhanced.details.stats.totalVisits', { count: appointments.length })}</div>
+                    <div>{t('enhanced.details.stats.lastVisit', { date: appointments.length > 0 ? appointments[0].appointment_date : t('enhanced.details.stats.never') })}</div>
                     {isAdmin && (
-                      <div>Total Revenue: ${purchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0)}</div>
+                      <div>{t('enhanced.details.stats.totalRevenue', { amount: purchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) })}</div>
                     )}
                     {isAdmin && (
                       <>
-                        <div>Active Packages: {clientPackages.length}</div>
-                        <div>Active Products: {clientProducts.length}</div>
+                        <div>{t('enhanced.details.stats.activePackages', { count: clientPackages.length })}</div>
+                        <div>{t('enhanced.details.stats.activeProducts', { count: clientProducts.length })}</div>
                       </>
                     )}
                   </div>
@@ -1109,15 +1161,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               {activeTab === 'appointments' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center flex-wrap gap-2">
-                    <h3 className="font-medium">Appointment History</h3>
+                    <h3 className="font-medium">{t('enhanced.appointments.title')}</h3>
                     <div className="flex gap-2">
                       <Button onClick={() => setIsPastTreatmentOpen(true)} size="sm" variant="outline">
-                        <History className="h-4 w-4 mr-1" />
-                        Log Past Treatment
+                        <History className="h-4 w-4 me-1" />
+                        {t('enhanced.appointments.logPast')}
                       </Button>
                       <Button onClick={handleBookAppointment} size="sm">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Book Appointment
+                        <Plus className="h-4 w-4 me-1" />
+                        {t('enhanced.appointments.book')}
                       </Button>
                     </div>
                   </div>
@@ -1126,16 +1178,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                     {appointments.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No appointments yet</p>
+                        <p>{t('enhanced.appointments.empty')}</p>
                         <Button onClick={handleBookAppointment} className="mt-4">
-                          Book First Appointment
+                          {t('enhanced.appointments.bookFirst')}
                         </Button>
                       </div>
                     ) : (
                       appointments.map((appointment) => (
                         <div key={appointment.id} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start gap-2">
-                            <div className="flex items-start space-x-2 min-w-0">
+                            <div className="flex items-start space-x-2 rtl:space-x-reverse min-w-0">
                               <Calendar className="h-4 w-4 text-blue-600 mt-1 flex-shrink-0" />
                               <div className="min-w-0">
                                 <h4 className="font-medium">{appointment.treatment_name}</h4>
@@ -1143,31 +1195,35 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                   {appointment.purchase_id ? (
                                     <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs gap-1">
                                       <Package className="h-3 w-3" />
-                                      From {appointment.package_name || 'Package'}
+                                      {t('enhanced.appointments.fromPackage', { name: appointment.package_name || t('enhanced.appointments.packageFallback') })}
                                     </Badge>
                                   ) : (
                                     <Badge variant="outline" className="text-gray-600 border-gray-200 text-xs">
-                                      Paid à la carte
+                                      {t('enhanced.appointments.alaCarte')}
                                     </Badge>
                                   )}
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1">
-                                  {appointment.appointment_date} at {formatTimeDisplay(appointment.appointment_time)} • {appointment.duration} min
+                                  {t('enhanced.appointments.dateTime', {
+                                    date: appointment.appointment_date,
+                                    time: formatTimeDisplay(appointment.appointment_time),
+                                    duration: appointment.duration,
+                                  })}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Staff: {appointment.staff_name}
+                                  {t('enhanced.appointments.staff', { name: appointment.staff_name })}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right flex-shrink-0">
+                            <div className="text-end flex-shrink-0">
                               <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
-                                {appointment.status}
+                                {statusLabel(appointment.status)}
                               </Badge>
                             </div>
                           </div>
                           {appointment.notes && (
                             <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                              <strong>Notes:</strong> {appointment.notes}
+                              <strong>{t('enhanced.appointments.notes')}</strong> {appointment.notes}
                             </div>
                           )}
                         </div>
@@ -1182,23 +1238,23 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   {/* Packages Section */}
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-medium">Assigned Packages</h3>
+                      <h3 className="font-medium">{t('enhanced.packages.title')}</h3>
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={handleManagePackages} size="sm" variant="outline">
-                          <Settings className="h-4 w-4 mr-1" />
-                          Manage Packages
+                          <Settings className="h-4 w-4 me-1" />
+                          {t('enhanced.packages.manage')}
                         </Button>
                         <Button
                           onClick={() => setIsCustomPackageModalOpen(true)}
                           size="sm"
                           variant="outline"
                         >
-                          <Sparkles className="h-4 w-4 mr-1" />
-                          Custom Package
+                          <Sparkles className="h-4 w-4 me-1" />
+                          {t('enhanced.packages.custom')}
                         </Button>
                         <Button onClick={handleAssignPackage} size="sm">
-                          <Package className="h-4 w-4 mr-1" />
-                          Assign Package
+                          <Package className="h-4 w-4 me-1" />
+                          {t('enhanced.packages.assign')}
                         </Button>
                       </div>
                     </div>
@@ -1207,9 +1263,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       {purchases.length === 0 ? (
                         <div className="text-center py-6 text-muted-foreground">
                           <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No packages assigned yet</p>
+                          <p className="text-sm">{t('enhanced.packages.empty')}</p>
                           <Button onClick={handleAssignPackage} className="mt-2" size="sm">
-                            Assign First Package
+                            {t('enhanced.packages.assignFirst')}
                           </Button>
                         </div>
                       ) : (
@@ -1228,12 +1284,12 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           return (
                           <div key={purchase.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                                 <Package className="h-4 w-4 text-purple-600" />
                                 <div>
-                                  <h4 className="font-medium">{purchase.packages?.name || 'Unknown Package'}</h4>
+                                  <h4 className="font-medium">{purchase.packages?.name || t('enhanced.packages.unknownPackage')}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    Package • ${Number(purchase.total_amount || 0)}
+                                    {t('enhanced.packages.packagePrice', { amount: Number(purchase.total_amount || 0) })}
                                   </p>
                                   {(purchase.description_override ?? purchase.packages?.description) && (
                                     <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
@@ -1242,12 +1298,12 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                   )}
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-end">
                                 <div className="flex items-center justify-end gap-1 flex-wrap">
-                                  <Badge variant="default">Active</Badge>
+                                  <Badge variant="default">{t('enhanced.packages.active')}</Badge>
                                   {totalOwedForPurchase > 0 && (
                                     <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 text-xs">
-                                      {totalOwedForPurchase} item{totalOwedForPurchase === 1 ? '' : 's'} owed
+                                      {t('enhanced.packages.itemsOwed', { count: totalOwedForPurchase })}
                                     </Badge>
                                   )}
                                 </div>
@@ -1259,44 +1315,47 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                     variant="outline"
                                     disabled={generatingFor === purchase.id}
                                   >
-                                    <Receipt className="h-4 w-4 mr-1" />
-                                    {generatingFor === purchase.id ? 'Generating…' : 'Generate Invoice'}
+                                    <Receipt className="h-4 w-4 me-1" />
+                                    {generatingFor === purchase.id ? t('enhanced.packages.generating') : t('enhanced.packages.generateInvoice')}
                                   </Button>
                                   <Button
                                     onClick={() => setAgreementFor({
                                       purchaseId: purchase.id,
-                                      packageName: purchase.packages?.name || 'Package',
+                                      packageName: purchase.packages?.name || t('enhanced.packages.packageFallback'),
                                     })}
                                     size="sm"
                                     variant="outline"
                                   >
-                                    <FileSignature className="h-4 w-4 mr-1" />
-                                    Send Agreement
+                                    <FileSignature className="h-4 w-4 me-1" />
+                                    {t('enhanced.packages.sendAgreement')}
                                   </Button>
                                 </div>
                               </div>
                             </div>
                             {purchase.packages && (
                               <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                                Sessions: {(purchase.packages.total_sessions || 0) - (purchase.sessions_remaining || 0)}/{purchase.packages.total_sessions} used
-                                ({purchase.sessions_remaining} remaining)
+                                {t('enhanced.packages.sessionsUsed', {
+                                  used: (purchase.packages.total_sessions || 0) - (purchase.sessions_remaining || 0),
+                                  total: purchase.packages.total_sessions,
+                                  remaining: purchase.sessions_remaining,
+                                })}
                               </div>
                             )}
                             {purchase.sessions_by_treatment && purchase.sessions_by_treatment.length > 0 && (
                               <div className="mt-2 p-2 bg-purple-50 rounded text-sm space-y-1.5">
-                                <p className="font-medium text-purple-700 mb-1 text-xs">Sessions by treatment</p>
+                                <p className="font-medium text-purple-700 mb-1 text-xs">{t('enhanced.packages.sessionsByTreatment')}</p>
                                 {purchase.sessions_by_treatment.map((slot, i) => {
-                                  const t = treatmentsList.find(tr => tr.id === slot.treatment_id);
+                                  const tr = treatmentsList.find(x => x.id === slot.treatment_id);
                                   const used = slot.total - slot.remaining;
                                   const pct = slot.total > 0 ? Math.min(100, Math.max(0, (used / slot.total) * 100)) : 0;
                                   return (
                                     <div key={slot.treatment_id || i} className="text-xs">
                                       <div className="flex justify-between text-purple-900">
-                                        <span>{t?.name || 'Treatment'}</span>
+                                        <span>{tr?.name || t('enhanced.packages.treatmentFallback')}</span>
                                         <span>
-                                          {used} used / {slot.remaining < 0 ? '0' : slot.remaining} remaining
+                                          {t('enhanced.packages.slotUsage', { used, remaining: slot.remaining < 0 ? 0 : slot.remaining })}
                                           {slot.remaining < 0 && (
-                                            <span className="text-amber-700 ml-1">({Math.abs(slot.remaining)} over)</span>
+                                            <span className="text-amber-700 ms-1">{t('enhanced.packages.over', { count: Math.abs(slot.remaining) })}</span>
                                           )}
                                         </span>
                                       </div>
@@ -1310,7 +1369,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                             )}
                             {purchase.product_snapshot && purchase.product_snapshot.length > 0 && (
                               <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                                <p className="font-medium text-blue-700 mb-1 text-xs">Included Products</p>
+                                <p className="font-medium text-blue-700 mb-1 text-xs">{t('enhanced.packages.includedProducts')}</p>
                                 <ul className="space-y-1">
                                   {purchase.product_snapshot.map((p, i) => {
                                     const delivered = deliveredByProductId[p.product_id] || 0;
@@ -1318,17 +1377,17 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                     return (
                                       <li key={i} className="flex justify-between items-center text-xs gap-2">
                                         <span className="text-blue-900 flex-1 min-w-0 truncate">
-                                          {p.product_name} × {p.quantity}
+                                          {t('enhanced.packages.productQty', { name: p.product_name, quantity: p.quantity })}
                                         </span>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                          <span className="text-blue-700">{delivered}/{p.quantity} given</span>
+                                          <span className="text-blue-700">{t('enhanced.packages.given', { delivered, quantity: p.quantity })}</span>
                                           {owed === 0 ? (
                                             <Badge variant="outline" className="border-green-400 text-green-700 bg-green-50 text-xs">
-                                              All delivered
+                                              {t('enhanced.packages.allDelivered')}
                                             </Badge>
                                           ) : (
                                             <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 text-xs">
-                                              {owed} owed
+                                              {t('enhanced.packages.owed', { count: owed })}
                                             </Badge>
                                           )}
                                         </div>
@@ -1348,15 +1407,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                   {/* Products Section */}
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-medium">Assigned Products</h3>
+                      <h3 className="font-medium">{t('enhanced.products.title')}</h3>
                       <div className="flex gap-2">
                         <Button onClick={handleManageProducts} size="sm" variant="outline">
-                          <Settings className="h-4 w-4 mr-1" />
-                          Manage Products
+                          <Settings className="h-4 w-4 me-1" />
+                          {t('enhanced.products.manage')}
                         </Button>
                         <Button onClick={handleAssignProduct} size="sm">
-                          <ShoppingBag className="h-4 w-4 mr-1" />
-                          Assign Product
+                          <ShoppingBag className="h-4 w-4 me-1" />
+                          {t('enhanced.products.assign')}
                         </Button>
                       </div>
                     </div>
@@ -1365,16 +1424,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       {clientProducts.length === 0 ? (
                         <div className="text-center py-6 text-muted-foreground">
                           <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm">No products assigned yet</p>
+                          <p className="text-sm">{t('enhanced.products.empty')}</p>
                           <Button onClick={handleAssignProduct} className="mt-2" size="sm">
-                            Assign First Product
+                            {t('enhanced.products.assignFirst')}
                           </Button>
                         </div>
                       ) : (
                         clientProducts.map((productAssignment) => (
                           <div key={productAssignment.id} className="border rounded-lg p-4">
                             <div className="flex justify-between items-start">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                                 <div className="w-10 h-10 bg-muted rounded flex items-center justify-center overflow-hidden">
                                   {productAssignment.products?.image_url ? (
                                     <img 
@@ -1387,15 +1446,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                   )}
                                 </div>
                                 <div>
-                                  <h4 className="font-medium">{productAssignment.products?.name || 'Unknown Product'}</h4>
+                                  <h4 className="font-medium">{productAssignment.products?.name || t('enhanced.products.unknownProduct')}</h4>
                                   <p className="text-sm text-muted-foreground">
-                                    Product • ${Number(productAssignment.assigned_price || 0)} • Qty: {productAssignment.quantity}
+                                    {t('enhanced.products.productLine', { amount: Number(productAssignment.assigned_price || 0), quantity: productAssignment.quantity })}
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-end">
                                 <Badge variant={productAssignment.status === 'delivered' ? 'default' : 'secondary'}>
-                                  {productAssignment.status}
+                                  {statusLabel(productAssignment.status)}
                                 </Badge>
                                 <p className="text-sm text-muted-foreground mt-1">{safeFormatters.shortDate(productAssignment.assigned_at) || '—'}</p>
                                 <div className="flex flex-col gap-2 mt-2">
@@ -1411,15 +1470,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                     size="sm"
                                     variant="outline"
                                   >
-                                    <Receipt className="h-4 w-4 mr-1" />
-                                    Generate Invoice
+                                    <Receipt className="h-4 w-4 me-1" />
+                                    {t('enhanced.products.generateInvoice')}
                                   </Button>
                                 </div>
                               </div>
                             </div>
                             {productAssignment.notes && (
                               <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
-                                <strong>Notes:</strong> {productAssignment.notes}
+                                <strong>{t('enhanced.products.notes')}</strong> {productAssignment.notes}
                               </div>
                             )}
                           </div>
@@ -1438,35 +1497,35 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h3 className="font-medium">Quick Actions</h3>
-                      
+                      <h3 className="font-medium">{t('enhanced.actions.quickActions')}</h3>
+
                       <Button onClick={handleBookAppointment} className="w-full" size="lg">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Book New Appointment
+                        <Calendar className="h-4 w-4 me-2" />
+                        {t('enhanced.actions.bookNew')}
                       </Button>
 
                       {isAdmin && (
                         <Button onClick={handleAssignPackage} className="w-full" size="lg" variant="outline">
-                          <Package className="h-4 w-4 mr-2" />
-                          Assign Package
+                          <Package className="h-4 w-4 me-2" />
+                          {t('enhanced.actions.assignPackage')}
                         </Button>
                       )}
 
                       {isAdmin && (
                         <Button onClick={handleAssignProduct} className="w-full" size="lg" variant="outline">
-                          <ShoppingBag className="h-4 w-4 mr-2" />
-                          Assign Product
+                          <ShoppingBag className="h-4 w-4 me-2" />
+                          {t('enhanced.actions.assignProduct')}
                         </Button>
                       )}
 
                       <Button onClick={() => setIsCommunicationModalOpen(true)} className="w-full" size="lg" variant="outline">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Send Message
+                        <MessageSquare className="h-4 w-4 me-2" />
+                        {t('enhanced.actions.sendMessage')}
                       </Button>
                     </div>
 
                     <div className="space-y-4">
-                      <h3 className="font-medium">Contact Options</h3>
+                      <h3 className="font-medium">{t('enhanced.actions.contactOptions')}</h3>
                       
                       <Button 
                         onClick={() => window.open(`tel:${client.phone}`)} 
@@ -1474,8 +1533,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                         size="lg" 
                         variant="outline"
                       >
-                        <Phone className="h-4 w-4 mr-2" />
-                        <span className="truncate">Call {client.phone}</span>
+                        <Phone className="h-4 w-4 me-2" />
+                        <span className="truncate">{t('enhanced.actions.call')} <span dir="ltr">{client.phone}</span></span>
                       </Button>
                       
                       {client.email && (
@@ -1485,30 +1544,29 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           size="lg" 
                           variant="outline"
                         >
-                          <Mail className="h-4 w-4 mr-2" />
-                          <span className="truncate">Email {client.email}</span>
+                          <Mail className="h-4 w-4 me-2" />
+                          <span className="truncate">{t('enhanced.actions.email')} <span dir="ltr">{client.email}</span></span>
                         </Button>
                       )}
                       
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="lg" className="w-full">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Clear All History
+                            <Trash2 className="h-4 w-4 me-2" />
+                            {t('enhanced.actions.clearHistory')}
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent className="w-[95vw] max-w-md">
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Clear All History</AlertDialogTitle>
+                            <AlertDialogTitle>{t('enhanced.actions.clearHistory')}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will permanently delete all appointment and purchase history for this client. 
-                              This action cannot be undone.
+                              {t('enhanced.actions.clearHistoryDescription')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+                            <AlertDialogCancel className="w-full sm:w-auto">{t('common:actions.cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={handleClearHistory} className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
-                              Clear History
+                              {t('enhanced.actions.clearHistoryConfirm')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -1533,16 +1591,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-medium">Invoices</h3>
+                    <h3 className="font-medium">{t('enhanced.invoices.title')}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Generate invoices from the <strong>Packages</strong> tab.
+                      <Trans t={t} i18nKey="enhanced.invoices.hint" components={{ strong: <strong /> }} />
                     </p>
                   </div>
 
                   {invoices.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">No invoices issued yet</p>
+                      <p className="text-sm">{t('enhanced.invoices.empty')}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -1551,20 +1609,20 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           key={inv.id}
                           className="border rounded-lg p-3 flex items-center justify-between gap-3"
                         >
-                          <div className="flex items-center space-x-3 min-w-0">
+                          <div className="flex items-center space-x-3 rtl:space-x-reverse min-w-0">
                             <Receipt className="h-5 w-5 text-purple-600 flex-shrink-0" />
                             <div className="min-w-0">
-                              <div className="font-mono font-medium truncate">
+                              <div className="font-mono font-medium truncate" dir="ltr">
                                 {inv.invoice_number}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {formatInvoiceDate(inv.issued_at)} ·{' '}
-                                {inv.line_items[0]?.name ?? 'Package'}
+                                {inv.line_items[0]?.name ?? t('enhanced.invoices.packageFallback')}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-3 flex-shrink-0">
-                            <div className="text-right">
+                          <div className="flex items-center space-x-3 rtl:space-x-reverse flex-shrink-0">
+                            <div className="text-end">
                               <div className="font-medium">
                                 {formatCents(inv.total_cents, inv.currency)}
                               </div>
@@ -1572,7 +1630,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                                 variant={inv.status === 'void' ? 'destructive' : 'default'}
                                 className="mt-0.5"
                               >
-                                {inv.status}
+                                {statusLabel(inv.status)}
                               </Badge>
                             </div>
                             <Button
@@ -1581,18 +1639,18 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                               onClick={() => handleOpenInvoice(inv)}
                               disabled={!inv.pdf_url}
                             >
-                              <Download className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">Download</span>
+                              <Download className="h-4 w-4 me-1" />
+                              <span className="hidden sm:inline">{t('enhanced.invoices.download')}</span>
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleEmailInvoice(inv)}
                               disabled={!inv.pdf_url || emailingInvoice === inv.id}
-                              title="Email invoice to client"
+                              title={t('enhanced.invoices.emailTitle')}
                             >
-                              <Mail className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">{emailingInvoice === inv.id ? 'Sending…' : 'Email'}</span>
+                              <Mail className="h-4 w-4 me-1" />
+                              <span className="hidden sm:inline">{emailingInvoice === inv.id ? t('enhanced.invoices.sending') : t('enhanced.invoices.email')}</span>
                             </Button>
                           </div>
                         </div>
@@ -1604,13 +1662,13 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 rtl:space-x-reverse pt-4 border-t">
             <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             {isEditing && (
               <Button onClick={handleSave} className="w-full sm:w-auto">
-                Save Changes
+                {t('enhanced.footer.saveChanges')}
               </Button>
             )}
           </div>
@@ -1668,28 +1726,28 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       <Dialog open={paymentMethodDialogOpen} onOpenChange={setPaymentMethodDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Select Payment Method</DialogTitle>
-            <DialogDescription>Choose how the client paid for this package.</DialogDescription>
+            <DialogTitle>{t('enhanced.paymentMethod.title')}</DialogTitle>
+            <DialogDescription>{t('enhanced.paymentMethod.description')}</DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a payment method" />
+                <SelectValue placeholder={t('enhanced.paymentMethod.placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Zelle">Zelle</SelectItem>
                 <SelectItem value="Cherry">Cherry</SelectItem>
                 <SelectItem value="Affirm">Affirm</SelectItem>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="Credit Card">Credit Card</SelectItem>
-                <SelectItem value="Check">Check</SelectItem>
+                <SelectItem value="Cash">{t('enhanced.paymentMethod.options.cash')}</SelectItem>
+                <SelectItem value="Credit Card">{t('enhanced.paymentMethod.options.creditCard')}</SelectItem>
+                <SelectItem value="Check">{t('enhanced.paymentMethod.options.check')}</SelectItem>
                 <SelectItem value="Venmo">Venmo</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="Other">{t('enhanced.paymentMethod.options.other')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPaymentMethodDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setPaymentMethodDialogOpen(false)}>{t('common:actions.cancel')}</Button>
             <Button
               disabled={!selectedPaymentMethod}
               onClick={() => {
@@ -1697,8 +1755,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 if (pendingPurchaseId) executeGenerateInvoice(pendingPurchaseId, selectedPaymentMethod);
               }}
             >
-              <Receipt className="h-4 w-4 mr-1" />
-              Generate Invoice
+              <Receipt className="h-4 w-4 me-1" />
+              {t('enhanced.paymentMethod.generate')}
             </Button>
           </div>
         </DialogContent>
@@ -1715,8 +1773,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       >
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Log Past Treatment</DialogTitle>
-            <DialogDescription>Add a treatment that was already performed. Optionally attach it to one of the client's packages to consume a session.</DialogDescription>
+            <DialogTitle>{t('enhanced.pastLog.title')}</DialogTitle>
+            <DialogDescription>{t('enhanced.pastLog.description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {clientPackages.length > 0 && (
@@ -1732,7 +1790,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               />
             )}
             <div>
-              <label className="text-sm font-medium">Treatment *</label>
+              <label className="text-sm font-medium">{t('enhanced.pastLog.treatment')}</label>
               {(() => {
                 const allowedIds = selectedPastPackage
                   ? (selectedPastPackage.sessions_by_treatment && selectedPastPackage.sessions_by_treatment.length > 0
@@ -1740,50 +1798,50 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                       : selectedPastPackage.treatments)
                   : null;
                 const displayTreatments = allowedIds
-                  ? treatmentsList.filter(t => allowedIds.includes(t.id))
+                  ? treatmentsList.filter(tr => allowedIds.includes(tr.id))
                   : treatmentsList;
                 return (
                   <>
                     <Select
                       value={pastTreatmentForm.treatment_name}
                       onValueChange={(val) => {
-                        const t = treatmentsList.find(t => t.name === val);
+                        const tr = treatmentsList.find(x => x.name === val);
                         setPastTreatmentForm({
                           ...pastTreatmentForm,
                           treatment_name: val,
-                          duration: t ? String(t.duration) : pastTreatmentForm.duration,
-                          price: selectedPastPackage ? '' : (t?.price != null ? String(t.price) : pastTreatmentForm.price),
+                          duration: tr ? String(tr.duration) : pastTreatmentForm.duration,
+                          price: selectedPastPackage ? '' : (tr?.price != null ? String(tr.price) : pastTreatmentForm.price),
                         });
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={selectedPastPackage && displayTreatments.length === 0 ? 'No treatments in this package' : 'Select a treatment'} />
+                        <SelectValue placeholder={selectedPastPackage && displayTreatments.length === 0 ? t('enhanced.pastLog.noTreatmentsInPackage') : t('enhanced.pastLog.selectTreatment')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {displayTreatments.map(t => (
-                          <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                        {displayTreatments.map(tr => (
+                          <SelectItem key={tr.id} value={tr.name}>{tr.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {selectedPastPackage && displayTreatments.length === 0 && (
-                      <p className="text-xs text-amber-600 mt-1">No treatments available for this package.</p>
+                      <p className="text-xs text-amber-600 mt-1">{t('enhanced.pastLog.noTreatmentsAvailable')}</p>
                     )}
                   </>
                 );
               })()}
             </div>
             <div>
-              <label className="text-sm font-medium">Date *</label>
+              <label className="text-sm font-medium">{t('enhanced.pastLog.date')}</label>
               <Popover open={pastDateOpen} onOpenChange={setPastDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={cn('w-full justify-start text-left font-normal', !pastTreatmentForm.appointment_date && 'text-muted-foreground')}
+                    className={cn('w-full justify-start text-start font-normal', !pastTreatmentForm.appointment_date && 'text-muted-foreground')}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="me-2 h-4 w-4" />
                     {pastTreatmentForm.appointment_date
-                      ? format(new Date(pastTreatmentForm.appointment_date + 'T12:00:00'), 'MMM d, yyyy')
-                      : 'Pick a date'}
+                      ? format(new Date(pastTreatmentForm.appointment_date + 'T12:00:00'), 'MMM d, yyyy', { locale: getDateFnsLocale() })
+                      : t('enhanced.pastLog.pickDate')}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -1803,16 +1861,16 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               </Popover>
             </div>
             <div>
-              <label className="text-sm font-medium">Staff Name</label>
+              <label className="text-sm font-medium">{t('enhanced.pastLog.staffName')}</label>
               <Input
-                placeholder="e.g. Sarah"
+                placeholder={t('enhanced.pastLog.staffPlaceholder')}
                 value={pastTreatmentForm.staff_name}
                 onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, staff_name: e.target.value })}
               />
             </div>
             <div className={`grid gap-3 ${isAdmin && !selectedPastPackage ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <div>
-                <label className="text-sm font-medium">Duration (minutes)</label>
+                <label className="text-sm font-medium">{t('enhanced.pastLog.duration')}</label>
                 <Input
                   type="number"
                   value={pastTreatmentForm.duration}
@@ -1821,7 +1879,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
               </div>
               {isAdmin && !selectedPastPackage && (
                 <div>
-                  <label className="text-sm font-medium">Price ($)</label>
+                  <label className="text-sm font-medium">{t('enhanced.pastLog.price')}</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1836,9 +1894,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             {addonsList.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-medium">Add-ons (optional)</label>
+                  <label className="text-sm font-medium">{t('enhanced.pastLog.addons')}</label>
                   {selectedPastPackage && (
-                    <span className="text-xs text-muted-foreground">One max with package</span>
+                    <span className="text-xs text-muted-foreground">{t('enhanced.pastLog.oneMaxWithPackage')}</span>
                   )}
                 </div>
                 <div className="space-y-1 border rounded-md p-2 max-h-36 overflow-y-auto">
@@ -1871,9 +1929,9 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                           <span className="truncate">{addon.name}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 text-xs text-muted-foreground">
-                          <span>+${addon.price}</span>
+                          <span>{t('enhanced.pastLog.addonPrice', { price: addon.price })}</span>
                           {addon.duration_minutes && addon.duration_minutes > 0 && (
-                            <span>· +{addon.duration_minutes}m</span>
+                            <span>{t('enhanced.pastLog.addonDuration', { minutes: addon.duration_minutes })}</span>
                           )}
                         </div>
                       </label>
@@ -1885,25 +1943,25 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             {selectedPastPackage && (
               <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
                 {pastTreatmentForm.selectedAddonIds.length > 0
-                  ? `Package session — treatment free, add-ons charged separately`
-                  : 'Package session — no additional charge'}
+                  ? t('enhanced.pastLog.packageSessionWithAddons')
+                  : t('enhanced.pastLog.packageSessionFree')}
               </div>
             )}
             <div>
-              <label className="text-sm font-medium">Notes</label>
+              <label className="text-sm font-medium">{t('enhanced.pastLog.notes')}</label>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                 rows={2}
-                placeholder="Optional notes about the treatment"
+                placeholder={t('enhanced.pastLog.notesPlaceholder')}
                 value={pastTreatmentForm.notes}
                 onChange={(e) => setPastTreatmentForm({ ...pastTreatmentForm, notes: e.target.value })}
               />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsPastTreatmentOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsPastTreatmentOpen(false)}>{t('common:actions.cancel')}</Button>
             <Button onClick={() => handleSavePastTreatment()} disabled={savingPastTreatment}>
-              {savingPastTreatment ? 'Saving…' : 'Save Treatment'}
+              {savingPastTreatment ? t('enhanced.pastLog.saving') : t('enhanced.pastLog.save')}
             </Button>
           </div>
         </DialogContent>
@@ -1915,15 +1973,15 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>No remaining sessions</AlertDialogTitle>
+            <AlertDialogTitle>{t('enhanced.overConsume.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              No remaining sessions for {confirmOverConsume?.treatmentName} in this package. Save anyway? The package session counter will go below zero.
+              {t('enhanced.overConsume.description', { treatment: confirmOverConsume?.treatmentName ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => handleSavePastTreatment({ confirmedOverConsume: true })}>
-              Save Anyway
+              {t('enhanced.overConsume.saveAnyway')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

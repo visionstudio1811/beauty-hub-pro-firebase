@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { InvoiceDraft, InvoiceDraftLine } from '@/types/firestore';
+import { useTranslation } from 'react-i18next';
 
 export type DraftPayload = {
   client_id: string | null;
@@ -29,6 +30,7 @@ export type DraftPayload = {
 export const useInvoiceDrafts = (clientId?: string | null) => {
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
+  const { t } = useTranslation('hooks');
   const queryClient = useQueryClient();
   const orgId = currentOrganization?.id;
 
@@ -67,8 +69,8 @@ export const useInvoiceDrafts = (clientId?: string | null) => {
 
   const saveDraft = useCallback(
     async (payload: DraftPayload, existingId?: string): Promise<string> => {
-      if (!orgId) throw new Error('No organization');
-      if (!user?.uid) throw new Error('Not signed in');
+      if (!orgId) throw new Error(t('common.noOrganization'));
+      if (!user?.uid) throw new Error(t('common.notSignedIn'));
       const collRef = collection(db, 'organizations', orgId, 'invoiceDrafts');
       const data = {
         client_id: payload.client_id,
@@ -95,7 +97,7 @@ export const useInvoiceDrafts = (clientId?: string | null) => {
       await queryClient.invalidateQueries({ queryKey });
       return newRef.id;
     },
-    [orgId, user?.uid, queryClient, queryKey],
+    [orgId, user?.uid, queryClient, queryKey, t],
   );
 
   const loadDraft = useCallback(

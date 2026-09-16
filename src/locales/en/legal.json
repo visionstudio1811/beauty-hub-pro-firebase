@@ -1,0 +1,512 @@
+{
+  "layout": {
+    "by": "by {{parent}}",
+    "backToHome": "Back to home",
+    "eyebrow": "Legal",
+    "lastUpdated": "Last updated: {{date}}",
+    "translationNotice": "This translation is provided for convenience only. The English version is the legally binding text. <englishLink>View the English version</englishLink>.",
+    "links": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Use",
+      "sms": "SMS Terms",
+      "aup": "Acceptable Use",
+      "dpa": "Data Processing",
+      "home": "Home"
+    },
+    "contact": "Questions about this policy? Contact us at <emailLink>{{email}}</emailLink> or <phoneLink>{{phone}}</phoneLink>.",
+    "copyright": "© 2026 {{parent}}<gold>.</gold> All rights reserved."
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This Privacy Policy explains how The Golden Circle Consulting LLC (\"we,\" \"us,\" or \"Beauty Hub Pro\") collects, uses, shares, and protects information when you visit our website, use our salon and spa management platform, or interact with the marketing and transactional communications we send on behalf of our customers.",
+    "s1": {
+      "h": "1. Who we are",
+      "p1": "Beauty Hub Pro is the software arm of The Golden Circle Consulting LLC, a Florida limited liability company. Throughout this policy, references to \"the Platform\" or \"the Service\" mean the Beauty Hub Pro web application, client portal, and related Cloud Functions, regardless of whether they are accessed at beautyhubpro.com or a white-label domain operated by one of our customers (for example, crm.your-salon.com).",
+      "p2": "When you are a customer's client (for example, a client of a salon that uses our Platform), our customer (not Beauty Hub Pro) is the controller of your personal data, and we act as a processor. This Privacy Policy describes the practices Beauty Hub Pro follows in either role."
+    },
+    "s2": {
+      "h": "2. Information we collect",
+      "h21": "2.1 Information you provide directly",
+      "items21": [
+        "<strong>Account information:</strong> name, email address, phone number, organization name, role, and password (stored hashed).",
+        "<strong>Quote-request information:</strong> business size, current software, contact details, and free-text notes you submit through our public quote form.",
+        "<strong>Customer organization data:</strong> client records, appointments, treatments, packages, products, invoices, waivers, intake forms, agreements, photographs uploaded to forms, signatures captured in-app, and other operational data you enter into the Platform.",
+        "<strong>Communications:</strong> the content of messages you send us or that you send through the Platform to your clients."
+      ],
+      "h22": "2.2 Information collected automatically",
+      "items22": [
+        "<strong>Device and usage data:</strong> IP address, browser type, operating system, device identifiers, language preference, referring URL, pages visited, and timestamps.",
+        "<strong>Cookies and similar technologies:</strong> see Section 9 for details.",
+        "<strong>Authentication signals:</strong> session tokens, sign-in timestamps, and idle activity events used to enforce the 60-minute session timeout."
+      ],
+      "h23": "2.3 Information from third parties",
+      "items23": [
+        "<strong>Identity providers:</strong> when you sign in with Google or via phone OTP, the identity provider shares the identifiers you authorize (typically email or phone number).",
+        "<strong>Scheduling integrations:</strong> when our customer connects Acuity Scheduling, we receive appointment and client records that Acuity sends over its webhook or that we fetch via Acuity's API.",
+        "<strong>Payment and messaging providers:</strong> we receive operational metadata from Twilio, Infobip, Resend, and similar providers (delivery status, error codes), but we do not handle credit-card data directly."
+      ]
+    },
+    "s3": {
+      "h": "3. How we use information",
+      "p": "We use the information described above to:",
+      "items": [
+        "Operate, secure, and improve the Platform;",
+        "Provision accounts, authenticate users, and enforce role-based access;",
+        "Process bookings, package consumption, invoices, and the transactional messages tied to those actions;",
+        "Send marketing and operational communications you have requested or that our customer has configured (subject to opt-out; see Section 6);",
+        "Provide customer support, onboarding, data migration, and consulting services;",
+        "Detect, prevent, and respond to fraud, abuse, security incidents, and rule violations;",
+        "Comply with applicable law, court orders, and regulatory obligations."
+      ]
+    },
+    "s4": {
+      "h": "4. Legal bases for processing (GDPR / UK GDPR)",
+      "p": "Where European Economic Area, United Kingdom, or Swiss data protection law applies, we rely on the following legal bases:",
+      "items": [
+        "<strong>Contract:</strong> to provide the Platform you or your organization signed up for.",
+        "<strong>Legitimate interests:</strong> to secure the Platform, prevent abuse, improve product quality, and conduct direct marketing to existing business customers, balanced against your rights.",
+        "<strong>Consent:</strong> for non-essential cookies, marketing emails to non-customers, and any processing requiring explicit opt-in.",
+        "<strong>Legal obligation:</strong> to retain records, respond to lawful requests, and meet tax and accounting requirements."
+      ]
+    },
+    "s5": {
+      "h": "5. How we share information",
+      "p": "We do not sell personal information. We share information in the following limited ways:",
+      "items": [
+        "<strong>Sub-processors and infrastructure providers</strong> who help us operate the Platform; see Section 7 for a current list.",
+        "<strong>Our customers (the salons, spas, and studios on the Platform)</strong> where you are their client. They control your data within their organization's tenant.",
+        "<strong>Professional advisers</strong> (lawyers, accountants, auditors) under confidentiality.",
+        "<strong>Business transfers:</strong> in connection with a merger, acquisition, financing, or sale of assets, subject to the new entity continuing to honor this policy.",
+        "<strong>Legal compliance:</strong> when we believe in good faith that disclosure is necessary to comply with law, protect rights and safety, or respond to lawful requests."
+      ]
+    },
+    "s6": {
+      "h": "6. Marketing communications and SMS",
+      "p1": "We send marketing email to people who have asked to hear from us or whose organization is a current Beauty Hub Pro customer. You can opt out at any time by clicking \"unsubscribe\" in any marketing email or by emailing us. Transactional emails (account, security, billing) cannot be unsubscribed while you have an active account.",
+      "p2": "Marketing and transactional SMS sent through the Platform are governed by our <sms>SMS Terms</sms>, including the STOP / HELP keyword behavior required by US carriers. We do not buy or sell phone numbers for marketing, and we do not use phone numbers for advertising on third-party platforms."
+    },
+    "s7": {
+      "h": "7. Sub-processors and third-party services",
+      "p1": "We rely on the following sub-processors to provide the Platform:",
+      "items": [
+        "<strong>Google Cloud / Firebase</strong>: hosting, authentication, Firestore database, Cloud Functions, Cloud Storage (United States).",
+        "<strong>Twilio, Inc.</strong>: SMS delivery in the United States and other supported countries.",
+        "<strong>Infobip Ltd.</strong>: SMS delivery as an alternative to Twilio.",
+        "<strong>Resend (Resend Inc.)</strong>: transactional and marketing email delivery.",
+        "<strong>Acuity Scheduling (Squarespace, Inc.)</strong>: calendar sync, optional per organization.",
+        "<strong>Google Drive (Google LLC)</strong>: automatic backup of signed waivers and issued invoices when a customer enables Drive backup."
+      ],
+      "p2": "Each sub-processor processes personal data only on documented instructions, under written contracts that require appropriate technical and organizational measures. We review this list periodically; updates will be reflected in this Section with an updated \"Last updated\" date at the top of this policy."
+    },
+    "s8": {
+      "h": "8. International transfers",
+      "p": "We are based in the United States, and our infrastructure providers process data primarily in the United States. If you access the Platform from outside the United States, your information will be transferred to and processed in the United States. Where required, we rely on Standard Contractual Clauses, supplementary measures, or the EU-U.S. Data Privacy Framework (where applicable) to lawfully transfer personal data out of the EEA, UK, or Switzerland."
+    },
+    "s9": {
+      "h": "9. Cookies and similar technologies",
+      "p1": "We use the following categories of cookies and local storage:",
+      "items": [
+        "<strong>Strictly necessary:</strong> authentication, security, idle-timeout coordination across tabs, CSRF protection. Cannot be disabled.",
+        "<strong>Functional:</strong> user preferences such as language and theme.",
+        "<strong>Analytics:</strong> aggregated usage metrics so we can prioritize what to build. Set only with consent.",
+        "<strong>Marketing:</strong> we do not place advertising cookies on the public site at this time."
+      ],
+      "p2": "You can manage your choices through the cookie banner the first time you visit, or by clearing site data in your browser. Strictly necessary cookies cannot be refused without disabling parts of the Platform."
+    },
+    "s10": {
+      "h": "10. Data retention",
+      "p": "We retain personal data for as long as needed to provide the Platform and comply with our legal obligations. Account data is retained for the life of the account and for up to twelve (12) months after termination so customers can reactivate without losing history. Auditable records (invoices, signed waivers, audit logs) are retained for a minimum of seven (7) years to meet tax and recordkeeping obligations, even after account termination, unless a shorter retention is required by law."
+    },
+    "s11": {
+      "h": "11. Your rights",
+      "p1": "Depending on where you live, you may have the following rights with respect to your personal data:",
+      "items": [
+        "Access a copy of the personal data we hold about you;",
+        "Correct inaccurate data;",
+        "Delete personal data (subject to retention obligations);",
+        "Restrict or object to certain processing;",
+        "Receive your data in a portable format;",
+        "Withdraw consent where processing relies on consent;",
+        "Not be discriminated against for exercising your rights (CCPA / CPRA);",
+        "Lodge a complaint with a supervisory authority (GDPR / UK GDPR)."
+      ],
+      "p2": "If you are a client of one of our customers, please direct rights requests to that customer first; they are the controller of your data inside their tenant. We will assist them in honoring your request. For requests about data we control directly (for example, account holders, quote requesters, marketing recipients), contact us using the details in Section 14."
+    },
+    "s12": {
+      "h": "12. Children",
+      "p": "The Platform is intended for use by businesses and the adult clients of those businesses. We do not knowingly collect personal data from children under the age of thirteen (13), or under the age of sixteen (16) where applicable in the EEA, without parental consent. If you believe a child has provided personal data to us without appropriate consent, contact us and we will delete it."
+    },
+    "s13": {
+      "h": "13. Security",
+      "p": "We implement industry-standard administrative, technical, and physical safeguards designed to protect personal data, including: per-tenant data isolation enforced at the database rule layer, encryption in transit (TLS) and at rest, role-based access control with audit logs, OTP-gated signing flows for sensitive documents, rate-limiting on outbound paid services, and routine security review. No system is perfectly secure; you use the Platform at your own risk and should keep your account credentials confidential."
+    },
+    "s14": {
+      "h": "14. Contact us",
+      "p": "For privacy questions, requests, or complaints, contact us at:",
+      "items": [
+        "Email: <email>thegoldencircle.skincare@gmail.com</email>",
+        "Phone: <phone>+1 754-232-6590</phone>",
+        "Postal: The Golden Circle Consulting LLC, State of Florida, United States"
+      ]
+    },
+    "s15": {
+      "h": "15. Changes to this policy",
+      "p": "We may update this Privacy Policy from time to time. Material changes will be flagged on the Platform or by email to account holders. The \"Last updated\" date at the top of this page indicates when the latest version took effect. Your continued use of the Platform after changes take effect constitutes acceptance of the updated policy."
+    }
+  },
+  "terms": {
+    "title": "Terms of Use",
+    "intro": "These Terms of Use (the \"Terms\") govern your access to and use of the Beauty Hub Pro website, applications, and services operated by The Golden Circle Consulting LLC (\"we,\" \"us,\" or \"Beauty Hub Pro\"). By accessing or using the Platform, you agree to be bound by these Terms.",
+    "s1": {
+      "h": "1. Acceptance of Terms",
+      "p1": "By creating an account, requesting a quote, signing an order form, or otherwise using the Platform, you confirm that you have read, understood, and agree to be bound by these Terms and our <privacy>Privacy Policy</privacy>, <sms>SMS Terms</sms>, and <aup>Acceptable Use Policy</aup>. If you do not agree, you must not use the Platform.",
+      "p2": "If you are using the Platform on behalf of an organization, you represent that you have the authority to bind that organization to these Terms, and \"you\" refers to that organization. Individual end clients of our customers are subject to the customer's own terms in addition to these."
+    },
+    "s2": {
+      "h": "2. Description of the Service",
+      "p1": "Beauty Hub Pro is a multi-tenant software platform for salons, spas, and similar businesses. The Service includes appointment scheduling, client records, treatment and package management, digital waivers and intake forms, invoicing, a white-label client portal, marketing and transactional messaging, integrations (such as Acuity Scheduling and Google Drive), and consulting support delivered by The Golden Circle Consulting LLC.",
+      "p2": "Specific features available to your account depend on your subscription, your add-ons, and your jurisdiction. We may add, modify, or remove features over time. We will use reasonable efforts to notify customers in advance of material changes to paid features."
+    },
+    "s3": {
+      "h": "3. Eligibility and accounts",
+      "items": [
+        "You must be at least 18 years old and able to form a binding contract under applicable law.",
+        "Account creation by self-signup is not available. Accounts are provisioned through an onboarding process, and only an admin may create additional users for your organization.",
+        "You are responsible for maintaining the confidentiality of your credentials and for all activity under your account.",
+        "You must promptly notify us of any unauthorized use or suspected compromise of your account.",
+        "We reserve the right to refuse, suspend, or terminate accounts at our discretion, including for violation of these Terms or our <aup>Acceptable Use Policy</aup>."
+      ]
+    },
+    "s4": {
+      "h": "4. Fees, billing, and quotes",
+      "items": [
+        "The Platform is sold by custom quote. Pricing depends on team size, locations, integrations, and usage; specific fees are set out in your order form, statement of work, or written quote.",
+        "Subscriptions are billed in advance on a recurring basis (typically monthly or annually as set out in your quote). All fees are in US Dollars unless your quote specifies otherwise.",
+        "Usage-based items (such as SMS volume) may be billed in arrears at the rates set out in your quote.",
+        "Late payments may incur a fee of 1.5% per month (or the maximum permitted by law, whichever is lower) and may result in service suspension after written notice.",
+        "Except as required by law or expressly stated in your quote, fees are non-refundable."
+      ]
+    },
+    "s5": {
+      "h": "5. Customer data and ownership",
+      "p1": "You retain all rights, title, and interest in the data you and your users submit to the Platform (\"Customer Data\"). You grant us a worldwide, non-exclusive, royalty-free license to host, process, transmit, display, and otherwise use Customer Data solely to provide and improve the Service, to comply with law, and as otherwise permitted under these Terms and our <privacy>Privacy Policy</privacy>.",
+      "p2": "You are responsible for: (a) the accuracy and lawfulness of Customer Data, (b) having all necessary rights and consents (including from your end clients) to upload Customer Data and to send messages through the Platform, and (c) any third-party claims arising from Customer Data.",
+      "hData": "Data processing",
+      "pData": "Where we process personal data contained in Customer Data on your behalf, we act as a processor and you act as the controller. That processing is governed by our <dpa>Data Processing Addendum</dpa> (\"DPA\"), which is incorporated into these Terms by reference. If there is a conflict between the DPA and these Terms regarding the processing of personal data, the DPA controls.",
+      "hHealth": "Health data and HIPAA",
+      "pHealth": "The Platform may be used to store general client intake information that is not regulated health data (for example, allergies, skin type, or treatment preferences collected by a salon or spa that is not a HIPAA covered entity), subject to the <privacy>Privacy Policy</privacy> and your own consents. However, <strong>the Platform is not a HIPAA-compliant service, and we do not currently enter into Business Associate Agreements.</strong> If you are a \"covered entity\" or \"business associate\" as defined under the U.S. Health Insurance Portability and Accountability Act (\"HIPAA\"), you must not use the Platform to create, receive, maintain, or transmit Protected Health Information (\"PHI\") as defined under HIPAA unless and until you have entered into a signed Business Associate Agreement with us. You are solely responsible for determining whether your use involves PHI and for obtaining any required agreements before such use."
+    },
+    "s6": {
+      "h": "6. Acceptable use",
+      "p": "Your use of the Platform must comply with our <aup>Acceptable Use Policy</aup>, including the prohibitions on unlawful content, abusive messaging, attempts to circumvent security, and reverse engineering. Violations may result in suspension or termination without refund."
+    },
+    "s7": {
+      "h": "7. Intellectual property",
+      "p1": "Beauty Hub Pro, the software, the underlying technology, the user interface, the brand templates, the marketing site, and all other materials we provide (collectively, the \"Beauty Hub Pro IP\") are owned by us or our licensors and are protected by intellectual property laws. Subject to your compliance with these Terms, we grant you a limited, non-exclusive, non-transferable, revocable license to access and use the Platform during your subscription term, solely for your internal business use.",
+      "p2": "You may not (a) copy, modify, or create derivative works of the Beauty Hub Pro IP; (b) reverse engineer, decompile, or attempt to derive source code; (c) remove or alter any proprietary notices; (d) use the Platform to build a competing product; or (e) resell, sublicense, or make the Platform available to third parties outside your organization (other than to your end clients as part of normal use)."
+    },
+    "s8": {
+      "h": "8. Third-party services",
+      "p": "The Platform integrates with third-party services (for example, Twilio, Infobip, Resend, Acuity Scheduling, Google Cloud, and Google Drive). Your use of those services is governed by their own terms and privacy policies. We are not responsible for the availability, accuracy, or content of third-party services, and we cannot guarantee that they will remain compatible with the Platform."
+    },
+    "s9": {
+      "h": "9. Feedback",
+      "p": "If you provide feedback, suggestions, or ideas about the Platform, you grant us a perpetual, irrevocable, royalty-free license to use that feedback for any purpose, without attribution or compensation."
+    },
+    "s10": {
+      "h": "10. Confidentiality",
+      "p": "Each party may receive confidential information from the other. Each party agrees to (a) use confidential information solely to perform under these Terms, (b) protect it with the same degree of care as it uses for its own confidential information (and no less than a reasonable degree of care), and (c) not disclose it to third parties except to employees, contractors, and advisers bound by similar confidentiality obligations. Confidential information does not include information that is publicly available without breach, independently developed, or rightfully received from a third party without restriction."
+    },
+    "s11": {
+      "h": "11. Term and termination",
+      "items": [
+        "These Terms remain in effect for as long as you use the Platform or maintain an account.",
+        "Either party may terminate for material breach if the breach remains uncured 30 days after written notice.",
+        "You may terminate your subscription at any time by contacting us; termination is effective at the end of the current billing period.",
+        "We may suspend or terminate immediately if (a) you fail to pay, (b) we have a reasonable, good-faith belief that your use violates law or threatens the security of the Platform, or (c) required by law or carrier policy.",
+        "Upon termination, your access ceases. You may export Customer Data for 30 days after termination, after which we may delete it in accordance with our <privacy>Privacy Policy</privacy> retention schedule."
+      ]
+    },
+    "s12": {
+      "h": "12. Disclaimers",
+      "p": "THE PLATFORM IS PROVIDED \"AS IS\" AND \"AS AVAILABLE,\" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED. TO THE MAXIMUM EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND ACCURACY. WE DO NOT WARRANT THAT THE PLATFORM WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE, OR THAT DEFECTS WILL BE CORRECTED."
+    },
+    "s13": {
+      "h": "13. Limitation of liability",
+      "p": "TO THE MAXIMUM EXTENT PERMITTED BY LAW, NEITHER PARTY WILL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR LOST PROFITS, LOST REVENUE, OR LOSS OF DATA, ARISING OUT OF OR RELATING TO THESE TERMS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. OUR AGGREGATE LIABILITY ARISING OUT OF OR RELATING TO THESE TERMS WILL NOT EXCEED THE AMOUNTS YOU PAID US IN THE TWELVE (12) MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM. THESE LIMITATIONS APPLY REGARDLESS OF THE THEORY OF LIABILITY."
+    },
+    "s14": {
+      "h": "14. Indemnification",
+      "p": "You will defend, indemnify, and hold harmless Beauty Hub Pro, its affiliates, officers, directors, employees, and agents from and against any third-party claims, damages, liabilities, and expenses (including reasonable attorneys' fees) arising out of (a) your Customer Data, (b) your violation of these Terms, the <aup>Acceptable Use Policy</aup>, or applicable law, or (c) your infringement of any third-party intellectual property or privacy right."
+    },
+    "s15": {
+      "h": "15. Governing law and dispute resolution",
+      "p1": "These Terms are governed by the laws of the State of Florida, USA, without regard to its conflict-of-law principles. The parties consent to exclusive jurisdiction and venue in the state and federal courts located in Florida for any dispute arising out of or relating to these Terms, except that either party may seek injunctive relief in any court of competent jurisdiction.",
+      "p2": "Before initiating litigation, the parties will attempt in good faith to resolve any dispute through written notice and a thirty (30) day discussion period. Nothing in this Section restricts a party's ability to seek emergency or injunctive relief."
+    },
+    "s16": {
+      "h": "16. Changes to the Service or these Terms",
+      "p": "We may modify these Terms from time to time. Material changes will be notified by email to account holders or by a prominent notice on the Platform. The \"Last updated\" date at the top reflects the current version. Your continued use of the Platform after changes take effect constitutes acceptance of the updated Terms. If you do not agree, you must stop using the Platform."
+    },
+    "s17": {
+      "h": "17. Miscellaneous",
+      "items": [
+        "<strong>Entire agreement:</strong> these Terms, together with the Privacy Policy, SMS Terms, Acceptable Use Policy, and any order form or quote, constitute the entire agreement between the parties.",
+        "<strong>Severability:</strong> if any provision is held invalid, the remaining provisions remain in effect.",
+        "<strong>Assignment:</strong> you may not assign these Terms without our prior written consent. We may assign these Terms to a successor in connection with a merger, acquisition, or sale of assets.",
+        "<strong>No waiver:</strong> failure to enforce any provision is not a waiver of the right to enforce it later.",
+        "<strong>Force majeure:</strong> neither party is liable for delay or failure caused by events beyond reasonable control.",
+        "<strong>Notices:</strong> we may give notice by email, in-app message, or postal mail. You may give us notice at the contact details below."
+      ]
+    },
+    "s18": {
+      "h": "18. Contact",
+      "p": "Questions about these Terms? Contact:",
+      "items": [
+        "The Golden Circle Consulting LLC",
+        "State of Florida, United States",
+        "Email: <email>thegoldencircle.skincare@gmail.com</email>",
+        "Phone: <phone>+1 754-232-6590</phone>"
+      ]
+    }
+  },
+  "dpa": {
+    "title": "Data Processing Addendum",
+    "intro": "This Data Processing Addendum (\"DPA\") forms part of the <terms>Terms of Use</terms> between The Golden Circle Consulting LLC (\"we,\" \"us,\" or \"Processor\") and the organization that uses the Beauty Hub Pro platform (\"you,\" \"Customer,\" or \"Controller\"). It governs how we process personal data on your behalf when you use the Platform to manage your clients, appointments, forms, and communications.",
+    "s1": {
+      "h": "1. Roles of the parties",
+      "p": "For personal data relating to your clients and contained in Customer Data, you are the <strong>controller</strong> and we are the <strong>processor</strong> (or, where applicable, the \"service provider\" under U.S. state privacy laws). For data we collect about your account and your authorized users, we act as a controller as described in our <privacy>Privacy Policy</privacy>. This DPA applies only to our processing as a processor on your behalf."
+    },
+    "s2": {
+      "h": "2. Scope and instructions",
+      "p": "We will process personal data only (a) to provide and support the Platform, (b) in accordance with your documented lawful instructions (including those given through the Platform's features and settings), and (c) as required by applicable law. The subject matter, duration, nature, and purpose of the processing, the types of personal data, and the categories of data subjects are described in Annex A."
+    },
+    "s3": {
+      "h": "3. Your responsibilities",
+      "p": "You are responsible for establishing a lawful basis for the personal data you upload, for providing any required notices to your clients, and for obtaining any required consents (including for marketing communications sent through the Platform). You must not provide us with special categories of data or regulated health data except as permitted by the <terms>Terms of Use</terms> (which prohibit using the Platform for HIPAA-regulated Protected Health Information absent a separate Business Associate Agreement)."
+    },
+    "s4": {
+      "h": "4. Confidentiality",
+      "p": "We ensure that personnel authorized to process personal data are bound by appropriate obligations of confidentiality and process personal data only on our instructions."
+    },
+    "s5": {
+      "h": "5. Security",
+      "p": "We implement and maintain appropriate technical and organizational measures designed to protect personal data, including: encryption in transit and at rest, per-tenant data isolation enforced at the database rule layer, role-based access controls, audit logging, rate-limiting on outbound services, and routine security review. These measures are described in more detail in our <privacy>Privacy Policy</privacy> and may be updated to maintain or improve the level of protection."
+    },
+    "s6": {
+      "h": "6. Sub-processors",
+      "p": "You authorize us to engage the sub-processors listed in Annex B to process personal data on our behalf. We impose data-protection obligations on each sub-processor that are no less protective than those in this DPA, and we remain responsible for their performance. We will give you a reasonable means to learn of changes to our sub-processor list (for example, by updating Annex B and the <privacy>Privacy Policy</privacy>) so you may object on reasonable data-protection grounds."
+    },
+    "s7": {
+      "h": "7. International transfers",
+      "p": "We process personal data primarily in the United States. Where we transfer personal data originating in the European Economic Area, the United Kingdom, or Switzerland to a country without an adequacy decision, we rely on an appropriate transfer mechanism, such as the European Commission's Standard Contractual Clauses (and the UK Addendum, where applicable), which are incorporated into this DPA by reference where they apply."
+    },
+    "s8": {
+      "h": "8. Assistance to you",
+      "p": "Taking into account the nature of the processing, we will provide reasonable assistance to help you (a) respond to requests from data subjects to exercise their rights, (b) meet your security, breach-notification, and data-protection-impact-assessment obligations, and (c) consult with supervisory authorities where required. The Platform's self-service features (export, edit, delete) are the primary means by which you can fulfill many data-subject requests directly."
+    },
+    "s9": {
+      "h": "9. Personal data breaches",
+      "p": "We will notify you without undue delay after becoming aware of a personal data breach affecting your Customer Data, and will provide information reasonably available to us to help you meet your own notification obligations. Our notification is not an acknowledgment of fault or liability."
+    },
+    "s10": {
+      "h": "10. Return and deletion",
+      "p": "Upon termination of the Platform services, we will, at your choice, delete or return your Customer Data, and delete existing copies, except to the extent retention is required by law or by the retention schedule described in our <privacy>Privacy Policy</privacy> (for example, auditable invoice and signed-form records)."
+    },
+    "s11": {
+      "h": "11. Audits",
+      "p": "We will make available information reasonably necessary to demonstrate compliance with this DPA and will allow for and contribute to audits, including inspections, conducted by you or an auditor you mandate, subject to reasonable confidentiality, scheduling, scope, and frequency limitations."
+    },
+    "s12": {
+      "h": "12. Liability and term",
+      "p": "Each party's liability under this DPA is subject to the limitations and exclusions of liability in the <terms>Terms of Use</terms>. This DPA takes effect when you begin using the Platform and continues for as long as we process personal data on your behalf."
+    },
+    "annexA": {
+      "h": "Annex A: Details of processing",
+      "items": [
+        "<strong>Subject matter:</strong> provision of the Beauty Hub Pro salon and spa management platform.",
+        "<strong>Duration:</strong> the term of your use of the Platform, plus any legally required retention period.",
+        "<strong>Nature and purpose:</strong> hosting, storage, and processing of client records, appointments, packages, forms, invoices, and communications to operate your business.",
+        "<strong>Types of personal data:</strong> names, contact details, appointment and purchase history, form responses, photographs you upload, and signatures.",
+        "<strong>Categories of data subjects:</strong> your clients, prospects, and authorized staff users."
+      ]
+    },
+    "annexB": {
+      "h": "Annex B: Authorized sub-processors",
+      "items": [
+        "<strong>Google Cloud / Firebase</strong> (Google LLC): hosting, authentication, database, functions, storage (United States).",
+        "<strong>Twilio, Inc.</strong>: SMS delivery.",
+        "<strong>Infobip Ltd.</strong>: SMS delivery (alternative provider).",
+        "<strong>Resend (Resend Inc.)</strong>: transactional and marketing email delivery.",
+        "<strong>Acuity Scheduling</strong> (Squarespace, Inc.): calendar synchronization, optional per organization.",
+        "<strong>Google Drive</strong> (Google LLC): optional backup of signed forms and invoices when enabled."
+      ]
+    },
+    "contact": {
+      "h": "Contact",
+      "items": [
+        "The Golden Circle Consulting LLC, State of Florida, United States",
+        "Email: <email>thegoldencircle.skincare@gmail.com</email>",
+        "Phone: <phone>+1 754-232-6590</phone>"
+      ]
+    }
+  },
+  "aup": {
+    "title": "Acceptable Use Policy",
+    "intro": "This Acceptable Use Policy (\"AUP\") describes how you may and may not use the Beauty Hub Pro platform, websites, and related services. It is incorporated into and forms part of our <terms>Terms of Use</terms>. Capitalized terms not defined here have the meanings given in the Terms of Use.",
+    "s1": {
+      "h": "1. Your responsibility",
+      "p": "You are responsible for everything that happens through your account. This AUP applies to you, your employees, your contractors, any users you provision under your account, and any end clients you grant access through the Platform. If you become aware of any violation by anyone using your account, you must stop it immediately and tell us."
+    },
+    "s2": {
+      "h": "2. Prohibited content",
+      "p": "You may not use the Platform to upload, transmit, store, share, or send messages that:",
+      "items": [
+        "Are unlawful, fraudulent, defamatory, obscene, pornographic, hateful, or discriminatory;",
+        "Promote or facilitate violence, self-harm, terrorism, human trafficking, or child sexual abuse material;",
+        "Infringe or misappropriate any intellectual property, privacy, publicity, or other right of any person;",
+        "Contain malware, ransomware, spyware, or any other malicious code;",
+        "Disclose another person's confidential or personal information without their consent;",
+        "Are intended to deceive recipients about the identity of the sender or the nature of the message."
+      ]
+    },
+    "s3": {
+      "h": "3. Prohibited messaging conduct",
+      "p": "You may not send SMS, email, or other messages through the Platform that:",
+      "items": [
+        "Are unsolicited, unwanted, or sent without the recipient's prior express consent, in violation of the TCPA, CAN-SPAM Act, GDPR, or any other applicable law;",
+        "Are sent to numbers or addresses obtained from a purchased, scraped, or rented list;",
+        "Disregard a STOP, UNSUBSCRIBE, opt-out request, or any equivalent;",
+        "Misrepresent the sender, the content, or the purpose of the message;",
+        "Promote prohibited content categories under carrier rules (such as cannabis, gambling, payday loans, or \"get rich quick\" schemes) without proper carrier registration and pre-approval;",
+        "Are sent at a frequency or in a manner that violates carrier policies or our <sms>SMS Terms</sms>."
+      ]
+    },
+    "s4": {
+      "h": "4. Prohibited system conduct",
+      "p": "You may not:",
+      "items": [
+        "Access the Platform other than through the interfaces we provide (including scraping, crawling, or reverse engineering);",
+        "Probe, scan, or test the vulnerability of the Platform or attempt to bypass authentication, authorization, or rate limits, except under a coordinated, written security testing agreement with us;",
+        "Interfere with the proper functioning of the Platform, including by denial-of-service, traffic floods, or excessive automated calls;",
+        "Use the Platform to host or distribute content unrelated to your salon, spa, or wellness business;",
+        "Resell, sublicense, or expose the Platform to third parties outside your organization, except for your normal end clients;",
+        "Use the Platform to build, train, or benchmark a competing product or service;",
+        "Remove or alter any copyright, trademark, or other proprietary notice in the Platform."
+      ]
+    },
+    "s5": {
+      "h": "5. Data hygiene",
+      "p": "You must:",
+      "items": [
+        "Have all rights and consents necessary to upload, store, and process the Customer Data you put into the Platform, including the rights to send marketing communications to the contacts in your audience;",
+        "Keep your records of consent and provide them to us within fifteen (15) days of a written request;",
+        "Delete records that are no longer needed and respond promptly to data subject access, deletion, and correction requests from your end clients;",
+        "Not use the Platform to store Protected Health Information (PHI) as a HIPAA covered entity or business associate unless you have a signed Business Associate Agreement with us. The Platform is not HIPAA-compliant by default (see Section 5 of the <terms>Terms of Use</terms>);",
+        "Not share login credentials between users. Every staff member must have their own account so role and audit trails are accurate."
+      ]
+    },
+    "s6": {
+      "h": "6. Security",
+      "p": "You must protect the security of your account and the Customer Data inside it. This includes using strong, unique passwords, enabling and protecting multi-factor or OTP flows where offered, promptly removing access for departing staff, and reporting suspected unauthorized access to us within forty-eight (48) hours."
+    },
+    "s7": {
+      "h": "7. Reporting violations",
+      "p": "If you become aware of a violation of this AUP, whether by you, your team, your end clients, or any third party, report it to <email>thegoldencircle.skincare@gmail.com</email>. We will investigate reports in good faith and may take action consistent with this AUP and the <terms>Terms of Use</terms>."
+    },
+    "s8": {
+      "h": "8. Enforcement",
+      "p1": "We may investigate any suspected violation of this AUP, and we may, in our sole discretion, take any of the following actions without prior notice:",
+      "items": [
+        "Require corrective action;",
+        "Temporarily or permanently suspend access to all or part of the Platform;",
+        "Remove or restrict access to specific content;",
+        "Terminate the account;",
+        "Cooperate with law enforcement."
+      ],
+      "p2": "Where practical and where it does not increase risk to other customers or end clients, we will first contact the account admin and provide an opportunity to cure. We are not required to give notice in cases of serious violation, abuse, illegal activity, or risk to the Platform."
+    },
+    "s9": {
+      "h": "9. Changes",
+      "p": "We may update this AUP from time to time. The \"Last updated\" date at the top of this page indicates when the latest version took effect."
+    },
+    "s10": {
+      "h": "10. Contact",
+      "items": [
+        "Email: <email>thegoldencircle.skincare@gmail.com</email>",
+        "Phone: <phone>+1 754-232-6590</phone>"
+      ]
+    }
+  },
+  "sms": {
+    "title": "SMS / Mobile Messaging Terms",
+    "intro": "These SMS Terms describe how Beauty Hub Pro and the businesses that use our Platform send text messages. They apply to both transactional messages (such as appointment confirmations and waiver links) and marketing messages. By providing a phone number to a Beauty Hub Pro customer or by texting a covered short code or long code, you agree to these SMS Terms.",
+    "s1": {
+      "h": "1. Who is sending messages",
+      "p": "Beauty Hub Pro is a software platform. Messages sent through the Platform are sent on behalf of our customers (salons, spas, and similar businesses). The business that collects your phone number is the sender from your perspective; Beauty Hub Pro provides the technology that delivers the message through carrier partners such as Twilio, Inc. and Infobip Ltd."
+    },
+    "s2": {
+      "h": "2. Consent",
+      "p1": "Before you receive marketing SMS through the Platform, the sending business must obtain your prior express written consent. By providing your mobile number to a business and opting in (whether on a paper form, online form, or by texting a designated keyword), you consent to receive SMS messages from that business at the number you provided. Consent is not a condition of purchase.",
+      "p2": "For transactional messages (appointment confirmations, reminders, waiver links, OTP codes, package expiry notices), the business may text you because you have an active relationship with them, even if you have not opted into marketing. You may opt out of marketing while continuing to receive transactional messages."
+    },
+    "s3": {
+      "h": "3. Message frequency",
+      "p": "Message frequency varies by business and message type. Typical volumes include:",
+      "items": [
+        "<strong>Transactional:</strong> one message per booking, plus occasional reminders or follow-ups.",
+        "<strong>Marketing:</strong> the sending business sets the cadence, typically no more than four (4) messages per month per customer, but you should refer to the business's own messaging policy for specifics."
+      ]
+    },
+    "s4": {
+      "h": "4. Carrier charges",
+      "p": "Message and data rates may apply. Carriers are not liable for delayed or undelivered messages."
+    },
+    "s5": {
+      "h": "5. Supported keywords",
+      "p1": "You can interact with messages sent through the Platform using standard keywords:",
+      "items": [
+        "<strong>STOP:</strong> reply STOP to any message to unsubscribe from further messages from that business through that number. You will receive one confirmation message that you have been unsubscribed; after that, no further messages will be sent unless you opt back in.",
+        "<strong>HELP:</strong> reply HELP to receive contact information for the business sending the message.",
+        "<strong>UNSTOP / START:</strong> reply START to opt back in after a previous STOP."
+      ],
+      "p2": "Carriers may also support cancel, end, quit, unsubscribe, opt-out, and remove as equivalents to STOP. The Platform respects opt-out requests through any of these keywords."
+    },
+    "s6": {
+      "h": "6. Supported carriers",
+      "p": "SMS service is available on most major US carriers, including AT&T, Verizon, T-Mobile, US Cellular, Sprint, and many regional carriers, subject to carrier acceptance. We cannot guarantee delivery on every carrier or in every country. International delivery depends on the recipient country and carrier; some destinations may not be supported."
+    },
+    "s7": {
+      "h": "7. Privacy",
+      "p": "Mobile information collected as part of SMS consent will not be shared, sold, or rented to third parties or affiliates for marketing or promotional purposes. Mobile data may be shared with subprocessors strictly to deliver and operate the messaging service (such as Twilio or Infobip) consistent with our <privacy>Privacy Policy</privacy>. Opt-in data and consent records are retained by the sending business in line with their own policies."
+    },
+    "s8": {
+      "h": "8. OTP (one-time passcode) messages",
+      "p": "Beauty Hub Pro sends one-time passcodes via SMS to verify identity for certain high-trust actions, such as signing a waiver, intake form, or agreement. OTP messages are transactional and cannot be unsubscribed while the action is in progress. Codes expire and become invalid after a short window. Never share an OTP with anyone, including someone who claims to be from Beauty Hub Pro or the sending business. We will never ask for your OTP over phone, chat, or email."
+    },
+    "s9": {
+      "h": "9. Reporting abuse",
+      "p1": "If you receive an SMS that you believe was sent without your consent or that violates these Terms, please:",
+      "items": [
+        "Reply STOP to the sender to stop further messages, and",
+        "Email us at <email>thegoldencircle.skincare@gmail.com</email> with the sender's name (if you know it) and the message content."
+      ],
+      "p2": "We take messaging abuse seriously. Customers that send unauthorized or non-compliant messages are subject to suspension or termination under our <aup>Acceptable Use Policy</aup>."
+    },
+    "s10": {
+      "h": "10. Compliance",
+      "p": "We comply with applicable messaging regulations, including the Telephone Consumer Protection Act (TCPA) and the CTIA Messaging Principles and Best Practices. We register A2P 10DLC campaigns where applicable and provide consent documentation on request from carriers. Each customer of the Platform is responsible for the content and frequency of its own messages and for maintaining records of consent."
+    },
+    "s11": {
+      "h": "11. Changes",
+      "p": "We may update these SMS Terms from time to time. The \"Last updated\" date at the top of this page indicates when the latest version took effect. Continued use of the Platform constitutes acceptance."
+    },
+    "s12": {
+      "h": "12. Contact",
+      "items": [
+        "Email: <email>thegoldencircle.skincare@gmail.com</email>",
+        "Phone: <phone>+1 754-232-6590</phone>"
+      ]
+    }
+  }
+}

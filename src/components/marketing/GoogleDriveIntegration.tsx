@@ -7,6 +7,7 @@ import { functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
+import { Trans, useTranslation } from 'react-i18next';
 import { Loader2, HardDrive, TestTube, ExternalLink, Database, Link2, Unlink } from 'lucide-react';
 
 interface GoogleDriveIntegrationProps {
@@ -21,6 +22,7 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ waivers: number; invoices: number } | null>(null);
   const { currentOrganization } = useOrganization();
+  const { t } = useTranslation('integrations');
 
   const isConnected = integration?.is_enabled && integration?.status === 'connected';
   const userEmail = integration?.configuration?.user_email as string | undefined;
@@ -33,8 +35,8 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
     if (connected === '1') {
       const email = params.get('email') || '';
       toast({
-        title: 'Google Drive connected',
-        description: email ? `Connected as ${email}.` : 'Backups will start on the next signed form or invoice.',
+        title: t('googleDrive.connectedToast'),
+        description: email ? t('googleDrive.connectedAs', { email }) : t('googleDrive.backupsWillStart'),
       });
       params.delete('drive_connected');
       params.delete('email');
@@ -42,8 +44,8 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
       window.history.replaceState({}, '', next);
       onUpdate();
     } else if (connected === '0') {
-      const err = params.get('error') || 'Unknown error';
-      toast({ title: 'Connection failed', description: err, variant: 'destructive' });
+      const err = params.get('error') || t('googleDrive.unknownError');
+      toast({ title: t('googleDrive.connectionFailed'), description: err, variant: 'destructive' });
       params.delete('drive_connected');
       params.delete('error');
       const next = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
@@ -63,22 +65,22 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
       const { authUrl } = result.data as { authUrl: string };
       window.location.href = authUrl;
     } catch (error: any) {
-      toast({ title: 'Failed to start connection', description: error.message, variant: 'destructive' });
+      toast({ title: t('googleDrive.failedToStartConnection'), description: error.message, variant: 'destructive' });
       setConnecting(false);
     }
   };
 
   const handleDisconnect = async () => {
     if (!currentOrganization?.id) return;
-    if (!confirm('Disconnect Google Drive? Future signed forms and invoices will not be backed up until you reconnect.')) return;
+    if (!confirm(t('googleDrive.confirmDisconnect'))) return;
     setDisconnecting(true);
     try {
       const fn = httpsCallable(functions, 'disconnectDriveBackup');
       await fn({ organizationId: currentOrganization.id });
-      toast({ title: 'Google Drive disconnected' });
+      toast({ title: t('googleDrive.disconnectedToast') });
       onUpdate();
     } catch (error: any) {
-      toast({ title: 'Disconnect failed', description: error.message, variant: 'destructive' });
+      toast({ title: t('googleDrive.disconnectFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setDisconnecting(false);
     }
@@ -92,15 +94,15 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
       const data = result.data as { success?: boolean; folderName?: string };
       if (data.success) {
         toast({
-          title: 'Drive connection verified',
-          description: data.folderName ? `Connected to "${data.folderName}".` : 'Folder access confirmed.',
+          title: t('googleDrive.connectionVerified'),
+          description: data.folderName ? t('googleDrive.connectedToFolder', { folder: data.folderName }) : t('googleDrive.folderAccessConfirmed'),
         });
         onUpdate();
       } else {
-        throw new Error('Test returned failure');
+        throw new Error(t('googleDrive.testReturnedFailure'));
       }
     } catch (error: any) {
-      toast({ title: 'Test failed', description: error.message, variant: 'destructive' });
+      toast({ title: t('shared.testFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setTesting(false);
     }
@@ -108,7 +110,7 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
 
   const handleBackfill = async () => {
     if (!isConnected) {
-      toast({ title: 'Connect Drive first', variant: 'destructive' });
+      toast({ title: t('googleDrive.connectDriveFirst'), variant: 'destructive' });
       return;
     }
     setBackfilling(true);
@@ -134,18 +136,21 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
         if (data.processed.waivers === 0 && data.processed.invoices === 0) break;
       }
 
-      const summary = `Backed up ${totalWaivers} form${totalWaivers === 1 ? '' : 's'} and ${totalInvoices} invoice${totalInvoices === 1 ? '' : 's'}`;
+      const summary = t('googleDrive.backedUpSummary', {
+        forms: t('googleDrive.forms', { count: totalWaivers }),
+        invoices: t('googleDrive.invoices', { count: totalInvoices }),
+      });
       if (allErrors.length > 0) {
         toast({
-          title: summary + ` (${allErrors.length} skipped)`,
+          title: summary + t('googleDrive.skippedSuffix', { count: allErrors.length }),
           description: allErrors.slice(0, 3).join(' · '),
           variant: 'destructive',
         });
       } else {
-        toast({ title: 'Backfill complete', description: summary + '.' });
+        toast({ title: t('googleDrive.backfillComplete'), description: summary + '.' });
       }
     } catch (error: any) {
-      toast({ title: 'Backfill failed', description: error.message, variant: 'destructive' });
+      toast({ title: t('googleDrive.backfillFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setBackfilling(false);
     }
@@ -156,48 +161,50 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
-            <HardDrive className="h-5 w-5 mr-2" />
-            Google Drive Backup
+            <HardDrive className="h-5 w-5 me-2" />
+            {t('googleDrive.title')}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.open('https://drive.google.com', '_blank')}
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open Drive
+              <ExternalLink className="h-4 w-4 me-2" />
+              {t('googleDrive.openDrive')}
             </Button>
             {integration?.status && (
               <Badge variant={integration.status === 'connected' ? 'default' : 'secondary'}>
-                {integration.status}
+                {t(`shared.status.${integration.status}`, { defaultValue: integration.status })}
               </Badge>
             )}
           </div>
         </CardTitle>
         <CardDescription>
-          Automatically back up signed intake forms, agreements, waivers, and invoices to your own Google Drive.
+          {t('googleDrive.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!isConnected && (
           <div className="rounded-md border bg-muted/30 p-4 space-y-3">
             <div>
-              <p className="font-medium">Connect your Google Drive</p>
+              <p className="font-medium">{t('googleDrive.connectHeading')}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Sign in with the Google account that should own the backup folder. We'll create a
-                folder named <strong>"Beauty Hub Pro Backups"</strong> in your My Drive and write
-                signed forms and invoices there. We can only see and modify files we create — your
-                other Drive content stays private.
+                <Trans
+                  t={t}
+                  i18nKey="googleDrive.connectExplanation"
+                  values={{ folder: t('googleDrive.defaultFolderName') }}
+                  components={{ b: <strong /> }}
+                />
               </p>
             </div>
             <Button onClick={handleConnect} disabled={connecting}>
               {connecting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : (
-                <Link2 className="h-4 w-4 mr-2" />
+                <Link2 className="h-4 w-4 me-2" />
               )}
-              Connect Google Drive
+              {t('googleDrive.connectButton')}
             </Button>
           </div>
         )}
@@ -206,12 +213,12 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Connected account</Label>
-                <p className="text-sm break-all mt-1">{userEmail || '—'}</p>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">{t('googleDrive.connectedAccount')}</Label>
+                <p className="text-sm break-all mt-1">{userEmail ? <span className="ltr-inline" dir="ltr">{userEmail}</span> : '—'}</p>
               </div>
               <div>
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Drive folder</Label>
-                <p className="text-sm break-all mt-1">{folderName || 'Beauty Hub Pro Backups'}</p>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">{t('googleDrive.driveFolder')}</Label>
+                <p className="text-sm break-all mt-1">{folderName || t('googleDrive.defaultFolderName')}</p>
               </div>
             </div>
           </div>
@@ -227,19 +234,19 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleTest} disabled={testing}>
               {testing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : (
-                <TestTube className="h-4 w-4 mr-2" />
+                <TestTube className="h-4 w-4 me-2" />
               )}
-              Test Connection
+              {t('shared.testConnection')}
             </Button>
             <Button variant="outline" onClick={handleDisconnect} disabled={disconnecting}>
               {disconnecting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : (
-                <Unlink className="h-4 w-4 mr-2" />
+                <Unlink className="h-4 w-4 me-2" />
               )}
-              Disconnect
+              {t('googleDrive.disconnect')}
             </Button>
           </div>
         )}
@@ -247,25 +254,32 @@ export const GoogleDriveIntegration: React.FC<GoogleDriveIntegrationProps> = ({ 
         {isConnected && (
           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
             <div>
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Back up existing records</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">{t('googleDrive.backfillHeading')}</Label>
               <p className="text-sm text-muted-foreground mt-1">
-                Upload signed forms and invoices that pre-date this integration. Re-runnable; already-backed-up records are skipped.
+                {t('googleDrive.backfillExplanation')}
               </p>
             </div>
             {backfillProgress && (
               <p className="text-sm">
-                Backed up <strong>{backfillProgress.waivers}</strong> form{backfillProgress.waivers === 1 ? '' : 's'} and{' '}
-                <strong>{backfillProgress.invoices}</strong> invoice{backfillProgress.invoices === 1 ? '' : 's'}
-                {backfilling ? '…' : '.'}
+                <Trans
+                  t={t}
+                  i18nKey="googleDrive.backfillProgress"
+                  values={{
+                    forms: t('googleDrive.forms', { count: backfillProgress.waivers }),
+                    invoices: t('googleDrive.invoices', { count: backfillProgress.invoices }),
+                    suffix: backfilling ? '…' : '.',
+                  }}
+                  components={{ b: <strong /> }}
+                />
               </p>
             )}
             <Button variant="outline" onClick={handleBackfill} disabled={backfilling}>
               {backfilling ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : (
-                <Database className="h-4 w-4 mr-2" />
+                <Database className="h-4 w-4 me-2" />
               )}
-              {backfilling ? 'Backing up…' : 'Back Up Existing Records'}
+              {backfilling ? t('googleDrive.backingUp') : t('googleDrive.backfillButton')}
             </Button>
           </div>
         )}

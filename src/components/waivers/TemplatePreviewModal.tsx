@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function TemplatePreviewModal({ title, headline, subHeadline, blocks }: Props) {
+  const { t } = useTranslation('waivers');
   const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string | boolean>>({});
 
@@ -24,13 +26,13 @@ export function TemplatePreviewModal({ title, headline, subHeadline, blocks }: P
   return (
     <>
       <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
-        <Eye className="h-4 w-4" /> Preview
+        <Eye className="h-4 w-4" /> {t('common:actions.preview')}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader className="sr-only">
-            <DialogTitle>Form Preview — {title}</DialogTitle>
+            <DialogTitle>{t('templatePreviewModal.dialogTitle', { title })}</DialogTitle>
           </DialogHeader>
 
           {/* Mimics the live WaiverForm layout */}
@@ -39,10 +41,10 @@ export function TemplatePreviewModal({ title, headline, subHeadline, blocks }: P
               {/* Header */}
               <div className="bg-primary px-6 py-5">
                 <h1 className="text-white text-xl font-bold">
-                  {headline || title || 'Form Preview'}
+                  {headline || title || t('templatePreviewModal.defaultTitle')}
                 </h1>
                 <p className="text-primary-foreground/80 text-sm mt-1 whitespace-pre-wrap">
-                  {subHeadline || 'Please read carefully and complete all required fields.'}
+                  {subHeadline || t('templatePreviewModal.defaultSubHeadline')}
                 </p>
               </div>
 
@@ -58,11 +60,11 @@ export function TemplatePreviewModal({ title, headline, subHeadline, blocks }: P
 
                 {/* Footer note — not submittable */}
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 text-center">
-                  This is a preview only — submissions are disabled.
+                  {t('templatePreviewModal.previewOnly')}
                 </div>
 
                 <Button className="w-full" size="lg" disabled>
-                  Submit & Sign
+                  {t('templatePreviewModal.submitAndSign')}
                 </Button>
               </div>
             </div>
@@ -83,6 +85,8 @@ function PreviewBlock({
   answer: string | boolean | undefined;
   onAnswer: (v: string | boolean) => void;
 }) {
+  const { t } = useTranslation('waivers');
+
   if (block.type === 'text') {
     return (
       <div className="prose prose-sm max-w-none bg-white border border-border rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
@@ -116,18 +120,23 @@ function PreviewBlock({
         />
         <label htmlFor={`prev-${block.id}`} className="text-sm cursor-pointer leading-relaxed">
           {block.label}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </label>
       </div>
     );
   }
 
   if (block.type === 'yes_no') {
+    // Stored answer values stay 'Yes' / 'No'; only the visible label is localised.
+    const yesNoLabels: Record<'Yes' | 'No', string> = {
+      Yes: t('common:actions.yes'),
+      No: t('common:actions.no'),
+    };
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
           {block.label}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <div className="flex gap-3">
           {(['Yes', 'No'] as const).map((opt) => (
@@ -141,7 +150,7 @@ function PreviewBlock({
                   : 'border-border hover:border-primary/50 hover:bg-muted/30'
               }`}
             >
-              {opt}
+              {yesNoLabels[opt]}
             </button>
           ))}
         </div>
@@ -154,12 +163,12 @@ function PreviewBlock({
       <div className="space-y-1.5">
         <Label className="font-medium">
           {block.label}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="Your answer"
+          placeholder={t('templatePreviewModal.yourAnswer')}
         />
       </div>
     );
@@ -169,14 +178,14 @@ function PreviewBlock({
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
-          {block.label || 'Email'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('templatePreviewModal.defaultLabels.email')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           type="email"
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="name@example.com"
+          placeholder={t('templatePreviewModal.emailPlaceholder')}
         />
       </div>
     );
@@ -186,14 +195,14 @@ function PreviewBlock({
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
-          {block.label || 'Phone'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('templatePreviewModal.defaultLabels.phone')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           type="tel"
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="+1 555 123 4567"
+          placeholder={t('templatePreviewModal.phonePlaceholder')}
         />
       </div>
     );
@@ -203,8 +212,8 @@ function PreviewBlock({
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
-          {block.label || 'Date'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('templatePreviewModal.defaultLabels.date')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           type="date"
@@ -216,13 +225,17 @@ function PreviewBlock({
   }
 
   if (block.type === 'city' || block.type === 'referral_source') {
-    const defaultLabel = block.type === 'city' ? 'City' : 'How did you hear about us?';
-    const placeholder = block.type === 'city' ? 'Select City' : 'Select Source';
+    const defaultLabel = block.type === 'city'
+      ? t('templatePreviewModal.defaultLabels.city')
+      : t('templatePreviewModal.defaultLabels.referralSource');
+    const placeholder = block.type === 'city'
+      ? t('templatePreviewModal.selectCity')
+      : t('templatePreviewModal.selectSource');
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
           {block.label || defaultLabel}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <select
           value={typeof answer === 'string' ? answer : ''}
@@ -230,9 +243,13 @@ function PreviewBlock({
           className="w-full px-3 py-2 border border-input rounded-md bg-white text-sm"
         >
           <option value="">{placeholder}</option>
-          <option value="__preview_other__">+ Other…</option>
+          <option value="__preview_other__">{t('templatePreviewModal.otherOption')}</option>
         </select>
-        <p className="text-xs text-gray-700">Pulls live options from your client-card {block.type === 'city' ? 'cities' : 'referral sources'} when sent.</p>
+        <p className="text-xs text-gray-700">
+          {block.type === 'city'
+            ? t('templatePreviewModal.liveOptionsCity')
+            : t('templatePreviewModal.liveOptionsSource')}
+        </p>
       </div>
     );
   }
@@ -241,8 +258,8 @@ function PreviewBlock({
     return (
       <div className="space-y-1.5">
         <Label className="font-medium">
-          {block.label || 'Time'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('templatePreviewModal.defaultLabels.time')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           type="time"
@@ -257,12 +274,12 @@ function PreviewBlock({
     return (
       <div className="space-y-2">
         <Label className="font-medium">
-          {block.label || 'Signature'}
-          <span className="text-destructive ml-1">*</span>
+          {block.label || t('templatePreviewModal.defaultLabels.signature')}
+          <span className="text-destructive ms-1">*</span>
         </Label>
         <div className="flex items-center justify-center gap-2 h-[100px] rounded-lg border-2 border-dashed border-gray-400 bg-white text-gray-700 text-sm">
           <PenLine className="h-4 w-4" />
-          Signature pad (interactive when sent to client)
+          {t('templatePreviewModal.signaturePad')}
         </div>
       </div>
     );
@@ -272,12 +289,12 @@ function PreviewBlock({
     return (
       <div className="space-y-2">
         <Label className="font-medium">
-          {block.label || 'Upload photo(s)'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('templatePreviewModal.defaultLabels.imageUpload')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <div className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-400 rounded-lg px-4 py-6 text-gray-700">
           <Upload className="h-5 w-5" />
-          <span className="text-sm">Image upload (up to {block.maxImages ?? 5} photos)</span>
+          <span className="text-sm">{t('templatePreviewModal.imageUpload', { count: block.maxImages ?? 5 })}</span>
         </div>
       </div>
     );

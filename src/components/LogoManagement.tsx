@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Upload, Image, X, Loader2 } from 'lucide-react';
@@ -43,6 +44,7 @@ export const LogoManagement: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation('settings');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
 
@@ -65,15 +67,15 @@ export const LogoManagement: React.FC = () => {
 
   const handleFileSelect = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file type', description: 'Please select an image file (PNG, JPG, SVG).', variant: 'destructive' });
+      toast({ title: t('logo.toasts.invalidTypeTitle'), description: t('logo.toasts.invalidTypeDescription'), variant: 'destructive' });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Please select an image smaller than 5MB.', variant: 'destructive' });
+      toast({ title: t('logo.toasts.tooLargeTitle'), description: t('logo.toasts.tooLargeDescription'), variant: 'destructive' });
       return;
     }
     if (!currentOrganization?.id) {
-      toast({ title: 'No organization', description: 'Cannot save logo without an active organization.', variant: 'destructive' });
+      toast({ title: t('logo.toasts.noOrgTitle'), description: t('logo.toasts.noOrgDescription'), variant: 'destructive' });
       return;
     }
 
@@ -98,11 +100,11 @@ export const LogoManagement: React.FC = () => {
 
       setLogoUrl(res.data.url);
       applyFavicon(res.data.url);
-      toast({ title: 'Logo updated', description: 'Your logo has been saved and will appear on all devices.' });
+      toast({ title: t('logo.toasts.updatedTitle'), description: t('logo.toasts.updatedDescription') });
     } catch (error) {
       console.error('Logo upload error:', error);
-      const msg = error instanceof Error ? error.message : 'Could not save logo. Please try again.';
-      toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+      const msg = error instanceof Error ? error.message : t('logo.toasts.uploadFailedDescription');
+      toast({ title: t('logo.toasts.uploadFailedTitle'), description: msg, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
@@ -114,10 +116,10 @@ export const LogoManagement: React.FC = () => {
       await updateDoc(doc(db, 'organizations', currentOrganization.id), { logo_url: null });
       setLogoUrl(null);
       resetFavicon();
-      toast({ title: 'Logo removed', description: 'Your logo has been removed.' });
+      toast({ title: t('logo.toasts.removedTitle'), description: t('logo.toasts.removedDescription') });
     } catch (error) {
       console.error('Logo remove error:', error);
-      toast({ title: 'Failed to remove logo', description: 'Please try again.', variant: 'destructive' });
+      toast({ title: t('logo.toasts.removeFailedTitle'), description: t('logo.toasts.removeFailedDescription'), variant: 'destructive' });
     }
   };
 
@@ -140,26 +142,26 @@ export const LogoManagement: React.FC = () => {
       {logoUrl ? (
         <>
           <div>
-            <Label>Current Logo</Label>
+            <Label>{t('logo.currentLogo')}</Label>
             <div className="mt-2 p-4 border rounded-lg bg-muted/40 flex items-center gap-4">
-              <img src={logoUrl} alt="Business Logo" className="max-h-16 max-w-[180px] object-contain" />
-              <p className="text-xs text-muted-foreground">This image is also used as the browser tab icon.</p>
+              <img src={logoUrl} alt={t('logo.logoAlt')} className="max-h-16 max-w-[180px] object-contain" />
+              <p className="text-xs text-muted-foreground">{t('logo.usedAsFavicon')}</p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1" disabled={uploading}>
-              {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-              Change Logo
+              {uploading ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Upload className="h-4 w-4 me-2" />}
+              {t('logo.changeLogo')}
             </Button>
             <Button onClick={handleRemoveLogo} variant="outline" className="flex-1 text-destructive hover:text-destructive" disabled={uploading}>
-              <X className="h-4 w-4 mr-2" />
-              Remove Logo
+              <X className="h-4 w-4 me-2" />
+              {t('logo.removeLogo')}
             </Button>
           </div>
         </>
       ) : (
         <div>
-          <Label>Upload Logo</Label>
+          <Label>{t('logo.uploadLogo')}</Label>
           <div
             className={`mt-2 border-2 border-dashed rounded-lg p-6 sm:p-10 text-center transition-colors cursor-pointer ${
               isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'
@@ -175,13 +177,13 @@ export const LogoManagement: React.FC = () => {
               <Image className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             )}
             <p className="text-sm text-foreground font-medium mb-1">
-              {uploading ? 'Uploading...' : 'Drag and drop your logo here'}
+              {uploading ? t('logo.uploading') : t('logo.dragAndDrop')}
             </p>
-            <p className="text-xs text-muted-foreground mb-3">The logo will also be used as the browser tab icon.</p>
+            <p className="text-xs text-muted-foreground mb-3">{t('logo.willBeUsedAsFavicon')}</p>
             <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} disabled={uploading}>
-              Browse Files
+              {t('logo.browseFiles')}
             </Button>
-            <p className="text-xs text-muted-foreground mt-3">PNG, JPG, SVG up to 5MB</p>
+            <p className="text-xs text-muted-foreground mt-3">{t('logo.fileHint')}</p>
           </div>
         </div>
       )}

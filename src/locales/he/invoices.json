@@ -1,0 +1,299 @@
+{
+  "pdf": {
+    "invoiceFallbackName": "חשבונית",
+    "invoiceTitle": "חשבונית",
+    "invoiceNumber": "מספר חשבונית: {{number}}",
+    "date": "תאריך: {{date}}",
+    "taxId": "ח.פ. / ע.מ.: {{taxId}}",
+    "billTo": "לכבוד",
+    "description": "תיאור",
+    "includedTreatments": "טיפולים כלולים",
+    "includedProducts": "מוצרים כלולים",
+    "priceEach": "{{price}} ליחידה",
+    "included": "כלול",
+    "lineSubtotal": "סכום ביניים: {{amount}}",
+    "subtotal": "סכום ביניים: {{amount}}",
+    "tax": "מע\"מ {{rate}}%: {{amount}}",
+    "total": "סה\"כ לתשלום: {{amount}}",
+    "paymentMethod": "אמצעי תשלום",
+    "paymentTerms": "תנאי תשלום"
+  },
+  "paymentMethods": {
+    "Zelle": "Zelle",
+    "Cherry": "Cherry",
+    "Affirm": "Affirm",
+    "Cash": "מזומן",
+    "Credit Card": "כרטיס אשראי",
+    "Check": "צ'ק",
+    "Venmo": "Venmo",
+    "Other": "אחר"
+  },
+  "themes": {
+    "classic": { "label": "קלאסי", "tagline": "מינימליסטי בשחור-לבן — על-זמני" },
+    "rose-gold": { "label": "רוז גולד", "tagline": "אלגנטיות חמימה — סריף על רקע קרם" },
+    "sage-spa": { "label": "ספא מרווה", "tagline": "רוגע וטבעיות — ירוק רך" },
+    "deep-navy": { "label": "כחול עמוק", "tagline": "מקצועי — פס כחול-זהב" },
+    "luxe-black": { "label": "שחור יוקרתי", "tagline": "פרימיום מודרני — שחור וזהב" }
+  },
+  "settings": {
+    "loading": "טוען הגדרות חשבוניות…",
+    "title": "הגדרות חשבוניות",
+    "description": "פרטי מיתוג ומס שמופיעים בכל קובץ PDF של חשבונית.",
+    "previewPdf": "תצוגה מקדימה של PDF",
+    "rendering": "מייצר…",
+    "saveChanges": "שמירת שינויים",
+    "sample": "דוגמה",
+    "fields": {
+      "taxId": "ח.פ. / מספר עוסק",
+      "taxIdPlaceholder": "אופציונלי",
+      "taxRate": "שיעור מע\"מ (%)",
+      "currency": "מטבע",
+      "prefix": "קידומת מספר חשבונית",
+      "nextNumber": "מספר החשבונית הבא (תצוגה מקדימה)",
+      "nextNumberHelp": "מספור רץ לכל ארגון. מספרים של חשבוניות מבוטלות לעולם אינם חוזרים לשימוש.",
+      "template": "תבנית עיצוב",
+      "templateHelp": "בחרו מראה לקובצי ה-PDF שלכם. התבנית תחול על כל חשבונית שתופק לאחר השמירה — חשבוניות קיימות שומרות על התבנית שבה הופקו.",
+      "paymentTerms": "תנאי תשלום",
+      "paymentTermsPlaceholder": "לדוגמה: שוטף + 30 — לתשלום תוך 30 יום מיום ההפקה",
+      "footerNotes": "הערות בתחתית החשבונית",
+      "footerNotesPlaceholder": "לדוגמה: תודה שבחרתם בנו!"
+    },
+    "currencies": {
+      "USD": "USD — דולר אמריקאי",
+      "EUR": "EUR — אירו",
+      "GBP": "GBP — לירה שטרלינג",
+      "CAD": "CAD — דולר קנדי",
+      "AUD": "AUD — דולר אוסטרלי",
+      "NZD": "NZD — דולר ניו זילנדי",
+      "ILS": "ILS — שקל חדש",
+      "AED": "AED — דירהם איחוד האמירויות"
+    },
+    "toasts": {
+      "invalidTaxRate": "שיעור מע\"מ לא תקין",
+      "invalidTaxRateDesc": "יש להזין מספר בין 0 ל-100.",
+      "missingPrefix": "חסרה קידומת",
+      "missingPrefixDesc": "קידומת מספר החשבונית לא יכולה להיות ריקה.",
+      "saved": "נשמר",
+      "savedDesc": "הגדרות החשבוניות עודכנו.",
+      "saveFailed": "השמירה נכשלה",
+      "unknownError": "שגיאה לא ידועה",
+      "previewFailed": "התצוגה המקדימה נכשלה",
+      "previewFailedDesc": "לא ניתן היה לייצר תצוגה מקדימה."
+    },
+    "preview": {
+      "title": "תצוגה מקדימה של חשבונית",
+      "description": "חשבונית לדוגמה שנוצרה לפי ההגדרות הנוכחיות שלכם עם נתוני דוגמה. חשבוניות אמיתיות משתמשות בפרטי הלקוח והרכישה בפועל.",
+      "iframeTitle": "תצוגה מקדימה של חשבונית"
+    },
+    "sampleData": {
+      "clientName": "לקוח לדוגמה",
+      "clientAddress": "רחוב הלקוח 456, תל אביב",
+      "businessName": "העסק שלכם",
+      "packageName": "חבילת בריאות לדוגמה",
+      "packageDescription": "חבילה של 5 מפגשים המשלבת טיפולי פנים ועיסויים.",
+      "treatment1": "טיפול פנים חתימה",
+      "treatment2": "עיסוי שוודי"
+    }
+  },
+  "history": {
+    "title": "היסטוריית חשבוניות",
+    "description": "כל החשבוניות שהופקו בארגון. חיפוש, סינון או ביטול.",
+    "adminsOnly": "למנהלים בלבד",
+    "adminsOnlyDesc": "נדרשת הרשאת מנהל כדי לצפות בהיסטוריית החשבוניות של הארגון.",
+    "stats": {
+      "revenue": "הכנסות",
+      "invoices": "חשבוניות",
+      "voided": "בוטלו",
+      "average": "ממוצע"
+    },
+    "filters": {
+      "search": "חיפוש",
+      "searchPlaceholder": "מספר חשבונית או לקוח",
+      "client": "לקוח",
+      "allClients": "כל הלקוחות",
+      "dateRange": "טווח תאריכים",
+      "status": "סטטוס",
+      "clear": "ניקוי מסננים"
+    },
+    "datePresets": {
+      "thisMonth": "החודש",
+      "last30": "30 הימים האחרונים",
+      "last90": "90 הימים האחרונים",
+      "thisYear": "השנה",
+      "all": "כל הזמנים"
+    },
+    "statusOptions": {
+      "all": "כל הסטטוסים",
+      "issued": "הופקו בלבד",
+      "void": "בוטלו בלבד"
+    },
+    "statusBadge": {
+      "issued": "הופקה",
+      "void": "בוטלה"
+    },
+    "loading": "טוען חשבוניות…",
+    "empty": "עדיין לא הופקו חשבוניות.",
+    "emptyHint": "כדי להתחיל, הפיקו חשבונית משורת החבילה בכרטיס הלקוח.",
+    "noMatch": "אין חשבוניות התואמות למסננים אלה.",
+    "unknownClient": "לקוח לא ידוע",
+    "packageFallback": "חבילה",
+    "voidedAgo": "· בוטלה {{when}}",
+    "relative": {
+      "justNow": "ממש עכשיו",
+      "minutes": "לפני {{count}} דק'",
+      "hours": "לפני {{count}} שע'",
+      "days": "לפני {{count}} ימים",
+      "months": "לפני {{count}} חודשים"
+    },
+    "actions": {
+      "downloadPdf": "הורדת PDF",
+      "noPdf": "אין קובץ PDF",
+      "noEmail": "אין כתובת אימייל",
+      "emailInvoice": "שליחת החשבונית ללקוח באימייל",
+      "voidInvoice": "ביטול חשבונית",
+      "keep": "השארה"
+    },
+    "voidDialog": {
+      "title": "לבטל את חשבונית {{number}}?",
+      "description": "ביטול מסמן את החשבונית כמבוטלת — היא נשארת ברשומות לצורכי ביקורת והמספר ({{number}}) לעולם לא יחזור לשימוש. לא ניתן לבטל פעולה זו."
+    },
+    "toasts": {
+      "voided": "החשבונית בוטלה",
+      "voidedDesc": "{{number}} מסומנת כעת כמבוטלת.",
+      "alreadyVoided": "חשבונית זו כבר בוטלה.",
+      "voidLimit": "הארגון הגיע למכסת הביטולים היומית.",
+      "voidFailedDesc": "ביטול החשבונית נכשל",
+      "voidFailed": "הביטול נכשל",
+      "pdfNotReady": "ה-PDF אינו מוכן",
+      "pdfNotReadyDesc": "לחשבונית זו אין קובץ PDF.",
+      "generatePdfFirst": "יש לייצר תחילה את קובץ ה-PDF של החשבונית.",
+      "noEmail": "אין כתובת אימייל",
+      "noEmailDesc": "ללקוח זה אין כתובת אימייל.",
+      "sent": "החשבונית נשלחה",
+      "sentDesc": "נשלחה אל {{email}}.",
+      "sendFailed": "השליחה נכשלה",
+      "sendFailedDesc": "לא ניתן היה לשלוח את החשבונית באימייל."
+    },
+    "email": {
+      "subject": "החשבונית שלך {{number}}",
+      "greetingFallback": "לקוח/ה יקר/ה",
+      "body": "שלום {{name}},\n\nמצורפת החשבונית שלך.\n\nמספר חשבונית: {{number}}\nסה\"כ: {{total}}\n\nלצפייה / הורדה של החשבונית:\n{{url}}\n\nתודה!"
+    }
+  },
+  "createDialog": {
+    "titlePreview": "תצוגה מקדימה של חשבונית",
+    "titleNew": "חשבונית חדשה",
+    "editingDraft": "עריכת טיוטה",
+    "descriptionPreview": "בדקו את החשבונית לפני ההפקה. המספור והסכומים ייקבעו סופית בשרת בלחיצה על \"הפקת חשבונית\".",
+    "descriptionNew": "יצירת חשבונית למוצרים, טיפולי פנים או כל שילוב — מחוץ לחבילה.",
+    "drafts": {
+      "title": "טיוטות ({{count}})",
+      "empty": "אין טיוטות שמורות.",
+      "noClient": "ללא לקוח",
+      "lines_one": "שורה אחת",
+      "lines_two": "שתי שורות",
+      "lines_other": "{{count}} שורות",
+      "continue": "המשך",
+      "delete": "מחיקת טיוטה"
+    },
+    "preview": {
+      "billTo": "לכבוד",
+      "lineItems": "פריטים",
+      "subtotal": "סכום ביניים",
+      "tax": "מע\"מ ({{rate}}%)",
+      "total": "סה\"כ",
+      "paymentMethod": "אמצעי תשלום:",
+      "finalizedNote": "מספר החשבונית והסכומים המדויקים נקבעים סופית בשרת בלחיצה על \"הפקת חשבונית\".",
+      "invoiceNumberPlaceholder": "תצוגה מקדימה",
+      "iframeTitle": "תצוגה מקדימה של חשבונית",
+      "building": "בונה PDF…"
+    },
+    "form": {
+      "client": "לקוח *",
+      "clientPlaceholder": "בחירת לקוח",
+      "lineItems": "פריטים *",
+      "addProduct": "הוספת מוצר",
+      "addFacial": "הוספת טיפול פנים",
+      "addAddon": "הוספת תוספת",
+      "columns": {
+        "type": "סוג",
+        "item": "פריט",
+        "qty": "כמות",
+        "unitPrice": "מחיר ליחידה ({{currency}})"
+      },
+      "kinds": {
+        "product": "מוצר",
+        "treatment": "טיפול פנים",
+        "addon": "תוספת"
+      },
+      "kindPlural": {
+        "product": "מוצרים",
+        "treatment": "טיפולי פנים",
+        "addon": "תוספות"
+      },
+      "choose": {
+        "product": "בחירת מוצר",
+        "treatment": "בחירת טיפול פנים",
+        "addon": "בחירת תוספת"
+      },
+      "noActive": "לא נמצאו {{kind}} פעילים",
+      "minutes": "{{count}} דק'",
+      "lineFallback": "שורה {{index}}",
+      "aria": {
+        "lineType": "סוג שורה עבור {{item}}",
+        "item": "פריט עבור {{item}}",
+        "quantity": "כמות עבור {{item}}",
+        "unitPrice": "מחיר ליחידה עבור {{item}}",
+        "remove": "הסרת {{item}}"
+      },
+      "qtyPlaceholder": "כמות",
+      "pricePlaceholder": "מחיר",
+      "paymentMethod": "אמצעי תשלום",
+      "paymentMethodPlaceholder": "בחירת אמצעי תשלום",
+      "subtotal": "סכום ביניים",
+      "taxOnServer": "המע\"מ מחושב בשרת.",
+      "notes": "הערות (אופציונלי)",
+      "notesPlaceholder": "הערות פנימיות על חשבונית זו"
+    },
+    "footer": {
+      "backToEdit": "חזרה לעריכה",
+      "saveAsDraft": "שמירה כטיוטה",
+      "updateDraft": "עדכון טיוטה",
+      "saving": "שומר…",
+      "issueInvoice": "הפקת חשבונית",
+      "issuing": "מפיק…",
+      "drafts": "טיוטות ({{count}})",
+      "preview": "תצוגה מקדימה",
+      "building": "בונה…"
+    },
+    "toasts": {
+      "draftNotFound": "הטיוטה לא נמצאה",
+      "draftNotFoundDesc": "ייתכן שהיא נמחקה.",
+      "selectClient": "יש לבחור לקוח",
+      "selectClientDesc": "בחרו לקוח לחיוב.",
+      "addLine": "יש להוסיף לפחות שורה אחת",
+      "addLineDesc": "בחרו מוצר או טיפול פנים.",
+      "loading": "טוען…",
+      "loadingDesc": "פרטי העסק עדיין נטענים. נסו שוב בעוד רגע.",
+      "cannotPreview": "לא ניתן להציג תצוגה מקדימה",
+      "cannotPreviewDesc": "חסרים פרטי לקוח או פרטי עסק.",
+      "previewFailed": "התצוגה המקדימה נכשלה",
+      "previewFailedDesc": "לא ניתן היה לייצר תצוגה מקדימה.",
+      "nothingToSave": "אין מה לשמור",
+      "nothingToSaveDesc": "בחרו לקוח או הוסיפו לפחות שורה אחת.",
+      "draftSaved": "הטיוטה נשמרה",
+      "draftSavedDesc": "אפשר להשלים אותה מאוחר יותר מתוך הטיוטות.",
+      "draftSaveFailed": "שמירת הטיוטה נכשלה.",
+      "draftDeleted": "הטיוטה נמחקה",
+      "draftDeleteFailed": "מחיקת הטיוטה נכשלה.",
+      "invoice": "חשבונית",
+      "opened": "{{number}} נפתחה.",
+      "generated": "החשבונית הופקה",
+      "generatedDesc": "{{number}} מוכנה.",
+      "generateFailed": "הפקת החשבונית נכשלה",
+      "dailyLimit": "הארגון הגיע למכסת החשבוניות היומית."
+    },
+    "itemFallback": "פריט",
+    "businessFallback": "עסק"
+  }
+}

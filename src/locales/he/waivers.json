@@ -1,0 +1,316 @@
+{
+  "send": {
+    "template": "תבנית",
+    "selectTemplate": "בחירת תבנית",
+    "smsProvider": "ספק SMS",
+    "requireOtp": "דרישת אימות בקוד OTP",
+    "sendViaSms": "שליחה ב-SMS",
+    "sendViaSmsOtp": "שליחה ב-SMS + קוד אימות",
+    "sendViaEmail": "שליחה באימייל",
+    "noPhone": "ללקוח/ה אין מספר טלפון",
+    "noEmail": "ללקוח/ה אין כתובת אימייל",
+    "emailSentTo": "אימייל נשלח אל {{email}}",
+    "smsSentTo": "SMS נשלח אל {{phone}}",
+    "unknownError": "שגיאה לא ידועה"
+  },
+  "clientWaiversTab": {
+    "kinds": {
+      "waiver": {
+        "singular": "כתב ויתור",
+        "singularLower": "כתב ויתור",
+        "sendTitle": "שליחת כתב ויתור חדש",
+        "historyTitle": "היסטוריית כתבי ויתור",
+        "empty": "עדיין לא נשלחו כתבי ויתור.",
+        "settingsLocation": "כתבי ויתור"
+      },
+      "intake": {
+        "singular": "טופס קליטה",
+        "singularLower": "טופס קליטה",
+        "sendTitle": "שליחת טופס קליטה חדש",
+        "historyTitle": "היסטוריית טפסי קליטה",
+        "empty": "עדיין לא נשלחו טפסי קליטה.",
+        "settingsLocation": "טפסי קליטה"
+      },
+      "agreement": {
+        "singular": "הסכם רכישה",
+        "singularLower": "הסכם רכישה",
+        "sendTitle": "שליחת הסכם רכישה חדש",
+        "historyTitle": "היסטוריית הסכמי רכישה",
+        "empty": "עדיין לא נשלחו הסכמי רכישה.",
+        "settingsLocation": "הסכמי רכישה"
+      }
+    },
+    "noTemplates": "לא נמצאו תבניות {{kind}}. ניתן ליצור תבנית ב<b>הגדרות ← {{location}}</b>.",
+    "otpHint": "הלקוח/ה יקבל/תקבל קוד בן 6 ספרות ב-SMS ויידרש/תידרש להזין אותו לפני צפייה בטופס.",
+    "fillOnDevice": "מילוי עכשיו במכשיר זה",
+    "noContact": "ללקוח/ה זה אין טלפון או אימייל — יש להשתמש ב\"מילוי עכשיו במכשיר זה\".",
+    "sent": "נשלח {{date}}",
+    "signed": "נחתם {{date}}",
+    "photos_one": "תמונה אחת",
+    "photos_other": "{{count}} תמונות",
+    "photos_two": "{{count}} תמונות",
+    "status": {
+      "signed": "נחתם",
+      "pending": "ממתין"
+    },
+    "pdf": "PDF",
+    "email": "אימייל",
+    "sending": "שולח…",
+    "emailDocument": "שליחת המסמך ללקוח/ה באימייל",
+    "noEmailForClient": "ללקוח/ה זה אין כתובת אימייל",
+    "photosButton": "תמונות",
+    "openPhotos_one": "פתיחת תמונה אחת שהועלתה",
+    "openPhotos_other": "פתיחת {{count}} תמונות שהועלו",
+    "openPhotos_two": "פתיחת {{count}} תמונות שהועלו",
+    "deleteKind": "מחיקת {{kind}}",
+    "deleteDialog": {
+      "title": "למחוק {{kind}} זה?",
+      "description": "פעולה זו מוחקת לצמיתות את רשומת {{kind}}, את ה-PDF החתום, את התמונות שהועלו ואת קישור החתימה. לא ניתן לבטל פעולה זו."
+    },
+    "emailContent": {
+      "subject": "העותק החתום של {{title}}",
+      "body": "שלום {{name}},\n\nעותק של {{title}} שחתמת עליו זמין בקישור הבא.\n\nצפייה / הורדה:\n{{url}}\n\nתודה!",
+      "fallbackName": "לך"
+    },
+    "toasts": {
+      "readyTitle": "הטופס מוכן",
+      "readyDescription": "יש להעביר את המכשיר ללקוח/ה למילוי.",
+      "sentTitle": "הטופס נשלח",
+      "sendFailed": "שליחת הטופס נכשלה",
+      "noEmailTitle": "אין אימייל במערכת",
+      "noEmailDescription": "ללקוח/ה זה אין כתובת אימייל.",
+      "pdfNotReadyTitle": "ה-PDF עדיין לא מוכן",
+      "pdfNotReadyDescription": "ה-PDF החתום עדיין אינו זמין.",
+      "documentSent": "המסמך נשלח",
+      "emailedTo": "נשלח באימייל אל {{email}}.",
+      "sendDocFailed": "השליחה נכשלה",
+      "sendDocFailedDescription": "לא ניתן היה לשלוח את המסמך באימייל.",
+      "deleted": "נמחק",
+      "deletedDescription": "{{kind}} נמחק.",
+      "deleteFailed": "המחיקה נכשלה",
+      "deleteFailedDescription": "לא ניתן היה למחוק."
+    }
+  },
+  "templatePreviewModal": {
+    "dialogTitle": "תצוגה מקדימה של הטופס — {{title}}",
+    "defaultTitle": "תצוגה מקדימה של הטופס",
+    "defaultSubHeadline": "נא לקרוא בעיון ולמלא את כל שדות החובה.",
+    "previewOnly": "זוהי תצוגה מקדימה בלבד — לא ניתן לשלוח את הטופס.",
+    "submitAndSign": "שליחה וחתימה",
+    "yourAnswer": "התשובה שלך",
+    "emailPlaceholder": "name@example.com",
+    "phonePlaceholder": "050-123-4567",
+    "defaultLabels": {
+      "email": "אימייל",
+      "phone": "טלפון",
+      "date": "תאריך",
+      "city": "עיר",
+      "referralSource": "איך שמעתם עלינו?",
+      "time": "שעה",
+      "signature": "חתימה",
+      "imageUpload": "העלאת תמונות"
+    },
+    "selectCity": "בחירת עיר",
+    "selectSource": "בחירת מקור",
+    "otherOption": "+ אחר…",
+    "liveOptionsCity": "בעת השליחה נטענות הערים העדכניות מכרטיס הלקוח.",
+    "liveOptionsSource": "בעת השליחה נטענים מקורות ההפניה העדכניים מכרטיס הלקוח.",
+    "signaturePad": "משטח חתימה (פעיל בעת שליחה ללקוח/ה)",
+    "imageUpload": "העלאת תמונות (עד {{count}} תמונות)"
+  },
+  "waiverTemplateEditor": {
+    "blockTypes": {
+      "heading": {
+        "label": "כותרת",
+        "description": "כותרת גדולה לפרק בטופס"
+      },
+      "subheading": {
+        "label": "כותרת משנה",
+        "description": "כותרת קטנה יותר מתחת לכותרת"
+      },
+      "text": {
+        "label": "בלוק טקסט",
+        "description": "פסקה של טקסט מידע או טקסט משפטי"
+      },
+      "checkbox": {
+        "label": "הסכמה בתיבת סימון",
+        "description": "הצהרה שעל הלקוח/ה לסמן כדי להסכים"
+      },
+      "yes_no": {
+        "label": "שאלת כן / לא",
+        "description": "שאלה בינארית (כן או לא)"
+      },
+      "short_answer": {
+        "label": "תשובה קצרה",
+        "description": "שאלה עם תשובה בטקסט חופשי"
+      },
+      "email": {
+        "label": "כתובת אימייל",
+        "description": "איסוף כתובת אימייל (למשל איש קשר לשעת חירום)"
+      },
+      "phone": {
+        "label": "מספר טלפון",
+        "description": "איסוף מספר טלפון"
+      },
+      "date": {
+        "label": "תאריך",
+        "description": "בחירת תאריך מלוח שנה"
+      },
+      "time": {
+        "label": "שעה",
+        "description": "בחירת שעה"
+      },
+      "city": {
+        "label": "עיר",
+        "description": "רשימת ערים מתוך ערי כרטיס הלקוח (כולל \"אחר\")"
+      },
+      "referral_source": {
+        "label": "איך שמעתם עלינו?",
+        "description": "רשימת מקורות הפניה מתוך מקורות כרטיס הלקוח (כולל \"אחר\")"
+      },
+      "signature": {
+        "label": "משטח חתימה",
+        "description": "הלקוח/ה מצייר/ת חתימה (למשל אפוטרופוס או ראשי תיבות)"
+      },
+      "image_upload": {
+        "label": "העלאת תמונות",
+        "description": "הלקוח/ה מעלה תמונות (למשל של האזור המטופל)"
+      },
+      "package_name": {
+        "label": "שם החבילה",
+        "description": "שם החבילה ממולא אוטומטית מהרכישה המקושרת"
+      },
+      "package_price": {
+        "label": "מחיר החבילה",
+        "description": "מחיר החבילה ממולא אוטומטית מהרכישה המקושרת"
+      },
+      "package_sessions": {
+        "label": "טיפולים בחבילה",
+        "description": "סך הטיפולים בחבילה ממולא אוטומטית מהרכישה המקושרת"
+      },
+      "purchase_date": {
+        "label": "תאריך רכישה",
+        "description": "תאריך רכישת החבילה ממולא אוטומטית"
+      },
+      "expiry_date": {
+        "label": "תוקף החבילה",
+        "description": "תאריך פקיעת תוקף החבילה ממולא אוטומטית"
+      }
+    },
+    "purchaseDefaults": {
+      "package_name": "חבילה",
+      "package_price": "מחיר",
+      "package_sessions": "טיפולים",
+      "purchase_date": "תאריך רכישה",
+      "expiry_date": "בתוקף עד"
+    },
+    "kinds": {
+      "waiver": {
+        "title": "כתב ויתור",
+        "newLabel": "כתב ויתור חדש",
+        "placeholder": "לדוגמה: כתב ויתור והסכמה כללי"
+      },
+      "intake": {
+        "title": "טופס קליטה",
+        "newLabel": "טופס קליטה חדש",
+        "placeholder": "לדוגמה: טופס קליטה ללקוח/ה חדש/ה"
+      },
+      "agreement": {
+        "title": "הסכם רכישה",
+        "newLabel": "הסכם רכישה חדש",
+        "placeholder": "לדוגמה: הסכם רכישה"
+      }
+    },
+    "block": {
+      "dragToReorder": "גרירה לשינוי הסדר",
+      "requiredTag": "חובה",
+      "requiredLabel": "שדה חובה",
+      "textPlaceholder": "הזנת תוכן הטקסט…",
+      "placeholders": {
+        "heading": "לדוגמה: היסטוריה רפואית",
+        "subheading": "לדוגמה: טיפולים קודמים",
+        "checkbox": "נוסח ההצהרה…",
+        "image_upload": "לדוגמה: העלאת תמונות של האזור המטופל",
+        "email": "לדוגמה: אימייל של איש קשר לשעת חירום",
+        "phone": "לדוגמה: טלפון של איש קשר לשעת חירום",
+        "signature": "לדוגמה: חתימת הורה / אפוטרופוס",
+        "purchase": "התווית שתוצג ללקוח/ה (לדוגמה: \"{{label}}\")",
+        "question": "נוסח השאלה…"
+      },
+      "purchaseHint": "ממולא אוטומטית מהרכישה. ניתן לערוך רק את התווית.",
+      "emptyPreview": "לחיצה על עריכה להוספת תוכן…",
+      "editBlock": "עריכת בלוק",
+      "deleteBlock": "מחיקת בלוק",
+      "purchaseDefaultPreview": "תווית ברירת מחדל: {{label}} (מוצגת בשפת הלקוח/ה)"
+    },
+    "addBlock": "הוספת בלוק",
+    "newKind": "{{kind}} חדש",
+    "applyToAll": "החלה על כל התבניות",
+    "applyToAllTitle": "מוסיף גיל, מגדר ו\"איך שמעתם עלינו?\" לכל תבנית מסוג זה שעדיין אין בה את השדות האלה",
+    "noTemplates": "עדיין אין תבניות.",
+    "selectPrompt": "יש לבחור תבנית מהרשימה או ליצור תבנית חדשה.",
+    "templateTitle": "שם התבנית",
+    "templateTitleHint": "שם פנימי שמוצג ברשימת התבניות.",
+    "headline": "כותרת",
+    "headlinePlaceholder": "לדוגמה: כתב הסכמה וויתור לטיפול",
+    "headlinePlaceholderIntake": "לדוגמה: ברוכים הבאים — נשמח להכיר אתכם",
+    "subHeadline": "כותרת משנה",
+    "subHeadlinePlaceholder": "לדוגמה: נא לקרוא בעיון ולמלא את כל שדות החובה.",
+    "headlineHint": "מוצג בראש הטופס שהלקוחות רואים. אם נשאר ריק, יוצג שם התבנית.",
+    "formBlocks": "בלוקים בטופס",
+    "personalInfo": "גיל / מגדר / מקור הפניה",
+    "personalInfoTitle": "מוסיף גיל, מגדר ו\"איך שמעתם עלינו?\" אם הם חסרים",
+    "noBlocks": "הוסיפו את הבלוק הראשון באמצעות הכפתור \"הוספת בלוק\" למעלה.",
+    "deleteTemplate": "מחיקת תבנית",
+    "saveTemplate": "שמירת תבנית",
+    "confirmDelete": "למחוק את \"{{title}}\"? לא ניתן לבטל פעולה זו.",
+    "toasts": {
+      "alreadyPresent": "כבר קיים",
+      "alreadyPresentDescription": "שדות גיל, מגדר ומקור הפניה כבר קיימים בתבנית זו.",
+      "added": "נוסף",
+      "addedDescription_one": "נוסף בלוק אחד. לא לשכוח ללחוץ על שמירת תבנית.",
+      "addedDescription_other": "נוספו {{count}} בלוקים. לא לשכוח ללחוץ על שמירת תבנית.",
+      "addedDescription_two": "נוספו {{count}} בלוקים. לא לשכוח ללחוץ על שמירת תבנית.",
+      "titleRequired": "נא להזין שם לתבנית",
+      "saved": "תבנית {{kind}} נשמרה",
+      "saveFailed": "השמירה נכשלה",
+      "nothingToAdd": "אין מה להוסיף",
+      "updatedCount": "עודכנו {{updated}} מתוך {{processed}} תבניות {{kind}}",
+      "allHaveFields": "בכל התבניות כבר קיימים שדות גיל, מגדר ושאלת מקור ההפניה.",
+      "addedAcross_one": "נוסף בלוק אחד בכל תבניות {{kind}} שלך.",
+      "addedAcross_other": "נוספו {{count}} בלוקים בכל תבניות {{kind}} שלך.",
+      "addedAcross_two": "נוספו {{count}} בלוקים בכל תבניות {{kind}} שלך.",
+      "migrationFailed": "העדכון נכשל",
+      "templateDeleted": "התבנית נמחקה",
+      "deleteFailed": "המחיקה נכשלה"
+    },
+    "personalInfoLabels": {
+      "age": "גיל",
+      "gender": "מגדר",
+      "referral": "איך שמעת עלינו?"
+    },
+    "dnd": {
+      "instructions": "כדי להרים בלוק בטופס יש להקיש רווח או Enter. בזמן הגרירה אפשר להזיז אותו עם מקשי החצים. הקשה נוספת על רווח או Enter תשחרר אותו במקומו החדש, ו-Escape תבטל.",
+      "dragStart": "הבלוק \"{{item}}\" הורם, בלוק {{position}} מתוך {{total}}.",
+      "dragOver": "הבלוק \"{{item}}\" הועבר למיקום {{position}} מתוך {{total}}.",
+      "dragOverNone": "הבלוק \"{{item}}\" כבר לא נמצא מעל אזור שחרור.",
+      "dragEnd": "הבלוק \"{{item}}\" שוחרר במיקום {{position}} מתוך {{total}}.",
+      "dragEndNone": "הבלוק \"{{item}}\" הוחזר למיקומו המקורי.",
+      "dragCancel": "הגרירה בוטלה. הבלוק \"{{item}}\" הוחזר למיקומו המקורי."
+    }
+  },
+  "sendAgreementDialog": {
+    "title": "שליחת הסכם רכישה",
+    "descriptionWithPackage": "שליחת הסכם רכישה ממולא מראש עבור <b>{{packageName}}</b> אל <b>{{name}}</b>.",
+    "description": "שליחת הסכם רכישה ממולא מראש אל <b>{{name}}</b>.",
+    "noTemplates": "עדיין אין תבניות הסכם רכישה. ניתן ליצור תבנית ב<b>הגדרות ← הסכמי רכישה</b> ולחזור לכאן.",
+    "skipForNow": "דילוג בינתיים",
+    "signOnDevice": "חתימה במכשיר זה",
+    "toasts": {
+      "readyTitle": "הסכם הרכישה מוכן",
+      "readyDescription": "יש להעביר את המכשיר ללקוח/ה לחתימה.",
+      "sentTitle": "הסכם הרכישה נשלח",
+      "sendFailed": "שליחת הסכם הרכישה נכשלה"
+    }
+  }
+}

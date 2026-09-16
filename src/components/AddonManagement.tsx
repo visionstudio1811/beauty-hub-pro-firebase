@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -24,6 +25,7 @@ const PRESET_COLORS = [
 ];
 
 export const AddonManagement: React.FC = () => {
+  const { t } = useTranslation('products');
   const { addons, loading, addAddon, updateAddon } = useSupabaseAddons();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAddon, setEditingAddon] = useState<Addon | null>(null);
@@ -68,8 +70,8 @@ export const AddonManagement: React.FC = () => {
   const handleSave = async () => {
     if (!formData.name || !formData.price) {
       toast({
-        title: 'Error',
-        description: 'Name and price are required.',
+        title: t('common:status.error'),
+        description: t('addonManagement.toasts.nameAndPriceRequired'),
         variant: 'destructive',
       });
       return;
@@ -77,7 +79,7 @@ export const AddonManagement: React.FC = () => {
 
     const priceNum = parseFloat(formData.price);
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      toast({ title: 'Error', description: 'Price must be a positive number.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('addonManagement.toasts.pricePositive'), variant: 'destructive' });
       return;
     }
 
@@ -85,7 +87,7 @@ export const AddonManagement: React.FC = () => {
     const durationNum =
       durationRaw === '' ? null : Number.isNaN(parseInt(durationRaw, 10)) ? null : parseInt(durationRaw, 10);
     if (durationNum !== null && durationNum < 0) {
-      toast({ title: 'Error', description: 'Duration cannot be negative.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('addonManagement.toasts.durationNegative'), variant: 'destructive' });
       return;
     }
 
@@ -127,7 +129,7 @@ export const AddonManagement: React.FC = () => {
       <Card className="w-full">
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <div className="text-sm text-gray-500">Loading add-ons...</div>
+            <div className="text-sm text-gray-500">{t('addonManagement.loading')}</div>
           </div>
         </CardContent>
       </Card>
@@ -138,42 +140,42 @@ export const AddonManagement: React.FC = () => {
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
-          <div className="flex items-center space-x-2 min-w-0 flex-1">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0 flex-1">
             <Sparkles className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <CardTitle className="text-lg truncate">Add-ons</CardTitle>
+            <CardTitle className="text-lg truncate">{t('addonManagement.title')}</CardTitle>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={openAddDialog} className="w-full sm:w-auto shrink-0">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Add-on
+                <Plus className="h-4 w-4 me-2" />
+                {t('addonManagement.addAddon')}
               </Button>
             </DialogTrigger>
             <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-base">
-                  {editingAddon ? 'Edit Add-on' : 'Add New Add-on'}
+                  {editingAddon ? t('addonManagement.editAddon') : t('addonManagement.addNewAddon')}
                 </DialogTitle>
                 <DialogDescription className="text-sm">
                   {editingAddon
-                    ? 'Update the add-on details below.'
-                    : 'Create an extra that can be attached to any appointment.'}
+                    ? t('addonManagement.updateDescription')
+                    : t('addonManagement.createDescription')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="addon-name" className="text-sm">Add-on Name *</Label>
+                  <Label htmlFor="addon-name" className="text-sm">{t('addonManagement.fields.name')}</Label>
                   <Input
                     id="addon-name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Eye mask, Scalp massage"
+                    placeholder={t('addonManagement.fields.namePlaceholder')}
                     className="w-full text-sm"
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="grid gap-2">
-                    <Label htmlFor="addon-price" className="text-sm">Price ($) *</Label>
+                    <Label htmlFor="addon-price" className="text-sm">{t('addonManagement.fields.price')}</Label>
                     <Input
                       id="addon-price"
                       type="number"
@@ -181,56 +183,56 @@ export const AddonManagement: React.FC = () => {
                       min="0"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="15"
+                      placeholder={t('addonManagement.fields.pricePlaceholder')}
                       className="w-full text-sm"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="addon-duration" className="text-sm">Extra Duration (min, optional)</Label>
+                    <Label htmlFor="addon-duration" className="text-sm">{t('addonManagement.fields.duration')}</Label>
                     <Input
                       id="addon-duration"
                       type="number"
                       min="0"
                       value={formData.duration_minutes}
                       onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                      placeholder="0 for price-only"
+                      placeholder={t('addonManagement.fields.durationPlaceholder')}
                       className="w-full text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Leave blank or 0 if this add-on doesn't extend the appointment time.
+                      {t('addonManagement.fields.durationHelp')}
                     </p>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="addon-category" className="text-sm">Category (optional)</Label>
+                    <Label htmlFor="addon-category" className="text-sm">{t('addonManagement.fields.category')}</Label>
                     <Input
                       id="addon-category"
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="e.g. Massage extras"
+                      placeholder={t('addonManagement.fields.categoryPlaceholder')}
                       className="w-full text-sm"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="addon-sort-order" className="text-sm">Sort Order (optional)</Label>
+                    <Label htmlFor="addon-sort-order" className="text-sm">{t('addonManagement.fields.sortOrder')}</Label>
                     <Input
                       id="addon-sort-order"
                       type="number"
                       min="0"
                       value={formData.sort_order}
                       onChange={(e) => setFormData({ ...formData, sort_order: e.target.value })}
-                      placeholder="0"
+                      placeholder={t('addonManagement.fields.sortOrderPlaceholder')}
                       className="w-full text-sm"
                     />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="addon-color" className="text-sm">Calendar Color</Label>
+                  <Label htmlFor="addon-color" className="text-sm">{t('addonManagement.fields.color')}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         id="addon-color"
-                        className="flex items-center gap-3 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-left"
+                        className="flex items-center gap-3 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-start"
                       >
                         <span
                           className="h-6 w-6 rounded border border-border shrink-0"
@@ -242,7 +244,7 @@ export const AddonManagement: React.FC = () => {
                           }}
                         />
                         <span className="text-muted-foreground">
-                          {formData.color ? formData.color.toUpperCase() : 'No color'}
+                          {formData.color ? <span className="ltr-inline">{formData.color.toUpperCase()}</span> : t('addonManagement.fields.noColor')}
                         </span>
                         {formData.color && (
                           <span
@@ -258,9 +260,9 @@ export const AddonManagement: React.FC = () => {
                                 setFormData({ ...formData, color: '' });
                               }
                             }}
-                            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                            className="ms-auto text-xs text-muted-foreground hover:text-foreground"
                           >
-                            Clear
+                            {t('addonManagement.fields.clearColor')}
                           </span>
                         )}
                       </button>
@@ -271,7 +273,7 @@ export const AddonManagement: React.FC = () => {
                           <button
                             key={c}
                             type="button"
-                            aria-label={`Pick ${c}`}
+                            aria-label={t('addonManagement.fields.pickColorAria', { color: c })}
                             onClick={() => setFormData({ ...formData, color: c })}
                             className={`h-9 w-full rounded-md border-2 transition-transform hover:scale-105 ${
                               formData.color?.toLowerCase() === c.toLowerCase()
@@ -283,7 +285,7 @@ export const AddonManagement: React.FC = () => {
                         ))}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="custom-addon-color" className="text-xs whitespace-nowrap">Custom:</Label>
+                        <Label htmlFor="custom-addon-color" className="text-xs whitespace-nowrap">{t('addonManagement.fields.custom')}</Label>
                         <Input
                           id="custom-addon-color"
                           type="color"
@@ -293,6 +295,7 @@ export const AddonManagement: React.FC = () => {
                         />
                         <Input
                           type="text"
+                          dir="ltr"
                           value={formData.color}
                           onChange={(e) => {
                             const v = e.target.value;
@@ -300,7 +303,7 @@ export const AddonManagement: React.FC = () => {
                               setFormData({ ...formData, color: v.toUpperCase() });
                             }
                           }}
-                          placeholder="#FFD700"
+                          placeholder={t('addonManagement.fields.colorPlaceholder')}
                           className="h-8 text-xs font-mono"
                         />
                       </div>
@@ -308,12 +311,12 @@ export const AddonManagement: React.FC = () => {
                   </Popover>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="addon-description" className="text-sm">Description</Label>
+                  <Label htmlFor="addon-description" className="text-sm">{t('addonManagement.fields.description')}</Label>
                   <Textarea
                     id="addon-description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description of the add-on"
+                    placeholder={t('addonManagement.fields.descriptionPlaceholder')}
                     rows={3}
                     className="w-full resize-none text-sm"
                   />
@@ -321,24 +324,24 @@ export const AddonManagement: React.FC = () => {
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto text-sm">
-                  Cancel
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button onClick={handleSave} className="w-full sm:w-auto text-sm">
-                  {editingAddon ? 'Update' : 'Add'} Add-on
+                  {editingAddon ? t('addonManagement.updateAddon') : t('addonManagement.addAddon')}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
         <CardDescription className="text-sm">
-          Extras that can be attached to any appointment (e.g. eye mask, scalp massage). Optional extra duration.
+          {t('addonManagement.cardDescription')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {addons.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No add-ons yet. Create your first one — it'll appear in the appointment form picker.
+              {t('addonManagement.empty')}
             </p>
           )}
           {addons.map((addon) => (
@@ -349,18 +352,18 @@ export const AddonManagement: React.FC = () => {
                     <span
                       className="h-3 w-3 rounded-full border border-border shrink-0"
                       style={{ backgroundColor: addon.color }}
-                      aria-label={`Color ${addon.color}`}
+                      aria-label={t('addonManagement.badges.colorAria', { color: addon.color })}
                       title={addon.color}
                     />
                   )}
                   <h4 className="font-medium text-sm break-words">{addon.name}</h4>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  <Badge variant="secondary" className="text-xs">${addon.price}</Badge>
+                  <Badge variant="secondary" className="text-xs"><span dir="ltr">${addon.price}</span></Badge>
                   {addon.duration_minutes && addon.duration_minutes > 0 ? (
-                    <Badge variant="outline" className="text-xs">+{addon.duration_minutes} min</Badge>
+                    <Badge variant="outline" className="text-xs">{t('addonManagement.badges.extraMinutes', { count: addon.duration_minutes })}</Badge>
                   ) : (
-                    <Badge variant="outline" className="text-xs">No extra time</Badge>
+                    <Badge variant="outline" className="text-xs">{t('addonManagement.badges.noExtraTime')}</Badge>
                   )}
                   {addon.category && <Badge variant="outline" className="text-xs">{addon.category}</Badge>}
                 </div>
@@ -376,8 +379,8 @@ export const AddonManagement: React.FC = () => {
                     onClick={() => openEditDialog(addon)}
                     className="flex-1 text-xs h-8"
                   >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                    <Edit className="h-3 w-3 me-1" />
+                    {t('common:actions.edit')}
                   </Button>
                   <Button
                     variant="outline"
@@ -385,8 +388,8 @@ export const AddonManagement: React.FC = () => {
                     onClick={() => handleDelete(addon.id)}
                     className="flex-1 text-red-600 hover:text-red-700 text-xs h-8"
                   >
-                    <Trash className="h-3 w-3 mr-1" />
-                    Delete
+                    <Trash className="h-3 w-3 me-1" />
+                    {t('common:actions.delete')}
                   </Button>
                 </div>
               </div>

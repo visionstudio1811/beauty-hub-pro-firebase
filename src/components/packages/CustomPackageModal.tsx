@@ -9,6 +9,7 @@ import { PackageForm } from '@/components/PackageForm';
 import { Client } from '@/hooks/useClients';
 import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
 import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
+import { useTranslation } from 'react-i18next';
 
 interface CustomPackageModalProps {
   client: Client | null;
@@ -29,6 +30,7 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { t } = useTranslation('packages');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const [pendingAgreement, setPendingAgreement] = useState<
@@ -55,7 +57,7 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
     total_sessions: number;
   }) => {
     if (!currentOrganization?.id) {
-      toast({ title: 'Error', description: 'No organization selected.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('customPackageModal.noOrg'), variant: 'destructive' });
       throw new Error('No organization selected');
     }
 
@@ -120,18 +122,18 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
       });
 
       toast({
-        title: 'Custom Package Created',
-        description: `${data.name} has been assigned to ${client.name}.`,
+        title: t('customPackageModal.createdTitle'),
+        description: t('customPackageModal.createdDescription', { packageName: data.name, clientName: client.name }),
       });
 
       onCreated?.();
       setPendingAgreement({ purchaseId: purchaseRef.id, packageName: data.name });
     } catch (err) {
       console.error('Error creating custom package:', err);
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = err instanceof Error ? err.message : t('customPackageModal.unknownError');
       toast({
-        title: 'Error',
-        description: `Failed to create custom package: ${msg}`,
+        title: t('common:status.error'),
+        description: t('customPackageModal.createFailed', { error: msg }),
         variant: 'destructive',
       });
       throw err;
@@ -156,11 +158,11 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
       onClose={onClose}
       editingPackage={null}
       onSave={handleSave}
-      titleOverride={`Custom Package for ${client.name}`}
-      submitLabelOverride="Create & Assign"
+      titleOverride={t('customPackageModal.title', { name: client.name })}
+      submitLabelOverride={t('customPackageModal.submit')}
       extraFields={
         <div>
-          <label className="text-sm font-medium">Purchase Date *</label>
+          <label className="text-sm font-medium">{t('customPackageModal.purchaseDate')}</label>
           <Input
             type="date"
             value={purchaseDate}
@@ -169,7 +171,7 @@ export const CustomPackageModal: React.FC<CustomPackageModalProps> = ({
             className="w-full mt-1 text-sm"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Use a past date for retroactive assignments — expiry is calculated from this date.
+            {t('customPackageModal.purchaseDateHelp')}
           </p>
         </div>
       }

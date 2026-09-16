@@ -9,6 +9,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface Profile {
   id: string;
@@ -23,6 +24,7 @@ export const useSupabaseProfiles = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
 
@@ -56,14 +58,14 @@ export const useSupabaseProfiles = () => {
     } catch (error) {
       console.error('Error fetching profiles:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load staff profiles',
+        title: t('common:status.error'),
+        description: t('profiles.loadFailed'),
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [orgId, toast]);
+  }, [orgId, toast, t]);
 
   useEffect(() => {
     fetchProfiles();

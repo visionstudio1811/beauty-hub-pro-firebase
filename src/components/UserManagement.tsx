@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,7 @@ interface Profile {
 }
 
 export const UserManagement: React.FC = () => {
+  const { t } = useTranslation('settings');
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingPermissions, setCheckingPermissions] = useState(true);
@@ -66,8 +68,8 @@ export const UserManagement: React.FC = () => {
       console.error('Error checking permissions:', error);
       await logSecurityEvent('PERMISSION_CHECK_ERROR', { error: error.message });
       toast({
-        title: "Error",
-        description: "An unexpected error occurred while checking permissions.",
+        title: t('common:status.error'),
+        description: t('userManagement.toasts.permissionCheckError'),
         variant: "destructive",
       });
     } finally {
@@ -110,8 +112,8 @@ export const UserManagement: React.FC = () => {
       console.error('Error fetching profiles:', error);
       await logSecurityEvent('PROFILE_FETCH_FAILED', { error: error.message });
       toast({
-        title: "Error",
-        description: "Failed to load user profiles.",
+        title: t('common:status.error'),
+        description: t('userManagement.toasts.loadProfilesFailed'),
         variant: "destructive",
       });
     }
@@ -124,8 +126,8 @@ export const UserManagement: React.FC = () => {
       if (!canManage) {
         await logSecurityEvent('UNAUTHORIZED_USER_STATUS_CHANGE', { profileId });
         toast({
-          title: "Access Denied",
-          description: "You don't have permission to modify user status.",
+          title: t('userManagement.toasts.accessDeniedTitle'),
+          description: t('userManagement.toasts.accessDeniedDescription'),
           variant: "destructive",
         });
         return;
@@ -140,8 +142,10 @@ export const UserManagement: React.FC = () => {
       });
       
       toast({
-        title: "Status Updated",
-        description: `User has been ${!currentStatus ? 'activated' : 'deactivated'}.`,
+        title: t('userManagement.toasts.statusUpdatedTitle'),
+        description: !currentStatus
+          ? t('userManagement.toasts.userActivated')
+          : t('userManagement.toasts.userDeactivated'),
       });
     } catch (error) {
       console.error('Error updating user status:', error);
@@ -150,8 +154,8 @@ export const UserManagement: React.FC = () => {
         error: error.message 
       });
       toast({
-        title: "Error",
-        description: "Failed to update user status.",
+        title: t('common:status.error'),
+        description: t('userManagement.toasts.statusUpdateFailed'),
         variant: "destructive",
       });
     }
@@ -171,7 +175,7 @@ export const UserManagement: React.FC = () => {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <div className="text-sm text-gray-500">Loading users...</div>
+            <div className="text-sm text-gray-500">{t('userManagement.loadingUsers')}</div>
           </div>
         </CardContent>
       </Card>
@@ -182,14 +186,14 @@ export const UserManagement: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <User className="h-5 w-5 text-purple-600" />
-            <CardTitle>User Management</CardTitle>
+            <CardTitle>{t('userManagement.title')}</CardTitle>
           </div>
           <UserCreationDialog onUserCreated={fetchProfiles} />
         </div>
         <CardDescription>
-          Manage user accounts and permissions for your team
+          {t('userManagement.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>

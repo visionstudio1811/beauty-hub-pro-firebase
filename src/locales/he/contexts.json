@@ -1,0 +1,77 @@
+{
+  "errors": {
+    "noOrganization": "לא נבחר ארגון"
+  },
+  "clients": {
+    "loadFailed": "טעינת הלקוחות נכשלה",
+    "added": "כרטיס הלקוח נוצר בהצלחה",
+    "validationError": "שגיאת אימות נתונים",
+    "addFailed": "הוספת הלקוח/ה נכשלה",
+    "updated": "פרטי הלקוח/ה עודכנו בהצלחה",
+    "updateFailed": "עדכון פרטי הלקוח/ה נכשל",
+    "movedToTrash": "כרטיס הלקוח הועבר לסל המחיקה (ניתן לשחזר בתוך 30 יום)",
+    "deleteFailed": "מחיקת הלקוח/ה נכשלה"
+  },
+  "packages": {
+    "fetchFailed": "טעינת החבילות נכשלה",
+    "noOrganization": "לא נבחר ארגון.",
+    "createdTitle": "החבילה נוצרה",
+    "createdDescription": "החבילה {{name}} נוצרה בהצלחה.",
+    "createFailed": "יצירת החבילה נכשלה. נסו שוב.",
+    "updatedTitle": "החבילה עודכנה",
+    "updatedDescription": "החבילה עודכנה בהצלחה.",
+    "updateFailed": "עדכון החבילה נכשל. נסו שוב.",
+    "deactivatedTitle": "החבילה הושבתה",
+    "deactivatedDescription": "החבילה הושבתה בהצלחה.",
+    "deactivateFailed": "השבתת החבילה נכשלה. נסו שוב."
+  },
+  "time": {
+    "am": "לפנה״צ",
+    "pm": "אחה״צ"
+  },
+  "seed": {
+    "treatments": {
+      "classicFacial": {
+        "name": "טיפול פנים קלאסי",
+        "description": "טיפול פנים מסורתי לכל סוגי העור"
+      },
+      "glowDermaplaneFacial": {
+        "name": "טיפול פנים דרמהפלנינג זוהר",
+        "description": "דרמהפלנינג בשילוב טיפול פנים מלחלח לעור קורן"
+      },
+      "acneTreatmentFacial": {
+        "name": "טיפול פנים לאקנה",
+        "description": "טיפול ייעודי לעור הנוטה לאקנה"
+      },
+      "mensFacial": {
+        "name": "טיפול פנים לגברים",
+        "description": "טיפול פנים מותאם אישית לגברים"
+      },
+      "ledSkinTightening": {
+        "name": "מיצוק עור ב-LED",
+        "description": "טיפול באור LED למיצוק העור ולחידושו"
+      },
+      "nonSurgicalRfFacial": {
+        "name": "טיפול פנים RF ללא ניתוח",
+        "description": "טיפול בגלי רדיו למתיחת העור ולמיצוקו"
+      }
+    },
+    "staff": {
+      "roles": {
+        "seniorAesthetician": "קוסמטיקאית בכירה",
+        "laserSpecialist": "מומחה/ית לייזר"
+      },
+      "specialties": {
+        "facialTreatment": "טיפול פנים",
+        "chemicalPeels": "פילינג כימי",
+        "microdermabrasion": "מיקרודרמבריישן",
+        "laserHairRemoval": "הסרת שיער בלייזר",
+        "skinRejuvenation": "חידוש עור"
+      }
+    },
+    "appointments": {
+      "facialTreatment": "טיפול פנים",
+      "regularClientNote": "לקוח/ה קבוע/ה, מעדיף/ה מוצרים עדינים"
+    }
+  }
+}

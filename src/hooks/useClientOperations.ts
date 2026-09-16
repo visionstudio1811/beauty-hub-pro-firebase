@@ -2,9 +2,11 @@
 import { useState } from 'react';
 import { useClients, Client } from '@/hooks/useClients';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 export const useClientOperations = () => {
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -69,8 +71,8 @@ export const useClientOperations = () => {
     await refetch();
     setIsAssignmentModalOpen(false);
     toast({
-      title: "Success",
-      description: "Package assigned successfully"
+      title: t('common:status.success'),
+      description: t('clientOperations.packageAssigned')
     });
   };
 
@@ -78,16 +80,16 @@ export const useClientOperations = () => {
     await refetch();
     setIsProductAssignmentModalOpen(false);
     toast({
-      title: "Success",
-      description: "Product assigned successfully"
+      title: t('common:status.success'),
+      description: t('clientOperations.productAssigned')
     });
   };
 
   const handleBookingWrapper = async (client: Client, booking: any) => {
     setIsBookingModalOpen(false);
     toast({
-      title: "Success", 
-      description: "Appointment booked successfully"
+      title: t('common:status.success'),
+      description: t('clientOperations.appointmentBooked')
     });
   };
 

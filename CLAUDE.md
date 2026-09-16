@@ -458,8 +458,25 @@ Org logos are uploaded to Firebase Storage at `organizations/{orgId}/logo/logo.{
 - `src/components/ui/` — shadcn/ui components, regenerate with `shadcn` CLI if needed
 - `tailwind.config.ts` — design tokens
 - `src/lib/dataSanitization.ts` — data cleaning logic, changes here affect the whole app
-- `src/lib/validation.ts` — Zod schemas used across forms
+- `src/lib/validation.ts` — Zod schemas used across forms. Schemas carry **no inline messages**; wording lives in `src/locales/{en,he}/validation.json` and is rendered by the global error map in `src/i18n/zodErrorMap.ts`. Add a field label under `fields` (and an exact-wording override under `fieldMessages` if needed) rather than putting a string in the schema.
 - `firestore.rules` / `storage.rules` — security rules, test with the emulator before deploying
+
+---
+
+## Internationalization (English + Hebrew, RTL)
+
+Added 2026-09-16. Library: **react-i18next**. Everything a user can read goes through `t()`.
+
+- **Namespaces** = one JSON per feature under `src/locales/{en,he}/<ns>.json`, auto-registered by `import.meta.glob` in `src/i18n/index.ts`. `common` is the default/fallback namespace (shared actions, labels, statuses, days, roles). Both languages must have identical key trees; Hebrew may add `_two`/`_many` plural forms.
+- **Usage:** `const { t } = useTranslation('clients'); t('addClientModal.title')`. Outside React: `import i18n from '@/i18n'; i18n.t('clients:...')`. Cross-namespace: `t('common:actions.save')`.
+- **Language resolution** (`src/i18n/LanguageProvider.tsx`, `useLanguage()`): explicit page override → `users/{uid}.language` → `organizations/{orgId}.language` → localStorage `bh:language` → browser language → `en`. Staff pick their own language via `LanguageSwitcher` (sidebar, login); admins set the org default in Settings → Business Information. Client-facing pages (portal, waiver form, public booking, marketing/legal pages) follow the org default or `?lang=` and call `setLanguage(lang, { persist: false })`.
+- **RTL:** `applyDocumentLanguage` sets `<html dir lang>`. Components use Tailwind logical utilities only (`ms-/me-/ps-/pe-/start-/end-/text-start/text-end`, `rtl:` variants for icons). `src/components/ui/` is untouched; compensate in the consuming component. Phone/email/number inputs stay LTR via `[dir=rtl]` rules in `index.css`; wrap such values in text with `.ltr-inline`.
+- **Dates/numbers:** never pin `'en-US'`. Use `useLanguage().locale`, `localeFor(i18n.language)`, or `getDateFnsLocale()` from `src/i18n/dateLocale.ts`. `safeFormatters` already follow the active language.
+- **PDFs:** jsPDF's Helvetica has no Hebrew glyphs. Call `await registerPdfFonts(doc)` from `src/lib/pdfFonts.ts`, use `PDF_FONT_FAMILY`, and `applyPdfDirection(doc, text)` before each text draw. Fonts are static Rubik TTFs in `public/fonts/`.
+- **Cloud Functions:** `functions/src/lib/i18n.ts` — `getOrgLanguage(orgId)` / `orgLanguageFromData(org)`, per-file `defineStrings({ en, he })` + `makeT`, `htmlDirAttrs(lang)` for email wrappers. Emails, SMS, OTP, public-form errors and portal payloads use the **org** language. `sendWaiver` stamps `language` onto `clientWaivers`; `getClientPortalOrg` and `publicBooking` return `language`.
+- **Default templates:** `functions/src/lib/emailTemplates.ts` (duplicated in `src/components/marketing/emailTemplates.ts`, keep in sync) has EN + HE variants via `getDefaultTemplateHtml(type, lang)`. Firestore master docs in `defaultWaiverTemplates` / `defaultMarketingAutomations` carry `language`; Hebrew masters use ids `<en id>_he`. The seeder picks the org-language master and falls back to English. `reseedOrgOnLanguageChange` swaps *untouched* default email templates when an admin flips the org language.
+- **Legal pages:** Hebrew versions are convenience translations; `LegalPageLayout` shows a notice that the English text is binding.
+- ESLint currently crashes on every file in this repo (rule-loading error, pre-existing); verify with `npx tsc -p tsconfig.app.json --noEmit`, `cd functions && npx tsc --noEmit`, and `npm run build`.
 
 ---
 

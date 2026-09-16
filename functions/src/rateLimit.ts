@@ -1,5 +1,11 @@
 import * as admin from 'firebase-admin';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { defineStrings, getOrgLanguage, makeT, type AppLanguage } from './lib/i18n';
+
+const STRINGS = defineStrings({
+  en: { limitReached: 'Daily {{action}} limit reached for this organization. Try again tomorrow.' },
+  he: { limitReached: 'הארגון הגיע למכסה היומית של {{action}}. נסו שוב מחר.' },
+});
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -67,8 +73,11 @@ export async function consumeRateLimit(
   action: string,
   limit: number,
   timezone?: string,
+  lang?: AppLanguage,
 ): Promise<void> {
   const tz = timezone || (await getOrgTimezone(organizationId));
+  const resolvedLang = lang ?? (await getOrgLanguage(organizationId, db));
+  const t = makeT(STRINGS, resolvedLang);
   const docId = `${action}_${localDayKey(tz)}`;
   const ref = db
     .collection('organizations')
@@ -80,10 +89,7 @@ export async function consumeRateLimit(
     const snap = await tx.get(ref);
     const current = snap.exists ? ((snap.data()?.count as number) ?? 0) : 0;
     if (current >= limit) {
-      throw new HttpsError(
-        'resource-exhausted',
-        `Daily ${action} limit reached for this organization. Try again tomorrow.`,
-      );
+      throw new HttpsError('resource-exhausted', t('limitReached', { action }));
     }
     if (snap.exists) {
       tx.update(ref, {

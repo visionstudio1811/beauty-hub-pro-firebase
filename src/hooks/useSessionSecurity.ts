@@ -8,6 +8,7 @@
  * when the flag flips. Treat as reference/scaffolding for now.
  */
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -51,6 +52,7 @@ const docToSession = (id: string, data: any): SessionData => ({
 });
 
 export const useSessionSecurity = () => {
+  const { t } = useTranslation('security');
   const { user } = useAuth();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<SessionData[]>([]);
@@ -76,7 +78,7 @@ export const useSessionSecurity = () => {
       setSessions(snapshot.docs.map(d => docToSession(d.id, d.data())));
     } catch (error) {
       console.error('Error fetching user sessions:', error);
-      toast({ title: 'Error', description: 'Failed to load session data', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('sessionSecurity.toasts.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -156,14 +158,14 @@ export const useSessionSecurity = () => {
       });
 
       await fetchUserSessions();
-      toast({ title: 'Session Terminated', description: 'Session has been terminated successfully' });
+      toast({ title: t('sessionSecurity.toasts.sessionTerminated.title'), description: t('sessionSecurity.toasts.sessionTerminated.description') });
 
       if (sessionId === currentSessionId) {
         await signOut(auth);
       }
     } catch (error) {
       console.error('Error terminating session:', error);
-      toast({ title: 'Error', description: 'Failed to terminate session', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('sessionSecurity.toasts.terminateFailed'), variant: 'destructive' });
     }
   };
 
@@ -186,10 +188,10 @@ export const useSessionSecurity = () => {
       }
 
       await fetchUserSessions();
-      toast({ title: 'Sessions Terminated', description: 'All other sessions have been terminated' });
+      toast({ title: t('sessionSecurity.toasts.sessionsTerminated.title'), description: t('sessionSecurity.toasts.sessionsTerminated.description') });
     } catch (error) {
       console.error('Error terminating other sessions:', error);
-      toast({ title: 'Error', description: 'Failed to terminate other sessions', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('sessionSecurity.toasts.terminateOthersFailed'), variant: 'destructive' });
     }
   };
 

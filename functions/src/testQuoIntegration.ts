@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { consumeRateLimit } from './rateLimit';
 import { loadSecret } from './lib/integrationSecrets';
+import { defineStrings, makeT, getCallerLanguage, getOrgLanguage } from './lib/i18n';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -10,6 +11,38 @@ interface QuoNumber {
   id?: string;
   number?: string;
 }
+
+// Staff-facing copy. Thrown HttpsError messages follow the caller's language
+// (users/{uid}.language, then their own org's default; never a caller-supplied
+// orgId). The `error_message` persisted on the integration doc follows the ORG
+// language instead, so stored status text never depends on who ran the test.
+// The `unauthenticated` error is thrown before any Firestore read and stays English.
+const STRINGS = defineStrings({
+  en: {
+    user_not_found: 'User not found',
+    org_mismatch: 'Organization mismatch',
+    staff_or_admin_required: 'Staff or admin access required',
+    not_configured: 'Quo integration not configured or disabled.',
+    api_key_missing: 'API key is missing.',
+    from_number_missing: 'From number is missing.',
+    request_failed: 'Quo request failed: {{msg}}',
+    quo_error: 'Quo error ({{status}}): {{body}}',
+    number_not_owned: 'The number {{number}} is not a Quo number on this workspace. Use one of: {{list}}.',
+    none_found: '(none found)',
+  },
+  he: {
+    user_not_found: 'המשתמש לא נמצא',
+    org_mismatch: 'אי-התאמה בין הארגונים',
+    staff_or_admin_required: 'נדרשת הרשאת צוות או מנהל',
+    not_configured: 'אינטגרציית Quo לא הוגדרה או שהיא מושבתת.',
+    api_key_missing: 'מפתח ה-API חסר.',
+    from_number_missing: 'מספר השולח חסר.',
+    request_failed: 'הבקשה ל-Quo נכשלה: {{msg}}',
+    quo_error: 'שגיאת Quo ({{status}}): {{body}}',
+    number_not_owned: 'המספר {{number}} אינו מספר Quo בסביבת העבודה הזו. יש להשתמש באחד מהמספרים: {{list}}.',
+    none_found: '(לא נמצאו מספרים)',
+  },
+});
 
 /**
  * Validate an org's Quo integration by listing the workspace phone numbers.
@@ -22,21 +55,25 @@ export const testQuoIntegration = onCall(async (request) => {
 
   const uid = request.auth.uid;
   const { organizationId } = request.data as { organizationId?: string };
+  const t = makeT(STRINGS, await getCallerLanguage(uid));
 
   const userDoc = await db.collection('users').doc(uid).get();
-  if (!userDoc.exists) throw new HttpsError('permission-denied', 'User not found');
+  if (!userDoc.exists) throw new HttpsError('permission-denied', t('user_not_found'));
 
   const userData = userDoc.data()!;
   const orgId = organizationId || userData.organizationId;
 
   if (!orgId || userData.organizationId !== orgId) {
-    throw new HttpsError('permission-denied', 'Organization mismatch');
+    throw new HttpsError('permission-denied', t('org_mismatch'));
   }
   if (!['admin', 'staff'].includes(userData.role)) {
-    throw new HttpsError('permission-denied', 'Staff or admin access required');
+    throw new HttpsError('permission-denied', t('staff_or_admin_required'));
   }
 
   await consumeRateLimit(orgId, 'quoTest', 50);
+
+  // Org language for text persisted on the integration doc (membership verified above).
+  const tOrg = makeT(STRINGS, await getOrgLanguage(orgId));
 
   const snap = await db
     .collection('organizations').doc(orgId)
@@ -44,14 +81,14 @@ export const testQuoIntegration = onCall(async (request) => {
     .get();
 
   if (!snap.exists || !snap.data()?.is_enabled) {
-    throw new HttpsError('not-found', 'Quo integration not configured or disabled.');
+    throw new HttpsError('not-found', t('not_configured'));
   }
 
   const cfg = snap.data()!.configuration as { fromNumber?: string };
   // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
   const { apiKey } = await loadSecret(orgId, 'quo', snap.data());
-  if (!apiKey) throw new HttpsError('invalid-argument', 'API key is missing.');
-  if (!cfg.fromNumber) throw new HttpsError('invalid-argument', 'From number is missing.');
+  if (!apiKey) throw new HttpsError('invalid-argument', t('api_key_missing'));
+  if (!cfg.fromNumber) throw new HttpsError('invalid-argument', t('from_number_missing'));
 
   let res: Response;
   try {
@@ -61,13 +98,13 @@ export const testQuoIntegration = onCall(async (request) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await snap.ref.update({ status: 'disconnected', error_message: msg, updated_at: new Date().toISOString() });
-    throw new HttpsError('internal', `Quo request failed: ${msg}`);
+    throw new HttpsError('internal', t('request_failed', { msg }));
   }
 
   if (!res.ok) {
-    const msg = `Quo error (${res.status}): ${await res.text()}`;
-    await snap.ref.update({ status: 'disconnected', error_message: msg, updated_at: new Date().toISOString() });
-    throw new HttpsError('internal', msg);
+    const vars = { status: res.status, body: await res.text() };
+    await snap.ref.update({ status: 'disconnected', error_message: tOrg('quo_error', vars), updated_at: new Date().toISOString() });
+    throw new HttpsError('internal', t('quo_error', vars));
   }
 
   const json = (await res.json()) as { data?: QuoNumber[] };
@@ -75,11 +112,13 @@ export const testQuoIntegration = onCall(async (request) => {
   const owns = numbers.some((n) => n.number === cfg.fromNumber);
 
   if (!owns) {
-    const msg = `The number ${cfg.fromNumber} is not a Quo number on this workspace. Use one of: ${
-      numbers.map((n) => n.number).filter(Boolean).join(', ') || '(none found)'
-    }.`;
-    await snap.ref.update({ status: 'disconnected', error_message: msg, updated_at: new Date().toISOString() });
-    throw new HttpsError('failed-precondition', msg);
+    const list = numbers.map((n) => n.number).filter(Boolean).join(', ');
+    await snap.ref.update({
+      status: 'disconnected',
+      error_message: tOrg('number_not_owned', { number: cfg.fromNumber, list: list || tOrg('none_found') }),
+      updated_at: new Date().toISOString(),
+    });
+    throw new HttpsError('failed-precondition', t('number_not_owned', { number: cfg.fromNumber, list: list || t('none_found') }));
   }
 
   await snap.ref.update({

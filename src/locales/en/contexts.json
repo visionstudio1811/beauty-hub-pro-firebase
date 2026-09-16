@@ -1,0 +1,77 @@
+{
+  "errors": {
+    "noOrganization": "No organization selected"
+  },
+  "clients": {
+    "loadFailed": "Failed to load clients",
+    "added": "Client added successfully",
+    "validationError": "Validation Error",
+    "addFailed": "Failed to add client",
+    "updated": "Client updated successfully",
+    "updateFailed": "Failed to update client",
+    "movedToTrash": "Client moved to trash (can be restored within 30 days)",
+    "deleteFailed": "Failed to delete client"
+  },
+  "packages": {
+    "fetchFailed": "Failed to fetch packages",
+    "noOrganization": "No organization selected.",
+    "createdTitle": "Package Created",
+    "createdDescription": "{{name}} has been created successfully.",
+    "createFailed": "Failed to create package. Please try again.",
+    "updatedTitle": "Package Updated",
+    "updatedDescription": "Package has been updated successfully.",
+    "updateFailed": "Failed to update package. Please try again.",
+    "deactivatedTitle": "Package Deactivated",
+    "deactivatedDescription": "Package has been deactivated successfully.",
+    "deactivateFailed": "Failed to deactivate package. Please try again."
+  },
+  "time": {
+    "am": "AM",
+    "pm": "PM"
+  },
+  "seed": {
+    "treatments": {
+      "classicFacial": {
+        "name": "Classic Facial",
+        "description": "Traditional facial treatment for all skin types"
+      },
+      "glowDermaplaneFacial": {
+        "name": "Glow Dermaplane Facial",
+        "description": "Dermaplaning with hydrating facial for radiant skin"
+      },
+      "acneTreatmentFacial": {
+        "name": "Acne Treatment Facial",
+        "description": "Specialized treatment for acne-prone skin"
+      },
+      "mensFacial": {
+        "name": "Men's Facial",
+        "description": "Customized facial treatment designed for men"
+      },
+      "ledSkinTightening": {
+        "name": "LED Skin Tightening",
+        "description": "LED light therapy for skin tightening and rejuvenation"
+      },
+      "nonSurgicalRfFacial": {
+        "name": "Non-Surgical RF Facial",
+        "description": "Radio frequency treatment for skin lifting and tightening"
+      }
+    },
+    "staff": {
+      "roles": {
+        "seniorAesthetician": "Senior Aesthetician",
+        "laserSpecialist": "Laser Specialist"
+      },
+      "specialties": {
+        "facialTreatment": "Facial Treatment",
+        "chemicalPeels": "Chemical Peels",
+        "microdermabrasion": "Microdermabrasion",
+        "laserHairRemoval": "Laser Hair Removal",
+        "skinRejuvenation": "Skin Rejuvenation"
+      }
+    },
+    "appointments": {
+      "facialTreatment": "Facial Treatment",
+      "regularClientNote": "Regular client, prefers gentle products"
+    }
+  }
+}

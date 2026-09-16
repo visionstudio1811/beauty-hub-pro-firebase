@@ -11,6 +11,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { Loader2, MessageSquare, Mail, Palette, HardDrive, ChevronRight, LucideIcon } from 'lucide-react';
 
 interface MarketingIntegration {
@@ -29,21 +30,21 @@ type ItemId = 'infobip' | 'twilio' | 'quo' | 'resend' | 'drive' | 'templates' | 
 
 interface NavItem {
   id: ItemId;
-  label: string;
-  description: string;
+  /** i18n key under `marketingIntegrations.nav.*` (label + description). */
+  navKey: string;
   icon: LucideIcon;
   /** Firestore provider doc id — present only for connectable integrations. */
   provider?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'infobip', label: 'Infobip', description: 'SMS + OTP', icon: MessageSquare, provider: 'infobip' },
-  { id: 'twilio', label: 'Twilio', description: 'SMS campaigns', icon: MessageSquare, provider: 'twilio' },
-  { id: 'quo', label: 'Quo', description: 'SMS + call sync', icon: MessageSquare, provider: 'quo' },
-  { id: 'resend', label: 'Resend Email', description: 'Email campaigns', icon: Mail, provider: 'resend' },
-  { id: 'drive', label: 'Drive Backup', description: 'Auto-backup PDFs', icon: HardDrive, provider: 'googleDrive' },
-  { id: 'templates', label: 'Email Templates', description: 'Design branded emails', icon: Palette },
-  { id: 'sms-templates', label: 'SMS Templates', description: 'Reusable SMS messages', icon: MessageSquare },
+  { id: 'infobip', navKey: 'infobip', icon: MessageSquare, provider: 'infobip' },
+  { id: 'twilio', navKey: 'twilio', icon: MessageSquare, provider: 'twilio' },
+  { id: 'quo', navKey: 'quo', icon: MessageSquare, provider: 'quo' },
+  { id: 'resend', navKey: 'resend', icon: Mail, provider: 'resend' },
+  { id: 'drive', navKey: 'drive', icon: HardDrive, provider: 'googleDrive' },
+  { id: 'templates', navKey: 'templates', icon: Palette },
+  { id: 'sms-templates', navKey: 'smsTemplates', icon: MessageSquare },
 ];
 
 export const MarketingIntegrations: React.FC = () => {
@@ -51,6 +52,7 @@ export const MarketingIntegrations: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<ItemId>('infobip');
   const { currentOrganization } = useOrganization();
+  const { t } = useTranslation('integrations');
   const migratedRef = useRef(false);
 
   const fetchIntegrations = async () => {
@@ -89,7 +91,7 @@ export const MarketingIntegrations: React.FC = () => {
         }
       }
     } catch (error: any) {
-      toast({ title: 'Error loading integrations', description: error.message, variant: 'destructive' });
+      toast({ title: t('marketingIntegrations.errorLoading'), description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export const MarketingIntegrations: React.FC = () => {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-6 w-6 animate-spin" />
-        <span className="ml-2">Loading integrations...</span>
+        <span className="ms-2">{t('marketingIntegrations.loading')}</span>
       </div>
     );
   }
@@ -133,8 +135,8 @@ export const MarketingIntegrations: React.FC = () => {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold mb-1">Marketing Integrations</h2>
-        <p className="text-muted-foreground">Connect SMS and email providers to send forms, campaigns, and OTP codes.</p>
+        <h2 className="text-2xl font-bold mb-1">{t('marketingIntegrations.title')}</h2>
+        <p className="text-muted-foreground">{t('marketingIntegrations.subtitle')}</p>
       </div>
 
       {/* Compact status strip */}
@@ -148,7 +150,7 @@ export const MarketingIntegrations: React.FC = () => {
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               {statusDot(integ?.status)}
-              {item.label}
+              {t(`marketingIntegrations.nav.${item.navKey}.label`)}
             </button>
           );
         })}
@@ -165,17 +167,17 @@ export const MarketingIntegrations: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActive(item.id)}
-                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-start transition-colors ${
                   isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted/60 text-foreground'
                 }`}
               >
                 <Icon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium truncate">{item.label}</span>
-                  <span className="block text-xs text-muted-foreground truncate">{item.description}</span>
+                  <span className="block text-sm font-medium truncate">{t(`marketingIntegrations.nav.${item.navKey}.label`)}</span>
+                  <span className="block text-xs text-muted-foreground truncate">{t(`marketingIntegrations.nav.${item.navKey}.description`)}</span>
                 </span>
                 {item.provider && statusDot(integ?.status)}
-                {isActive && <ChevronRight className="h-4 w-4 text-primary flex-shrink-0" />}
+                {isActive && <ChevronRight className="h-4 w-4 text-primary flex-shrink-0 rtl:rotate-180" />}
               </button>
             );
           })}

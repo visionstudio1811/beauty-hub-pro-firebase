@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +39,7 @@ const toUiAppointment = (raw: SupabaseAppointment): UIAppointment => ({
 });
 
 const Dashboard = () => {
+  const { t } = useTranslation('dashboard');
   const tz = useTimezone();
   const { profile } = useAuth();
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
@@ -145,15 +147,15 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground">Here's what's happening today.</p>
+          <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
         </div>
         <div className="flex-shrink-0 w-full sm:w-auto">
           <Button
             onClick={() => setIsNewAppointmentModalOpen(true)}
             className="w-full sm:w-auto"
           >
-            <Plus className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="truncate">New Appointment</span>
+            <Plus className="me-2 h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{t('page.newAppointment')}</span>
           </Button>
         </div>
       </div>
@@ -166,7 +168,7 @@ const Dashboard = () => {
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            Today's Schedule
+            {t('page.todaysSchedule')}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">

@@ -1,0 +1,517 @@
+{
+  "messageType": {
+    "email": "אימייל",
+    "sms": "SMS",
+    "both": "אימייל + SMS"
+  },
+  "campaignType": {
+    "email": "אימייל",
+    "sms": "SMS",
+    "both": "אימייל + SMS"
+  },
+  "campaignStatus": {
+    "active": "פעיל",
+    "completed": "הושלם",
+    "scheduled": "מתוזמן",
+    "sending": "בשליחה",
+    "draft": "טיוטה",
+    "paused": "מושהה"
+  },
+  "triggers": {
+    "appointment_scheduled": "כשנקבע תור",
+    "appointment_completed": "כשתור מסתיים",
+    "client_created": "כשנוצר לקוח חדש",
+    "client_birthday": "ביום ההולדת של הלקוח/ה",
+    "client_inactive": "כשלקוח/ה הופכים ללא פעילים (90+ ימים)",
+    "package_expiring": "כשחבילה עומדת לפוג",
+    "package_expired": "כשחבילה פגה"
+  },
+  "page": {
+    "title": "שיווק",
+    "newCampaign": "קמפיין חדש",
+    "loading": "טוען נתוני שיווק...",
+    "stats": {
+      "totalSent": "סה\"כ נשלחו",
+      "campaignsDelivered": "קמפיינים שנמסרו",
+      "openRate": "אחוז פתיחה",
+      "averageOpenRate": "אחוז פתיחה ממוצע",
+      "clickRate": "אחוז הקלקה",
+      "averageClickRate": "אחוז הקלקה ממוצע",
+      "reviews": "ביקורות",
+      "reviewsCollected": "ביקורות שנאספו"
+    },
+    "quickTemplates": {
+      "title": "תבניות קמפיין מהירות",
+      "description": "התחילו עם תבניות קמפיין מוכנות מראש",
+      "birthday": {
+        "name": "מבצע יום הולדת",
+        "description": "שליחת הצעות יום הולדת מותאמות אישית"
+      },
+      "reactivation": {
+        "name": "לקוחות לא פעילים",
+        "description": "החזרת לקוחות שלא ביקרו לאחרונה"
+      },
+      "renewal": {
+        "name": "חידוש חבילה",
+        "description": "תזכורת ללקוחות לחדש חבילות"
+      }
+    },
+    "campaigns": {
+      "title": "קמפיינים אחרונים",
+      "description": "קמפייני השיווק האחרונים שלכם והביצועים שלהם",
+      "emptyTitle": "אין קמפיינים עדיין",
+      "emptyDescription": "צרו את קמפיין השיווק הראשון שלכם כדי ליצור קשר עם הלקוחות.",
+      "createCampaign": "יצירת קמפיין",
+      "delivered": "{{sent}}/{{total}} נמסרו",
+      "notYetSent": "טרם נשלח",
+      "failed_one": "{{count}} נכשל",
+      "failed_two": "{{count}} נכשלו",
+      "failed_many": "{{count}} נכשלו",
+      "failed_other": "{{count}} נכשלו",
+      "preview": "תצוגה מקדימה",
+      "sending": "שולח...",
+      "sendNow": "שליחה עכשיו"
+    },
+    "automations": {
+      "title": "אוטומציות פעילות",
+      "description": "תהליכי שיווק אוטומטיים שפועלים כעת",
+      "emptyTitle": "לא הוגדרו אוטומציות",
+      "emptyDescription": "הגדירו תהליכים אוטומטיים לטיפוח הקשר עם הלקוחות.",
+      "createAutomation": "יצירת אוטומציה",
+      "delay": "השהיה: {{delay}}",
+      "lastFired": "הופעל לאחרונה: {{date}}",
+      "pauseAutomation": "השהיית אוטומציה",
+      "activateAutomation": "הפעלת אוטומציה",
+      "active": "פעיל",
+      "paused": "מושהה",
+      "editAutomation": "עריכת אוטומציה",
+      "deleteAutomation": "מחיקת אוטומציה"
+    },
+    "confirm": {
+      "sendCampaign": "לשלוח את \"{{name}}\" עכשיו לכל הלקוחות המתאימים?",
+      "smsOptOutNote": "SMS הוא בשיטת הסרה: רק לקוחות שלא ביקשו להסיר את עצמם יקבלו את ההודעה.",
+      "deleteAutomation": "למחוק את האוטומציה \"{{name}}\"? לא ניתן לבטל פעולה זו."
+    },
+    "toasts": {
+      "previewTitle_one": "נמען אחד יקבל את ההודעה",
+      "previewTitle_two": "{{count}} נמענים יקבלו את ההודעה",
+      "previewTitle_many": "{{count}} נמענים יקבלו את ההודעה",
+      "previewTitle_other": "{{count}} נמענים יקבלו את ההודעה",
+      "previewProvider": "ספק: {{provider}}",
+      "previewSample": "דוגמה:",
+      "noName": "(ללא שם)",
+      "noEmail": "ללא אימייל",
+      "noPhone": "ללא טלפון",
+      "none": "(אין)",
+      "previewFailed": "התצוגה המקדימה נכשלה",
+      "campaignSent": "הקמפיין נשלח",
+      "campaignSentDescription": "{{sent}} נמסרו, {{failed}} נכשלו מתוך {{total}} נמענים.",
+      "sendFailed": "שליחת הקמפיין נכשלה",
+      "automationDeleted": "האוטומציה נמחקה",
+      "automationDeletedDescription": "\"{{name}}\" הוסרה."
+    }
+  },
+  "campaignModal": {
+    "title": "יצירת קמפיין שיווקי",
+    "description": "בחרו תבנית או צרו קמפיין מותאם אישית כדי ליצור קשר עם הלקוחות.",
+    "chooseTemplate": "בחירת תבנית",
+    "startFromScratch": "התחלה מאפס",
+    "campaignDetails": "פרטי הקמפיין",
+    "changeTemplate": "החלפת תבנית",
+    "templates": {
+      "birthday": {
+        "name": "מבצע יום הולדת",
+        "description": "שליחת הצעות יום הולדת מותאמות אישית ללקוחות",
+        "subject": "🎉 מזל טוב ליום ההולדת! מתנה מיוחדת בפנים",
+        "content": "מזל טוב ליום ההולדת! כמתנה מיוחדת, תיהנו מ-20% הנחה על התור הבא. קבעו תור עכשיו וחגגו איתנו!",
+        "targetAudience": "לקוחות עם יום הולדת החודש"
+      },
+      "reactivation": {
+        "name": "לקוחות לא פעילים",
+        "description": "החזרת לקוחות שלא ביקרו לאחרונה",
+        "subject": "מתגעגעים! חזרו אלינו עם 15% הנחה",
+        "content": "עבר זמן מאז הביקור האחרון שלכם. אנחנו מתגעגעים! חזרו אלינו ותיהנו מ-15% הנחה על הטיפול הבא.",
+        "targetAudience": "לקוחות לא פעילים 3+ חודשים"
+      },
+      "renewal": {
+        "name": "חידוש חבילה",
+        "description": "תזכורת ללקוחות לחדש את החבילות שלהם",
+        "subject": "תזכורת לחידוש חבילה",
+        "content": "החבילה שלכם עומדת לפוג! חדשו עכשיו כדי להמשיך ליהנות מהשירותים שלנו במחירים הטובים ביותר.",
+        "targetAudience": "לקוחות עם חבילות שעומדות לפוג"
+      }
+    },
+    "fields": {
+      "name": "שם הקמפיין",
+      "namePlaceholder": "הזינו שם לקמפיין",
+      "type": "סוג הקמפיין",
+      "typeEmail": "אימייל",
+      "typeSms": "SMS",
+      "typeBoth": "אימייל + SMS",
+      "subject": "נושא האימייל",
+      "subjectPlaceholder": "הזינו נושא לאימייל",
+      "smsProvider": "ספק SMS",
+      "smsProviderAuto": "אוטומטי (שימוש באינטגרציה הפעילה)",
+      "notConfigured": "(לא מוגדר)",
+      "noProviderEnabled": "לא הופעל ספק SMS. הגדירו אחד תחת שיווק ← אינטגרציות.",
+      "loadSmsTemplate": "טעינת תבנית SMS",
+      "loadSmsTemplatePlaceholder": "בחרו תבנית שמורה (אופציונלי)",
+      "untitled": "ללא שם",
+      "stopFooterNote": "שורת \"השיבו STOP להסרה\" מתווספת אוטומטית בהתאם לדרישות המפעילים.",
+      "content": "תוכן ההודעה",
+      "contentPlaceholder": "הזינו את ההודעה",
+      "audience": "קהל יעד",
+      "audienceAll": "כל הלקוחות",
+      "audienceActive": "לקוחות פעילים",
+      "audienceInactive": "לקוחות לא פעילים (3+ חודשים)",
+      "audienceBirthday": "יום הולדת החודש",
+      "audienceExpiring": "חבילות שעומדות לפוג",
+      "schedule": "תזמון",
+      "sendNow": "שליחה עכשיו",
+      "scheduleButton": "תזמון",
+      "date": "תאריך",
+      "time": "שעה",
+      "chooseDateAndTime": "בחרו גם תאריך וגם שעה כדי לתזמן את הקמפיין.",
+      "willSend": "יישלח {{when}} ({{timezone}}).",
+      "willSendFormat": "EEEE, d בMMMM yyyy 'בשעה' H:mm"
+    },
+    "validation": {
+      "nameRequired": "יש להזין שם לקמפיין.",
+      "subjectRequired": "יש להזין נושא לאימייל.",
+      "contentRequired": "יש להזין תוכן להודעה.",
+      "dateRequired": "יש לבחור תאריך לקמפיין המתוזמן.",
+      "timeRequired": "יש לבחור שעה לקמפיין המתוזמן.",
+      "invalidDateTime": "התאריך/השעה שנבחרו אינם תקינים."
+    },
+    "toasts": {
+      "orgNotFound": "הארגון לא נמצא",
+      "fixForm": "יש לתקן את הטופס",
+      "created": "הקמפיין נוצר בהצלחה",
+      "createdDescription": "הקמפיין \"{{name}}\" ({{type}}) נוצר.",
+      "createError": "שגיאה ביצירת הקמפיין"
+    },
+    "creating": "יוצר...",
+    "createCampaign": "יצירת קמפיין"
+  },
+  "automationModal": {
+    "titleCreate": "יצירת אוטומציה שיווקית",
+    "titleEdit": "עריכת אוטומציה שיווקית",
+    "descriptionCreate": "הגדירו תהליכים אוטומטיים ליצירת קשר עם הלקוחות ברגעים הנכונים.",
+    "descriptionEdit": "עדכנו את הנושא, התוכן או הטריגר של האוטומציה. כדי להשהות בלי למחוק, השתמשו במתג 'פעיל' ברשימה.",
+    "chooseTemplate": "בחירת תבנית אוטומציה",
+    "delay": "השהיה: {{delay}}",
+    "createCustom": "יצירת אוטומציה מותאמת אישית",
+    "customDescription": "אוטומציה מותאמת אישית",
+    "automationDetails": "פרטי האוטומציה",
+    "changeTemplate": "החלפת תבנית",
+    "templates": {
+      "appointment_confirmation": {
+        "name": "אישור תור",
+        "description": "שליחת אימייל ללקוח/ה ברגע שנקבע תור חדש",
+        "delay": "מיידי",
+        "subject": "התור שלך אושר — [DATE] בשעה [TIME]",
+        "content": "שלום [NAME],\n\nהתור שלך ל[TREATMENT] אושר לתאריך [DATE] בשעה [TIME] עם [STAFF].\n\nמחכים לראותך!\n\n— [ORG]"
+      },
+      "welcome": {
+        "name": "סדרת ברוכים הבאים",
+        "description": "קבלת פנים ללקוחות חדשים עם סדרת הודעות",
+        "delay": "שעה אחת",
+        "subject": "ברוכים הבאים לספא שלנו! מה מחכה לכם",
+        "content": "ברוכים הבאים! אנחנו שמחים לצרף אתכם ללקוחותינו. הנה כל מה שכדאי לדעת על השירותים שלנו..."
+      },
+      "birthday": {
+        "name": "אוטומציית יום הולדת",
+        "description": "שליחה אוטומטית של ברכות והצעות ליום ההולדת",
+        "delay": "0 ימים",
+        "subject": "🎉 מזל טוב ליום ההולדת! מתנה מיוחדת בפנים",
+        "content": "מזל טוב ליום ההולדת! תיהנו מ-20% הנחה על התור הבא — מתנת יום הולדת מאיתנו!"
+      },
+      "followup": {
+        "name": "מעקב לאחר תור",
+        "description": "מעקב לאחר התור לקבלת משוב",
+        "delay": "יום אחד",
+        "subject": "איך היה התור האחרון שלך?",
+        "content": "מקווים שנהניתם בביקור האחרון! נשמח לשמוע איך היה ולקבוע לכם את התור הבא."
+      },
+      "reminder": {
+        "name": "תזכורות לתורים",
+        "description": "תזכורת ללקוחות על תורים קרובים",
+        "delay": "24 שעות לפני",
+        "subject": "תזכורת לתור",
+        "content": "תזכורת: יש לך תור מחר בשעה [TIME]. השיבו CONFIRM לאישור או RESCHEDULE לשינוי."
+      },
+      "reactivation": {
+        "name": "קמפיין החזרת לקוחות",
+        "description": "החזרה אוטומטית של לקוחות לא פעילים",
+        "delay": "90 ימים",
+        "subject": "מתגעגעים! חזרו אלינו עם 15% הנחה",
+        "content": "עבר זמן מאז הביקור האחרון שלכם. אנחנו מתגעגעים! חזרו אלינו ותיהנו מ-15% הנחה על הטיפול הבא."
+      },
+      "booking_request_received": {
+        "name": "בקשת הזמנה התקבלה (למבקר/ת)",
+        "description": "אישור קבלת בקשת הזמנה ציבורית ברגע שהיא נשלחת",
+        "delay": "מיידי",
+        "subject": "קיבלנו את בקשת ההזמנה שלך — [DATE] בשעה [TIME]",
+        "content": "שלום [NAME],\n\nתודה שהזמנת ב-[ORG]. קיבלנו את הבקשה שלך ל[TREATMENT] בתאריך [DATE] בשעה [TIME], ונאשר אותה באימייל בקרוב.\n\nאם משהו אינו נכון, פשוט השיבו לאימייל זה.\n\n— [ORG]"
+      },
+      "booking_request_admin_alert": {
+        "name": "בקשת הזמנה חדשה (לצוות)",
+        "description": "עדכון למנהלים ברגע שמגיעה בקשת הזמנה ציבורית",
+        "delay": "מיידי",
+        "subject": "בקשת הזמנה חדשה — [VISITOR_NAME] · [TREATMENT] · [DATE] [TIME]",
+        "content": "התקבלה בקשת הזמנה ציבורית חדשה.\n\nמבקר/ת: [VISITOR_NAME]\nאימייל: [VISITOR_EMAIL]\nטלפון: [VISITOR_PHONE]\nטיפול: [TREATMENT]\nמועד מבוקש: [DATE] בשעה [TIME]\nהערות: [VISITOR_NOTES]\n\nאשרו או דחו בפאנל בקשות ההזמנה."
+      },
+      "booking_request_declined": {
+        "name": "הזמנה נדחתה (למבקר/ת)",
+        "description": "שליחת הודעת דחייה מנומסת כשהצוות דוחה הזמנה ציבורית",
+        "delay": "מיידי",
+        "subject": "בנוגע לבקשת ההזמנה שלך ל-[DATE] בשעה [TIME]",
+        "content": "שלום [NAME],\n\nלצערנו לא נוכל לאשר את ההזמנה שלך ל[TREATMENT] בתאריך [DATE] בשעה [TIME].\n\n[REASON]\n\nנשמח אם תבחרו מועד אחר בעמוד ההזמנות שלנו — מחכים לראותך.\n\n— [ORG]"
+      }
+    },
+    "triggerOptions": {
+      "client_created": "רישום לקוח/ה חדש/ה",
+      "appointment_scheduled": "נקבע תור",
+      "appointment_completed": "תור הושלם",
+      "client_birthday": "יום הולדת של לקוח/ה",
+      "client_inactive": "לקוח/ה לא פעיל/ה (90+ ימים)",
+      "package_expiring": "חבילה עומדת לפוג",
+      "package_expired": "חבילה פגה",
+      "public_booking_request": "בקשת הזמנה ציבורית (למבקר/ת)",
+      "public_booking_request_admin": "בקשת הזמנה ציבורית (לצוות)",
+      "booking_request_rejected": "בקשת הזמנה נדחתה"
+    },
+    "fields": {
+      "name": "שם האוטומציה",
+      "namePlaceholder": "הזינו שם לאוטומציה",
+      "trigger": "אירוע מפעיל",
+      "triggerPlaceholder": "בחרו טריגר",
+      "delay": "השהיה",
+      "delayPlaceholder": "לדוגמה: שעה אחת, יום אחד, 24 שעות לפני",
+      "messageType": "סוג ההודעה",
+      "typeEmail": "אימייל",
+      "typeSms": "SMS",
+      "typeBoth": "שניהם",
+      "subject": "נושא האימייל",
+      "subjectPlaceholder": "הזינו נושא לאימייל",
+      "content": "תוכן ההודעה",
+      "contentPlaceholder": "הזינו את תוכן ההודעה",
+      "variablesHint": "אפשר להשתמש במשתנים כמו [NAME], [DATE], [TIME] בתוכן."
+    },
+    "toasts": {
+      "missingFields": "חסרים שדות חובה",
+      "missingFieldsDescription": "שם ואירוע מפעיל הם שדות חובה.",
+      "updated": "האוטומציה עודכנה",
+      "saved": "האוטומציה נשמרה",
+      "nowActive": "\"{{name}}\" פעילה כעת.",
+      "nowPaused": "\"{{name}}\" מושהית כעת."
+    },
+    "saving": "שומר...",
+    "creating": "יוצר...",
+    "saveChanges": "שמירת שינויים",
+    "createAutomation": "יצירת אוטומציה"
+  },
+  "smsTemplates": {
+    "title": "תבניות SMS",
+    "description": "שמרו הודעות SMS לשימוש חוזר בקמפיינים, באוטומציות ובשליחה מהירה. השתמשו ב-<code>{first_name}</code> או ב-<code>{name}</code> להתאמה אישית.",
+    "newTemplate": "תבנית חדשה",
+    "empty": "אין תבניות עדיין.",
+    "untitled": "ללא שם",
+    "fields": {
+      "name": "שם התבנית",
+      "namePlaceholder": "לדוגמה: תזכורת לתור",
+      "message": "הודעה",
+      "insertFirstName": "+ שם פרטי",
+      "insertName": "+ שם",
+      "bodyPlaceholder": "שלום {first_name}, ..."
+    },
+    "stats": "{{chars}} תווים · {{segments}} · {{encoding}}",
+    "segments_one": "מקטע אחד",
+    "segments_two": "{{count}} מקטעים",
+    "segments_many": "{{count}} מקטעים",
+    "segments_other": "{{count}} מקטעים",
+    "saveChanges": "שמירת שינויים",
+    "createTemplate": "יצירת תבנית",
+    "toasts": {
+      "loadError": "שגיאה בטעינת התבניות",
+      "nameRequired": "נדרש שם",
+      "nameRequiredDescription": "תנו שם לתבנית.",
+      "messageRequired": "נדרשת הודעה",
+      "messageRequiredDescription": "הוסיפו תוכן להודעה.",
+      "saved": "התבנית נשמרה",
+      "saveError": "שגיאה בשמירת התבנית",
+      "deleted": "התבנית נמחקה",
+      "deleteError": "שגיאה במחיקת התבנית"
+    }
+  },
+  "emailDesigner": {
+    "loading": "טוען תבניות...",
+    "title": "עיצוב תבניות אימייל",
+    "subtitle": "התאימו את תבניות האימייל לצבעי המותג ולסגנון שלכם",
+    "saveTemplate": "שמירת תבנית",
+    "templateTypes": {
+      "welcome": "תבנית ברוכים הבאים / תודה",
+      "general": "תבנית כללית",
+      "birthday": "תבנית יום הולדת",
+      "inactive": "תבנית לקוח/ה לא פעיל/ה",
+      "package_renewal": "תבנית חידוש חבילה",
+      "appointment_reminder": "תבנית תזכורת לתור",
+      "booking_request_received": "בקשת הזמנה התקבלה (מבקר/ת)",
+      "booking_request_admin_alert": "התראה על בקשת הזמנה (מנהל/ת)",
+      "booking_request_declined": "הזמנה נדחתה (מבקר/ת)"
+    },
+    "automations": {
+      "title": "אוטומציות אימייל",
+      "description": "הפעילו כל אחת מהאוטומציות כדי לשלוח את התבניות שעיצבתם באופן אוטומטי. נשמר בנפרד מתוכן התבנית.",
+      "save": "שמירת אוטומציות",
+      "active": "פעיל",
+      "trigger": "טריגר: {{trigger}}",
+      "vipOnly": "VIP בלבד",
+      "daysOffset": "הסטה בימים",
+      "daysInactive": "ימים ללא פעילות",
+      "daysBeforeExpiry": "ימים לפני פקיעה",
+      "hoursBefore": "שעות לפני",
+      "meta": {
+        "welcome": {
+          "title": "ברוכים הבאים / תודה",
+          "description": "נשלח אוטומטית כשלקוח/ה רוכשים חבילה.",
+          "trigger": "ברכישת חבילה"
+        },
+        "birthday": {
+          "title": "ברכת יום הולדת",
+          "description": "נשלח ביום ההולדת של כל לקוח/ה בשעה 9:00 בבוקר לפי השעון המקומי.",
+          "trigger": "מדי יום ב-9:00 — לפי יום ההולדת של הלקוח/ה"
+        },
+        "inactive": {
+          "title": "החזרת לקוחות / לקוח/ה לא פעיל/ה",
+          "description": "נשלח כשלקוח/ה לא ביקרו במשך מספר הימים שהוגדר.",
+          "trigger": "מדי יום ב-9:00 — לפי הביקור האחרון שהושלם"
+        },
+        "package_renewal": {
+          "title": "תזכורת לחידוש חבילה",
+          "description": "נשלח לפני שהחבילה הפעילה של הלקוח/ה פגה.",
+          "trigger": "מדי יום — לפני תאריך הפקיעה"
+        },
+        "appointment_reminder": {
+          "title": "תזכורת לתור",
+          "description": "נשלח לפני תור קרוב.",
+          "trigger": "מדי שעה — לפני שעת התור"
+        }
+      }
+    },
+    "templateType": {
+      "title": "סוג התבנית",
+      "placeholder": "בחרו סוג תבנית"
+    },
+    "tabs": {
+      "visual": "עורך ויזואלי",
+      "code": "עורך HTML",
+      "preview": "תצוגה מקדימה"
+    },
+    "header": {
+      "title": "תמונת כותרת",
+      "description": "מוצגת בראש כל אימייל. מומלץ: 1200×400 פיקסלים, JPG או PNG, עד 8MB. משמשת בכל סוגי התבניות — שינוי אחד מתעדכן בכולן.",
+      "alt": "כותרת האימייל",
+      "replace": "החלפת תמונה",
+      "uploading": "מעלה…",
+      "clickToUpload": "לחצו להעלאת תמונת כותרת",
+      "fileHint": "PNG, JPG, WEBP עד 8MB"
+    },
+    "colors": {
+      "title": "צבעי המותג",
+      "primary": "צבע ראשי",
+      "background": "צבע רקע",
+      "text": "צבע טקסט"
+    },
+    "signature": {
+      "title": "חתימה ותוכן",
+      "label": "חתימת האימייל",
+      "placeholder": "בברכה",
+      "availableVariables": "משתנים זמינים עבור {{name}}"
+    },
+    "code": {
+      "title": "עורך תבנית HTML",
+      "description": "ערכו את קוד ה-HTML של התבנית. השתמשו במשתנים כמו {{example}} לתוכן דינמי.",
+      "placeholder": "הזינו כאן את תבנית ה-HTML..."
+    },
+    "preview": {
+      "variablesTitle": "משתני תצוגה מקדימה",
+      "variablesDescription": "אלה ערכי דוגמה לתצוגה המקדימה בלבד. שם העסק, הטלפון, הכתובת, האימייל, הלוגו ותמונת הכותרת נלקחים מההגדרות האמיתיות שלכם.",
+      "enterVariable": "הזינו {{variable}}",
+      "title": "תצוגה מקדימה של האימייל - {{name}}"
+    },
+    "variableLabels": {
+      "subject": "נושא",
+      "message": "הודעה",
+      "sender_name": "שם השולח/ת",
+      "client_name": "שם הלקוח/ה",
+      "date": "תאריך",
+      "cta_url": "קישור לפעולה",
+      "birthday_date": "תאריך יום הולדת",
+      "special_offer": "הצעה מיוחדת",
+      "discount_code": "קוד הנחה",
+      "last_visit_date": "תאריך ביקור אחרון",
+      "months_inactive": "חודשים ללא פעילות",
+      "comeback_offer": "הצעת חזרה",
+      "package_name": "שם החבילה",
+      "expiry_date": "תאריך פקיעה",
+      "sessions_remaining": "מפגשים שנותרו",
+      "renewal_discount": "הנחת חידוש",
+      "appointment_date": "תאריך התור",
+      "appointment_time": "שעת התור",
+      "service_name": "שם השירות",
+      "staff_name": "שם איש/אשת הצוות",
+      "location": "מיקום",
+      "treatment": "טיפול",
+      "time": "שעה",
+      "staff": "צוות",
+      "visitor_name": "שם המבקר/ת",
+      "visitor_email": "אימייל המבקר/ת",
+      "visitor_phone": "טלפון המבקר/ת",
+      "visitor_notes": "הערות המבקר/ת",
+      "reason": "סיבה"
+    },
+    "sampleValues": {
+      "subject": "כמה מילים מאיתנו",
+      "message": "תודה שאתם חלק מהקהילה שלנו. אנחנו שמחים מאוד שאתם איתנו.",
+      "organization_name": "העסק שלך",
+      "client_name": "דנה",
+      "organization_phone": "03-1234567",
+      "organization_address": "רחוב הרצל 12, תל אביב",
+      "organization_email": "hello@yourbusiness.com",
+      "sender_name": "הצוות",
+      "birthday_date": "15 במרץ",
+      "special_offer": "20% הנחה על הטיפול הבא",
+      "discount_code": "BIRTHDAY20",
+      "last_visit_date": "לפני 6 חודשים",
+      "months_inactive": "6",
+      "comeback_offer": "15% הנחה על הביקור הבא",
+      "package_name": "חבילת ספא מושלמת",
+      "expiry_date": "30 במרץ",
+      "sessions_remaining": "3",
+      "renewal_discount": "10% הנחה על חידוש",
+      "appointment_date": "מחר",
+      "appointment_time": "14:00",
+      "service_name": "טיפול פנים לניקוי עמוק",
+      "staff_name": "שרה",
+      "location": "חדר 3"
+    },
+    "toasts": {
+      "invalidFile": "קובץ לא תקין",
+      "invalidFileDescription": "בחרו קובץ תמונה (PNG, JPG, WEBP).",
+      "fileTooLarge": "הקובץ גדול מדי",
+      "fileTooLargeDescription": "תמונת הכותרת חייבת להיות קטנה מ-8MB.",
+      "headerSaved": "תמונת הכותרת נשמרה",
+      "headerSavedDescription": "התמונה החדשה תופיע בכל תבניות האימייל שלכם.",
+      "uploadFailed": "ההעלאה נכשלה",
+      "headerRemoved": "תמונת הכותרת הוסרה",
+      "removeFailed": "הסרת התמונה נכשלה",
+      "templateSaved": "התבנית נשמרה",
+      "templateSavedDescription": "{{name}} עודכנה בהצלחה.",
+      "templateSaveError": "שגיאה בשמירת התבנית",
+      "automationsSaved": "האוטומציות נשמרו",
+      "automationsSavedDescription": "הגדרות האוטומציה עודכנו.",
+      "automationsSaveError": "שגיאה בשמירת האוטומציות"
+    }
+  }
+}

@@ -8,12 +8,139 @@ import {
   renderAndSend,
   resolveEmailContext,
 } from './scheduling/bookingEmailSend';
+import {
+  defineStrings,
+  makeT,
+  normalizeLanguage,
+  getOrgLanguage,
+  orgLanguageFromData,
+  Translator,
+} from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// User-facing copy shown in portal / staff toasts, sent to clients, or persisted
+// as display names. The portal (ClientPortal.tsx) and the staff
+// BookingRequestsPanel render `error.message` verbatim, so the precondition and
+// permission HttpsErrors below are end-user copy and follow the org language.
+// Argument-shape errors (invalid slot format, missing ids, bad action) are
+// localized the same way. The `unauthenticated` error is the one exception: it
+// is thrown before any Firestore read (so an anonymous caller can never trigger
+// an org-doc lookup with an arbitrary orgId) and therefore stays English, the
+// same convention every staff callable in this codebase follows.
+const STRINGS = defineStrings({
+  en: {
+    visitor_fallback: 'there',
+    treatment_fallback: 'your appointment',
+    // Persisted display names (bookingRequests.treatment_name / appointments.staff_name)
+    staff_fallback: 'Staff',
+    treatment_name_fallback: 'Treatment',
+    // Portal-facing errors
+    err_portal_not_linked: 'Client portal access has not been linked',
+    err_verified_contact_required: 'A verified email or phone number is required. Sign in with Google or verify your phone number, then try linking again.',
+    err_ambiguous_match: 'Multiple client records share this contact information, so we cannot link your account automatically. Please contact the spa front desk to have your account linked.',
+    err_no_matching_client: 'No matching client card was found for this spa',
+    err_client_not_active: 'This client card is not active',
+    err_client_not_found: 'Client not found',
+    err_purchase_not_found: 'Package purchase not found',
+    err_purchase_not_owned: 'Purchase does not belong to this client',
+    err_package_not_active: 'Package is not active',
+    err_package_expired: 'Package is expired',
+    err_no_sessions_for_treatment: 'No remaining sessions for this treatment',
+    err_no_sessions: 'No remaining package sessions',
+    err_treatment_not_found: 'Treatment not found',
+    err_treatment_not_in_package: 'Treatment is not included in this package',
+    err_slot_invalid: 'Invalid requested slot',
+    err_slot_in_past: 'Requested slot must be in the future',
+    err_slot_unavailable: 'Requested slot is no longer available',
+    err_one_addon_only: 'Package sessions are limited to one add-on',
+    err_addon_not_found: 'Add-on {{addon}} not found',
+    err_addon_unavailable: 'Add-on {{addon}} is no longer available',
+    // Staff-facing errors (BookingRequestsPanel)
+    err_user_profile_not_found: 'User profile not found',
+    err_staff_access_required: 'Staff access required',
+    err_booking_not_found: 'Booking request not found',
+    err_booking_already_reviewed: 'Booking request has already been reviewed',
+    err_package_no_longer_active: 'Package is no longer active',
+    err_assign_staff_first: 'Assign a staff member before approving the request',
+    // Argument-shape errors
+    err_date_format: 'Date must be YYYY-MM-DD',
+    err_time_format: 'Time must be HH:mm',
+    err_field_required: '{{field}} is required',
+    err_action_invalid: 'action must be approve or reject',
+  },
+  he: {
+    visitor_fallback: 'לקוח/ה יקר/ה',
+    treatment_fallback: 'התור שלך',
+    staff_fallback: 'איש צוות',
+    treatment_name_fallback: 'טיפול',
+    err_portal_not_linked: 'הגישה לפורטל הלקוחות עדיין לא קושרה לכרטיס לקוח',
+    err_verified_contact_required: 'נדרש אימייל או מספר טלפון מאומתים. יש להתחבר עם Google או לאמת את מספר הטלפון, ואז לנסות לקשר שוב.',
+    err_ambiguous_match: 'כמה כרטיסי לקוח משתמשים באותם פרטי קשר, ולכן לא ניתן לקשר את החשבון אוטומטית. נא לפנות לקבלה כדי שיקשרו את החשבון.',
+    err_no_matching_client: 'לא נמצא כרטיס לקוח תואם בעסק זה',
+    err_client_not_active: 'כרטיס הלקוח הזה אינו פעיל',
+    err_client_not_found: 'הלקוח לא נמצא',
+    err_purchase_not_found: 'רכישת החבילה לא נמצאה',
+    err_purchase_not_owned: 'הרכישה אינה שייכת ללקוח זה',
+    err_package_not_active: 'החבילה אינה פעילה',
+    err_package_expired: 'תוקף החבילה פג',
+    err_no_sessions_for_treatment: 'לא נותרו טיפולים מסוג זה בחבילה',
+    err_no_sessions: 'לא נותרו טיפולים בחבילה',
+    err_treatment_not_found: 'הטיפול לא נמצא',
+    err_treatment_not_in_package: 'הטיפול אינו כלול בחבילה זו',
+    err_slot_invalid: 'מועד התור המבוקש אינו תקין',
+    err_slot_in_past: 'מועד התור המבוקש חייב להיות בעתיד',
+    err_slot_unavailable: 'מועד התור המבוקש כבר אינו פנוי',
+    err_one_addon_only: 'בטיפול מחבילה ניתן להוסיף תוספת אחת בלבד',
+    err_addon_not_found: 'התוספת {{addon}} לא נמצאה',
+    err_addon_unavailable: 'התוספת {{addon}} כבר אינה זמינה',
+    err_user_profile_not_found: 'פרופיל המשתמש לא נמצא',
+    err_staff_access_required: 'נדרשת הרשאת צוות',
+    err_booking_not_found: 'בקשת התור לא נמצאה',
+    err_booking_already_reviewed: 'בקשת התור כבר טופלה',
+    err_package_no_longer_active: 'החבילה כבר אינה פעילה',
+    err_assign_staff_first: 'יש לשבץ איש צוות לפני אישור הבקשה',
+    err_date_format: 'התאריך חייב להיות בפורמט YYYY-MM-DD',
+    err_time_format: 'השעה חייבת להיות בפורמט HH:mm',
+    err_field_required: 'השדה {{field}} הוא שדה חובה',
+    err_action_invalid: 'הפעולה חייבת להיות approve או reject',
+  },
+});
+
+type T = Translator<keyof typeof STRINGS.en>;
+
+/**
+ * Stored bookingRequests.staff_name sentinel for "no staff chosen yet". Kept as
+ * a fixed, language-independent value so the stored data never depends on the
+ * org language. It is internal bookkeeping: no UI renders staff_name today
+ * (BookingRequestsPanel only echoes it back as `selectedStaffName`, and
+ * approval below replaces the sentinel with the localized staff fallback).
+ */
+const PENDING_STAFF_NAME = 'Pending assignment';
+
+/**
+ * Resolve the org language for a callable. Must only be called AFTER the
+ * `request.auth` check so an anonymous caller can never trigger an org-doc read
+ * for an arbitrary orgId. Tolerates a missing/invalid org id (falls back to
+ * English via getOrgLanguage's own error handling).
+ */
+async function resolveT(orgIdInput: unknown): Promise<T> {
+  const orgId = typeof orgIdInput === 'string' ? orgIdInput.trim() : '';
+  const lang = orgId ? await getOrgLanguage(orgId) : 'en';
+  return makeT(STRINGS, lang);
+}
+
+/**
+ * Thrown before any Firestore read, so there is no language source yet; stays
+ * English by design (same convention as every staff callable). The portal and
+ * staff panel only call these functions once signed in, so this is a defensive
+ * message in practice.
+ */
+const UNAUTHENTICATED = () => new HttpsError('unauthenticated', 'Sign in is required');
 
 type Slot = {
   date: string;
@@ -40,35 +167,94 @@ function normalizePhone(phone: unknown): string | null {
   return normalized || null;
 }
 
-function assertDate(value: unknown): string {
+/**
+ * Countries the portal phone selector offers. Mirror of `normalizePhoneE164`
+ * in src/pages/ClientPortal.tsx — keep both in sync so a number the client
+ * typed in the portal resolves to the same E.164 string as their client card.
+ */
+type PhoneCountry = 'IL' | 'US' | 'CA' | 'GB';
+
+const DIAL_CODES: Record<PhoneCountry, string> = { IL: '972', US: '1', CA: '1', GB: '44' };
+
+/**
+ * Convert a stored client phone into E.164 for the given default country.
+ *  - A leading '+' is honoured as-is (formatting stripped, no re-prefixing).
+ *  - IL: local 05X XXXXXXX / 0X XXXXXXX (9–10 digits, leading 0) -> +972 + digits without the 0.
+ *  - US/CA: 10 digits -> +1 + digits; 11 digits starting with 1 -> + digits.
+ *  - Digits already starting with the country's dial code -> + digits.
+ *  - Anything else -> + dial code + digits with any leading 0 stripped.
+ * Comparison stays strict equality on the full E.164 string (no suffix matching).
+ */
+function toE164(phone: unknown, defaultCountry: PhoneCountry): string | null {
+  const raw = normalizePhone(phone);
+  if (!raw) return null;
+  if (raw.startsWith('+')) {
+    const d = raw.slice(1).replace(/\D/g, '');
+    return d ? `+${d}` : null;
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+
+  if (defaultCountry === 'IL' && (digits.length === 9 || digits.length === 10) && digits.startsWith('0')) {
+    return `+972${digits.slice(1)}`;
+  }
+  if (defaultCountry === 'US' || defaultCountry === 'CA') {
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  }
+
+  const dial = DIAL_CODES[defaultCountry];
+  if (digits.startsWith(dial) && digits.length > dial.length + 6) {
+    return `+${digits}`;
+  }
+  return `+${dial}${digits.replace(/^0+/, '')}`;
+}
+
+/** Recognise the country from a stored phone that already carries a '+' country code. */
+function detectPhoneCountry(phone: unknown): PhoneCountry | null {
+  const raw = normalizePhone(phone);
+  if (!raw || !raw.startsWith('+')) return null;
+  const digits = raw.slice(1);
+  if (digits.startsWith('972')) return 'IL';
+  if (digits.startsWith('44')) return 'GB';
+  if (digits.startsWith('1')) return 'US';
+  return null;
+}
+
+/** Org phone country code wins; otherwise Hebrew orgs default to Israel, everyone else to the US. */
+function defaultPhoneCountry(orgData: FirebaseFirestore.DocumentData | undefined): PhoneCountry {
+  return detectPhoneCountry(orgData?.phone) ?? (orgLanguageFromData(orgData) === 'he' ? 'IL' : 'US');
+}
+
+function assertDate(value: unknown, t: T): string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new HttpsError('invalid-argument', 'Date must be YYYY-MM-DD');
+    throw new HttpsError('invalid-argument', t('err_date_format'));
   }
   return value;
 }
 
-function assertTime(value: unknown): string {
+function assertTime(value: unknown, t: T): string {
   if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
-    throw new HttpsError('invalid-argument', 'Time must be HH:mm');
+    throw new HttpsError('invalid-argument', t('err_time_format'));
   }
   return value;
 }
 
-function assertString(value: unknown, field: string): string {
+function assertString(value: unknown, field: string, t: T): string {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new HttpsError('invalid-argument', `${field} is required`);
+    throw new HttpsError('invalid-argument', t('err_field_required', { field }));
   }
   return value.trim();
 }
 
-function asSlot(value: unknown, field: string): Slot {
+function asSlot(value: unknown, field: string, t: T): Slot {
   const raw = value as Record<string, unknown>;
   if (!raw || typeof raw !== 'object') {
-    throw new HttpsError('invalid-argument', `${field} is required`);
+    throw new HttpsError('invalid-argument', t('err_field_required', { field }));
   }
   const slot: Slot = {
-    date: assertDate(raw.date),
-    time: assertTime(raw.time),
+    date: assertDate(raw.date, t),
+    time: assertTime(raw.time, t),
   };
   if (typeof raw.staff_id === 'string' && raw.staff_id.trim() !== '') {
     slot.staff_id = raw.staff_id.trim();
@@ -76,21 +262,21 @@ function asSlot(value: unknown, field: string): Slot {
   return slot;
 }
 
-async function getStaffUser(uid: string, orgId: string) {
+async function getStaffUser(uid: string, orgId: string, t: T) {
   const userSnap = await db.collection('users').doc(uid).get();
   if (!userSnap.exists) {
-    throw new HttpsError('permission-denied', 'User profile not found');
+    throw new HttpsError('permission-denied', t('err_user_profile_not_found'));
   }
 
   const user = userSnap.data()!;
   if (user.organizationId !== orgId || !['admin', 'staff', 'reception'].includes(user.role)) {
-    throw new HttpsError('permission-denied', 'Staff access required');
+    throw new HttpsError('permission-denied', t('err_staff_access_required'));
   }
 
   return user;
 }
 
-async function getPortalAccess(uid: string, orgId: string): Promise<PortalAccess> {
+async function getPortalAccess(uid: string, orgId: string, t: T): Promise<PortalAccess> {
   const accessSnap = await db
     .collection('clientPortalAccess')
     .doc(uid)
@@ -99,7 +285,7 @@ async function getPortalAccess(uid: string, orgId: string): Promise<PortalAccess
     .get();
 
   if (!accessSnap.exists) {
-    throw new HttpsError('permission-denied', 'Client portal access has not been linked');
+    throw new HttpsError('permission-denied', t('err_portal_not_linked'));
   }
 
   return accessSnap.data() as PortalAccess;
@@ -122,23 +308,24 @@ async function assertPurchaseCanBook(
   purchaseId: string,
   clientId: string,
   treatmentId: string,
+  t: T,
 ) {
   const purchaseSnap = await orgRef.collection('purchases').doc(purchaseId).get();
   if (!purchaseSnap.exists) {
-    throw new HttpsError('not-found', 'Package purchase not found');
+    throw new HttpsError('not-found', t('err_purchase_not_found'));
   }
 
   const purchase = purchaseSnap.data()!;
   const today = new Date().toISOString().slice(0, 10);
 
   if (purchase.client_id !== clientId) {
-    throw new HttpsError('permission-denied', 'Purchase does not belong to this client');
+    throw new HttpsError('permission-denied', t('err_purchase_not_owned'));
   }
   if (purchase.payment_status !== 'active') {
-    throw new HttpsError('failed-precondition', 'Package is not active');
+    throw new HttpsError('failed-precondition', t('err_package_not_active'));
   }
   if (purchase.expiry_date && purchase.expiry_date < today) {
-    throw new HttpsError('failed-precondition', 'Package is expired');
+    throw new HttpsError('failed-precondition', t('err_package_expired'));
   }
 
   const slots = Array.isArray(purchase.sessions_by_treatment)
@@ -148,10 +335,10 @@ async function assertPurchaseCanBook(
   if (slots.length > 0) {
     const slot = slots.find((s) => s.treatment_id === treatmentId);
     if (!slot || Number(slot.remaining ?? 0) <= 0) {
-      throw new HttpsError('failed-precondition', 'No remaining sessions for this treatment');
+      throw new HttpsError('failed-precondition', t('err_no_sessions_for_treatment'));
     }
   } else if (Number(purchase.sessions_remaining ?? 0) <= 0) {
-    throw new HttpsError('failed-precondition', 'No remaining package sessions');
+    throw new HttpsError('failed-precondition', t('err_no_sessions'));
   }
 
   return purchase;
@@ -161,10 +348,11 @@ async function assertTreatmentCanBook(
   orgRef: admin.firestore.DocumentReference,
   purchase: admin.firestore.DocumentData,
   treatmentId: string,
+  t: T,
 ) {
   const treatmentSnap = await orgRef.collection('treatments').doc(treatmentId).get();
   if (!treatmentSnap.exists) {
-    throw new HttpsError('not-found', 'Treatment not found');
+    throw new HttpsError('not-found', t('err_treatment_not_found'));
   }
 
   const pkgSnap = purchase.package_id
@@ -174,7 +362,7 @@ async function assertTreatmentCanBook(
   const allowedTreatments = Array.isArray(pkg.treatments) ? pkg.treatments as string[] : [];
 
   if (allowedTreatments.length > 0 && !allowedTreatments.includes(treatmentId)) {
-    throw new HttpsError('failed-precondition', 'Treatment is not included in this package');
+    throw new HttpsError('failed-precondition', t('err_treatment_not_in_package'));
   }
 
   return treatmentSnap.data()!;
@@ -184,13 +372,14 @@ async function assertSlotAvailable(
   orgRef: admin.firestore.DocumentReference,
   slot: Slot,
   duration: number,
+  t: T,
 ) {
   const start = new Date(`${slot.date}T${slot.time}:00`);
   if (Number.isNaN(start.getTime())) {
-    throw new HttpsError('invalid-argument', 'Invalid requested slot');
+    throw new HttpsError('invalid-argument', t('err_slot_invalid'));
   }
   if (start.getTime() <= Date.now()) {
-    throw new HttpsError('failed-precondition', 'Requested slot must be in the future');
+    throw new HttpsError('failed-precondition', t('err_slot_in_past'));
   }
 
   // Conflict check is skipped when no staff is requested — staff selection
@@ -213,7 +402,7 @@ async function assertSlotAvailable(
   });
 
   if (conflicts.length > 0) {
-    throw new HttpsError('failed-precondition', 'Requested slot is no longer available');
+    throw new HttpsError('failed-precondition', t('err_slot_unavailable'));
   }
 }
 
@@ -323,6 +512,10 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
   }
 
   const org = snap.docs[0].data();
+  // Portal users can't read config/businessInfo under the rules, so surface the
+  // org's invoice currency here for add-on price display (same source createInvoice uses).
+  const businessInfoSnap = await snap.docs[0].ref.collection('config').doc('businessInfo').get();
+  const businessCurrency = businessInfoSnap.data()?.currency;
   return {
     organization: {
       id: snap.docs[0].id,
@@ -333,16 +526,18 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
       phone: org.phone ?? null,
       email: org.email ?? null,
       address: org.address ?? null,
+      // Portal renders in the org's language (admins set it in Settings).
+      language: normalizeLanguage(org.language),
+      currency: typeof businessCurrency === 'string' && businessCurrency.trim() ? businessCurrency.trim() : 'USD',
     },
   };
 });
 
 export const linkClientPortalAccount = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in is required');
-  }
+  if (!request.auth) throw UNAUTHENTICATED();
+  const t = await resolveT(request.data?.organizationId);
 
-  const orgId = assertString(request.data?.organizationId, 'organizationId');
+  const orgId = assertString(request.data?.organizationId, 'organizationId', t);
 
   // Only ever match a client card against a VERIFIED identity. A caller can put
   // any string in their profile email, but Firebase sets email_verified=true only
@@ -354,10 +549,7 @@ export const linkClientPortalAccount = onCall(async (request) => {
   const authPhone = normalizePhone(request.auth.token.phone_number);
 
   if (!authEmail && !authPhone) {
-    throw new HttpsError(
-      'failed-precondition',
-      'A verified email or phone number is required. Sign in with Google or verify your phone number, then try linking again.',
-    );
+    throw new HttpsError('failed-precondition', t('err_verified_contact_required'));
   }
 
   const orgRef = db.collection('organizations').doc(orgId);
@@ -371,10 +563,7 @@ export const linkClientPortalAccount = onCall(async (request) => {
   const isActiveClient = (client: admin.firestore.DocumentData): boolean =>
     !client.deleted_at && !client.deletedAt;
 
-  const ambiguousMatchError = new HttpsError(
-    'failed-precondition',
-    'Multiple client records share this contact information, so we cannot link your account automatically. Please contact the spa front desk to have your account linked.',
-  );
+  const ambiguousMatchError = new HttpsError('failed-precondition', t('err_ambiguous_match'));
 
   let clientDoc: admin.firestore.QueryDocumentSnapshot | null = null;
   let matchedBy: 'email' | 'phone' | null = null;
@@ -404,6 +593,16 @@ export const linkClientPortalAccount = onCall(async (request) => {
   }
 
   if (!clientDoc) {
+    // Client cards often store phones in local format ('050-123-4567', '(754) 232-6590')
+    // while the OTP-verified token phone is E.164, so the indexed equality query
+    // above misses them. Normalise stored phones for the org's country before
+    // comparing — still strict equality on the full E.164 string, never suffix
+    // matching. The org read only happens on this fallback path, and only when
+    // the caller actually signed in by phone.
+    const phoneCountry = authPhone ? defaultPhoneCountry((await orgRef.get()).data()) : null;
+    const matchesAuthPhone = (storedPhone: unknown): boolean =>
+      Boolean(authPhone && phoneCountry) && toE164(storedPhone, phoneCountry!) === authPhone;
+
     const fallbackSnap = await clientsRef.limit(500).get();
     const activeMatches = fallbackSnap.docs.filter((docSnap) => {
       const client = docSnap.data();
@@ -411,7 +610,7 @@ export const linkClientPortalAccount = onCall(async (request) => {
         return false;
       }
       return (authEmail && normalizeEmail(client.email) === authEmail)
-        || (authPhone && normalizePhone(client.phone) === authPhone);
+        || matchesAuthPhone(client.phone);
     });
 
     if (activeMatches.length > 1) {
@@ -425,12 +624,12 @@ export const linkClientPortalAccount = onCall(async (request) => {
   }
 
   if (!clientDoc || !matchedBy) {
-    throw new HttpsError('permission-denied', 'No matching client card was found for this spa');
+    throw new HttpsError('permission-denied', t('err_no_matching_client'));
   }
 
   const client = clientDoc.data();
   if (client.deleted_at || client.deletedAt) {
-    throw new HttpsError('permission-denied', 'This client card is not active');
+    throw new HttpsError('permission-denied', t('err_client_not_active'));
   }
 
   const now = admin.firestore.FieldValue.serverTimestamp();
@@ -460,16 +659,15 @@ export const linkClientPortalAccount = onCall(async (request) => {
 });
 
 export const createClientBookingRequest = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in is required');
-  }
+  if (!request.auth) throw UNAUTHENTICATED();
+  const t = await resolveT(request.data?.organizationId);
 
-  const orgId = assertString(request.data?.organizationId, 'organizationId');
-  const purchaseId = assertString(request.data?.purchaseId, 'purchaseId');
-  const treatmentId = assertString(request.data?.treatmentId, 'treatmentId');
-  const preferredSlot = asSlot(request.data?.preferredSlot, 'preferredSlot');
+  const orgId = assertString(request.data?.organizationId, 'organizationId', t);
+  const purchaseId = assertString(request.data?.purchaseId, 'purchaseId', t);
+  const treatmentId = assertString(request.data?.treatmentId, 'treatmentId', t);
+  const preferredSlot = asSlot(request.data?.preferredSlot, 'preferredSlot', t);
   const alternativeSlots = Array.isArray(request.data?.alternativeSlots)
-    ? request.data.alternativeSlots.slice(0, 3).map((slot: unknown) => asSlot(slot, 'alternativeSlot'))
+    ? request.data.alternativeSlots.slice(0, 3).map((slot: unknown) => asSlot(slot, 'alternativeSlot', t))
     : [];
   const notes = typeof request.data?.notes === 'string'
     ? request.data.notes.trim().slice(0, 1000)
@@ -477,26 +675,26 @@ export const createClientBookingRequest = onCall(async (request) => {
   const addonIdsInput = Array.isArray(request.data?.addons)
     ? request.data.addons
         .slice(0, 10)
-        .map((a: unknown) => assertString((a as { addon_id?: unknown })?.addon_id, 'addon_id'))
+        .map((a: unknown) => assertString((a as { addon_id?: unknown })?.addon_id, 'addon_id', t))
     : [];
 
-  const access = await getPortalAccess(request.auth.uid, orgId);
+  const access = await getPortalAccess(request.auth.uid, orgId, t);
   const orgRef = db.collection('organizations').doc(orgId);
   const [clientSnap, purchase] = await Promise.all([
     orgRef.collection('clients').doc(access.client_id).get(),
-    assertPurchaseCanBook(orgRef, purchaseId, access.client_id, treatmentId),
+    assertPurchaseCanBook(orgRef, purchaseId, access.client_id, treatmentId, t),
   ]);
 
   if (!clientSnap.exists) {
-    throw new HttpsError('not-found', 'Client not found');
+    throw new HttpsError('not-found', t('err_client_not_found'));
   }
 
   // Package sessions are limited to one add-on (treatment is free; add-on is paid).
   if (purchase && addonIdsInput.length > 1) {
-    throw new HttpsError('failed-precondition', 'Package sessions are limited to one add-on');
+    throw new HttpsError('failed-precondition', t('err_one_addon_only'));
   }
 
-  const treatment = await assertTreatmentCanBook(orgRef, purchase, treatmentId);
+  const treatment = await assertTreatmentCanBook(orgRef, purchase, treatmentId, t);
 
   // Validate add-ons exist and are active; snapshot price + duration server-side.
   const addonSnapshots: Array<{
@@ -511,11 +709,11 @@ export const createClientBookingRequest = onCall(async (request) => {
     );
     addonDocs.forEach((snap, idx) => {
       if (!snap.exists) {
-        throw new HttpsError('not-found', `Add-on ${addonIdsInput[idx]} not found`);
+        throw new HttpsError('not-found', t('err_addon_not_found', { addon: addonIdsInput[idx] }));
       }
       const a = snap.data()!;
       if (a.is_active === false) {
-        throw new HttpsError('failed-precondition', `Add-on ${a.name ?? snap.id} is no longer available`);
+        throw new HttpsError('failed-precondition', t('err_addon_unavailable', { addon: a.name ?? snap.id }));
       }
       addonSnapshots.push({
         addon_id: snap.id,
@@ -530,12 +728,13 @@ export const createClientBookingRequest = onCall(async (request) => {
   const addonsTotalPrice = addonSnapshots.reduce((sum, a) => sum + a.price, 0);
   const totalDuration = Number(treatment.duration ?? 60) + addonsTotalDuration;
 
-  await assertSlotAvailable(orgRef, preferredSlot, totalDuration);
-  let staffName = 'Pending assignment';
+  await assertSlotAvailable(orgRef, preferredSlot, totalDuration, t);
+  // Fixed, language-independent sentinel (see PENDING_STAFF_NAME).
+  let staffName: string = PENDING_STAFF_NAME;
   if (preferredSlot.staff_id) {
     const staffSnap = await orgRef.collection('staff').doc(preferredSlot.staff_id).get();
     if (staffSnap.exists) {
-      staffName = String(staffSnap.data()?.name ?? staffSnap.data()?.fullName ?? 'Staff');
+      staffName = String(staffSnap.data()?.name ?? staffSnap.data()?.fullName ?? t('staff_fallback'));
     }
   }
 
@@ -549,7 +748,7 @@ export const createClientBookingRequest = onCall(async (request) => {
     purchase_id: purchaseId,
     package_id: purchase.package_id ?? null,
     treatment_id: treatmentId,
-    treatment_name: treatment.name ?? 'Treatment',
+    treatment_name: treatment.name ?? t('treatment_name_fallback'),
     duration: totalDuration,
     staff_name: staffName,
     preferred_slot: preferredSlot,
@@ -571,18 +770,17 @@ export const createClientBookingRequest = onCall(async (request) => {
 export const updateClientBookingRequest = onCall(
   { secrets: ['ACUITY_API_USER_ID', 'ACUITY_API_KEY'] },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Sign in is required');
-    }
+    if (!request.auth) throw UNAUTHENTICATED();
+    const t = await resolveT(request.data?.organizationId);
 
-    const orgId = assertString(request.data?.organizationId, 'organizationId');
-    const requestId = assertString(request.data?.bookingRequestId, 'bookingRequestId');
-    const action = assertString(request.data?.action, 'action');
+    const orgId = assertString(request.data?.organizationId, 'organizationId', t);
+    const requestId = assertString(request.data?.bookingRequestId, 'bookingRequestId', t);
+    const action = assertString(request.data?.action, 'action', t);
     if (!['approve', 'reject'].includes(action)) {
-      throw new HttpsError('invalid-argument', 'action must be approve or reject');
+      throw new HttpsError('invalid-argument', t('err_action_invalid'));
     }
 
-    const staff = await getStaffUser(request.auth.uid, orgId);
+    const staff = await getStaffUser(request.auth.uid, orgId, t);
     const orgRef = db.collection('organizations').doc(orgId);
     const requestRef = orgRef.collection('bookingRequests').doc(requestId);
 
@@ -634,9 +832,9 @@ export const updateClientBookingRequest = onCall(
     let pretxBufferAfter = 0;
     if (treatmentIdForBuffer) {
       const tSnap = await orgRef.collection('treatments').doc(treatmentIdForBuffer).get();
-      const t = tSnap.data() ?? {};
-      if (typeof t.buffer_before_minutes === 'number') pretxBufferBefore = t.buffer_before_minutes;
-      if (typeof t.buffer_after_minutes === 'number') pretxBufferAfter = t.buffer_after_minutes;
+      const treatmentDoc = tSnap.data() ?? {};
+      if (typeof treatmentDoc.buffer_before_minutes === 'number') pretxBufferBefore = treatmentDoc.buffer_before_minutes;
+      if (typeof treatmentDoc.buffer_after_minutes === 'number') pretxBufferAfter = treatmentDoc.buffer_after_minutes;
     }
 
     // Re-check availability at approval time. Two pending requests for the same
@@ -647,31 +845,32 @@ export const updateClientBookingRequest = onCall(
     const preSelectedSlot = asSlot(
       request.data?.selectedSlot ?? bookingPreSnap.data()?.preferred_slot,
       'selectedSlot',
+      t,
     );
     if (preSelectedSlot.staff_id) {
-      await assertSlotAvailable(orgRef, preSelectedSlot, Number(bookingPreSnap.data()?.duration ?? 60));
+      await assertSlotAvailable(orgRef, preSelectedSlot, Number(bookingPreSnap.data()?.duration ?? 60), t);
     }
 
     const appointmentPayload = await db.runTransaction(async (tx) => {
       const requestSnap = await tx.get(requestRef);
       if (!requestSnap.exists) {
-        throw new HttpsError('not-found', 'Booking request not found');
+        throw new HttpsError('not-found', t('err_booking_not_found'));
       }
 
       const booking = requestSnap.data()!;
       if (booking.status !== 'pending') {
-        throw new HttpsError('failed-precondition', 'Booking request has already been reviewed');
+        throw new HttpsError('failed-precondition', t('err_booking_already_reviewed'));
       }
 
       const purchaseRef = orgRef.collection('purchases').doc(booking.purchase_id);
       const purchaseSnap = await tx.get(purchaseRef);
       if (!purchaseSnap.exists) {
-        throw new HttpsError('not-found', 'Package purchase not found');
+        throw new HttpsError('not-found', t('err_purchase_not_found'));
       }
 
       const purchase = purchaseSnap.data()!;
       if (purchase.client_id !== booking.client_id || purchase.payment_status !== 'active') {
-        throw new HttpsError('failed-precondition', 'Package is no longer active');
+        throw new HttpsError('failed-precondition', t('err_package_no_longer_active'));
       }
 
       const slots = Array.isArray(purchase.sessions_by_treatment)
@@ -685,7 +884,7 @@ export const updateClientBookingRequest = onCall(
         const slot = slots.find((item) => item.treatment_id === booking.treatment_id);
         const remaining = Number(slot?.remaining ?? 0);
         if (!slot || remaining <= 0) {
-          throw new HttpsError('failed-precondition', 'No remaining sessions for this treatment');
+          throw new HttpsError('failed-precondition', t('err_no_sessions_for_treatment'));
         }
         slot.remaining = remaining - 1;
         const totalRemaining = slots.reduce((sum, item) => sum + Number(item.remaining ?? 0), 0);
@@ -695,22 +894,22 @@ export const updateClientBookingRequest = onCall(
       } else {
         const remaining = Number(purchase.sessions_remaining ?? 0);
         if (remaining <= 0) {
-          throw new HttpsError('failed-precondition', 'No remaining package sessions');
+          throw new HttpsError('failed-precondition', t('err_no_sessions'));
         }
         const nextRemaining = remaining - 1;
         purchaseUpdates.sessions_remaining = nextRemaining;
         if (nextRemaining === 0) purchaseUpdates.payment_status = 'completed';
       }
 
-      const selectedSlot = asSlot(request.data?.selectedSlot ?? booking.preferred_slot, 'selectedSlot');
+      const selectedSlot = asSlot(request.data?.selectedSlot ?? booking.preferred_slot, 'selectedSlot', t);
       if (!selectedSlot.staff_id) {
-        throw new HttpsError('invalid-argument', 'Assign a staff member before approving the request');
+        throw new HttpsError('invalid-argument', t('err_assign_staff_first'));
       }
       const selectedStaffName = typeof request.data?.selectedStaffName === 'string' && request.data.selectedStaffName.trim()
         ? request.data.selectedStaffName.trim()
-        : booking.staff_name && booking.staff_name !== 'Pending assignment'
+        : booking.staff_name && booking.staff_name !== PENDING_STAFF_NAME
           ? booking.staff_name
-          : 'Staff';
+          : t('staff_fallback');
       const bookingAddons = Array.isArray(booking.addons) ? booking.addons : [];
       const bookingAddonsTotalPrice = Number(booking.addons_total_price ?? 0);
       const bookingAddonsTotalDuration = Number(booking.addons_total_duration ?? 0);
@@ -814,16 +1013,19 @@ async function sendBookingRejectionEmail(
   const ctx = await resolveEmailContext(orgId, 'booking_request_declined');
   if (!ctx) return;
 
+  const lang = orgLanguageFromData(ctx.orgData);
+  const t = makeT(STRINGS, lang);
   const tz = String(ctx.orgData.timezone || 'America/New_York');
   const dateStr = String(booking.preferred_slot?.date || '');
   const timeStr = String(booking.preferred_slot?.time || '');
-  const visitorName = (String(booking.client_name || 'there').trim()) || 'there';
+  const visitorName = String(booking.client_name || '').trim() || t('visitor_fallback');
 
   const vars: Record<string, string> = {
     NAME: visitorName,
-    TREATMENT: String(booking.treatment_name || 'your appointment'),
-    DATE: formatDateForDisplay(dateStr, tz),
-    TIME: formatTimeForDisplay(timeStr),
+    TREATMENT: String(booking.treatment_name || t('treatment_fallback')),
+    // Shared booking-email helpers so Hebrew date/time output matches every other booking email.
+    DATE: formatDateForDisplay(dateStr, tz, lang),
+    TIME: formatTimeForDisplay(timeStr, lang),
     STAFF: String(booking.staff_name || ''),
     ORG: String(ctx.orgData.name || ctx.fromName),
     REASON: staffResponse,                    // [REASON] in the automation body

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 }) => {
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   
+  const { t } = useTranslation('appointments');
   const { toast } = useToast();
   const { addClient } = useClients();
   const {
@@ -202,8 +204,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     // Validate basic form fields
     if (!formData.clientName || !formData.clientPhone) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in client name and phone number",
+        title: t('form.toasts.validationTitle'),
+        description: t('form.toasts.validationDescription'),
         variant: "destructive"
       });
       return;
@@ -213,7 +215,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     const validationError = validateAppointmentBooking();
     if (validationError) {
       toast({
-        title: "Booking Error",
+        title: t('form.toasts.bookingErrorTitle'),
         description: validationError,
         variant: "destructive"
       });
@@ -222,8 +224,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
     if (!selectedTreatment) {
       toast({
-        title: "Error",
-        description: "Please select a treatment",
+        title: t('form.toasts.errorTitle'),
+        description: t('form.toasts.selectTreatment'),
         variant: "destructive"
       });
       return;
@@ -232,8 +234,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     // Validate staff selection
     if (!formData.staffId) {
       toast({
-        title: "Error",
-        description: "Please select a staff member",
+        title: t('form.toasts.errorTitle'),
+        description: t('form.toasts.selectStaff'),
         variant: "destructive"
       });
       return;
@@ -242,8 +244,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
     const selectedStaff = staffProfiles.find(s => s.id === formData.staffId);
     if (!selectedStaff) {
       toast({
-        title: "Error",
-        description: "Selected staff member not found. Please try selecting again.",
+        title: t('form.toasts.errorTitle'),
+        description: t('form.toasts.staffNotFound'),
         variant: "destructive"
       });
       return;
@@ -251,8 +253,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
     if (selectedPackage && formData.selectedAddonIds.length > 1) {
       toast({
-        title: 'Too many add-ons',
-        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        title: t('form.toasts.tooManyAddonsTitle'),
+        description: t('form.toasts.tooManyAddonsDescription'),
         variant: 'destructive',
       });
       return;
@@ -318,8 +320,8 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
       setSelectedDate(new Date());
     } catch (error) {
       toast({
-        title: "Error",
-        description: editAppointment ? "Failed to update appointment. Please try again." : "Failed to create appointment. Please try again.",
+        title: t('form.toasts.errorTitle'),
+        description: editAppointment ? t('form.toasts.updateFailed') : t('form.toasts.createFailed'),
         variant: "destructive"
       });
     }
@@ -332,7 +334,7 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              {editAppointment ? 'Edit Appointment' : 'New Appointment'}
+              {editAppointment ? t('form.titleEdit') : t('form.titleNew')}
             </DialogTitle>
           </DialogHeader>
 
@@ -377,14 +379,14 @@ export const AppointmentFormModal: React.FC<AppointmentFormModalProps> = ({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button 
                 type="submit" 
                 className="bg-purple-600 hover:bg-purple-700"
                 disabled={loading.staff || loading.treatments}
               >
-                {editAppointment ? 'Update Appointment' : 'Book Appointment'}
+                {editAppointment ? t('form.update') : t('form.book')}
               </Button>
             </DialogFooter>
           </form>

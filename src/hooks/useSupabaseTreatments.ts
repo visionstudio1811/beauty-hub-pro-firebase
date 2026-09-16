@@ -13,6 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface TreatmentAvailabilityWindow {
   day_of_week: number; // 0=Sun..6=Sat (matches BusinessHours convention)
@@ -83,6 +84,7 @@ export const useSupabaseTreatments = () => {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchTreatments = async () => {
@@ -101,7 +103,7 @@ export const useSupabaseTreatments = () => {
       setTreatments(snapshot.docs.map(d => docToTreatment(d.id, d.data())));
     } catch (error) {
       console.error('Error fetching treatments:', error);
-      toast({ title: 'Error', description: 'Failed to load treatments', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('treatments.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -122,7 +124,7 @@ export const useSupabaseTreatments = () => {
   const addTreatment = async (
     treatmentData: Omit<Treatment, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Treatment> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const docRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'treatments'),
@@ -134,27 +136,27 @@ export const useSupabaseTreatments = () => {
         updated_at: { toDate: () => new Date() },
       });
       setTreatments(prev => [...prev, newTreatment]);
-      toast({ title: 'Success', description: 'Treatment added successfully' });
+      toast({ title: t('common:status.success'), description: t('treatments.added') });
       return newTreatment;
     } catch (error) {
       console.error('Error adding treatment:', error);
-      toast({ title: 'Error', description: 'Failed to add treatment', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('treatments.addFailed'), variant: 'destructive' });
       throw error;
     }
   };
 
   const updateTreatment = async (id: string, updates: Partial<Treatment>): Promise<Treatment> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const treatmentRef = doc(db, 'organizations', currentOrganization.id, 'treatments', id);
       await updateDoc(treatmentRef, { ...stripUndefined(updates), updated_at: serverTimestamp() });
-      const updatedTreatment = { ...treatments.find(t => t.id === id)!, ...updates };
-      setTreatments(prev => prev.map(t => (t.id === id ? updatedTreatment : t)));
-      toast({ title: 'Success', description: 'Treatment updated successfully' });
+      const updatedTreatment = { ...treatments.find(item => item.id === id)!, ...updates };
+      setTreatments(prev => prev.map(item => (item.id === id ? updatedTreatment : item)));
+      toast({ title: t('common:status.success'), description: t('treatments.updated') });
       return updatedTreatment;
     } catch (error) {
       console.error('Error updating treatment:', error);
-      toast({ title: 'Error', description: 'Failed to update treatment', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('treatments.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };

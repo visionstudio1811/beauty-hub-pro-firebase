@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 interface RevenueData {
   totalRevenue: number;
@@ -19,6 +20,7 @@ interface RevenueData {
 
 export const useClientRevenue = (clientId?: string) => {
   const { currentOrganization } = useOrganization();
+  const { t } = useTranslation('hooks');
   const [revenueData, setRevenueData] = useState<RevenueData>({
     totalRevenue: 0,
     packageRevenue: 0,
@@ -85,7 +87,7 @@ export const useClientRevenue = (clientId?: string) => {
       setRevenueData(prev => ({
         ...prev,
         loading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch revenue data',
+        error: error instanceof Error ? error.message : t('clientRevenue.fetchFailed'),
       }));
     }
   };
@@ -134,7 +136,7 @@ export const useClientRevenue = (clientId?: string) => {
       setRevenueData(prev => ({
         ...prev,
         loading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch revenue data',
+        error: error instanceof Error ? error.message : t('clientRevenue.fetchFailed'),
       }));
     }
   };

@@ -1,0 +1,182 @@
+{
+  "shell": {
+    "title": "פורטל לקוחות",
+    "subtitle": "חבילות, ביקורים ובקשות"
+  },
+  "loading": {
+    "portal": "טוען את הפורטל...",
+    "opening": "פותח את פורטל הלקוחות שלך..."
+  },
+  "notFound": {
+    "title": "הפורטל לא נמצא",
+    "text": "יש להשתמש בקישור שקיבלתם מהספא."
+  },
+  "noMatch": {
+    "title": "לא נמצא כרטיס לקוח תואם",
+    "text": "יש להתחבר עם מספר הטלפון או כתובת ה-Google השמורים בכרטיס הלקוח שלכם.",
+    "tryAnother": "התחברות בדרך אחרת"
+  },
+  "toasts": {
+    "portalNotFound": "הפורטל לא נמצא",
+    "portalNotFoundText": "בדקו את הקישור של הספא ונסו שוב.",
+    "noMatchTitle": "לא נמצא כרטיס לקוח תואם",
+    "noMatchText": "יש להשתמש בטלפון או באימייל השמורים אצל הספא.",
+    "loadFailedTitle": "לא ניתן לטעון את הפורטל",
+    "loadFailedText": "רעננו את הדף ונסו שוב.",
+    "codeSentTitle": "הקוד נשלח",
+    "codeSentText": "הזינו את הקוד שהתקבל ב-SMS כדי להמשיך.",
+    "codeFailedTitle": "לא ניתן לשלוח את הקוד",
+    "codeFailedText": "בדקו את פורמט מספר הטלפון ונסו שוב.",
+    "missingDetailsTitle": "חסרים פרטים בבקשה",
+    "missingDetailsText": "יש לבחור חבילה, טיפול, תאריך ושעה.",
+    "tooManyAddonsTitle": "יותר מדי תוספות",
+    "tooManyAddonsText": "בטיפול מחבילה ניתן להוסיף תוספת אחת בלבד. הסירו את התוספות הנוספות כדי להמשיך.",
+    "requestSentTitle": "הבקשה נשלחה",
+    "requestSentText": "הספא יאשר את הבקשה לפני שהיא תהפוך לתור.",
+    "requestFailedTitle": "שליחת הבקשה נכשלה",
+    "requestFailedText": "נסו מועד אחר.",
+    "invalidPhoneTitle": "מספר טלפון לא תקין",
+    "invalidPhoneText": "בדקו את המדינה ואת מספר הטלפון ונסו שוב."
+  },
+  "signIn": {
+    "eyebrow": "פורטל לקוחות",
+    "welcomeBack": "ברוכים השבים",
+    "heroText": "התחברו לחשבון שלכם כדי לצפות בתורים, לנהל הזמנות ועוד.",
+    "title": "התחברות",
+    "subtitle": "השתמשו באותו חשבון Google או מספר טלפון הרשומים אצל הספא.",
+    "continueWithGoogle": "המשך עם Google",
+    "or": "או",
+    "phoneLabel": "מספר טלפון",
+    "rememberMe": "זכור אותי במכשיר זה",
+    "sending": "שולח…",
+    "sendCode": "שליחת קוד אימות",
+    "codeLabel": "קוד אימות",
+    "verify": "אימות",
+    "trouble": "בעיה בהתחברות? צרו איתנו קשר",
+    "countryLabel": "מדינה",
+    "countries": {
+      "IL": "ישראל",
+      "US": "ארצות הברית",
+      "CA": "קנדה",
+      "GB": "בריטניה"
+    },
+    "phoneExamples": {
+      "IL": "050-123-4567",
+      "US": "(555) 123-4567",
+      "CA": "(555) 123-4567",
+      "GB": "07911 123456"
+    }
+  },
+  "header": {
+    "welcome": "שלום",
+    "clientFallback": "לקוח/ה",
+    "signOut": "התנתקות",
+    "logoutTitle": "להתנתק?",
+    "logoutDescription": "האם אתם בטוחים שברצונכם להתנתק?",
+    "logoutConfirm": "התנתקות"
+  },
+  "tabs": {
+    "plan": "התוכנית שלי",
+    "book": "הזמנה",
+    "visits": "ביקורים",
+    "billing": "חיובים"
+  },
+  "plan": {
+    "packageFallback": "חבילה",
+    "activePackage": "חבילה פעילה",
+    "sessionsRemaining": "טיפולים שנותרו",
+    "expires": "בתוקף עד",
+    "emptyTitle": "אין חבילות פעילות",
+    "emptyText": "חבילות ספא פעילות יופיעו כאן."
+  },
+  "products": {
+    "title": "מוצרים",
+    "fallback": "מוצר",
+    "quantity": "כמות {{count}}",
+    "empty": "עדיין לא הוקצו מוצרים."
+  },
+  "book": {
+    "title": "בקשה לטיפול",
+    "package": "חבילה",
+    "choosePackage": "בחירת חבילה",
+    "sessionsLeft": "({{count}} נותרו)",
+    "treatment": "טיפול",
+    "chooseTreatment": "בחירת טיפול",
+    "addons": "תוספות (אופציונלי)",
+    "addonsHint": "תוספת אחת לכל היותר לטיפול מחבילה",
+    "addonDuration": "+{{minutes}} דק'",
+    "pickDate": "בחירת תאריך",
+    "chooseTreatmentFirst": "בחרו טיפול תחילה כדי לראות מועדים פנויים.",
+    "pickTime": "בחירת שעה",
+    "backupAria": "הוספת מועד חלופי",
+    "backupLabel": "הוספת מועד חלופי (אופציונלי)",
+    "notes": "הערות",
+    "sendRequest": "שליחת בקשה"
+  },
+  "requests": {
+    "fallback": "בקשה לטיפול",
+    "dateAt": "{{date}} בשעה {{time}}"
+  },
+  "visits": {
+    "fallback": "טיפול",
+    "emptyTitle": "עדיין אין ביקורים",
+    "emptyText": "תורים מאושרים יופיעו כאן."
+  },
+  "billing": {
+    "fallback": "חשבונית",
+    "pdf": "PDF",
+    "issued": "הונפקה",
+    "emptyTitle": "אין חשבוניות",
+    "emptyText": "חשבוניות שהונפקו עבור רכישות פעילות יופיעו כאן."
+  },
+  "status": {
+    "pending": "ממתין",
+    "approved": "אושר",
+    "rejected": "נדחה",
+    "confirmed": "מאושר",
+    "completed": "הושלם",
+    "scheduled": "מתוכנן",
+    "cancelled": "בוטל",
+    "noShow": "לא הגיע/ה",
+    "inProgress": "בטיפול"
+  },
+  "notScheduled": "לא נקבע",
+  "publicBooking": {
+    "linkLoadError": "לא ניתן לטעון את הקישור.",
+    "missingDetailsTitle": "חסרים פרטים",
+    "missingDetailsText": "בחרו שעה והזינו את שמכם.",
+    "missingContactTitle": "חסרים פרטי קשר",
+    "missingContactText": "נדרש אימייל או טלפון.",
+    "submitFailedTitle": "השליחה נכשלה",
+    "submitFailedText": "לא ניתן לשלוח את הבקשה.",
+    "invalidLinkTitle": "קישור לא תקין",
+    "invalidLinkText": "חסר אסימון בכתובת הקישור.",
+    "loadingTitle": "טוען…",
+    "loadingText": "רגע אחד, אנחנו מכינים את דף ההזמנה.",
+    "linkUnavailable": "הקישור אינו זמין",
+    "receivedTitle": "הבקשה התקבלה",
+    "receivedText": "תודה, {{firstName}}! {{business}} יאשרו את ההזמנה שלכם ב{{channel}} בקרוב.",
+    "channels": {
+      "email": "אימייל",
+      "phone": "טלפון",
+      "emailOrPhone": "אימייל או בטלפון"
+    },
+    "subtitle": "קביעת תור",
+    "pickTime": "בחירת שעה",
+    "treatment": "טיפול",
+    "durationMin": "{{count}} דק'",
+    "pickDate": "בחירת תאריך",
+    "yourDetails": "הפרטים שלכם",
+    "nameRequired": "שם *",
+    "fullName": "שם מלא",
+    "email": "אימייל",
+    "emailPlaceholder": "you@example.com",
+    "phone": "טלפון",
+    "phonePlaceholder": "+972 50 123 4567",
+    "notesOptional": "הערות (אופציונלי)",
+    "notesPlaceholder": "יש משהו שכדאי שנדע?",
+    "sending": "שולח…",
+    "requestBooking": "בקשה לקביעת תור",
+    "confirmBy": "נאשר את ההזמנה שלכם ב{{channel}}."
+  }
+}

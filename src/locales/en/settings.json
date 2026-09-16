@@ -1,0 +1,293 @@
+{
+  "page": {
+    "title": "Settings",
+    "subtitle": "Manage your application settings and preferences"
+  },
+  "sections": {
+    "general": {
+      "title": "General Settings",
+      "description": "Manage your application's general settings and preferences"
+    },
+    "brandLogo": {
+      "title": "Brand Logo",
+      "description": "Upload your business logo — it appears in the sidebar and as the browser tab icon"
+    },
+    "dropdownData": {
+      "title": "Dropdown Data Management",
+      "description": "Manage dropdown options for forms and selections"
+    },
+    "users": {
+      "title": "User Management",
+      "description": "Manage user accounts, roles, and permissions"
+    },
+    "packages": {
+      "title": "Package Management",
+      "description": "Create and manage service packages for your clients"
+    },
+    "treatments": {
+      "title": "Treatment Management",
+      "description": "Manage your available treatments and services"
+    },
+    "addons": {
+      "title": "Add-ons",
+      "description": "Optional extras that staff and clients can attach to any appointment (e.g. eye mask, scalp massage)"
+    },
+    "products": {
+      "title": "Product Management",
+      "description": "Manage your products and retail inventory"
+    },
+    "categories": {
+      "title": "Categories",
+      "description": "Categorize products, facials, or both — pick the scope when creating each one."
+    },
+    "brands": {
+      "title": "Product Brands",
+      "description": "Manage the brands you carry — these appear as a dropdown when editing a product"
+    },
+    "scheduling": {
+      "title": "Scheduling Configuration",
+      "description": "Configure your appointment scheduling settings and availability"
+    },
+    "businessHours": {
+      "title": "Business Hours",
+      "description": "Set your operating hours for each day of the week"
+    },
+    "waivers": {
+      "title": "Waiver Templates",
+      "description": "Create and manage consent waiver forms to send to clients before their appointments"
+    },
+    "intake": {
+      "title": "Intake Form Templates",
+      "description": "Create and manage new-client intake forms — collect medical history, contact info, photos, etc."
+    },
+    "agreements": {
+      "title": "Agreement of Purchase Templates",
+      "description": "Templates sent automatically after a package is assigned to a client. Build the template once with package blocks (Package Name, Price, Sessions, Purchase Date, Expiry) and standard blocks (text, signature, etc.) — purchase + client fields prefill from the linked purchase."
+    }
+  },
+  "mobileTabs": {
+    "selectSection": "Select Section"
+  },
+  "businessInfo": {
+    "loading": "Loading business information...",
+    "title": "Business Information",
+    "description": "Manage your business details and contact information",
+    "fields": {
+      "name": "Business Name",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "website": "Website",
+      "timezone": "Timezone"
+    },
+    "timezoneHelp": "Used for appointment scheduling, notifications, and expiry calculations.",
+    "timezones": {
+      "easternTime": "Eastern Time (ET)",
+      "centralTime": "Central Time (CT)",
+      "mountainTime": "Mountain Time (MT)",
+      "pacificTime": "Pacific Time (PT)",
+      "alaskaTime": "Alaska Time (AKT)",
+      "hawaiiTime": "Hawaii Time (HT)",
+      "arizona": "Arizona (no DST)",
+      "easternCanada": "Eastern Canada",
+      "pacificCanada": "Pacific Canada",
+      "london": "London (GMT/BST)",
+      "centralEurope": "Central Europe (CET)",
+      "berlin": "Berlin (CET)",
+      "rome": "Rome (CET)",
+      "madrid": "Madrid (CET)",
+      "easternEurope": "Eastern Europe (EET)",
+      "israel": "Israel (IST)",
+      "dubai": "Dubai (GST)",
+      "india": "India (IST)",
+      "singapore": "Singapore (SGT)",
+      "japan": "Japan (JST)",
+      "sydney": "Sydney (AEST)",
+      "melbourne": "Melbourne (AEST)",
+      "newZealand": "New Zealand (NZST)"
+    },
+    "saveChanges": "Save Changes",
+    "language": {
+      "sectionTitle": "Language",
+      "yourLanguageHelp": "Your personal display language. It applies only to your account and overrides the organization default."
+    }
+  },
+  "logo": {
+    "currentLogo": "Current Logo",
+    "logoAlt": "Business Logo",
+    "usedAsFavicon": "This image is also used as the browser tab icon.",
+    "willBeUsedAsFavicon": "The logo will also be used as the browser tab icon.",
+    "changeLogo": "Change Logo",
+    "removeLogo": "Remove Logo",
+    "uploadLogo": "Upload Logo",
+    "uploading": "Uploading...",
+    "dragAndDrop": "Drag and drop your logo here",
+    "browseFiles": "Browse Files",
+    "fileHint": "PNG, JPG, SVG up to 5MB",
+    "toasts": {
+      "invalidTypeTitle": "Invalid file type",
+      "invalidTypeDescription": "Please select an image file (PNG, JPG, SVG).",
+      "tooLargeTitle": "File too large",
+      "tooLargeDescription": "Please select an image smaller than 5MB.",
+      "noOrgTitle": "No organization",
+      "noOrgDescription": "Cannot save logo without an active organization.",
+      "updatedTitle": "Logo updated",
+      "updatedDescription": "Your logo has been saved and will appear on all devices.",
+      "uploadFailedTitle": "Upload failed",
+      "uploadFailedDescription": "Could not save logo. Please try again.",
+      "removedTitle": "Logo removed",
+      "removedDescription": "Your logo has been removed.",
+      "removeFailedTitle": "Failed to remove logo",
+      "removeFailedDescription": "Please try again."
+    }
+  },
+  "schedulerLinks": {
+    "title": "Scheduler Links",
+    "description": "Shareable booking URLs for your website, email signature, or social bio. Each link can be scoped to a specific treatment, staff member, both, or neither.",
+    "createLink": "Create Link",
+    "loading": "Loading…",
+    "empty": "No links yet. Click <strong>Create Link</strong> to generate your first shareable URL.",
+    "anyTreatment": "Any treatment",
+    "badges": {
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "active": "Active"
+    },
+    "createdExpires": "Created {{created}} · Expires {{expires}}",
+    "actions": {
+      "url": "URL",
+      "embed": "Embed",
+      "revoke": "Revoke",
+      "delete": "Delete",
+      "copy": "Copy"
+    },
+    "confirmRevoke": "Revoke this link? The public URL will stop working immediately.",
+    "confirmDelete": "Permanently delete this link? This cannot be undone — the URL will be gone for good.",
+    "toasts": {
+      "loadFailed": "Failed to load scheduler links",
+      "createdTitle": "Link created",
+      "createdDescription": "Copy the URL or embed snippet next.",
+      "createFailedTitle": "Create failed",
+      "createFailedDescription": "Failed to create link",
+      "revokedTitle": "Link revoked",
+      "revokeFailedTitle": "Revoke failed",
+      "revokeFailedDescription": "Failed to revoke",
+      "deletedTitle": "Link deleted",
+      "deleteFailedTitle": "Delete failed",
+      "deleteFailedDescription": "Failed to delete",
+      "urlCopied": "URL copied",
+      "snippetCopied": "Snippet copied",
+      "copyFailedTitle": "Copy failed",
+      "copyFailedDescription": "Select and copy manually"
+    },
+    "createDialog": {
+      "title": "Create Scheduler Link",
+      "description": "The URL works without a sign-in. Anyone with the link can request a booking.",
+      "treatment": "Treatment (optional)",
+      "anyTreatmentOption": "Any treatment (visitor picks)",
+      "label": "Label (optional)",
+      "labelPlaceholder": "e.g. Website footer link",
+      "expiresIn": "Expires in (days)",
+      "creating": "Creating…"
+    },
+    "embedDialog": {
+      "title": "Share or Embed",
+      "description": "Send the URL directly, or paste the snippet into a website to embed the booking page.",
+      "publicUrl": "Public URL",
+      "embedSnippet": "Embed snippet (iframe)",
+      "embedHint": "Paste this into any web page's HTML to embed the booking widget."
+    }
+  },
+  "userManagement": {
+    "title": "User Management",
+    "description": "Manage user accounts and permissions for your team",
+    "loadingUsers": "Loading users...",
+    "toasts": {
+      "permissionCheckError": "An unexpected error occurred while checking permissions.",
+      "loadProfilesFailed": "Failed to load user profiles.",
+      "accessDeniedTitle": "Access Denied",
+      "accessDeniedDescription": "You don't have permission to modify user status.",
+      "statusUpdatedTitle": "Status Updated",
+      "userActivated": "User has been activated.",
+      "userDeactivated": "User has been deactivated.",
+      "statusUpdateFailed": "Failed to update user status."
+    }
+  },
+  "permissionChecker": {
+    "checking": "Checking permissions...",
+    "accessRestricted": "Access Restricted",
+    "adminsOnly": "Only administrators can access user management features."
+  },
+  "userList": {
+    "empty": "No users found. Create your first user to get started."
+  },
+  "userCard": {
+    "noName": "No name",
+    "created": "Created: {{date}}",
+    "activate": "Activate user",
+    "deactivate": "Deactivate user"
+  },
+  "passwordStrength": {
+    "minLength": "Password should be at least 8 characters long",
+    "uppercase": "Include uppercase letters",
+    "lowercase": "Include lowercase letters",
+    "numbers": "Include numbers",
+    "symbols": "Include special characters",
+    "repeated": "Avoid repeated characters"
+  },
+  "userCreation": {
+    "addUser": "Add User",
+    "title": "Add New User",
+    "description": "Create a new user account. A secure temporary password will be generated.",
+    "adminNote": "Note: Admin users can only be created directly in the database.",
+    "validationErrors": "Validation Errors:",
+    "validationFailed": "Validation failed",
+    "successTitle": "User Created Successfully!",
+    "temporaryPassword": "Temporary Password:",
+    "copyPassword": "Copy password",
+    "sharePasswordHint": "Please share this password securely with the user. They should change it on first login.",
+    "fields": {
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "Enter full name",
+      "email": "Email *",
+      "emailPlaceholder": "Enter email address",
+      "phone": "Phone",
+      "phonePlaceholder": "Enter phone number",
+      "role": "Role *",
+      "rolePlaceholder": "Select a role"
+    },
+    "generatePassword": "Generate Secure Password",
+    "passwordReady": "✓ Secure password ready",
+    "creating": "Creating...",
+    "createUser": "Create User",
+    "toasts": {
+      "validationErrorTitle": "Validation Error",
+      "noOrgContext": "No organization context — refresh the page and try again.",
+      "createdTitle": "User Created",
+      "createdDescription": "{{name}} has been added successfully.",
+      "createFailed": "Failed to create user.",
+      "copiedTitle": "Copied",
+      "copiedDescription": "Temporary password copied to clipboard."
+    },
+    "validation": {
+      "full_name": {
+        "too_small": "Full name must be at least 2 characters",
+        "too_big": "Full name cannot exceed 100 characters",
+        "invalid_string": "Full name contains invalid characters"
+      },
+      "email": {
+        "invalid_string": "Please enter a valid email address",
+        "too_big": "Email cannot exceed 255 characters"
+      },
+      "phone": {
+        "too_small": "Phone number must be at least 10 digits",
+        "too_big": "Phone number cannot exceed 20 characters",
+        "invalid_string": "Please enter a valid phone number"
+      },
+      "role": {
+        "invalid_enum_value": "Role must be staff, reception, or beautician",
+        "invalid_type": "Role must be staff, reception, or beautician"
+      }
+    }
+  }
+}

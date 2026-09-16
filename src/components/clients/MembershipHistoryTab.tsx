@@ -22,6 +22,8 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Client } from '@/hooks/useClients';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface HistoryEntry {
   id: string;
@@ -43,49 +45,50 @@ interface MembershipHistoryTabProps {
   client: Client;
 }
 
+// `label` is the key under clients:membershipHistory.events — resolved with t() at render.
 const EVENT_CONFIG: Record<
   string,
   { icon: React.ElementType; label: string; color: string; badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' }
 > = {
   package_assigned: {
     icon: Package,
-    label: 'Package Assigned',
+    label: 'package_assigned',
     color: 'text-green-600',
     badgeVariant: 'default',
   },
   membership_activated: {
     icon: CheckCircle2,
-    label: 'Membership Activated',
+    label: 'membership_activated',
     color: 'text-green-600',
     badgeVariant: 'default',
   },
   membership_deactivated: {
     icon: XCircle,
-    label: 'Membership Deactivated',
+    label: 'membership_deactivated',
     color: 'text-red-600',
     badgeVariant: 'destructive',
   },
   sessions_edited: {
     icon: Edit,
-    label: 'Sessions Edited',
+    label: 'sessions_edited',
     color: 'text-blue-600',
     badgeVariant: 'secondary',
   },
   package_removed: {
     icon: Trash2,
-    label: 'Package Removed',
+    label: 'package_removed',
     color: 'text-red-600',
     badgeVariant: 'destructive',
   },
   package_expired: {
     icon: AlertTriangle,
-    label: 'Package Expired',
+    label: 'package_expired',
     color: 'text-amber-600',
     badgeVariant: 'outline',
   },
   expiry_reminder: {
     icon: Bell,
-    label: 'Expiry Reminder Sent',
+    label: 'expiry_reminder',
     color: 'text-violet-600',
     badgeVariant: 'secondary',
   },
@@ -93,12 +96,14 @@ const EVENT_CONFIG: Record<
 
 const DEFAULT_EVENT = {
   icon: Clock,
-  label: 'Event',
+  label: 'default',
   color: 'text-gray-600',
   badgeVariant: 'outline' as const,
 };
 
 export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ client }) => {
+  const { t } = useTranslation('clients');
+  const { locale } = useLanguage();
   const { currentOrganization } = useOrganization();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,17 +186,17 @@ export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ clie
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <SummaryCard
-          label="Status"
-          value={activePurchasesCount > 0 ? 'Active' : 'Inactive'}
+          label={t('membershipHistory.summary.status')}
+          value={activePurchasesCount > 0 ? t('membershipHistory.summary.active') : t('membershipHistory.summary.inactive')}
           color={activePurchasesCount > 0 ? 'text-green-600' : 'text-gray-500'}
         />
         <SummaryCard
-          label="Active Packages"
+          label={t('membershipHistory.summary.activePackages')}
           value={String(activePurchasesCount)}
           color="text-violet-600"
         />
         <SummaryCard
-          label="Total Events"
+          label={t('membershipHistory.summary.totalEvents')}
           value={String(entries.length)}
           color="text-blue-600"
         />
@@ -201,15 +206,15 @@ export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ clie
       {entries.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">
           <Clock className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">No membership history yet</p>
+          <p className="font-medium">{t('membershipHistory.emptyTitle')}</p>
           <p className="text-sm mt-1">
-            Events will appear here when packages are assigned, edited, or expire.
+            {t('membershipHistory.emptyDescription')}
           </p>
         </div>
       ) : (
         <div className="relative space-y-0">
           {/* Vertical line */}
-          <div className="absolute left-[19px] top-2 bottom-2 w-px bg-border" />
+          <div className="absolute start-[19px] top-2 bottom-2 w-px bg-border" />
 
           {entries.map((entry) => {
             const cfg = EVENT_CONFIG[entry.type] ?? DEFAULT_EVENT;
@@ -230,10 +235,10 @@ export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ clie
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <Badge variant={cfg.badgeVariant} className="text-xs">
-                        {cfg.label}
+                        {t(`membershipHistory.events.${cfg.label}`)}
                       </Badge>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {date.toLocaleDateString(locale)} {date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
@@ -241,34 +246,32 @@ export const MembershipHistoryTab: React.FC<MembershipHistoryTabProps> = ({ clie
                     <div className="text-sm text-foreground mt-2 space-y-1">
                       {entry.packageName && (
                         <p>
-                          Package: <strong>{entry.packageName}</strong>
+                          {t('membershipHistory.package')} <strong>{entry.packageName}</strong>
                         </p>
                       )}
                       {entry.totalSessions != null && (
-                        <p>Sessions: {entry.totalSessions}</p>
+                        <p>{t('membershipHistory.sessions', { count: entry.totalSessions })}</p>
                       )}
-                      {entry.price != null && <p>Price: ${entry.price}</p>}
+                      {entry.price != null && <p>{t('membershipHistory.price', { price: entry.price })}</p>}
                       {entry.expiryDate && (
-                        <p>Expires: {new Date(entry.expiryDate).toLocaleDateString()}</p>
+                        <p>{t('membershipHistory.expires', { date: new Date(entry.expiryDate).toLocaleDateString(locale) })}</p>
                       )}
                       {entry.newSessions != null && (
-                        <p>New sessions remaining: {entry.newSessions}</p>
+                        <p>{t('membershipHistory.newSessionsRemaining', { count: entry.newSessions })}</p>
                       )}
                       {entry.newExpiry && (
-                        <p>New expiry: {new Date(entry.newExpiry).toLocaleDateString()}</p>
+                        <p>{t('membershipHistory.newExpiry', { date: new Date(entry.newExpiry).toLocaleDateString(locale) })}</p>
                       )}
                       {entry.daysLeft != null && (
-                        <p>
-                          {entry.daysLeft} day{entry.daysLeft === 1 ? '' : 's'} until
-                          expiry
-                        </p>
+                        <p>{t('membershipHistory.daysUntilExpiry', { count: entry.daysLeft })}</p>
                       )}
                       {entry.reason && entry.type === 'package_expired' && (
                         <p className="text-muted-foreground text-xs">
-                          Reason:{' '}
-                          {entry.reason === 'all_sessions_used'
-                            ? 'All sessions used'
-                            : 'Expiry date passed'}
+                          {t('membershipHistory.reason', {
+                            reason: entry.reason === 'all_sessions_used'
+                              ? t('membershipHistory.reasons.allSessionsUsed')
+                              : t('membershipHistory.reasons.expiryDatePassed'),
+                          })}
                         </p>
                       )}
                     </div>

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,10 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 type CategoryScope = 'product' | 'treatment';
 const ALL_SCOPES: CategoryScope[] = ['product', 'treatment'];
-const SCOPE_LABELS: Record<CategoryScope, string> = {
-  product: 'Products',
-  treatment: 'Facials',
-};
+// Scope labels are translated at render time via t(`categoryManagement.scopes.${scope}`).
 
 interface ProductCategory {
   id: string;
@@ -50,12 +48,15 @@ interface ProductCategory {
 }
 
 export const ProductCategoryManagement: React.FC = () => {
+  const { t } = useTranslation('products');
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
+
+  const scopeLabel = (scope: CategoryScope) => t(`categoryManagement.scopes.${scope}`);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -97,7 +98,7 @@ export const ProductCategoryManagement: React.FC = () => {
       }));
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast({ title: "Error", description: "Failed to load categories", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('categoryManagement.toasts.loadFailed'), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -133,11 +134,11 @@ export const ProductCategoryManagement: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a category name",
+        title: t('categoryManagement.toasts.validationTitle'),
+        description: t('categoryManagement.toasts.enterName'),
         variant: "destructive"
       });
       return;
@@ -145,15 +146,15 @@ export const ProductCategoryManagement: React.FC = () => {
 
     if (formData.applies_to.length === 0) {
       toast({
-        title: "Validation Error",
-        description: "Pick at least one entity (Products or Facials).",
+        title: t('categoryManagement.toasts.validationTitle'),
+        description: t('categoryManagement.toasts.pickScope'),
         variant: "destructive"
       });
       return;
     }
 
     if (!currentOrganization?.id) {
-      toast({ title: "Error", description: "No organization selected", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('categoryManagement.toasts.noOrganization'), variant: "destructive" });
       return;
     }
 
@@ -171,14 +172,14 @@ export const ProductCategoryManagement: React.FC = () => {
 
       if (editingCategory) {
         await updateDoc(doc(db, 'organizations', currentOrganization.id, 'productCategories', editingCategory.id), categoryData);
-        toast({ title: "Success", description: "Category updated successfully" });
+        toast({ title: t('common:status.success'), description: t('categoryManagement.toasts.updated') });
       } else {
         await addDoc(collection(db, 'organizations', currentOrganization.id, 'productCategories'), {
           ...categoryData,
           created_at: now,
           created_at_ts: serverTimestamp(),
         });
-        toast({ title: "Success", description: "Category created successfully" });
+        toast({ title: t('common:status.success'), description: t('categoryManagement.toasts.created') });
       }
 
       setIsModalOpen(false);
@@ -186,36 +187,41 @@ export const ProductCategoryManagement: React.FC = () => {
       fetchCategories();
     } catch (error) {
       console.error('Error saving category:', error);
-      toast({ title: "Error", description: "Failed to save category", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('categoryManagement.toasts.saveFailed'), variant: "destructive" });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category? Products using this category will have their category removed.')) return;
+    if (!confirm(t('categoryManagement.confirmDelete'))) return;
 
     try {
       await deleteDoc(doc(db, 'organizations', currentOrganization!.id, 'productCategories', id));
-      toast({ title: "Success", description: "Category deleted successfully" });
+      toast({ title: t('common:status.success'), description: t('categoryManagement.toasts.deleted') });
       fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
-      toast({ title: "Error", description: "Failed to delete category", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('categoryManagement.toasts.deleteFailed'), variant: "destructive" });
     }
   };
 
   const toggleStatus = async (category: ProductCategory) => {
     try {
       await updateDoc(doc(db, 'organizations', currentOrganization!.id, 'productCategories', category.id), { is_active: !category.is_active });
-      toast({ title: "Success", description: `Category ${!category.is_active ? 'activated' : 'deactivated'}` });
+      toast({
+        title: t('common:status.success'),
+        description: !category.is_active
+          ? t('categoryManagement.toasts.activated')
+          : t('categoryManagement.toasts.deactivated'),
+      });
       fetchCategories();
     } catch (error) {
       console.error('Error updating category status:', error);
-      toast({ title: "Error", description: "Failed to update category status", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('categoryManagement.toasts.statusFailed'), variant: "destructive" });
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center p-8">Loading categories...</div>;
+    return <div className="flex items-center justify-center p-8">{t('categoryManagement.loading')}</div>;
   }
 
   return (
@@ -224,11 +230,11 @@ export const ProductCategoryManagement: React.FC = () => {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5 text-purple-600" />
-            Categories
+            {t('categoryManagement.title')}
           </CardTitle>
           <Button onClick={handleAdd} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
+            <Plus className="h-4 w-4 me-2" />
+            {t('categoryManagement.addCategory')}
           </Button>
         </div>
       </CardHeader>
@@ -239,17 +245,17 @@ export const ProductCategoryManagement: React.FC = () => {
               key={category.id}
               className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 rtl:space-x-reverse">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{category.name}</span>
                     <Badge variant={category.is_active ? "default" : "secondary"}>
-                      {category.is_active ? "Active" : "Inactive"}
+                      {category.is_active ? t('common:labels.active') : t('common:labels.inactive')}
                     </Badge>
                     {category.applies_to.map(scope => (
                       <Badge key={scope} variant="outline" className="text-xs">
-                        {SCOPE_LABELS[scope]}
+                        {scopeLabel(scope)}
                       </Badge>
                     ))}
                   </div>
@@ -258,7 +264,7 @@ export const ProductCategoryManagement: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <Switch
                   checked={category.is_active}
                   onCheckedChange={() => toggleStatus(category)}
@@ -284,11 +290,11 @@ export const ProductCategoryManagement: React.FC = () => {
           {categories.length === 0 && (
             <div className="text-center py-8">
               <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No categories yet</h3>
-              <p className="text-muted-foreground mb-4">Create categories to organize your products and facials.</p>
+              <h3 className="text-lg font-medium mb-2">{t('categoryManagement.emptyTitle')}</h3>
+              <p className="text-muted-foreground mb-4">{t('categoryManagement.emptyDescription')}</p>
               <Button onClick={handleAdd}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Category
+                <Plus className="h-4 w-4 me-2" />
+                {t('categoryManagement.addCategory')}
               </Button>
             </div>
           )}
@@ -300,48 +306,48 @@ export const ProductCategoryManagement: React.FC = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingCategory ? 'Edit Category' : 'Add New Category'}
+              {editingCategory ? t('categoryManagement.editCategory') : t('categoryManagement.addNewCategory')}
             </DialogTitle>
             <DialogDescription>
-              {editingCategory ? 'Update category information' : 'Create a category for products, facials, or both'}
+              {editingCategory ? t('categoryManagement.updateDescription') : t('categoryManagement.createDescription')}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Category Name *</label>
+              <label className="text-sm font-medium">{t('categoryManagement.fields.name')}</label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="Enter category name"
+                placeholder={t('categoryManagement.fields.namePlaceholder')}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">{t('categoryManagement.fields.description')}</label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Enter category description (optional)"
+                placeholder={t('categoryManagement.fields.descriptionPlaceholder')}
                 rows={3}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Sort Order</label>
+              <label className="text-sm font-medium">{t('categoryManagement.fields.sortOrder')}</label>
               <Input
                 type="number"
                 value={formData.sort_order}
                 onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value) || 0})}
-                placeholder="0"
+                placeholder={t('categoryManagement.fields.sortOrderPlaceholder')}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Applies to *</label>
+              <label className="text-sm font-medium">{t('categoryManagement.fields.appliesTo')}</label>
               <p className="text-xs text-muted-foreground mb-2">
-                Where this category appears as a dropdown option.
+                {t('categoryManagement.fields.appliesToHelp')}
               </p>
               <div className="flex flex-wrap gap-3">
                 {ALL_SCOPES.map(scope => {
@@ -360,27 +366,27 @@ export const ProductCategoryManagement: React.FC = () => {
                           setFormData({ ...formData, applies_to: next });
                         }}
                       />
-                      <span className="text-sm">{SCOPE_LABELS[scope]}</span>
+                      <span className="text-sm">{scopeLabel(scope)}</span>
                     </label>
                   );
                 })}
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
               />
-              <label className="text-sm font-medium">Active</label>
+              <label className="text-sm font-medium">{t('categoryManagement.fields.active')}</label>
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type="submit">
-                {editingCategory ? 'Update Category' : 'Add Category'}
+                {editingCategory ? t('categoryManagement.updateCategory') : t('categoryManagement.addCategory')}
               </Button>
             </DialogFooter>
           </form>

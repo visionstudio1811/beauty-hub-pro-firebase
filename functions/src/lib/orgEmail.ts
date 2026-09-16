@@ -1,12 +1,35 @@
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { loadSecret } from './integrationSecrets';
+import {
+  AppLanguage,
+  DEFAULT_LANGUAGE,
+  defineStrings,
+  htmlDirAttrs,
+  localeFor,
+  makeT,
+  orgLanguageFromData,
+} from './i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Copy used by the bare-bones fallback wrapper (when an org has no designed
+// template for the requested type). The {{merge_tags}} are resolved later by
+// renderTemplate — never pass vars to t() here.
+const STRINGS = defineStrings({
+  en: {
+    fallback_greeting: 'Hi {{client_name}},',
+    fallback_signoff: '— {{organization_name}}',
+  },
+  he: {
+    fallback_greeting: 'שלום {{client_name}},',
+    fallback_signoff: 'בברכה, {{organization_name}}',
+  },
+});
 
 export type AutomationKey =
   | 'welcome'
@@ -39,6 +62,8 @@ export interface OrgEmailContext {
   headerImageUrl: string;
   automations: Partial<Record<AutomationKey, AutomationConfig>>;
   resend: Resend;
+  /** Org language (organizations/{orgId}.language, default 'en'). Optional for back-compat with hand-built contexts. */
+  lang?: AppLanguage;
 }
 
 /**
@@ -79,7 +104,13 @@ export async function loadOrgEmailContext(orgId: string): Promise<OrgEmailContex
     headerImageUrl: (integration.email_header_image_url as string | undefined) ?? '',
     automations: (integration.email_automations ?? {}) as OrgEmailContext['automations'],
     resend: new Resend(apiKey),
+    lang: orgLanguageFromData(orgData),
   };
+}
+
+/** Resolves the language for a context: explicit `ctx.lang`, else the loaded org doc, else 'en'. */
+export function orgEmailLanguage(ctx: OrgEmailContext): AppLanguage {
+  return ctx.lang ?? orgLanguageFromData(ctx.orgData);
 }
 
 /** Reads a single automation config, returning empty object if missing. */
@@ -118,15 +149,26 @@ export function renderTemplate(html: string, variables: Record<string, string>):
   return rendered;
 }
 
-const FALLBACK_TEMPLATE = `
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+/**
+ * Bare-bones wrapper used when the org has no designed template for the
+ * requested type. Language-aware: Hebrew renders dir="rtl" + right-aligned.
+ */
+function fallbackTemplate(lang: AppLanguage = DEFAULT_LANGUAGE): string {
+  const t = makeT(STRINGS, lang);
+  const { dir, align } = htmlDirAttrs(lang);
+  return `
+<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8"></head>
+<body dir="${dir}" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;text-align:${align}">
   <h2 style="color:#1a1a1a">{{subject}}</h2>
-  <p>Hi {{client_name}},</p>
+  <p>${t('fallback_greeting')}</p>
   <div style="line-height:1.6">{{message}}</div>
   <br>
-  <p style="color:#666;font-size:13px">— {{organization_name}}</p>
+  <p style="color:#666;font-size:13px">${t('fallback_signoff')}</p>
 </body></html>`;
+}
+
+/** English fallback, kept as a constant for any existing references. */
+const FALLBACK_TEMPLATE = fallbackTemplate(DEFAULT_LANGUAGE);
 
 interface SendOrgEmailOptions {
   ctx: OrgEmailContext;
@@ -143,6 +185,11 @@ interface SendOrgEmailOptions {
   refId?: string;
   /** Optional HTML injected just before </body> (e.g. appointment CTA buttons). */
   appendHtml?: string;
+  /**
+   * Language for the fallback wrapper + `{{date}}`/`{{datetime}}` merge vars.
+   * Defaults to the org's language from `ctx` (which itself defaults to 'en').
+   */
+  lang?: AppLanguage;
 }
 
 /**
@@ -151,9 +198,11 @@ interface SendOrgEmailOptions {
  */
 export async function sendOrgEmail(opts: SendOrgEmailOptions): Promise<{ messageId: string | null; status: 'delivered' | 'failed'; error?: string }> {
   const { ctx, to, subject, templateType, variables = {}, clientId, automationKey, refType, refId, appendHtml } = opts;
+  const lang: AppLanguage = opts.lang ?? orgEmailLanguage(ctx);
+  const locale = localeFor(lang);
 
   const template = ctx.emailTemplates[templateType] || ctx.emailTemplates['general'] || ctx.emailTemplates['default'];
-  const templateHtml = template?.html || FALLBACK_TEMPLATE;
+  const templateHtml = template?.html || (lang === DEFAULT_LANGUAGE ? FALLBACK_TEMPLATE : fallbackTemplate(lang));
   const templateSettings = (template?.settings ?? {}) as Record<string, unknown>;
 
   const orgTimezone = ctx.orgData.timezone || 'America/New_York';
@@ -172,8 +221,8 @@ export async function sendOrgEmail(opts: SendOrgEmailOptions): Promise<{ message
     sender_name: ctx.fromName,
     from_email: ctx.fromEmail,
     cta_url: '',
-    date: new Date().toLocaleDateString('en-US', { timeZone: orgTimezone }),
-    datetime: new Date().toLocaleString('en-US', { timeZone: orgTimezone }),
+    date: new Date().toLocaleDateString(locale, { timeZone: orgTimezone }),
+    datetime: new Date().toLocaleString(locale, { timeZone: orgTimezone }),
     ...Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, String(v ?? '')])),
   };
 

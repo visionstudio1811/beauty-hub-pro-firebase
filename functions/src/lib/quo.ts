@@ -2,6 +2,26 @@ import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
 import { HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import { loadSecret } from './integrationSecrets';
+import { defineStrings, getCallerLanguage, makeT } from './i18n';
+
+const GUARD_STRINGS = defineStrings({
+  en: {
+    unauthorized: 'Unauthorized',
+    userNotFound: 'User not found',
+    orgMismatch: 'Organization mismatch',
+    staffRequired: 'Staff or admin access required',
+    notConfigured: 'Quo integration not configured or disabled.',
+    credentialsIncomplete: 'Quo credentials incomplete.',
+  },
+  he: {
+    unauthorized: 'אין הרשאה',
+    userNotFound: 'המשתמש לא נמצא',
+    orgMismatch: 'אי-התאמה בארגון',
+    staffRequired: 'נדרשת הרשאת צוות או מנהל',
+    notConfigured: 'חיבור Quo לא הוגדר או מושבת.',
+    credentialsIncomplete: 'פרטי ההתחברות ל-Quo אינם מלאים.',
+  },
+});
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -121,34 +141,35 @@ export function verifyQuoSignature(opts: {
 export async function requireQuoAdmin(
   request: CallableRequest,
 ): Promise<{ orgId: string; ref: admin.firestore.DocumentReference; data: QuoIntegrationData; cfg: QuoConfig }> {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Unauthorized');
+  if (!request.auth) throw new HttpsError('unauthenticated', GUARD_STRINGS.en.unauthorized);
 
   const uid = request.auth.uid;
   const { organizationId } = request.data as { organizationId?: string };
 
   const userDoc = await db.collection('users').doc(uid).get();
-  if (!userDoc.exists) throw new HttpsError('permission-denied', 'User not found');
+  const t = makeT(GUARD_STRINGS, await getCallerLanguage(uid, organizationId ?? userDoc.data()?.organizationId, db));
+  if (!userDoc.exists) throw new HttpsError('permission-denied', t('userNotFound'));
   const userData = userDoc.data()!;
   const orgId = organizationId || userData.organizationId;
 
   if (!orgId || userData.organizationId !== orgId) {
-    throw new HttpsError('permission-denied', 'Organization mismatch');
+    throw new HttpsError('permission-denied', t('orgMismatch'));
   }
   if (!['admin', 'staff'].includes(userData.role)) {
-    throw new HttpsError('permission-denied', 'Staff or admin access required');
+    throw new HttpsError('permission-denied', t('staffRequired'));
   }
 
   const ref = quoIntegrationRef(orgId);
   const snap = await ref.get();
   if (!snap.exists || !snap.data()?.is_enabled) {
-    throw new HttpsError('not-found', 'Quo integration not configured or disabled.');
+    throw new HttpsError('not-found', t('notConfigured'));
   }
   const data = snap.data() as QuoIntegrationData;
   // apiKey from the write-only secret subdoc (legacy configuration.apiKey fallback).
   const secret = await loadSecret(orgId, 'quo', data);
   const cfg = { ...(data.configuration ?? {}), ...secret } as QuoConfig;
   if (!cfg.apiKey || !cfg.fromNumber) {
-    throw new HttpsError('failed-precondition', 'Quo credentials incomplete.');
+    throw new HttpsError('failed-precondition', t('credentialsIncomplete'));
   }
 
   return { orgId, ref, data, cfg };

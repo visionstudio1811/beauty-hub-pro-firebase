@@ -6,6 +6,8 @@ import { RotateCcw, Trash2 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface DeletedClientsTableProps {
   clients: Client[];
@@ -18,6 +20,8 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
   onRestore,
   onPermanentDelete
 }) => {
+  const { t } = useTranslation('clients');
+  const { locale } = useLanguage();
   const isMobile = useIsMobile();
 
   return (
@@ -25,11 +29,11 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
       <Table className="w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[140px] sm:w-[180px]">Name</TableHead>
-            <TableHead className="w-[100px] sm:w-[120px]">Phone</TableHead>
-            {!isMobile && <TableHead className="w-[160px] sm:w-[200px]">Email</TableHead>}
-            <TableHead className="w-[120px] sm:w-[140px]">Deleted Date</TableHead>
-            <TableHead className="w-[120px] sm:w-[160px]">Actions</TableHead>
+            <TableHead className="w-[140px] sm:w-[180px]">{t('columns.name')}</TableHead>
+            <TableHead className="w-[100px] sm:w-[120px]">{t('columns.phone')}</TableHead>
+            {!isMobile && <TableHead className="w-[160px] sm:w-[200px]">{t('columns.email')}</TableHead>}
+            <TableHead className="w-[120px] sm:w-[140px]">{t('columns.deletedDate')}</TableHead>
+            <TableHead className="w-[120px] sm:w-[160px]">{t('columns.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -39,21 +43,21 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
                 <div className="max-w-[120px] sm:max-w-[160px]">
                   <div className="font-medium truncate">{client.name}</div>
                   {isMobile && client.email && (
-                    <div className="text-sm text-gray-500 truncate">{client.email}</div>
+                    <div className="text-sm text-gray-500 truncate ltr-inline">{client.email}</div>
                   )}
                 </div>
               </TableCell>
               <TableCell className="p-2 sm:p-4">
-                <div className="truncate max-w-[80px] sm:max-w-[100px]">{client.phone}</div>
+                <div className="truncate max-w-[80px] sm:max-w-[100px] ltr-inline">{client.phone}</div>
               </TableCell>
               {!isMobile && (
                 <TableCell className="p-2 sm:p-4">
-                  <div className="truncate max-w-[140px] sm:max-w-[180px]">{client.email || 'N/A'}</div>
+                  <div className="truncate max-w-[140px] sm:max-w-[180px]">{client.email ? <span className="ltr-inline">{client.email}</span> : t('table.notAvailable')}</div>
                 </TableCell>
               )}
               <TableCell className="p-2 sm:p-4">
                 <div className="truncate max-w-[100px] sm:max-w-[120px]">
-                  {client.deleted_at ? new Date(client.deleted_at).toLocaleDateString() : 'N/A'}
+                  {client.deleted_at ? new Date(client.deleted_at).toLocaleDateString(locale) : t('table.notAvailable')}
                 </div>
               </TableCell>
               <TableCell className="p-1 sm:p-4">
@@ -62,7 +66,8 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
                     size="sm"
                     variant="outline"
                     onClick={() => onRestore(client.id)}
-                    title="Restore Client"
+                    title={t('deletedTable.restoreClient')}
+                    aria-label={t('deletedTable.restoreClient')}
                     className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -73,7 +78,8 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        title="Permanently Delete Client"
+                        title={t('deletedTable.permanentlyDeleteClient')}
+                        aria-label={t('deletedTable.permanentlyDeleteClient')}
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -81,19 +87,18 @@ export const DeletedClientsTable: React.FC<DeletedClientsTableProps> = ({
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Permanently Delete Client?</AlertDialogTitle>
+                        <AlertDialogTitle>{t('deletedTable.dialogTitle')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete "{client.name}" from the database. 
-                          This action cannot be undone.
+                          {t('deletedTable.dialogDescription', { name: `"${client.name}"` })}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
                         <AlertDialogAction 
                           onClick={() => onPermanentDelete(client.id)}
                           className="bg-red-600 hover:bg-red-700"
                         >
-                          Permanently Delete
+                          {t('deletedTable.confirm')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

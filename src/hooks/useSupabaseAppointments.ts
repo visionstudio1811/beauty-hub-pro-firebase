@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { useAuth } from '@/contexts/AuthContext';
 import { sanitizeString, sanitizeDateString } from '@/lib/dataSanitization';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 
 export interface AppointmentAddonSnapshot {
   addon_id: string;
@@ -63,16 +65,25 @@ export interface SupabaseAppointment {
   reschedule_requested?: boolean;
 }
 
+// Sentinel used only to detect when sanitizeString had to fall back. Missing or
+// malformed display names are persisted as null (never an English placeholder)
+// so the read path in sanitizeAppointmentData can localize the fallback.
+const MISSING_NAME = '\u0000missing';
+const persistedName = (value: unknown): string | null => {
+  const sanitized = sanitizeString(value, MISSING_NAME);
+  return sanitized === MISSING_NAME ? null : sanitized;
+};
+
 const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => ({
   id,
   client_id: data.client_id,
-  client_name: sanitizeString(data.client_name, 'Unknown Client'),
-  client_phone: sanitizeString(data.client_phone, 'No Phone'),
-  client_email: sanitizeString(data.client_email, 'No Email'),
+  client_name: sanitizeString(data.client_name, i18n.t('hooks:fallbacks.unknownClient')),
+  client_phone: sanitizeString(data.client_phone, i18n.t('hooks:fallbacks.noPhone')),
+  client_email: sanitizeString(data.client_email, i18n.t('hooks:fallbacks.noEmail')),
   treatment_id: data.treatment_id,
-  treatment_name: sanitizeString(data.treatment_name, 'Unknown Treatment'),
+  treatment_name: sanitizeString(data.treatment_name, i18n.t('hooks:fallbacks.unknownTreatment')),
   staff_id: data.staff_id,
-  staff_name: sanitizeString(data.staff_name, 'Unknown Staff'),
+  staff_name: sanitizeString(data.staff_name, i18n.t('hooks:fallbacks.unknownStaff')),
   appointment_date: sanitizeDateString(data.appointment_date),
   appointment_time: sanitizeString(data.appointment_time, '09:00'),
   duration: typeof data.duration === 'number' ? data.duration : 60,
@@ -90,7 +101,7 @@ const sanitizeAppointmentData = (id: string, data: any): SupabaseAppointment => 
   addons: Array.isArray(data.addons)
     ? data.addons.map((a: any) => ({
         addon_id: String(a?.addon_id ?? ''),
-        name: sanitizeString(a?.name, 'Add-on'),
+        name: sanitizeString(a?.name, i18n.t('hooks:fallbacks.addon')),
         price: typeof a?.price === 'number' ? a.price : Number(a?.price ?? 0),
         duration_minutes:
           typeof a?.duration_minutes === 'number' ? a.duration_minutes : Number(a?.duration_minutes ?? 0),
@@ -120,6 +131,7 @@ export const useSupabaseAppointments = () => {
   const [appointments, setAppointments] = useState<SupabaseAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { logSecurityEvent } = useSecurityValidation();
   const { user, profile } = useAuth();
 
@@ -146,8 +158,8 @@ export const useSupabaseAppointments = () => {
         error: error instanceof Error ? error.message : String(error),
       });
       toast({
-        title: 'Error',
-        description: 'Failed to load appointments. Please try refreshing the page.',
+        title: t('common:status.error'),
+        description: t('appointments.loadFailed'),
         variant: 'destructive',
       });
       setAppointments([]);
@@ -163,16 +175,18 @@ export const useSupabaseAppointments = () => {
   const addAppointment = async (
     appointmentData: Omit<SupabaseAppointment, 'id' | 'created_at' | 'updated_at'>
   ): Promise<SupabaseAppointment> => {
-    if (!user) throw new Error('You must be logged in to create appointments');
-    if (!profile?.organizationId) throw new Error('User profile must be associated with an organization');
+    if (!user) throw new Error(t('appointments.mustBeLoggedIn'));
+    if (!profile?.organizationId) throw new Error(t('appointments.profileNeedsOrganization'));
 
     try {
+      // Missing/malformed names are stored as null so no English placeholder is
+      // persisted; sanitizeAppointmentData localizes the display fallback on read.
       const sanitizedData = {
         ...appointmentData,
         organization_id: profile.organizationId,
-        client_name: sanitizeString(appointmentData.client_name, 'Unknown Client'),
-        treatment_name: sanitizeString(appointmentData.treatment_name, 'Unknown Treatment'),
-        staff_name: sanitizeString(appointmentData.staff_name, 'Unknown Staff'),
+        client_name: persistedName(appointmentData.client_name),
+        treatment_name: persistedName(appointmentData.treatment_name),
+        staff_name: persistedName(appointmentData.staff_name),
         appointment_date: sanitizeDateString(appointmentData.appointment_date),
         appointment_time: sanitizeString(appointmentData.appointment_time, '09:00'),
         created_at: serverTimestamp(),
@@ -199,13 +213,13 @@ export const useSupabaseAppointments = () => {
       );
 
       await logSecurityEvent('APPOINTMENT_CREATED', { appointmentId: newAppointment.id });
-      toast({ title: 'Success', description: 'Appointment created successfully' });
+      toast({ title: t('common:status.success'), description: t('appointments.created') });
       return newAppointment;
     } catch (error) {
       console.error('Error adding appointment:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create appointment';
+      const errorMessage = error instanceof Error ? error.message : t('appointments.createFailed');
       await logSecurityEvent('APPOINTMENT_CREATE_FAILED', { error: errorMessage });
-      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: errorMessage, variant: 'destructive' });
       throw error;
     }
   };
@@ -214,12 +228,12 @@ export const useSupabaseAppointments = () => {
     id: string,
     updates: Partial<SupabaseAppointment>
   ): Promise<SupabaseAppointment> => {
-    if (!profile?.organizationId) throw new Error('No organization');
+    if (!profile?.organizationId) throw new Error(t('common.noOrganization'));
     try {
-      const sanitizedUpdates = { ...updates };
-      if (updates.client_name) sanitizedUpdates.client_name = sanitizeString(updates.client_name, 'Unknown Client');
-      if (updates.treatment_name) sanitizedUpdates.treatment_name = sanitizeString(updates.treatment_name, 'Unknown Treatment');
-      if (updates.staff_name) sanitizedUpdates.staff_name = sanitizeString(updates.staff_name, 'Unknown Staff');
+      const sanitizedUpdates: Record<string, unknown> = { ...updates };
+      if (updates.client_name) sanitizedUpdates.client_name = persistedName(updates.client_name);
+      if (updates.treatment_name) sanitizedUpdates.treatment_name = persistedName(updates.treatment_name);
+      if (updates.staff_name) sanitizedUpdates.staff_name = persistedName(updates.staff_name);
       if (updates.appointment_date) sanitizedUpdates.appointment_date = sanitizeDateString(updates.appointment_date);
       if (updates.appointment_time) sanitizedUpdates.appointment_time = sanitizeString(updates.appointment_time, '09:00');
 
@@ -231,29 +245,29 @@ export const useSupabaseAppointments = () => {
 
       setAppointments(prev => prev.map(apt => (apt.id === id ? updatedAppointment : apt)));
       await logSecurityEvent('APPOINTMENT_UPDATED', { appointmentId: id, updates });
-      toast({ title: 'Success', description: 'Appointment updated successfully' });
+      toast({ title: t('common:status.success'), description: t('appointments.updated') });
       return updatedAppointment;
     } catch (error: any) {
       console.error('Error updating appointment:', error);
       await logSecurityEvent('APPOINTMENT_UPDATE_FAILED', { appointmentId: id, error: error.message });
-      toast({ title: 'Error', description: 'Failed to update appointment', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('appointments.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };
 
   const deleteAppointment = async (id: string) => {
-    if (!profile?.organizationId) throw new Error('No organization');
+    if (!profile?.organizationId) throw new Error(t('common.noOrganization'));
     try {
       const appointmentRef = doc(db, 'organizations', profile.organizationId, 'appointments', id);
       await deleteDoc(appointmentRef);
 
       setAppointments(prev => prev.filter(apt => apt.id !== id));
       await logSecurityEvent('APPOINTMENT_DELETED', { appointmentId: id });
-      toast({ title: 'Success', description: 'Appointment deleted successfully' });
+      toast({ title: t('common:status.success'), description: t('appointments.deleted') });
     } catch (error: any) {
       console.error('Error deleting appointment:', error);
       await logSecurityEvent('APPOINTMENT_DELETE_FAILED', { appointmentId: id, error: error.message });
-      toast({ title: 'Error', description: 'Failed to delete appointment', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('appointments.deleteFailed'), variant: 'destructive' });
       throw error;
     }
   };

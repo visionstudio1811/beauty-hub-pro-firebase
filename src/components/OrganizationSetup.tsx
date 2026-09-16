@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ interface OrganizationSetupProps {
 }
 
 export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete }) => {
+  const { t } = useTranslation('shell');
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -50,12 +52,12 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York',
         is_active: true
       });
-      
+
       toast({
-        title: "Welcome!",
-        description: "Your organization has been set up successfully."
+        title: t('orgSetup.welcomeToast.title'),
+        description: t('orgSetup.welcomeToast.description')
       });
-      
+
       onComplete();
     } catch (error) {
       console.error('Failed to create organization:', error);
@@ -66,90 +68,93 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 end-4">
         <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
+          <LogOut className="h-4 w-4 me-2 rtl:rotate-180" />
+          {t('common:actions.signOut')}
         </Button>
       </div>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to Beauty CRM</CardTitle>
+          <CardTitle className="text-2xl">{t('orgSetup.title')}</CardTitle>
           <CardDescription>
-            Let's set up your salon organization to get started
+            {t('orgSetup.description')}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Salon Name *</Label>
+              <Label htmlFor="name">{t('orgSetup.fields.name')}</Label>
               <Input
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="Beautiful Salon & Spa"
+                placeholder={t('orgSetup.fields.namePlaceholder')}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="slug">URL Slug *</Label>
+              <Label htmlFor="slug">{t('orgSetup.fields.slug')}</Label>
               <Input
                 id="slug"
                 name="slug"
                 value={formData.slug}
                 onChange={handleInputChange}
-                placeholder="beautiful-salon-spa"
+                placeholder={t('orgSetup.fields.slugPlaceholder')}
+                dir="ltr"
                 required
               />
               <p className="text-sm text-muted-foreground">
-                This will be used in your custom URL
+                {t('orgSetup.fields.slugHelp')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('common:labels.email')}</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                placeholder="contact@beautifulsalon.com"
+                placeholder={t('orgSetup.fields.emailPlaceholder')}
+                dir="ltr"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('common:labels.phone')}</Label>
               <Input
                 id="phone"
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                placeholder="+1 (555) 123-4567"
+                placeholder={t('orgSetup.fields.phonePlaceholder')}
+                dir="ltr"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('common:labels.address')}</Label>
               <Textarea
                 id="address"
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
-                placeholder="123 Beauty Street, City, State 12345"
+                placeholder={t('orgSetup.fields.addressPlaceholder')}
                 rows={3}
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoading || !formData.name || !formData.slug}
             >
-              {isLoading ? 'Creating...' : 'Create Organization'}
+              {isLoading ? t('orgSetup.creating') : t('orgSetup.create')}
             </Button>
           </form>
         </CardContent>

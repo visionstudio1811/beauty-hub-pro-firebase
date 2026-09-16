@@ -12,6 +12,8 @@ import {
 import { ref, getDownloadURL } from 'firebase/storage';
 import { db, functions, storage } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
+import { useTranslation, Trans } from 'react-i18next';
+import i18n from '@/i18n';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -72,32 +74,19 @@ interface Props {
 
 type SendMode = 'sms' | 'email' | 'device';
 
-const KIND_COPY: Record<TemplateKind, { singular: string; sendTitle: string; historyTitle: string; empty: string }> = {
-  waiver: {
-    singular: 'Waiver',
-    sendTitle: 'Send New Waiver',
-    historyTitle: 'Waiver History',
-    empty: 'No waivers sent yet.',
-  },
-  intake: {
-    singular: 'Intake Form',
-    sendTitle: 'Send New Intake Form',
-    historyTitle: 'Intake Form History',
-    empty: 'No intake forms sent yet.',
-  },
-  agreement: {
-    singular: 'Agreement of Purchase',
-    sendTitle: 'Send New Agreement of Purchase',
-    historyTitle: 'Agreement of Purchase History',
-    empty: 'No agreements of purchase sent yet.',
-  },
-};
-
 export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
+  const { t } = useTranslation('waivers');
   const { currentOrganization } = useOrganization();
   const { profile } = useAuth();
   const { toast } = useToast();
-  const copy = KIND_COPY[kind];
+  const copy = {
+    singular: t(`clientWaiversTab.kinds.${kind}.singular`),
+    singularLower: t(`clientWaiversTab.kinds.${kind}.singularLower`),
+    sendTitle: t(`clientWaiversTab.kinds.${kind}.sendTitle`),
+    historyTitle: t(`clientWaiversTab.kinds.${kind}.historyTitle`),
+    empty: t(`clientWaiversTab.kinds.${kind}.empty`),
+    settingsLocation: t(`clientWaiversTab.kinds.${kind}.settingsLocation`),
+  };
   const canDelete = profile?.role === 'admin';
 
   const [templates, setTemplates]       = useState<WaiverTemplate[]>([]);
@@ -141,7 +130,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
         title: d.data().title ?? '',
         kind: (d.data().kind as TemplateKind) ?? 'waiver',
       }));
-      const tpls = allTpls.filter(t => t.kind === kind);
+      const tpls = allTpls.filter(tpl => tpl.kind === kind);
 
       const waiverList: WaiverRecord[] = await Promise.all(
         (waiverSnap?.docs ?? []).map(async (d) => {
@@ -211,21 +200,21 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
       });
 
       const data = result.data as { success?: boolean; error?: string; waiver_url?: string };
-      if (!data?.success) throw new Error(data?.error ?? 'Unknown error');
+      if (!data?.success) throw new Error(data?.error ?? t('send.unknownError'));
 
       if (mode === 'device' && data.waiver_url) {
         // Open the waiver directly in a new tab for the client to fill in-store
         window.open(data.waiver_url, '_blank');
-        toast({ title: 'Waiver ready', description: 'Hand the device to the client to fill out.' });
+        toast({ title: t('clientWaiversTab.toasts.readyTitle'), description: t('clientWaiversTab.toasts.readyDescription') });
       } else if (mode === 'email') {
-        toast({ title: 'Waiver sent', description: `Email sent to ${client.email}` });
+        toast({ title: t('clientWaiversTab.toasts.sentTitle'), description: t('send.emailSentTo', { email: client.email }) });
       } else {
-        toast({ title: 'Waiver sent', description: `SMS sent to ${client.phone}` });
+        toast({ title: t('clientWaiversTab.toasts.sentTitle'), description: t('send.smsSentTo', { phone: client.phone }) });
       }
       await load();
     } catch (err: unknown) {
       toast({
-        title: 'Failed to send waiver',
+        title: t('clientWaiversTab.toasts.sendFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });
@@ -247,28 +236,36 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
 
   const handleEmailDocument = async (w: WaiverRecord) => {
     if (!client.email) {
-      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      toast({ title: t('clientWaiversTab.toasts.noEmailTitle'), description: t('clientWaiversTab.toasts.noEmailDescription'), variant: 'destructive' });
       return;
     }
     if (!w.pdf_url) {
-      toast({ title: 'PDF not ready', description: 'The signed PDF is not available yet.', variant: 'destructive' });
+      toast({ title: t('clientWaiversTab.toasts.pdfNotReadyTitle'), description: t('clientWaiversTab.toasts.pdfNotReadyDescription'), variant: 'destructive' });
       return;
     }
     if (!currentOrganization?.id) return;
     setEmailingDocId(w.id);
     try {
       const sendEmail = httpsCallable(functions, 'sendClientEmail');
-      const title = w.waiver_templates?.title ?? copy.singular;
+      // The email goes to the client, so it follows the org's default language
+      // (client portal / public forms / emails), not the staff member's UI language.
+      const emailLang = currentOrganization.language ?? i18n.language;
+      const te = i18n.getFixedT(emailLang, 'waivers');
+      const title = w.waiver_templates?.title ?? te(`clientWaiversTab.kinds.${kind}.singular`);
       await sendEmail({
         to: client.email,
-        subject: `Your signed ${title}`,
-        message: `Hi ${client.name || 'there'},\n\nA copy of your signed ${title} is available below.\n\nView / Download:\n${w.pdf_url}\n\nThank you!`,
+        subject: te('clientWaiversTab.emailContent.subject', { title }),
+        message: te('clientWaiversTab.emailContent.body', {
+          name: client.name || te('clientWaiversTab.emailContent.fallbackName'),
+          title,
+          url: w.pdf_url,
+        }),
         clientId: client.id,
         organizationId: currentOrganization.id,
       });
-      toast({ title: 'Document sent', description: `Emailed to ${client.email}.` });
+      toast({ title: t('clientWaiversTab.toasts.documentSent'), description: t('clientWaiversTab.toasts.emailedTo', { email: client.email }) });
     } catch (err: any) {
-      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send document email.', variant: 'destructive' });
+      toast({ title: t('clientWaiversTab.toasts.sendDocFailed'), description: err?.message ?? t('clientWaiversTab.toasts.sendDocFailedDescription'), variant: 'destructive' });
     } finally {
       setEmailingDocId(null);
     }
@@ -281,11 +278,11 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
       const deleteWaiverFn = httpsCallable(functions, 'deleteWaiver');
       await deleteWaiverFn({ organizationId: currentOrganization.id, waiverId: w.id });
       setWaivers(prev => prev.filter(x => x.id !== w.id));
-      toast({ title: 'Deleted', description: `${copy.singular} deleted.` });
+      toast({ title: t('clientWaiversTab.toasts.deleted'), description: t('clientWaiversTab.toasts.deletedDescription', { kind: copy.singular }) });
     } catch (err: any) {
       toast({
-        title: 'Failed to delete',
-        description: err?.message ?? 'Could not delete.',
+        title: t('clientWaiversTab.toasts.deleteFailed'),
+        description: err?.message ?? t('clientWaiversTab.toasts.deleteFailedDescription'),
         variant: 'destructive',
       });
     } finally {
@@ -312,22 +309,24 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
 
         {templates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No {copy.singular.toLowerCase()} templates found. Create one in{' '}
-            <span className="font-medium">
-              Settings → {kind === 'intake' ? 'Intake Forms' : kind === 'agreement' ? 'Agreements of Purchase' : 'Waivers'}
-            </span>.
+            <Trans
+              t={t}
+              i18nKey="clientWaiversTab.noTemplates"
+              values={{ kind: copy.singularLower, location: copy.settingsLocation }}
+              components={{ b: <span className="font-medium" /> }}
+            />
           </p>
         ) : (
           <>
             <div className="space-y-1">
-              <Label className="text-xs">Template</Label>
+              <Label className="text-xs">{t('send.template')}</Label>
               <Select value={selectedTpl} onValueChange={setSelectedTpl}>
                 <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select template" />
+                  <SelectValue placeholder={t('send.selectTemplate')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>{tpl.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -335,7 +334,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
 
             {/* SMS provider + OTP options */}
             <div className="rounded-lg border border-border bg-background p-3 space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">SMS Provider</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t('send.smsProvider')}</Label>
               <div className="flex gap-2">
                 {(['infobip', 'twilio', 'quo'] as SmsProvider[]).map(p => (
                   <button
@@ -360,12 +359,12 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                 />
                 <Label htmlFor="otp-toggle" className="text-xs flex items-center gap-1.5 cursor-pointer">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  Require OTP verification
+                  {t('send.requireOtp')}
                 </Label>
               </div>
               {requiresOtp && (
                 <p className="text-xs text-muted-foreground">
-                  Client will receive a 6-digit code via SMS and must enter it before viewing the form.
+                  {t('clientWaiversTab.otpHint')}
                 </p>
               )}
             </div>
@@ -377,10 +376,10 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                 onClick={() => sendWaiver('sms')}
                 disabled={sendingMode !== null || !selectedTpl || !client.phone}
                 className="gap-1.5 h-9"
-                title={!client.phone ? 'Client has no phone number' : undefined}
+                title={!client.phone ? t('send.noPhone') : undefined}
               >
                 {sendingMode === 'sms' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                Send via SMS {requiresOtp ? '+ OTP' : ''}
+                {requiresOtp ? t('send.sendViaSmsOtp') : t('send.sendViaSms')}
               </Button>
 
               <Button
@@ -389,10 +388,10 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                 onClick={() => sendWaiver('email')}
                 disabled={sendingMode !== null || !selectedTpl || !client.email}
                 className="gap-1.5 h-9"
-                title={!client.email ? 'Client has no email on file' : undefined}
+                title={!client.email ? t('send.noEmail') : undefined}
               >
                 {sendingMode === 'email' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Send via Email
+                {t('send.sendViaEmail')}
               </Button>
 
               <Button
@@ -402,13 +401,13 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                 className="gap-1.5 h-9"
               >
                 {sendingMode === 'device' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tablet className="h-4 w-4" />}
-                Fill now on this device
+                {t('clientWaiversTab.fillOnDevice')}
               </Button>
             </div>
 
             {!client.phone && !client.email && (
               <p className="text-xs text-destructive">
-                This client has no phone or email — use "Fill now on this device".
+                {t('clientWaiversTab.noContact')}
               </p>
             )}
           </>
@@ -442,12 +441,12 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                       {w.waiver_templates?.title ?? copy.singular}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Sent {safeFormatters.shortDate(w.createdAt) || '—'}
+                      {t('clientWaiversTab.sent', { date: safeFormatters.shortDate(w.createdAt) || '—' })}
                       {w.status === 'signed' && w.signed_at && (
-                        <> · Signed {safeFormatters.shortDate(w.signed_at) || '—'}</>
+                        <> · {t('clientWaiversTab.signed', { date: safeFormatters.shortDate(w.signed_at) || '—' })}</>
                       )}
                       {w.imageUrls.length > 0 && (
-                        <> · {w.imageUrls.length} photo{w.imageUrls.length > 1 ? 's' : ''}</>
+                        <> · {t('clientWaiversTab.photos', { count: w.imageUrls.length })}</>
                       )}
                     </p>
                   </div>
@@ -460,7 +459,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                       ? 'border-green-300 text-green-700 bg-green-50'
                       : 'border-amber-300 text-amber-700 bg-amber-50'}
                   >
-                    {w.status === 'signed' ? 'Signed' : 'Pending'}
+                    {w.status === 'signed' ? t('clientWaiversTab.status.signed') : t('clientWaiversTab.status.pending')}
                   </Badge>
 
                   {w.status === 'signed' && (
@@ -471,7 +470,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                         className="h-7 gap-1 text-xs"
                         onClick={() => downloadPdf(w)}
                       >
-                        <Download className="h-3.5 w-3.5" /> PDF
+                        <Download className="h-3.5 w-3.5" /> {t('clientWaiversTab.pdf')}
                       </Button>
 
                       <Button
@@ -480,10 +479,10 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                         className="h-7 gap-1 text-xs"
                         onClick={() => handleEmailDocument(w)}
                         disabled={!w.pdf_url || !client.email || emailingDocId === w.id}
-                        title={!client.email ? 'No email on file for this client' : 'Email document to client'}
+                        title={!client.email ? t('clientWaiversTab.noEmailForClient') : t('clientWaiversTab.emailDocument')}
                       >
                         <Mail className="h-3.5 w-3.5" />
-                        {emailingDocId === w.id ? 'Sending…' : 'Email'}
+                        {emailingDocId === w.id ? t('clientWaiversTab.sending') : t('clientWaiversTab.email')}
                       </Button>
 
                       {w.imageUrls.length > 0 && (
@@ -492,9 +491,9 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                           variant="outline"
                           className="h-7 gap-1 text-xs"
                           onClick={() => w.imageUrls.forEach((u) => window.open(u, '_blank'))}
-                          title={`Open ${w.imageUrls.length} uploaded photo${w.imageUrls.length > 1 ? 's' : ''}`}
+                          title={t('clientWaiversTab.openPhotos', { count: w.imageUrls.length })}
                         >
-                          <ImageIcon className="h-3.5 w-3.5" /> Photos
+                          <ImageIcon className="h-3.5 w-3.5" /> {t('clientWaiversTab.photosButton')}
                         </Button>
                       )}
                     </>
@@ -508,7 +507,7 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                           variant="outline"
                           className="h-7 gap-1 text-xs text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
                           disabled={deletingDocId === w.id}
-                          title={`Delete ${copy.singular}`}
+                          title={t('clientWaiversTab.deleteKind', { kind: copy.singular })}
                         >
                           {deletingDocId === w.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -519,19 +518,18 @@ export function ClientWaiversTab({ client, kind = 'waiver' }: Props) {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this {copy.singular.toLowerCase()}?</AlertDialogTitle>
+                          <AlertDialogTitle>{t('clientWaiversTab.deleteDialog.title', { kind: copy.singularLower })}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This permanently removes the {copy.singular.toLowerCase()} record, the signed PDF,
-                            any uploaded photos, and the signing link. This cannot be undone.
+                            {t('clientWaiversTab.deleteDialog.description', { kind: copy.singularLower })}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDelete(w)}
                             className="bg-red-600 hover:bg-red-700"
                           >
-                            Delete
+                            {t('common:actions.delete')}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

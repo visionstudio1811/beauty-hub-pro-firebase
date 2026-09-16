@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import i18n from '@/i18n';
 import {
   collection,
   query,
@@ -54,8 +57,8 @@ interface SchedulerLink {
 const tsToDate = (t: Timestamp | null): Date | null =>
   t && typeof t.toDate === 'function' ? t.toDate() : null;
 
-const formatDate = (d: Date | null): string =>
-  d ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+const formatDate = (d: Date | null, locale: string): string =>
+  d ? d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
 const isExpired = (l: SchedulerLink) => {
   const exp = tsToDate(l.expires_at);
@@ -73,6 +76,8 @@ const buildIframeSnippet = (url: string): string =>
   `<iframe src="${url}" width="100%" height="800" style="border:0;" loading="lazy" allow="payment"></iframe>`;
 
 export const SchedulerLinks: React.FC = () => {
+  const { t } = useTranslation('settings');
+  const { locale } = useLanguage();
   const { currentOrganization } = useOrganization();
   const { treatments } = useSupabaseTreatments();
   const { profiles } = useSupabaseProfiles();
@@ -116,7 +121,10 @@ export const SchedulerLinks: React.FC = () => {
       },
       err => {
         console.error('Failed to load scheduler links', err);
-        toast({ title: 'Error', description: 'Failed to load scheduler links', variant: 'destructive' });
+        // Read via the module-level i18n instance so the hook's `t` (which changes
+        // identity on language switch) does not need to be a dependency — otherwise
+        // switching language would tear down and re-subscribe the Firestore listener.
+        toast({ title: i18n.t('common:status.error'), description: i18n.t('settings:schedulerLinks.toasts.loadFailed'), variant: 'destructive' });
         setLoading(false);
       },
     );
@@ -150,14 +158,14 @@ export const SchedulerLinks: React.FC = () => {
         label: form.label.trim() || undefined,
         expiresAtIso: expiresAt,
       });
-      toast({ title: 'Link created', description: 'Copy the URL or embed snippet next.' });
+      toast({ title: t('schedulerLinks.toasts.createdTitle'), description: t('schedulerLinks.toasts.createdDescription') });
       setCreateOpen(false);
       setForm({ treatmentId: 'any', label: '', expiresDays: '90' });
       // Surface embed dialog so the admin can copy + paste right away
       setEmbedFor({ url: result.data.url, snippet: buildIframeSnippet(result.data.url) });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to create link';
-      toast({ title: 'Create failed', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('schedulerLinks.toasts.createFailedDescription');
+      toast({ title: t('schedulerLinks.toasts.createFailedTitle'), description: msg, variant: 'destructive' });
     } finally {
       setCreating(false);
     }
@@ -165,36 +173,36 @@ export const SchedulerLinks: React.FC = () => {
 
   const handleRevoke = async (token: string) => {
     if (!currentOrganization?.id) return;
-    if (!confirm('Revoke this link? The public URL will stop working immediately.')) return;
+    if (!confirm(t('schedulerLinks.confirmRevoke'))) return;
     try {
       const fn = httpsCallable(functions, 'revokeSchedulerLink');
       await fn({ organizationId: currentOrganization.id, token });
-      toast({ title: 'Link revoked' });
+      toast({ title: t('schedulerLinks.toasts.revokedTitle') });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to revoke';
-      toast({ title: 'Revoke failed', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('schedulerLinks.toasts.revokeFailedDescription');
+      toast({ title: t('schedulerLinks.toasts.revokeFailedTitle'), description: msg, variant: 'destructive' });
     }
   };
 
   const handleDelete = async (token: string) => {
     if (!currentOrganization?.id) return;
-    if (!confirm('Permanently delete this link? This cannot be undone — the URL will be gone for good.')) return;
+    if (!confirm(t('schedulerLinks.confirmDelete'))) return;
     try {
       const fn = httpsCallable(functions, 'deleteSchedulerLink');
       await fn({ organizationId: currentOrganization.id, token });
-      toast({ title: 'Link deleted' });
+      toast({ title: t('schedulerLinks.toasts.deletedTitle') });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete';
-      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('schedulerLinks.toasts.deleteFailedDescription');
+      toast({ title: t('schedulerLinks.toasts.deleteFailedTitle'), description: msg, variant: 'destructive' });
     }
   };
 
-  const copyToClipboard = async (text: string, label = 'Copied') => {
+  const copyToClipboard = async (text: string, label: string = t('common:actions.copied')) => {
     try {
       await navigator.clipboard.writeText(text);
       toast({ title: label, description: text.length > 60 ? `${text.slice(0, 60)}…` : text });
     } catch {
-      toast({ title: 'Copy failed', description: 'Select and copy manually', variant: 'destructive' });
+      toast({ title: t('schedulerLinks.toasts.copyFailedTitle'), description: t('schedulerLinks.toasts.copyFailedDescription'), variant: 'destructive' });
     }
   };
 
@@ -207,24 +215,23 @@ export const SchedulerLinks: React.FC = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <LinkIcon className="h-5 w-5 text-purple-600" />
-              Scheduler Links
+              {t('schedulerLinks.title')}
             </CardTitle>
             <CardDescription>
-              Shareable booking URLs for your website, email signature, or social bio. Each link can
-              be scoped to a specific treatment, staff member, both, or neither.
+              {t('schedulerLinks.description')}
             </CardDescription>
           </div>
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Create Link
+            <Plus className="h-4 w-4 me-1" /> {t('schedulerLinks.createLink')}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-muted-foreground">{t('schedulerLinks.loading')}</p>
         ) : links.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No links yet. Click <strong>Create Link</strong> to generate your first shareable URL.
+            <Trans t={t} i18nKey="schedulerLinks.empty" components={{ strong: <strong /> }} />
           </p>
         ) : (
           <div className="space-y-2">
@@ -245,7 +252,7 @@ export const SchedulerLinks: React.FC = () => {
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-sm">
-                        {link.label || (treatment ? treatment.name : 'Any treatment')}
+                        {link.label || (treatment ? treatment.name : t('schedulerLinks.anyTreatment'))}
                       </span>
                       {treatment && (
                         <Badge variant="secondary" className="text-xs">{treatment.name}</Badge>
@@ -255,29 +262,32 @@ export const SchedulerLinks: React.FC = () => {
                           {staff.full_name || staff.email}
                         </Badge>
                       )}
-                      {!link.is_active && <Badge variant="destructive" className="text-xs">Revoked</Badge>}
+                      {!link.is_active && <Badge variant="destructive" className="text-xs">{t('schedulerLinks.badges.revoked')}</Badge>}
                       {link.is_active && expired && (
-                        <Badge variant="destructive" className="text-xs">Expired</Badge>
+                        <Badge variant="destructive" className="text-xs">{t('schedulerLinks.badges.expired')}</Badge>
                       )}
                       {link.is_active && !expired && (
-                        <Badge className="text-xs bg-green-100 text-green-700">Active</Badge>
+                        <Badge className="text-xs bg-green-100 text-green-700">{t('schedulerLinks.badges.active')}</Badge>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground font-mono break-all">
+                    <div className="text-xs text-muted-foreground font-mono break-all ltr-inline" dir="ltr">
                       {url}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Created {formatDate(tsToDate(link.created_at))} · Expires {formatDate(tsToDate(link.expires_at))}
+                      {t('schedulerLinks.createdExpires', {
+                        created: formatDate(tsToDate(link.created_at), locale),
+                        expires: formatDate(tsToDate(link.expires_at), locale),
+                      })}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => copyToClipboard(url, 'URL copied')}
+                      onClick={() => copyToClipboard(url, t('schedulerLinks.toasts.urlCopied'))}
                       disabled={!link.is_active}
                     >
-                      <Copy className="h-3 w-3 mr-1" /> URL
+                      <Copy className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.url')}
                     </Button>
                     <Button
                       size="sm"
@@ -285,7 +295,7 @@ export const SchedulerLinks: React.FC = () => {
                       onClick={() => setEmbedFor({ url, snippet: buildIframeSnippet(url) })}
                       disabled={!link.is_active}
                     >
-                      <Code2 className="h-3 w-3 mr-1" /> Embed
+                      <Code2 className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.embed')}
                     </Button>
                     {link.is_active && !expired && (
                       <Button
@@ -294,7 +304,7 @@ export const SchedulerLinks: React.FC = () => {
                         onClick={() => handleRevoke(link.id)}
                         className="text-red-600 hover:text-red-700"
                       >
-                        <X className="h-3 w-3 mr-1" /> Revoke
+                        <X className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.revoke')}
                       </Button>
                     )}
                     {(!link.is_active || expired) && (
@@ -304,7 +314,7 @@ export const SchedulerLinks: React.FC = () => {
                         onClick={() => handleDelete(link.id)}
                         className="text-red-600 hover:text-red-700"
                       >
-                        <Trash2 className="h-3 w-3 mr-1" /> Delete
+                        <Trash2 className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.delete')}
                       </Button>
                     )}
                   </div>
@@ -319,20 +329,20 @@ export const SchedulerLinks: React.FC = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Scheduler Link</DialogTitle>
+            <DialogTitle>{t('schedulerLinks.createDialog.title')}</DialogTitle>
             <DialogDescription>
-              The URL works without a sign-in. Anyone with the link can request a booking.
+              {t('schedulerLinks.createDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
-              <Label className="text-sm">Treatment (optional)</Label>
+              <Label className="text-sm">{t('schedulerLinks.createDialog.treatment')}</Label>
               <Select value={form.treatmentId} onValueChange={v => setForm({ ...form, treatmentId: v })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="any">Any treatment (visitor picks)</SelectItem>
+                  <SelectItem value="any">{t('schedulerLinks.createDialog.anyTreatmentOption')}</SelectItem>
                   {treatments.map(t => (
                     <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                   ))}
@@ -340,16 +350,16 @@ export const SchedulerLinks: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label className="text-sm">Label (optional)</Label>
+              <Label className="text-sm">{t('schedulerLinks.createDialog.label')}</Label>
               <Input
                 value={form.label}
                 onChange={e => setForm({ ...form, label: e.target.value })}
-                placeholder="e.g. Website footer link"
+                placeholder={t('schedulerLinks.createDialog.labelPlaceholder')}
                 maxLength={80}
               />
             </div>
             <div>
-              <Label className="text-sm">Expires in (days)</Label>
+              <Label className="text-sm">{t('schedulerLinks.createDialog.expiresIn')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -361,10 +371,10 @@ export const SchedulerLinks: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
-              {creating ? 'Creating…' : 'Create Link'}
+              {creating ? t('schedulerLinks.createDialog.creating') : t('schedulerLinks.createLink')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -374,38 +384,38 @@ export const SchedulerLinks: React.FC = () => {
       <Dialog open={Boolean(embedFor)} onOpenChange={open => !open && setEmbedFor(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Share or Embed</DialogTitle>
+            <DialogTitle>{t('schedulerLinks.embedDialog.title')}</DialogTitle>
             <DialogDescription>
-              Send the URL directly, or paste the snippet into a website to embed the booking page.
+              {t('schedulerLinks.embedDialog.description')}
             </DialogDescription>
           </DialogHeader>
           {embedFor && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm">Public URL</Label>
+                <Label className="text-sm">{t('schedulerLinks.embedDialog.publicUrl')}</Label>
                 <div className="flex gap-2 mt-1">
-                  <Input value={embedFor.url} readOnly className="font-mono text-xs" />
-                  <Button onClick={() => copyToClipboard(embedFor.url, 'URL copied')} variant="outline">
-                    <Copy className="h-3 w-3 mr-1" /> Copy
+                  <Input value={embedFor.url} readOnly dir="ltr" className="font-mono text-xs" />
+                  <Button onClick={() => copyToClipboard(embedFor.url, t('schedulerLinks.toasts.urlCopied'))} variant="outline">
+                    <Copy className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.copy')}
                   </Button>
                 </div>
               </div>
               <div>
-                <Label className="text-sm">Embed snippet (iframe)</Label>
+                <Label className="text-sm">{t('schedulerLinks.embedDialog.embedSnippet')}</Label>
                 <div className="flex gap-2 mt-1">
-                  <Input value={embedFor.snippet} readOnly className="font-mono text-xs" />
-                  <Button onClick={() => copyToClipboard(embedFor.snippet, 'Snippet copied')} variant="outline">
-                    <Copy className="h-3 w-3 mr-1" /> Copy
+                  <Input value={embedFor.snippet} readOnly dir="ltr" className="font-mono text-xs" />
+                  <Button onClick={() => copyToClipboard(embedFor.snippet, t('schedulerLinks.toasts.snippetCopied'))} variant="outline">
+                    <Copy className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.copy')}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Paste this into any web page's HTML to embed the booking widget.
+                  {t('schedulerLinks.embedDialog.embedHint')}
                 </p>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEmbedFor(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setEmbedFor(null)}>{t('common:actions.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

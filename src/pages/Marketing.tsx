@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +61,8 @@ interface MarketingStats {
 }
 
 const Marketing = () => {
+  const { t } = useTranslation('marketing');
+  const { locale } = useLanguage();
   const [searchParams] = useSearchParams();
   const activeSection = searchParams.get('section') || 'overview';
 
@@ -138,15 +142,15 @@ const Marketing = () => {
       });
       const r = result.data;
       const sample = r.sample_recipients
-        .map((c) => `• ${c.name || '(no name)'} — ${campaign.type === 'email' ? (c.email || 'no email') : (c.phone || 'no phone')}`)
+        .map((c) => `• ${c.name || t('page.toasts.noName')} — ${campaign.type === 'email' ? (c.email || t('page.toasts.noEmail')) : (c.phone || t('page.toasts.noPhone'))}`)
         .join('\n');
       toast({
-        title: `${r.total_recipients} recipients will be contacted`,
-        description: `${r.sms_provider ? `Provider: ${r.sms_provider}\n` : ''}Sample:\n${sample || '(none)'}`,
+        title: t('page.toasts.previewTitle', { count: r.total_recipients }),
+        description: `${r.sms_provider ? `${t('page.toasts.previewProvider', { provider: r.sms_provider })}\n` : ''}${t('page.toasts.previewSample')}\n${sample || t('page.toasts.none')}`,
       });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      toast({ title: 'Preview failed', description: msg, variant: 'destructive' });
+      toast({ title: t('page.toasts.previewFailed'), description: msg, variant: 'destructive' });
     } finally {
       setPreviewingCampaignId(null);
     }
@@ -155,9 +159,9 @@ const Marketing = () => {
   const handleSendCampaign = async (campaign: Campaign) => {
     if (!currentOrganization?.id) return;
     const recipientNote = campaign.type === 'sms' || campaign.type === 'both'
-      ? '\n\nSMS is opt-out: only clients who have not opted out will receive the message.'
+      ? `\n\n${t('page.confirm.smsOptOutNote')}`
       : '';
-    if (!window.confirm(`Send "${campaign.name}" now to all matching clients?${recipientNote}`)) return;
+    if (!window.confirm(`${t('page.confirm.sendCampaign', { name: campaign.name })}${recipientNote}`)) return;
 
     setSendingCampaignId(campaign.id);
     try {
@@ -171,13 +175,13 @@ const Marketing = () => {
       });
       const r = result.data;
       toast({
-        title: 'Campaign sent',
-        description: `${r.sent} delivered, ${r.failed} failed out of ${r.total_recipients} recipients.`,
+        title: t('page.toasts.campaignSent'),
+        description: t('page.toasts.campaignSentDescription', { sent: r.sent, failed: r.failed, total: r.total_recipients }),
       });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       toast({
-        title: 'Failed to send campaign',
+        title: t('page.toasts.sendFailed'),
         description: msg,
         variant: 'destructive',
       });
@@ -242,31 +246,35 @@ const Marketing = () => {
   };
 
   const handleDeleteAutomation = async (id: string, name: string) => {
-    if (!window.confirm(`Delete the "${name}" automation? This cannot be undone.`)) return;
+    if (!window.confirm(t('page.confirm.deleteAutomation', { name }))) return;
     await deleteAutomation(id);
-    toast({ title: 'Automation deleted', description: `"${name}" was removed.` });
+    toast({ title: t('page.toasts.automationDeleted'), description: t('page.toasts.automationDeletedDescription', { name }) });
   };
 
   const formatTriggerLabel = (trigger: string): string => {
     switch (trigger) {
-      case 'appointment_scheduled': return 'When an appointment is scheduled';
-      case 'appointment_completed': return 'When an appointment completes';
-      case 'client_created':        return 'When a new client is created';
-      case 'client_birthday':       return "On client's birthday";
-      case 'client_inactive':       return 'When a client goes inactive (90+ days)';
-      case 'package_expiring':      return 'When a package is about to expire';
-      case 'package_expired':       return 'When a package expires';
-      default: return trigger;
+      case 'appointment_scheduled':
+      case 'appointment_completed':
+      case 'client_created':
+      case 'client_birthday':
+      case 'client_inactive':
+      case 'package_expiring':
+      case 'package_expired':
+        return t(`triggers.${trigger}`);
+      default:
+        // Booking-flow triggers (and any future ones) reuse the labels the
+        // automation modal already ships; fall back to the raw id if none exists.
+        return t(`automationModal.triggerOptions.${trigger}`, { defaultValue: trigger });
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Marketing</h1>
+        <h1 className="text-3xl font-bold">{t('page.title')}</h1>
         <Button onClick={() => handleCreateCampaign()}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Campaign
+          <Plus className="h-4 w-4 me-2" />
+          {t('page.newCampaign')}
         </Button>
       </div>
 
@@ -275,7 +283,7 @@ const Marketing = () => {
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Loading marketing data...</span>
+              <span className="ms-2">{t('page.loading')}</span>
             </div>
           ) : (
             <>
@@ -283,52 +291,52 @@ const Marketing = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('page.stats.totalSent')}</CardTitle>
                 <Send className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalSent}</div>
                 <p className="text-xs text-muted-foreground">
-                  Campaigns delivered
+                  {t('page.stats.campaignsDelivered')}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Open Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('page.stats.openRate')}</CardTitle>
                 <Mail className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.openRate}%</div>
                 <p className="text-xs text-muted-foreground">
-                  Average open rate
+                  {t('page.stats.averageOpenRate')}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('page.stats.clickRate')}</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.clickRate}%</div>
                 <p className="text-xs text-muted-foreground">
-                  Average click rate
+                  {t('page.stats.averageClickRate')}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Reviews</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('page.stats.reviews')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalReviews}</div>
                 <p className="text-xs text-muted-foreground">
-                  Reviews collected
+                  {t('page.stats.reviewsCollected')}
                 </p>
               </CardContent>
             </Card>
@@ -337,39 +345,39 @@ const Marketing = () => {
           {/* Quick Campaign Templates */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Campaign Templates</CardTitle>
-              <CardDescription>Get started with pre-built campaign templates</CardDescription>
+              <CardTitle>{t('page.quickTemplates.title')}</CardTitle>
+              <CardDescription>{t('page.quickTemplates.description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button 
                   variant="outline" 
-                  className="h-auto p-4 text-left justify-start"
+                  className="h-auto p-4 text-start justify-start"
                   onClick={() => handleCreateCampaign('birthday')}
                 >
                   <div>
-                    <p className="font-medium">Birthday Special</p>
-                    <p className="text-sm text-muted-foreground">Send personalized birthday offers</p>
+                    <p className="font-medium">{t('page.quickTemplates.birthday.name')}</p>
+                    <p className="text-sm text-muted-foreground">{t('page.quickTemplates.birthday.description')}</p>
                   </div>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-auto p-4 text-left justify-start"
+                  className="h-auto p-4 text-start justify-start"
                   onClick={() => handleCreateCampaign('reactivation')}
                 >
                   <div>
-                    <p className="font-medium">Inactive Clients</p>
-                    <p className="text-sm text-muted-foreground">Re-engage clients who haven't visited</p>
+                    <p className="font-medium">{t('page.quickTemplates.reactivation.name')}</p>
+                    <p className="text-sm text-muted-foreground">{t('page.quickTemplates.reactivation.description')}</p>
                   </div>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="h-auto p-4 text-left justify-start"
+                  className="h-auto p-4 text-start justify-start"
                   onClick={() => handleCreateCampaign('renewal')}
                 >
                   <div>
-                    <p className="font-medium">Package Renewal</p>
-                    <p className="text-sm text-muted-foreground">Remind clients to renew packages</p>
+                    <p className="font-medium">{t('page.quickTemplates.renewal.name')}</p>
+                    <p className="text-sm text-muted-foreground">{t('page.quickTemplates.renewal.description')}</p>
                   </div>
                 </Button>
               </div>
@@ -383,20 +391,20 @@ const Marketing = () => {
           {/* Recent Campaigns */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Campaigns</CardTitle>
-              <CardDescription>Your latest marketing campaigns and their performance</CardDescription>
+              <CardTitle>{t('page.campaigns.title')}</CardTitle>
+              <CardDescription>{t('page.campaigns.description')}</CardDescription>
             </CardHeader>
             <CardContent>
               {campaigns.length === 0 ? (
                 <div className="text-center py-8">
                   <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No campaigns yet</h3>
+                  <h3 className="text-lg font-medium mb-2">{t('page.campaigns.emptyTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
-                    Create your first marketing campaign to engage with your clients.
+                    {t('page.campaigns.emptyDescription')}
                   </p>
                   <Button onClick={() => handleCreateCampaign()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Campaign
+                    <Plus className="h-4 w-4 me-2" />
+                    {t('page.campaigns.createCampaign')}
                   </Button>
                 </div>
               ) : (
@@ -409,16 +417,16 @@ const Marketing = () => {
                         <div>
                           <h4 className="font-medium">{campaign.name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {campaign.type}
+                            {t(`campaignType.${campaign.type}`, { defaultValue: campaign.type })}
                             {campaign.sms_provider ? ` (${campaign.sms_provider})` : ''}
                             {' • '}
-                            {campaign.total_recipients ? `${campaign.sent_count}/${campaign.total_recipients} delivered` : 'not yet sent'}
-                            {campaign.failed_count > 0 ? ` • ${campaign.failed_count} failed` : ''}
+                            {campaign.total_recipients ? t('page.campaigns.delivered', { sent: campaign.sent_count, total: campaign.total_recipients }) : t('page.campaigns.notYetSent')}
+                            {campaign.failed_count > 0 ? ` • ${t('page.campaigns.failed', { count: campaign.failed_count })}` : ''}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge className={getStatusColor(campaign.status)}>
-                            {campaign.status}
+                            {t(`campaignStatus.${campaign.status}`, { defaultValue: campaign.status })}
                           </Badge>
                           {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
                             <>
@@ -431,7 +439,7 @@ const Marketing = () => {
                                 {previewingCampaignId === campaign.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  'Preview'
+                                  t('page.campaigns.preview')
                                 )}
                               </Button>
                               <Button
@@ -440,9 +448,9 @@ const Marketing = () => {
                                 disabled={!canSend}
                               >
                                 {sendingCampaignId === campaign.id ? (
-                                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</>
+                                  <><Loader2 className="h-4 w-4 me-2 animate-spin" />{t('page.campaigns.sending')}</>
                                 ) : (
-                                  <><Send className="h-4 w-4 mr-2" />Send Now</>
+                                  <><Send className="h-4 w-4 me-2" />{t('page.campaigns.sendNow')}</>
                                 )}
                               </Button>
                             </>
@@ -459,20 +467,20 @@ const Marketing = () => {
           {/* Active Automations */}
           <Card>
             <CardHeader>
-              <CardTitle>Active Automations</CardTitle>
-              <CardDescription>Automated marketing workflows currently running</CardDescription>
+              <CardTitle>{t('page.automations.title')}</CardTitle>
+              <CardDescription>{t('page.automations.description')}</CardDescription>
             </CardHeader>
             <CardContent>
               {automations.length === 0 ? (
                 <div className="text-center py-8">
                   <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No automations set up</h3>
+                  <h3 className="text-lg font-medium mb-2">{t('page.automations.emptyTitle')}</h3>
                   <p className="text-muted-foreground mb-4">
-                    Set up automated workflows to nurture your client relationships.
+                    {t('page.automations.emptyDescription')}
                   </p>
                   <Button variant="outline" onClick={handleCreateAutomation}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Automation
+                    <Plus className="h-4 w-4 me-2" />
+                    {t('page.automations.createAutomation')}
                   </Button>
                 </div>
               ) : (
@@ -483,16 +491,16 @@ const Marketing = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium truncate">{automation.name}</h4>
                           <Badge variant="outline" className="text-xs">
-                            {automation.message_type === 'both' ? 'Email + SMS' : automation.message_type.toUpperCase()}
+                            {t(`messageType.${automation.message_type}`, { defaultValue: automation.message_type.toUpperCase() })}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {formatTriggerLabel(automation.trigger)}
-                          {automation.delay ? ` • Delay: ${automation.delay}` : ''}
+                          {automation.delay ? ` • ${t('page.automations.delay', { delay: automation.delay })}` : ''}
                         </p>
                         {automation.last_triggered_at && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Last fired: {new Date(automation.last_triggered_at).toLocaleString()}
+                            {t('page.automations.lastFired', { date: new Date(automation.last_triggered_at).toLocaleString(locale) })}
                           </p>
                         )}
                       </div>
@@ -501,17 +509,17 @@ const Marketing = () => {
                           <Switch
                             checked={automation.is_active}
                             onCheckedChange={() => handleToggleAutomation(automation.id, automation.is_active)}
-                            aria-label={automation.is_active ? 'Pause automation' : 'Activate automation'}
+                            aria-label={automation.is_active ? t('page.automations.pauseAutomation') : t('page.automations.activateAutomation')}
                           />
                           <span className="text-xs text-muted-foreground w-12">
-                            {automation.is_active ? 'Active' : 'Paused'}
+                            {automation.is_active ? t('page.automations.active') : t('page.automations.paused')}
                           </span>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleEditAutomation(automation)}
-                          aria-label="Edit automation"
+                          aria-label={t('page.automations.editAutomation')}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -519,7 +527,7 @@ const Marketing = () => {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDeleteAutomation(automation.id, automation.name)}
-                          aria-label="Delete automation"
+                          aria-label={t('page.automations.deleteAutomation')}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />

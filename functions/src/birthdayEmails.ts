@@ -8,13 +8,28 @@ import {
   localHour,
   todayInTimezone,
   addDaysISO,
+  orgEmailLanguage,
 } from './lib/orgEmail';
+import { defineStrings, makeT, localeFor } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+const STRINGS = defineStrings({
+  en: {
+    greeting_fallback: 'there',
+    subject: 'Happy Birthday, {{name}}! 🎉',
+    subject_no_name: 'Happy Birthday! 🎉',
+  },
+  he: {
+    greeting_fallback: 'לקוח/ה יקר/ה',
+    subject: 'יום הולדת שמח, {{name}}! 🎉',
+    subject_no_name: 'יום הולדת שמח! 🎉',
+  },
+});
 
 /**
  * Hourly scheduled function that sends each org's "birthday" templated email
@@ -55,6 +70,10 @@ export const birthdayEmails = onSchedule(
       const cfg = getAutomation(ctx, 'birthday');
       if (!cfg.is_active) continue;
 
+      const lang = orgEmailLanguage(ctx);
+      const t = makeT(STRINGS, lang);
+      const locale = localeFor(lang);
+
       const daysOffset = cfg.days_offset ?? 0;
       const todayStr = todayInTimezone(orgTz);
       const targetDate = addDaysISO(todayStr, -daysOffset);
@@ -85,14 +104,15 @@ export const birthdayEmails = onSchedule(
         const refId = `${clientId}_${todayStr}`;
         if (await alreadySent(orgId, 'birthday', 'birthday', refId)) continue;
 
-        const firstName = (client.name || '').split(' ')[0] || 'there';
-        const subject = `Happy Birthday, ${firstName}! 🎉`;
+        const rawFirstName = (client.name || '').split(' ')[0];
+        const firstName = rawFirstName || t('greeting_fallback');
+        const subject = rawFirstName ? t('subject', { name: rawFirstName }) : t('subject_no_name');
 
         // Pretty birthday like "March 15" in the org's timezone
         let birthdayDate = dobMonthDay;
         try {
           const bdayDateObj = new Date(`2000-${dobMonthDay}T12:00:00Z`);
-          birthdayDate = bdayDateObj.toLocaleDateString('en-US', {
+          birthdayDate = bdayDateObj.toLocaleDateString(locale, {
             timeZone: orgTz,
             month: 'long',
             day: 'numeric',
@@ -115,6 +135,7 @@ export const birthdayEmails = onSchedule(
             automationKey: 'birthday',
             refType: 'birthday',
             refId,
+            lang,
           });
         } catch (err) {
           console.error(

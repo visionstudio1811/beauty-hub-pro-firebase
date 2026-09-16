@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 
@@ -46,6 +47,7 @@ function writeConsent(choice: Choice) {
  * provider, gate its initialization behind `readConsent()?.choice === 'accepted'`.
  */
 export const CookieBanner: React.FC = () => {
+  const { t } = useTranslation('publicSite');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -77,19 +79,19 @@ export const CookieBanner: React.FC = () => {
         role="dialog"
         aria-modal="true"
         aria-live="polite"
-        aria-label="Cookie consent"
+        aria-label={t('cookieBanner.aria')}
         className="relative z-10 w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-300"
       >
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <p className="text-base font-bold text-foreground">Cookies on beautyhubpro.com</p>
+            <p className="text-base font-bold text-foreground">{t('cookieBanner.title')}</p>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              We use cookies that are strictly necessary to operate the site and, with your permission, optional cookies to understand how visitors use it. You can change your mind any time by clearing site data.
+              {t('cookieBanner.body')}
             </p>
           </div>
           <button
             onClick={() => decide('rejected')}
-            aria-label="Close cookie banner, declines optional cookies"
+            aria-label={t('cookieBanner.closeAria')}
             className="text-muted-foreground hover:text-foreground p-1 -m-1 flex-shrink-0 rounded transition-colors"
           >
             <X className="h-4 w-4" />
@@ -101,7 +103,7 @@ export const CookieBanner: React.FC = () => {
             className="flex-1 sm:flex-initial bg-[rgb(var(--c-gold))] text-[#1b1814] hover:bg-[rgb(var(--c-gold2))] border-0"
             onClick={() => decide('accepted')}
           >
-            Accept all
+            {t('cookieBanner.acceptAll')}
           </Button>
           <Button
             size="sm"
@@ -109,13 +111,13 @@ export const CookieBanner: React.FC = () => {
             className="flex-1 sm:flex-initial"
             onClick={() => decide('rejected')}
           >
-            Reject optional
+            {t('cookieBanner.rejectOptional')}
           </Button>
           <Link
             to="/privacy"
-            className="text-xs text-muted-foreground hover:text-primary underline ml-auto"
+            className="text-xs text-muted-foreground hover:text-primary underline ms-auto"
           >
-            Privacy policy
+            {t('cookieBanner.privacyPolicy')}
           </Link>
         </div>
       </div>

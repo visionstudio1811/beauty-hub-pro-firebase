@@ -1,6 +1,14 @@
 import jsPDF from 'jspdf';
 import type { Invoice } from '@/types/firestore';
 import { getInvoiceTheme } from '@/lib/invoiceThemes';
+import i18n, { localeFor } from '@/i18n';
+import {
+  PDF_FONT_FAMILY,
+  applyPdfDirection,
+  containsHebrew,
+  pdfAlignFor,
+  registerPdfFonts,
+} from '@/lib/pdfFonts';
 
 async function urlToDataUrl(url: string): Promise<string | null> {
   try {
@@ -27,12 +35,23 @@ async function loadImageSize(dataUrl: string): Promise<{ w: number; h: number }>
   });
 }
 
+// Invisible bidi control characters (LRM/RLM/embeddings/isolates) that
+// Intl.NumberFormat emits for some locales. They have no glyph in the PDF
+// font and would render as boxes, and we handle direction ourselves anyway.
+const BIDI_CONTROL_RE = /[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+function stripBidiControls(text: string): string {
+  return text.replace(BIDI_CONTROL_RE, '');
+}
+
 function formatCents(cents: number, currency: string, locale: string): string {
   try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency || 'USD',
-    }).format(cents / 100);
+    return stripBidiControls(
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: currency || 'USD',
+      }).format(cents / 100),
+    );
   } catch {
     return `${(cents / 100).toFixed(2)} ${currency || 'USD'}`;
   }
@@ -45,13 +64,116 @@ function formatDate(isoOrTimestamp: any, timezone: string, locale: string): stri
       ? new Date(isoOrTimestamp.seconds * 1000)
       : new Date(isoOrTimestamp));
   try {
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: 'medium',
-      timeZone: timezone || 'UTC',
-    }).format(d);
+    return stripBidiControls(
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeZone: timezone || 'UTC',
+      }).format(d),
+    );
   } catch {
-    return d.toLocaleDateString();
+    return d.toLocaleDateString(locale);
   }
+}
+
+type PdfAlign = 'left' | 'right' | 'center';
+
+interface BidiRun {
+  text: string;
+  rtl: boolean;
+}
+
+const HEBREW_CHAR_RE = /[\u0590-\u05FF]/;
+const LTR_STRONG_RE = /[A-Za-z0-9\u00C0-\u024F]/;
+
+/**
+ * Split a single line into directional runs. Hebrew letters are strong RTL,
+ * Latin letters and digits are strong LTR, everything else (spaces,
+ * punctuation, currency symbols) attaches to the preceding strong run — or
+ * to the paragraph direction when nothing strong precedes it.
+ *
+ * This is a deliberately small subset of the Unicode bidi algorithm: enough
+ * to keep invoice numbers, amounts and dates readable inside Hebrew labels.
+ */
+function splitBidiRuns(line: string, baseRtl: boolean): BidiRun[] {
+  const runs: BidiRun[] = [];
+  let pendingNeutral = '';
+
+  for (const ch of line) {
+    const isHeb = HEBREW_CHAR_RE.test(ch);
+    const isLtr = !isHeb && LTR_STRONG_RE.test(ch);
+    if (!isHeb && !isLtr) {
+      pendingNeutral += ch;
+      continue;
+    }
+    const rtl = isHeb;
+    const current = runs.length > 0 ? runs[runs.length - 1] : null;
+    if (current && current.rtl === rtl) {
+      current.text += pendingNeutral + ch;
+    } else if (current) {
+      // Neutrals between two runs of different direction stay with the run
+      // that preceded them (matches how a label's ": " hugs the label).
+      current.text += pendingNeutral;
+      runs.push({ text: ch, rtl });
+    } else if (pendingNeutral && baseRtl !== rtl) {
+      // Leading neutrals take the paragraph direction.
+      runs.push({ text: pendingNeutral, rtl: baseRtl });
+      runs.push({ text: ch, rtl });
+    } else {
+      runs.push({ text: pendingNeutral + ch, rtl });
+    }
+    pendingNeutral = '';
+  }
+  if (pendingNeutral) {
+    if (runs.length > 0) runs[runs.length - 1].text += pendingNeutral;
+    else runs.push({ text: pendingNeutral, rtl: baseRtl });
+  }
+  return runs;
+}
+
+/**
+ * Draw one already-wrapped line at (x, y). In an LTR document that has no
+ * Hebrew in it this is exactly `doc.text(line, x, y, { align })`. When the
+ * line mixes directions it is split into runs and each run is positioned
+ * separately so Hebrew is reversed for the PDF glyph stream while Latin
+ * text, numbers and amounts keep their natural order.
+ */
+function drawBidiLine(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  line: string,
+  align: PdfAlign,
+  baseRtl: boolean,
+): void {
+  const runs = containsHebrew(line) ? splitBidiRuns(line, baseRtl) : [];
+  if (runs.length <= 1) {
+    applyPdfDirection(doc, line);
+    doc.text(line, x, y, { align, baseline: 'top' });
+    doc.setR2L(false);
+    return;
+  }
+
+  const widths = runs.map((r) => doc.getTextWidth(r.text));
+  const total = widths.reduce((s, w) => s + w, 0);
+  const left = align === 'left' ? x : align === 'right' ? x - total : x - total / 2;
+
+  if (baseRtl) {
+    // Logical runs are laid out right-to-left.
+    let right = left + total;
+    runs.forEach((run, i) => {
+      applyPdfDirection(doc, run.text);
+      doc.text(run.text, right, y, { align: 'right', baseline: 'top' });
+      right -= widths[i];
+    });
+  } else {
+    let cursor = left;
+    runs.forEach((run, i) => {
+      applyPdfDirection(doc, run.text);
+      doc.text(run.text, cursor, y, { align: 'left', baseline: 'top' });
+      cursor += widths[i];
+    });
+  }
+  doc.setR2L(false);
 }
 
 // y always represents the TOP of the next line to draw (via
@@ -67,8 +189,16 @@ function drawTextAt(
     bold?: boolean;
     color?: string;
     font?: 'helvetica' | 'times';
-    align?: 'left' | 'right' | 'center';
+    align?: PdfAlign;
     maxWidth?: number;
+    baseRtl?: boolean;
+    /**
+     * Prefer the embedded Rubik family for every run (Hebrew documents).
+     * When false (English documents) the built-in Helvetica / Times fonts are
+     * used exactly as before the i18n pass, and Rubik is only pulled in for
+     * strings that actually contain Hebrew glyphs (e.g. a Hebrew client name).
+     */
+    rubik?: boolean;
   } = {},
 ): number {
   if (!text) return y;
@@ -78,23 +208,44 @@ function drawTextAt(
     font = 'helvetica',
     align = 'left',
     maxWidth = 1000,
+    baseRtl = false,
+    rubik = false,
   } = opts;
-  doc.setFont(font, bold ? 'bold' : 'normal');
+  const clean = stripBidiControls(text);
+  // Rubik carries both Latin and Hebrew glyphs; jsPDF's built-in fonts have
+  // none. It is used for the whole document in Hebrew, and only for Hebrew
+  // runs in English so existing English invoices keep their metrics. If the
+  // font files could not be fetched (offline, 404) we fall back to the
+  // built-in fonts rather than failing the whole PDF.
+  const rubikAvailable = Boolean(doc.getFontList()?.[PDF_FONT_FAMILY]);
+  const wantsRubik = rubik || containsHebrew(clean);
+  const family = rubikAvailable && wantsRubik ? PDF_FONT_FAMILY : font;
+  doc.setFont(family, bold ? 'bold' : 'normal');
   doc.setFontSize(size);
   doc.setTextColor(color);
-  const lines = doc.splitTextToSize(text, maxWidth);
+  const lines: string[] = doc.splitTextToSize(clean, maxWidth);
   const lineH = size * 1.3;
   let cy = y;
   for (const line of lines) {
-    doc.text(line, x, cy, { align, baseline: 'top' });
+    drawBidiLine(doc, x, cy, line, align, baseRtl);
     cy += lineH;
   }
   return cy;
 }
 
+export interface BuildInvoicePdfOptions {
+  /**
+   * Language to render the PDF in ('en' | 'he'). Issued invoices are stored
+   * permanently, so callers should pass the org's language rather than the
+   * signed-in staff member's UI language. Defaults to the active UI language.
+   */
+  lang?: string;
+}
+
 export async function buildInvoicePdf(
   invoice: Invoice,
   themeIdOverride?: string,
+  options: BuildInvoicePdfOptions = {},
 ): Promise<Blob> {
   const themeId =
     themeIdOverride ??
@@ -102,14 +253,37 @@ export async function buildInvoicePdf(
     'classic';
   const theme = getInvoiceTheme(themeId);
 
-  const locale = navigator?.language || 'en-US';
+  const lang = options.lang || i18n.language || 'en';
+  const isHe = lang === 'he';
+  const locale = localeFor(lang);
+  const fixedT = i18n.getFixedT(lang, 'invoices');
+  const t = (key: string, vars?: Record<string, unknown>) =>
+    fixedT(`pdf.${key}`, vars) as string;
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  // The Hebrew-capable font is fetched from /fonts. If that fails (offline,
+  // stale PWA cache, 404 on a white-label host) keep going with jsPDF's
+  // built-in fonts — English invoices render exactly as before.
+  try {
+    await registerPdfFonts(doc);
+  } catch (err) {
+    console.warn('Invoice PDF: could not load embedded fonts, using built-in fonts', err);
+  }
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
   const gutter = 20;
   const contentW = pageW - margin * 2;
   const colW = (contentW - gutter) / 2;
+
+  // Logical edges: "start" is where body text begins (left in English,
+  // right in Hebrew); "end" is the opposite edge where amounts/meta go.
+  const startX = isHe ? pageW - margin : margin;
+  const endX = isHe ? margin : pageW - margin;
+  const startAlign: PdfAlign = pdfAlignFor(lang);
+  const endAlign: PdfAlign = isHe ? 'left' : 'right';
+  const indent = (px: number) => (isHe ? -px : px);
+  const body = { baseRtl: isHe, rubik: isHe };
 
   const drawRule = (atY: number, color = theme.rule) => {
     doc.setDrawColor(color);
@@ -133,24 +307,30 @@ export async function buildInvoicePdf(
     doc.rect(0, 0, pageW, barHeight, 'F');
 
     let barY = 24;
-    barY = drawTextAt(doc, margin, barY, biz.name || 'Invoice', 20, {
+    barY = drawTextAt(doc, startX, barY, biz.name || t('invoiceFallbackName'), 20, {
       bold: true,
       color: theme.accentInk,
       font: theme.titleFont,
+      align: startAlign,
+      ...body,
     });
 
     const contactBits = [biz.address, biz.phone, biz.email, biz.website]
       .filter((s) => !!s && s.length > 0)
       .join('   ·   ');
     if (contactBits) {
-      barY = drawTextAt(doc, margin, barY + 4, contactBits, 9, {
+      barY = drawTextAt(doc, startX, barY + 4, contactBits, 9, {
         color: theme.accentInk,
         maxWidth: pageW - margin * 2 - 140,
+        align: startAlign,
+        ...body,
       });
     }
     if (biz.tax_id) {
-      drawTextAt(doc, margin, barY + 2, `Tax ID: ${biz.tax_id}`, 9, {
+      drawTextAt(doc, startX, barY + 2, t('taxId', { taxId: biz.tax_id }), 9, {
         color: theme.accentInk,
+        align: startAlign,
+        ...body,
       });
     }
 
@@ -164,7 +344,7 @@ export async function buildInvoicePdf(
       doc.addImage(
         logoDataUrl,
         fmt,
-        pageW - margin - drawW,
+        isHe ? margin : pageW - margin - drawW,
         (barHeight - drawH) / 2,
         drawW,
         drawH,
@@ -173,12 +353,13 @@ export async function buildInvoicePdf(
 
     y = barHeight + 24;
   } else {
-    // Two-column minimal header: business info LEFT, invoice meta + logo RIGHT.
+    // Two-column minimal header: business info at the START edge, invoice
+    // meta + logo at the END edge (mirrored for Hebrew).
     const headerTop = y;
     let leftY = headerTop;
     let rightY = headerTop;
 
-    // Right column — logo on top (if present), then INVOICE label + meta
+    // End column — logo on top (if present), then INVOICE label + meta
     if (logoDataUrl && logoDims) {
       const maxW = colW;
       const maxH = 60;
@@ -186,72 +367,92 @@ export async function buildInvoicePdf(
       const drawW = logoDims.w * ratio;
       const drawH = logoDims.h * ratio;
       const fmt = logoDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-      doc.addImage(logoDataUrl, fmt, pageW - margin - drawW, rightY, drawW, drawH);
+      doc.addImage(
+        logoDataUrl,
+        fmt,
+        isHe ? margin : pageW - margin - drawW,
+        rightY,
+        drawW,
+        drawH,
+      );
       rightY += drawH + 10;
     }
 
-    rightY = drawTextAt(doc, pageW - margin, rightY, 'INVOICE', 26, {
+    rightY = drawTextAt(doc, endX, rightY, t('invoiceTitle'), 26, {
       bold: true,
       color: theme.accent,
       font: theme.titleFont,
-      align: 'right',
+      align: endAlign,
+      ...body,
     });
     rightY += 4;
     rightY = drawTextAt(
       doc,
-      pageW - margin,
+      endX,
       rightY,
-      `Invoice #: ${invoice.invoice_number}`,
+      t('invoiceNumber', { number: invoice.invoice_number }),
       10,
-      { color: theme.ink, align: 'right' },
+      { color: theme.ink, align: endAlign, ...body },
     );
     rightY = drawTextAt(
       doc,
-      pageW - margin,
+      endX,
       rightY,
-      `Date: ${formatDate(invoice.issued_at, biz.timezone, locale)}`,
+      t('date', { date: formatDate(invoice.issued_at, biz.timezone, locale) }),
       10,
-      { color: theme.ink, align: 'right' },
+      { color: theme.ink, align: endAlign, ...body },
     );
 
-    // Left column — business info
+    // Start column — business info
     if (biz.name) {
-      leftY = drawTextAt(doc, margin, leftY, biz.name, 18, {
+      leftY = drawTextAt(doc, startX, leftY, biz.name, 18, {
         bold: true,
         color: theme.ink,
         font: theme.titleFont,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
       leftY += 4;
     }
     if (biz.address) {
-      leftY = drawTextAt(doc, margin, leftY, biz.address, 10, {
+      leftY = drawTextAt(doc, startX, leftY, biz.address, 10, {
         color: theme.muted,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
     }
     if (biz.phone) {
-      leftY = drawTextAt(doc, margin, leftY, biz.phone, 10, {
+      leftY = drawTextAt(doc, startX, leftY, biz.phone, 10, {
         color: theme.muted,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
     }
     if (biz.email) {
-      leftY = drawTextAt(doc, margin, leftY, biz.email, 10, {
+      leftY = drawTextAt(doc, startX, leftY, biz.email, 10, {
         color: theme.muted,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
     }
     if (biz.website) {
-      leftY = drawTextAt(doc, margin, leftY, biz.website, 10, {
+      leftY = drawTextAt(doc, startX, leftY, biz.website, 10, {
         color: theme.muted,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
     }
     if (biz.tax_id) {
-      leftY = drawTextAt(doc, margin, leftY, `Tax ID: ${biz.tax_id}`, 10, {
+      leftY = drawTextAt(doc, startX, leftY, t('taxId', { taxId: biz.tax_id }), 10, {
         color: theme.muted,
         maxWidth: colW,
+        align: startAlign,
+        ...body,
       });
     }
 
@@ -260,68 +461,79 @@ export async function buildInvoicePdf(
     y += 18;
   }
 
-  // ── BILL TO (left) + invoice meta (right, only for bar-top) ─────
+  // ── BILL TO (start) + invoice meta (end, only for bar-top) ─────
   const billToTop = y;
   let billToY = billToTop;
 
-  billToY = drawTextAt(doc, margin, billToY, 'BILL TO', 9, {
+  billToY = drawTextAt(doc, startX, billToY, t('billTo'), 9, {
     bold: true,
     color: theme.muted,
+    align: startAlign,
+    ...body,
   });
   billToY += 2;
   if (client.name) {
-    billToY = drawTextAt(doc, margin, billToY, client.name, 13, {
+    billToY = drawTextAt(doc, startX, billToY, client.name, 13, {
       bold: true,
       color: theme.ink,
       font: theme.titleFont,
       maxWidth: colW,
+      align: startAlign,
+      ...body,
     });
   }
   if (client.email) {
-    billToY = drawTextAt(doc, margin, billToY, client.email, 10, {
+    billToY = drawTextAt(doc, startX, billToY, client.email, 10, {
       color: theme.muted,
       maxWidth: colW,
+      align: startAlign,
+      ...body,
     });
   }
   if (client.phone) {
-    billToY = drawTextAt(doc, margin, billToY, client.phone, 10, {
+    billToY = drawTextAt(doc, startX, billToY, client.phone, 10, {
       color: theme.muted,
       maxWidth: colW,
+      align: startAlign,
+      ...body,
     });
   }
   if (client.address) {
-    billToY = drawTextAt(doc, margin, billToY, client.address, 10, {
+    billToY = drawTextAt(doc, startX, billToY, client.address, 10, {
       color: theme.muted,
       maxWidth: colW,
+      align: startAlign,
+      ...body,
     });
   }
 
   // For bar-top themes, the invoice meta wasn't placed in the bar — put it
-  // to the right of Bill To.
+  // at the end edge, beside Bill To.
   let metaY = billToTop;
   if (theme.headerStyle === 'bar-top') {
-    metaY = drawTextAt(doc, pageW - margin, metaY, 'INVOICE', 22, {
+    metaY = drawTextAt(doc, endX, metaY, t('invoiceTitle'), 22, {
       bold: true,
       color: theme.accent,
       font: theme.titleFont,
-      align: 'right',
+      align: endAlign,
+      ...body,
     });
     metaY += 4;
     metaY = drawTextAt(
       doc,
-      pageW - margin,
+      endX,
       metaY,
-      `Invoice #: ${invoice.invoice_number}`,
+      t('invoiceNumber', { number: invoice.invoice_number }),
       10,
-      { color: theme.ink, align: 'right' },
+      { color: theme.ink, align: endAlign, ...body },
     );
     metaY = drawTextAt(
       doc,
-      pageW - margin,
+      endX,
       metaY,
-      `Date: ${formatDate(invoice.issued_at, biz.timezone, locale)}`,
+      t('date', { date: formatDate(invoice.issued_at, biz.timezone, locale) }),
       10,
-      { color: theme.ink, align: 'right' },
+      { color: theme.ink, align: endAlign, ...body },
     );
   }
 
@@ -330,43 +542,56 @@ export async function buildInvoicePdf(
   // ── LINE ITEMS ────────────────────────────────────────
   drawRule(y);
   y += 14;
-  y = drawTextAt(doc, margin, y, 'DESCRIPTION', 9, {
+  y = drawTextAt(doc, startX, y, t('description'), 9, {
     bold: true,
     color: theme.muted,
+    align: startAlign,
+    ...body,
   });
   y += 6;
 
   for (const item of invoice.line_items) {
-    y = drawTextAt(doc, margin, y, item.name, 14, {
+    y = drawTextAt(doc, startX, y, item.name, 14, {
       bold: true,
       color: theme.ink,
       font: theme.titleFont,
       maxWidth: contentW,
+      align: startAlign,
+      ...body,
     });
     if (item.description) {
-      y = drawTextAt(doc, margin, y, item.description, 10, {
+      y = drawTextAt(doc, startX, y, item.description, 10, {
         color: theme.muted,
         maxWidth: contentW,
+        align: startAlign,
+        ...body,
       });
     }
 
     if (item.type === 'package' && item.treatments && item.treatments.length > 0) {
       y += 8;
-      y = drawTextAt(doc, margin, y, 'INCLUDED TREATMENTS', 8, {
+      y = drawTextAt(doc, startX, y, t('includedTreatments'), 8, {
         bold: true,
         color: theme.muted,
+        align: startAlign,
+        ...body,
       });
       y += 2;
-      for (const t of item.treatments) {
-        const qty = t.quantity > 0 ? `${t.quantity}×` : '—';
-        const priceStr = `${formatCents(t.unit_price_cents, invoice.currency, locale)} each`;
-        drawTextAt(doc, margin + 8, y, `•  ${t.name}   ${qty}`, 10, {
+      for (const tr of item.treatments) {
+        const qty = tr.quantity > 0 ? `${tr.quantity}×` : '—';
+        const priceStr = t('priceEach', {
+          price: formatCents(tr.unit_price_cents, invoice.currency, locale),
+        });
+        drawTextAt(doc, startX + indent(8), y, `•  ${tr.name}   ${qty}`, 10, {
           color: theme.ink,
           maxWidth: colW,
+          align: startAlign,
+          ...body,
         });
-        drawTextAt(doc, pageW - margin, y, priceStr, 10, {
+        drawTextAt(doc, endX, y, priceStr, 10, {
           color: theme.muted,
-          align: 'right',
+          align: endAlign,
+          ...body,
         });
         y += 13;
       }
@@ -374,19 +599,24 @@ export async function buildInvoicePdf(
 
     if (item.type === 'package' && item.bundled_products && item.bundled_products.length > 0) {
       y += 6;
-      y = drawTextAt(doc, margin, y, 'INCLUDED PRODUCTS', 8, {
+      y = drawTextAt(doc, startX, y, t('includedProducts'), 8, {
         bold: true,
         color: theme.muted,
+        align: startAlign,
+        ...body,
       });
       y += 2;
       for (const p of item.bundled_products) {
-        drawTextAt(doc, margin + 8, y, `•  ${p.name}   ${p.quantity}×`, 10, {
+        drawTextAt(doc, startX + indent(8), y, `•  ${p.name}   ${p.quantity}×`, 10, {
           color: theme.ink,
           maxWidth: colW,
+          align: startAlign,
+          ...body,
         });
-        drawTextAt(doc, pageW - margin, y, 'Included', 10, {
+        drawTextAt(doc, endX, y, t('included'), 10, {
           color: theme.muted,
-          align: 'right',
+          align: endAlign,
+          ...body,
         });
         y += 13;
       }
@@ -395,11 +625,13 @@ export async function buildInvoicePdf(
     y += 10;
     drawTextAt(
       doc,
-      pageW - margin,
+      endX,
       y,
-      `Subtotal: ${formatCents(item.subtotal_cents, invoice.currency, locale)}`,
+      t('lineSubtotal', {
+        amount: formatCents(item.subtotal_cents, invoice.currency, locale),
+      }),
       11,
-      { bold: true, color: theme.ink, align: 'right' },
+      { bold: true, color: theme.ink, align: endAlign, ...body },
     );
     y += 20;
   }
@@ -410,52 +642,73 @@ export async function buildInvoicePdf(
   doc.setFillColor(theme.totalsBg);
   doc.rect(margin, y, contentW, totalsBoxH, 'F');
 
+  const totalsX = endX + indent(-12);
   let totalsY = y + 16;
   totalsY = drawTextAt(
     doc,
-    pageW - margin - 12,
+    totalsX,
     totalsY,
-    `Subtotal: ${formatCents(invoice.subtotal_cents, invoice.currency, locale)}`,
+    t('subtotal', { amount: formatCents(invoice.subtotal_cents, invoice.currency, locale) }),
     11,
-    { color: theme.ink, align: 'right' },
+    { color: theme.ink, align: endAlign, ...body },
   );
   totalsY += 2;
   totalsY = drawTextAt(
     doc,
-    pageW - margin - 12,
+    totalsX,
     totalsY,
-    `Tax (${invoice.tax_rate}%): ${formatCents(invoice.tax_amount_cents, invoice.currency, locale)}`,
+    t('tax', {
+      rate: invoice.tax_rate,
+      amount: formatCents(invoice.tax_amount_cents, invoice.currency, locale),
+    }),
     11,
-    { color: theme.ink, align: 'right' },
+    { color: theme.ink, align: endAlign, ...body },
   );
   totalsY += 6;
   drawTextAt(
     doc,
-    pageW - margin - 12,
+    totalsX,
     totalsY,
-    `Total: ${formatCents(invoice.total_cents, invoice.currency, locale)}`,
+    t('total', { amount: formatCents(invoice.total_cents, invoice.currency, locale) }),
     16,
-    { bold: true, color: theme.accent, font: theme.titleFont, align: 'right' },
+    { bold: true, color: theme.accent, font: theme.titleFont, align: endAlign, ...body },
   );
 
   y += totalsBoxH + 18;
 
   // ── FOOTER ────────────────────────────────────────────
   if (invoice.payment_method) {
-    y = drawTextAt(doc, margin, y, 'PAYMENT METHOD', 9, { bold: true, color: theme.muted });
+    y = drawTextAt(doc, startX, y, t('paymentMethod'), 9, {
+      bold: true,
+      color: theme.muted,
+      align: startAlign,
+      ...body,
+    });
     y += 2;
-    y = drawTextAt(doc, margin, y, invoice.payment_method, 10, { color: theme.ink, maxWidth: contentW });
+    const methodLabel = fixedT(`paymentMethods.${invoice.payment_method}`, {
+      defaultValue: invoice.payment_method,
+    }) as string;
+    y = drawTextAt(doc, startX, y, methodLabel, 10, {
+      color: theme.ink,
+      maxWidth: contentW,
+      align: startAlign,
+      ...body,
+    });
     y += 12;
   }
   if (biz.payment_terms) {
-    y = drawTextAt(doc, margin, y, 'PAYMENT TERMS', 9, {
+    y = drawTextAt(doc, startX, y, t('paymentTerms'), 9, {
       bold: true,
       color: theme.muted,
+      align: startAlign,
+      ...body,
     });
     y += 2;
-    y = drawTextAt(doc, margin, y, biz.payment_terms, 10, {
+    y = drawTextAt(doc, startX, y, biz.payment_terms, 10, {
       color: theme.ink,
       maxWidth: contentW,
+      align: startAlign,
+      ...body,
     });
     y += 12;
   }
@@ -467,6 +720,7 @@ export async function buildInvoicePdf(
       color: theme.muted,
       align: 'center',
       maxWidth: contentW,
+      ...body,
     });
   }
 

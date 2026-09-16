@@ -1,0 +1,293 @@
+{
+  "page": {
+    "title": "הגדרות",
+    "subtitle": "ניהול הגדרות המערכת וההעדפות שלך"
+  },
+  "sections": {
+    "general": {
+      "title": "הגדרות כלליות",
+      "description": "ניהול ההגדרות הכלליות וההעדפות של המערכת"
+    },
+    "brandLogo": {
+      "title": "לוגו העסק",
+      "description": "העלאת לוגו העסק – הוא יופיע בסרגל הצד וכאייקון בלשונית הדפדפן"
+    },
+    "dropdownData": {
+      "title": "ניהול רשימות בחירה",
+      "description": "ניהול האפשרויות ברשימות הבחירה בטפסים"
+    },
+    "users": {
+      "title": "ניהול משתמשים",
+      "description": "ניהול חשבונות משתמשים, תפקידים והרשאות"
+    },
+    "packages": {
+      "title": "ניהול חבילות",
+      "description": "יצירה וניהול של חבילות שירות ללקוחות"
+    },
+    "treatments": {
+      "title": "ניהול טיפולים",
+      "description": "ניהול הטיפולים והשירותים הזמינים בעסק"
+    },
+    "addons": {
+      "title": "תוספות",
+      "description": "תוספות אופציונליות שהצוות והלקוחות יכולים לצרף לכל תור (למשל מסכת עיניים, עיסוי קרקפת)"
+    },
+    "products": {
+      "title": "ניהול מוצרים",
+      "description": "ניהול המוצרים ומלאי המכירה"
+    },
+    "categories": {
+      "title": "קטגוריות",
+      "description": "סיווג מוצרים, טיפולי פנים או שניהם – בוחרים את ההיקף בעת יצירת כל קטגוריה."
+    },
+    "brands": {
+      "title": "מותגי מוצרים",
+      "description": "ניהול המותגים שהעסק מוכר – הם מופיעים ברשימת בחירה בעת עריכת מוצר"
+    },
+    "scheduling": {
+      "title": "הגדרות יומן",
+      "description": "הגדרת כללי קביעת התורים והזמינות"
+    },
+    "businessHours": {
+      "title": "שעות פעילות",
+      "description": "הגדרת שעות הפעילות לכל יום בשבוע"
+    },
+    "waivers": {
+      "title": "תבניות טופסי הסכמה",
+      "description": "יצירה וניהול של טופסי הסכמה לשליחה ללקוחות לפני התור"
+    },
+    "intake": {
+      "title": "תבניות טופסי קליטה",
+      "description": "יצירה וניהול של טופסי קליטה ללקוחות חדשים – היסטוריה רפואית, פרטי קשר, תמונות ועוד"
+    },
+    "agreements": {
+      "title": "תבניות הסכמי רכישה",
+      "description": "תבניות שנשלחות אוטומטית לאחר שיוך חבילה ללקוח. בונים את התבנית פעם אחת עם בלוקים של חבילה (שם החבילה, מחיר, מפגשים, תאריך רכישה, תוקף) ובלוקים רגילים (טקסט, חתימה וכו׳) – שדות הרכישה והלקוח מתמלאים אוטומטית מהרכישה המקושרת."
+    }
+  },
+  "mobileTabs": {
+    "selectSection": "בחירת מדור"
+  },
+  "businessInfo": {
+    "loading": "טוען את פרטי העסק...",
+    "title": "פרטי העסק",
+    "description": "ניהול פרטי העסק ופרטי הקשר",
+    "fields": {
+      "name": "שם העסק",
+      "address": "כתובת",
+      "phone": "טלפון",
+      "email": "אימייל",
+      "website": "אתר אינטרנט",
+      "timezone": "אזור זמן"
+    },
+    "timezoneHelp": "משמש לקביעת תורים, להתראות ולחישוב תוקף חבילות.",
+    "timezones": {
+      "easternTime": "שעון החוף המזרחי (ET)",
+      "centralTime": "שעון מרכז ארה״ב (CT)",
+      "mountainTime": "שעון ההרים (MT)",
+      "pacificTime": "שעון החוף המערבי (PT)",
+      "alaskaTime": "שעון אלסקה (AKT)",
+      "hawaiiTime": "שעון הוואי (HT)",
+      "arizona": "אריזונה (ללא שעון קיץ)",
+      "easternCanada": "מזרח קנדה",
+      "pacificCanada": "מערב קנדה",
+      "london": "לונדון (GMT/BST)",
+      "centralEurope": "מרכז אירופה (CET)",
+      "berlin": "ברלין (CET)",
+      "rome": "רומא (CET)",
+      "madrid": "מדריד (CET)",
+      "easternEurope": "מזרח אירופה (EET)",
+      "israel": "ישראל (IST)",
+      "dubai": "דובאי (GST)",
+      "india": "הודו (IST)",
+      "singapore": "סינגפור (SGT)",
+      "japan": "יפן (JST)",
+      "sydney": "סידני (AEST)",
+      "melbourne": "מלבורן (AEST)",
+      "newZealand": "ניו זילנד (NZST)"
+    },
+    "saveChanges": "שמירת שינויים",
+    "language": {
+      "sectionTitle": "שפה",
+      "yourLanguageHelp": "שפת התצוגה האישית שלך. היא חלה רק על החשבון שלך וגוברת על ברירת המחדל של הארגון."
+    }
+  },
+  "logo": {
+    "currentLogo": "הלוגו הנוכחי",
+    "logoAlt": "לוגו העסק",
+    "usedAsFavicon": "תמונה זו משמשת גם כאייקון בלשונית הדפדפן.",
+    "willBeUsedAsFavicon": "הלוגו ישמש גם כאייקון בלשונית הדפדפן.",
+    "changeLogo": "החלפת לוגו",
+    "removeLogo": "הסרת לוגו",
+    "uploadLogo": "העלאת לוגו",
+    "uploading": "מעלה...",
+    "dragAndDrop": "גררו את הלוגו לכאן",
+    "browseFiles": "בחירת קובץ",
+    "fileHint": "PNG, JPG, SVG עד 5MB",
+    "toasts": {
+      "invalidTypeTitle": "סוג קובץ לא נתמך",
+      "invalidTypeDescription": "יש לבחור קובץ תמונה (PNG, JPG, SVG).",
+      "tooLargeTitle": "הקובץ גדול מדי",
+      "tooLargeDescription": "יש לבחור תמונה בגודל של עד 5MB.",
+      "noOrgTitle": "אין ארגון פעיל",
+      "noOrgDescription": "לא ניתן לשמור לוגו ללא ארגון פעיל.",
+      "updatedTitle": "הלוגו עודכן",
+      "updatedDescription": "הלוגו נשמר ויופיע בכל המכשירים.",
+      "uploadFailedTitle": "ההעלאה נכשלה",
+      "uploadFailedDescription": "לא ניתן לשמור את הלוגו. נסו שוב.",
+      "removedTitle": "הלוגו הוסר",
+      "removedDescription": "הלוגו הוסר בהצלחה.",
+      "removeFailedTitle": "הסרת הלוגו נכשלה",
+      "removeFailedDescription": "נסו שוב."
+    }
+  },
+  "schedulerLinks": {
+    "title": "קישורי הזמנת תורים",
+    "description": "כתובות URL לשיתוף להזמנת תורים – לאתר, לחתימת האימייל או לביו ברשתות החברתיות. כל קישור יכול להיות מוגבל לטיפול מסוים, לאיש צוות מסוים, לשניהם או לאף אחד מהם.",
+    "createLink": "יצירת קישור",
+    "loading": "טוען…",
+    "empty": "אין עדיין קישורים. לחצו על <strong>יצירת קישור</strong> כדי ליצור את הקישור הראשון לשיתוף.",
+    "anyTreatment": "כל טיפול",
+    "badges": {
+      "revoked": "בוטל",
+      "expired": "פג תוקף",
+      "active": "פעיל"
+    },
+    "createdExpires": "נוצר {{created}} · תוקף עד {{expires}}",
+    "actions": {
+      "url": "כתובת",
+      "embed": "הטמעה",
+      "revoke": "ביטול קישור",
+      "delete": "מחיקה",
+      "copy": "העתקה"
+    },
+    "confirmRevoke": "לבטל את הקישור? הכתובת הציבורית תפסיק לעבוד מיד.",
+    "confirmDelete": "למחוק את הקישור לצמיתות? לא ניתן לבטל פעולה זו – הכתובת תיעלם לתמיד.",
+    "toasts": {
+      "loadFailed": "טעינת קישורי הזמנת התורים נכשלה",
+      "createdTitle": "הקישור נוצר",
+      "createdDescription": "כעת אפשר להעתיק את הכתובת או את קוד ההטמעה.",
+      "createFailedTitle": "היצירה נכשלה",
+      "createFailedDescription": "יצירת הקישור נכשלה",
+      "revokedTitle": "הקישור בוטל",
+      "revokeFailedTitle": "הביטול נכשל",
+      "revokeFailedDescription": "ביטול הקישור נכשל",
+      "deletedTitle": "הקישור נמחק",
+      "deleteFailedTitle": "המחיקה נכשלה",
+      "deleteFailedDescription": "מחיקת הקישור נכשלה",
+      "urlCopied": "הכתובת הועתקה",
+      "snippetCopied": "קוד ההטמעה הועתק",
+      "copyFailedTitle": "ההעתקה נכשלה",
+      "copyFailedDescription": "יש לסמן ולהעתיק ידנית"
+    },
+    "createDialog": {
+      "title": "יצירת קישור להזמנת תור",
+      "description": "הכתובת פועלת ללא התחברות. כל מי שמחזיק בקישור יכול לבקש תור.",
+      "treatment": "טיפול (אופציונלי)",
+      "anyTreatmentOption": "כל טיפול (המבקר בוחר)",
+      "label": "תווית (אופציונלי)",
+      "labelPlaceholder": "למשל: קישור בתחתית האתר",
+      "expiresIn": "תוקף (בימים)",
+      "creating": "יוצר…"
+    },
+    "embedDialog": {
+      "title": "שיתוף או הטמעה",
+      "description": "שלחו את הכתובת ישירות, או הדביקו את הקוד באתר כדי להטמיע את דף הזמנת התורים.",
+      "publicUrl": "כתובת ציבורית",
+      "embedSnippet": "קוד הטמעה (iframe)",
+      "embedHint": "הדביקו קוד זה ב-HTML של כל דף אינטרנט כדי להטמיע את רכיב הזמנת התורים."
+    }
+  },
+  "userManagement": {
+    "title": "ניהול משתמשים",
+    "description": "ניהול חשבונות המשתמשים וההרשאות של הצוות",
+    "loadingUsers": "טוען משתמשים...",
+    "toasts": {
+      "permissionCheckError": "אירעה שגיאה בלתי צפויה בבדיקת ההרשאות.",
+      "loadProfilesFailed": "טעינת פרופילי המשתמשים נכשלה.",
+      "accessDeniedTitle": "הגישה נדחתה",
+      "accessDeniedDescription": "אין לך הרשאה לשנות סטטוס משתמשים.",
+      "statusUpdatedTitle": "הסטטוס עודכן",
+      "userActivated": "המשתמש הופעל.",
+      "userDeactivated": "המשתמש הושבת.",
+      "statusUpdateFailed": "עדכון סטטוס המשתמש נכשל."
+    }
+  },
+  "permissionChecker": {
+    "checking": "בודק הרשאות...",
+    "accessRestricted": "הגישה מוגבלת",
+    "adminsOnly": "רק מנהלי מערכת יכולים לגשת לניהול משתמשים."
+  },
+  "userList": {
+    "empty": "לא נמצאו משתמשים. כדי להתחיל, יש ליצור את המשתמש הראשון."
+  },
+  "userCard": {
+    "noName": "ללא שם",
+    "created": "נוצר: {{date}}",
+    "activate": "הפעלת משתמש",
+    "deactivate": "השבתת משתמש"
+  },
+  "passwordStrength": {
+    "minLength": "הסיסמה צריכה להכיל לפחות 8 תווים",
+    "uppercase": "יש לכלול אותיות גדולות",
+    "lowercase": "יש לכלול אותיות קטנות",
+    "numbers": "יש לכלול ספרות",
+    "symbols": "יש לכלול תווים מיוחדים",
+    "repeated": "יש להימנע מתווים חוזרים"
+  },
+  "userCreation": {
+    "addUser": "הוספת משתמש",
+    "title": "הוספת משתמש חדש",
+    "description": "יצירת חשבון משתמש חדש. תיווצר סיסמה זמנית מאובטחת.",
+    "adminNote": "שימו לב: משתמשי מנהל ניתן ליצור רק ישירות במסד הנתונים.",
+    "validationErrors": "שגיאות אימות:",
+    "validationFailed": "האימות נכשל",
+    "successTitle": "המשתמש נוצר בהצלחה!",
+    "temporaryPassword": "סיסמה זמנית:",
+    "copyPassword": "העתקת סיסמה",
+    "sharePasswordHint": "יש להעביר את הסיסמה למשתמש בצורה מאובטחת. מומלץ להחליף אותה בכניסה הראשונה.",
+    "fields": {
+      "fullName": "שם מלא *",
+      "fullNamePlaceholder": "הזינו שם מלא",
+      "email": "אימייל *",
+      "emailPlaceholder": "הזינו כתובת אימייל",
+      "phone": "טלפון",
+      "phonePlaceholder": "הזינו מספר טלפון",
+      "role": "תפקיד *",
+      "rolePlaceholder": "בחירת תפקיד"
+    },
+    "generatePassword": "יצירת סיסמה מאובטחת",
+    "passwordReady": "✓ סיסמה מאובטחת מוכנה",
+    "creating": "יוצר...",
+    "createUser": "יצירת משתמש",
+    "toasts": {
+      "validationErrorTitle": "שגיאת אימות",
+      "noOrgContext": "לא נמצא ארגון פעיל – רעננו את הדף ונסו שוב.",
+      "createdTitle": "המשתמש נוצר",
+      "createdDescription": "{{name}} נוסף/ה בהצלחה.",
+      "createFailed": "יצירת המשתמש נכשלה.",
+      "copiedTitle": "הועתק",
+      "copiedDescription": "הסיסמה הזמנית הועתקה ללוח."
+    },
+    "validation": {
+      "full_name": {
+        "too_small": "השם המלא חייב להכיל לפחות 2 תווים",
+        "too_big": "השם המלא לא יכול לעלות על 100 תווים",
+        "invalid_string": "השם המלא מכיל תווים לא חוקיים"
+      },
+      "email": {
+        "invalid_string": "יש להזין כתובת אימייל תקינה",
+        "too_big": "האימייל לא יכול לעלות על 255 תווים"
+      },
+      "phone": {
+        "too_small": "מספר הטלפון חייב להכיל לפחות 10 ספרות",
+        "too_big": "מספר הטלפון לא יכול לעלות על 20 תווים",
+        "invalid_string": "יש להזין מספר טלפון תקין"
+      },
+      "role": {
+        "invalid_enum_value": "התפקיד חייב להיות צוות, קבלה או קוסמטיקאי/ת",
+        "invalid_type": "התפקיד חייב להיות צוות, קבלה או קוסמטיקאי/ת"
+      }
+    }
+  }
+}

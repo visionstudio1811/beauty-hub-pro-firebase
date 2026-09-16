@@ -7,10 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X, MapPin, Users, Loader2 } from 'lucide-react';
 import { useSupabaseDropdownData } from '@/hooks/useSupabaseDropdownData';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 export const DropdownDataManagement: React.FC = () => {
   const { dropdownData, loading, addCity, removeCity, addReferralSource, removeReferralSource } = useSupabaseDropdownData();
   const { toast } = useToast();
+  const { t } = useTranslation('scheduling');
   const [newCity, setNewCity] = useState('');
   const [newReferralSource, setNewReferralSource] = useState('');
 
@@ -20,9 +22,9 @@ export const DropdownDataManagement: React.FC = () => {
     try {
       await addCity(trimmed);
       setNewCity('');
-      toast({ title: "City Added", description: `${trimmed} has been added to the city list.` });
+      toast({ title: t('dropdownData.cities.addedTitle'), description: t('dropdownData.cities.addedDescription', { name: trimmed }) });
     } catch {
-      toast({ title: "Error", description: "Failed to add city.", variant: "destructive" });
+      toast({ title: t('dropdownData.errorTitle'), description: t('dropdownData.cities.addError'), variant: "destructive" });
     }
   };
 
@@ -32,27 +34,27 @@ export const DropdownDataManagement: React.FC = () => {
     try {
       await addReferralSource(trimmed);
       setNewReferralSource('');
-      toast({ title: "Referral Source Added", description: `${trimmed} has been added to the referral sources.` });
+      toast({ title: t('dropdownData.referralSources.addedTitle'), description: t('dropdownData.referralSources.addedDescription', { name: trimmed }) });
     } catch {
-      toast({ title: "Error", description: "Failed to add referral source.", variant: "destructive" });
+      toast({ title: t('dropdownData.errorTitle'), description: t('dropdownData.referralSources.addError'), variant: "destructive" });
     }
   };
 
   const handleRemoveCity = async (city: string) => {
     try {
       await removeCity(city);
-      toast({ title: "City Removed", description: `${city} has been removed from the city list.` });
+      toast({ title: t('dropdownData.cities.removedTitle'), description: t('dropdownData.cities.removedDescription', { name: city }) });
     } catch {
-      toast({ title: "Error", description: "Failed to remove city.", variant: "destructive" });
+      toast({ title: t('dropdownData.errorTitle'), description: t('dropdownData.cities.removeError'), variant: "destructive" });
     }
   };
 
   const handleRemoveReferralSource = async (source: string) => {
     try {
       await removeReferralSource(source);
-      toast({ title: "Referral Source Removed", description: `${source} has been removed from the referral sources.` });
+      toast({ title: t('dropdownData.referralSources.removedTitle'), description: t('dropdownData.referralSources.removedDescription', { name: source }) });
     } catch {
-      toast({ title: "Error", description: "Failed to remove referral source.", variant: "destructive" });
+      toast({ title: t('dropdownData.errorTitle'), description: t('dropdownData.referralSources.removeError'), variant: "destructive" });
     }
   };
 
@@ -71,21 +73,21 @@ export const DropdownDataManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <span className="truncate">City Management</span>
+            <span className="truncate">{t('dropdownData.cities.title')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 overflow-x-hidden">
-          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 rtl:space-x-reverse">
             <Input
-              placeholder="Enter new city..."
+              placeholder={t('dropdownData.cities.placeholder')}
               value={newCity}
               onChange={(e) => setNewCity(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddCity()}
               className="min-w-0 flex-1"
             />
             <Button onClick={handleAddCity} size="sm" className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2 sm:mr-0" />
-              <span className="sm:hidden">Add City</span>
+              <Plus className="h-4 w-4 me-2 sm:me-0" />
+              <span className="sm:hidden">{t('dropdownData.cities.add')}</span>
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -100,7 +102,7 @@ export const DropdownDataManagement: React.FC = () => {
             ))}
           </div>
           <p className="text-sm text-gray-500">
-            {dropdownData.cities.length} cities configured
+            {t('dropdownData.cities.configured', { count: dropdownData.cities.length })}
           </p>
         </CardContent>
       </Card>
@@ -110,21 +112,21 @@ export const DropdownDataManagement: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <span className="truncate">Referral Sources</span>
+            <span className="truncate">{t('dropdownData.referralSources.title')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 overflow-x-hidden">
-          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 rtl:space-x-reverse">
             <Input
-              placeholder="Enter new referral source..."
+              placeholder={t('dropdownData.referralSources.placeholder')}
               value={newReferralSource}
               onChange={(e) => setNewReferralSource(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddReferralSource()}
               className="min-w-0 flex-1"
             />
             <Button onClick={handleAddReferralSource} size="sm" className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2 sm:mr-0" />
-              <span className="sm:hidden">Add Source</span>
+              <Plus className="h-4 w-4 me-2 sm:me-0" />
+              <span className="sm:hidden">{t('dropdownData.referralSources.add')}</span>
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -139,7 +141,7 @@ export const DropdownDataManagement: React.FC = () => {
             ))}
           </div>
           <p className="text-sm text-gray-500">
-            {dropdownData.referralSources.length} referral sources configured
+            {t('dropdownData.referralSources.configured', { count: dropdownData.referralSources.length })}
           </p>
         </CardContent>
       </Card>

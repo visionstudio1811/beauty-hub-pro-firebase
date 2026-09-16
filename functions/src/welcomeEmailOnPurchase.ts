@@ -1,12 +1,24 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import { loadOrgEmailContext, getAutomation, sendOrgEmail, alreadySent } from './lib/orgEmail';
+import { loadOrgEmailContext, getAutomation, sendOrgEmail, alreadySent, orgEmailLanguage } from './lib/orgEmail';
+import { defineStrings, makeT, localeFor, AppLanguage } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+const STRINGS = defineStrings({
+  en: {
+    org_fallback: 'us',
+    subject: 'Welcome to {{org}}!',
+  },
+  he: {
+    org_fallback: 'העסק שלנו',
+    subject: 'ברוכים הבאים ל{{org}}!',
+  },
+});
 
 /** Returns a Date for a Firestore Timestamp / Date / ISO string / millis. Null on bad input. */
 function toDate(value: unknown): Date | null {
@@ -27,10 +39,10 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
-function formatDate(value: unknown, timeZone: string): string {
+function formatDate(value: unknown, timeZone: string, lang: AppLanguage): string {
   const d = toDate(value);
   if (!d) return '';
-  return d.toLocaleDateString('en-US', { timeZone });
+  return d.toLocaleDateString(localeFor(lang), { timeZone });
 }
 
 /**
@@ -88,14 +100,16 @@ export const welcomeEmailOnPurchase = onDocumentCreated(
         }
       }
 
+      const lang = orgEmailLanguage(ctx);
+      const t = makeT(STRINGS, lang);
       const timeZone = (ctx.orgData.timezone as string) || 'America/New_York';
-      const orgName = (ctx.orgData.name as string) || ctx.fromName || 'us';
+      const orgName = (ctx.orgData.name as string) || ctx.fromName || t('org_fallback');
 
       const purchaseDateRaw = purchase.created_at ?? purchase.purchase_date;
-      const purchaseDate = formatDate(purchaseDateRaw, timeZone) || new Date().toLocaleDateString('en-US', { timeZone });
-      const expiryDate = formatDate(purchase.expiry_date, timeZone);
+      const purchaseDate = formatDate(purchaseDateRaw, timeZone, lang) || new Date().toLocaleDateString(localeFor(lang), { timeZone });
+      const expiryDate = formatDate(purchase.expiry_date, timeZone, lang);
 
-      const subject = `Welcome to ${orgName}!`;
+      const subject = t('subject', { org: orgName });
 
       await sendOrgEmail({
         ctx,
@@ -113,6 +127,7 @@ export const welcomeEmailOnPurchase = onDocumentCreated(
         automationKey: 'welcome',
         refType: 'purchase',
         refId: purchaseId,
+        lang,
       });
     } catch (err) {
       // Don't rethrow — bad data shouldn't trigger infinite retries.

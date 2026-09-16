@@ -1,0 +1,60 @@
+{
+  "fields": {
+    "_default": "שדה זה",
+    "name": "שם",
+    "email": "אימייל",
+    "phone": "מספר טלפון",
+    "address": "כתובת",
+    "city": "עיר",
+    "date_of_birth": "תאריך לידה",
+    "referral_source": "מקור הגעה",
+    "allergies": "אלרגיות",
+    "notes": "הערות",
+    "client_name": "שם הלקוח/ה",
+    "client_email": "אימייל הלקוח/ה",
+    "client_phone": "טלפון הלקוח/ה",
+    "treatment_name": "שם הטיפול",
+    "staff_name": "שם איש/אשת הצוות",
+    "appointment_date": "תאריך התור",
+    "appointment_time": "שעת התור",
+    "duration": "משך",
+    "status": "סטטוס",
+    "description": "תיאור",
+    "price": "מחיר",
+    "category": "קטגוריה",
+    "color": "צבע",
+    "specialties": "התמחויות",
+    "full_name": "שם מלא",
+    "role": "תפקיד"
+  },
+  "codes": {
+    "required": "{{field}} הוא שדה חובה",
+    "invalid_type": "{{field}} אינו תקין",
+    "too_small": {
+      "string": "{{field}} חייב להכיל לפחות {{min}} תווים",
+      "number": "{{field}} חייב להיות לפחות {{min}}",
+      "array": "{{field}} חייב להכיל לפחות {{min}} פריטים"
+    },
+    "too_big": {
+      "string": "{{field}} לא יכול לעבור {{max}} תווים",
+      "number": "{{field}} לא יכול לעבור {{max}}",
+      "array": "{{field}} לא יכול להכיל יותר מ-{{max}} פריטים"
+    },
+    "invalid_string": {
+      "email": "יש להזין כתובת אימייל תקינה",
+      "url": "יש להזין כתובת URL תקינה",
+      "regex": "{{field}} מכיל תווים לא חוקיים"
+    },
+    "invalid_enum_value": "{{field}} חייב להיות אחד מ: {{options}}"
+  },
+  "fieldMessages": {
+    "phone": { "too_small": "מספר הטלפון חייב להכיל לפחות 10 ספרות", "invalid_string": "יש להזין מספר טלפון תקין" },
+    "client_phone": { "too_small": "מספר הטלפון חייב להכיל לפחות 10 ספרות", "invalid_string": "יש להזין מספר טלפון תקין" },
+    "appointment_date": { "invalid_string": "יש להזין תאריך תקין (YYYY-MM-DD)" },
+    "appointment_time": { "invalid_string": "יש להזין שעה תקינה (HH:MM)" },
+    "duration": { "too_small": "משך הטיפול חייב להיות לפחות 15 דקות", "too_big": "משך הטיפול לא יכול לעבור 8 שעות" },
+    "price": { "too_small": "המחיר לא יכול להיות שלילי", "too_big": "המחיר לא יכול לעבור 10,000" },
+    "color": { "invalid_string": "הצבע חייב להיות קוד hex בן 6 ספרות (לדוגמה #FFD700)" },
+    "role": { "invalid_enum_value": "התפקיד חייב להיות צוות, קבלה או קוסמטיקאי/ת", "invalid_type": "התפקיד חייב להיות צוות, קבלה או קוסמטיקאי/ת" }
+  }
+}

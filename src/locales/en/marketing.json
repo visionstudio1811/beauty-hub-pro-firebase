@@ -1,0 +1,513 @@
+{
+  "messageType": {
+    "email": "EMAIL",
+    "sms": "SMS",
+    "both": "Email + SMS"
+  },
+  "campaignType": {
+    "email": "email",
+    "sms": "sms",
+    "both": "both"
+  },
+  "campaignStatus": {
+    "active": "active",
+    "completed": "completed",
+    "scheduled": "scheduled",
+    "sending": "sending",
+    "draft": "draft",
+    "paused": "paused"
+  },
+  "triggers": {
+    "appointment_scheduled": "When an appointment is scheduled",
+    "appointment_completed": "When an appointment completes",
+    "client_created": "When a new client is created",
+    "client_birthday": "On client's birthday",
+    "client_inactive": "When a client goes inactive (90+ days)",
+    "package_expiring": "When a package is about to expire",
+    "package_expired": "When a package expires"
+  },
+  "page": {
+    "title": "Marketing",
+    "newCampaign": "New Campaign",
+    "loading": "Loading marketing data...",
+    "stats": {
+      "totalSent": "Total Sent",
+      "campaignsDelivered": "Campaigns delivered",
+      "openRate": "Open Rate",
+      "averageOpenRate": "Average open rate",
+      "clickRate": "Click Rate",
+      "averageClickRate": "Average click rate",
+      "reviews": "Reviews",
+      "reviewsCollected": "Reviews collected"
+    },
+    "quickTemplates": {
+      "title": "Quick Campaign Templates",
+      "description": "Get started with pre-built campaign templates",
+      "birthday": {
+        "name": "Birthday Special",
+        "description": "Send personalized birthday offers"
+      },
+      "reactivation": {
+        "name": "Inactive Clients",
+        "description": "Re-engage clients who haven't visited"
+      },
+      "renewal": {
+        "name": "Package Renewal",
+        "description": "Remind clients to renew packages"
+      }
+    },
+    "campaigns": {
+      "title": "Recent Campaigns",
+      "description": "Your latest marketing campaigns and their performance",
+      "emptyTitle": "No campaigns yet",
+      "emptyDescription": "Create your first marketing campaign to engage with your clients.",
+      "createCampaign": "Create Campaign",
+      "delivered": "{{sent}}/{{total}} delivered",
+      "notYetSent": "not yet sent",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "preview": "Preview",
+      "sending": "Sending...",
+      "sendNow": "Send Now"
+    },
+    "automations": {
+      "title": "Active Automations",
+      "description": "Automated marketing workflows currently running",
+      "emptyTitle": "No automations set up",
+      "emptyDescription": "Set up automated workflows to nurture your client relationships.",
+      "createAutomation": "Create Automation",
+      "delay": "Delay: {{delay}}",
+      "lastFired": "Last fired: {{date}}",
+      "pauseAutomation": "Pause automation",
+      "activateAutomation": "Activate automation",
+      "active": "Active",
+      "paused": "Paused",
+      "editAutomation": "Edit automation",
+      "deleteAutomation": "Delete automation"
+    },
+    "confirm": {
+      "sendCampaign": "Send \"{{name}}\" now to all matching clients?",
+      "smsOptOutNote": "SMS is opt-out: only clients who have not opted out will receive the message.",
+      "deleteAutomation": "Delete the \"{{name}}\" automation? This cannot be undone."
+    },
+    "toasts": {
+      "previewTitle_one": "{{count}} recipient will be contacted",
+      "previewTitle_other": "{{count}} recipients will be contacted",
+      "previewProvider": "Provider: {{provider}}",
+      "previewSample": "Sample:",
+      "noName": "(no name)",
+      "noEmail": "no email",
+      "noPhone": "no phone",
+      "none": "(none)",
+      "previewFailed": "Preview failed",
+      "campaignSent": "Campaign sent",
+      "campaignSentDescription": "{{sent}} delivered, {{failed}} failed out of {{total}} recipients.",
+      "sendFailed": "Failed to send campaign",
+      "automationDeleted": "Automation deleted",
+      "automationDeletedDescription": "\"{{name}}\" was removed."
+    }
+  },
+  "campaignModal": {
+    "title": "Create Marketing Campaign",
+    "description": "Choose a template or create a custom campaign to engage with your clients.",
+    "chooseTemplate": "Choose a Template",
+    "startFromScratch": "Start from Scratch",
+    "campaignDetails": "Campaign Details",
+    "changeTemplate": "Change Template",
+    "templates": {
+      "birthday": {
+        "name": "Birthday Special",
+        "description": "Send personalized birthday offers to clients",
+        "subject": "🎉 Happy Birthday! Special Gift Inside",
+        "content": "Happy Birthday! As a special gift, enjoy 20% off your next appointment. Book now and celebrate with us!",
+        "targetAudience": "Clients with birthdays this month"
+      },
+      "reactivation": {
+        "name": "Inactive Clients",
+        "description": "Re-engage clients who haven't visited recently",
+        "subject": "We Miss You! Come Back for 15% Off",
+        "content": "It's been a while since your last visit. We miss you! Come back and enjoy 15% off your next service.",
+        "targetAudience": "Clients inactive for 3+ months"
+      },
+      "renewal": {
+        "name": "Package Renewal",
+        "description": "Remind clients to renew their packages",
+        "subject": "Package Renewal Reminder",
+        "content": "Your package is about to expire! Renew now to continue enjoying our services at the best rates.",
+        "targetAudience": "Clients with expiring packages"
+      }
+    },
+    "fields": {
+      "name": "Campaign Name",
+      "namePlaceholder": "Enter campaign name",
+      "type": "Campaign Type",
+      "typeEmail": "Email",
+      "typeSms": "SMS",
+      "typeBoth": "Email + SMS",
+      "subject": "Email Subject",
+      "subjectPlaceholder": "Enter email subject",
+      "smsProvider": "SMS Provider",
+      "smsProviderAuto": "Auto (use enabled integration)",
+      "notConfigured": "(not configured)",
+      "noProviderEnabled": "No SMS provider is enabled. Configure one in Marketing → Integrations.",
+      "loadSmsTemplate": "Load SMS template",
+      "loadSmsTemplatePlaceholder": "Choose a saved template (optional)",
+      "untitled": "Untitled",
+      "stopFooterNote": "A \"Reply STOP to unsubscribe\" footer is added automatically to comply with carrier rules.",
+      "content": "Message Content",
+      "contentPlaceholder": "Enter your message",
+      "audience": "Target Audience",
+      "audienceAll": "All Clients",
+      "audienceActive": "Active Clients",
+      "audienceInactive": "Inactive Clients (3+ months)",
+      "audienceBirthday": "Birthday This Month",
+      "audienceExpiring": "Expiring Packages",
+      "schedule": "Schedule",
+      "sendNow": "Send Now",
+      "scheduleButton": "Schedule",
+      "date": "Date",
+      "time": "Time",
+      "chooseDateAndTime": "Choose both a date and a time to schedule this campaign.",
+      "willSend": "Will send {{when}} ({{timezone}}).",
+      "willSendFormat": "EEE, MMM d, yyyy 'at' h:mm a"
+    },
+    "validation": {
+      "nameRequired": "Please enter a campaign name.",
+      "subjectRequired": "Please enter an email subject.",
+      "contentRequired": "Please enter message content.",
+      "dateRequired": "Please choose a date for the scheduled campaign.",
+      "timeRequired": "Please choose a time for the scheduled campaign.",
+      "invalidDateTime": "The scheduled date/time is invalid."
+    },
+    "toasts": {
+      "orgNotFound": "Organization not found",
+      "fixForm": "Please fix the form",
+      "created": "Campaign created successfully",
+      "createdDescription": "Your {{type}} campaign \"{{name}}\" has been created.",
+      "createError": "Error creating campaign"
+    },
+    "creating": "Creating...",
+    "createCampaign": "Create Campaign"
+  },
+  "automationModal": {
+    "titleCreate": "Create Marketing Automation",
+    "titleEdit": "Edit Marketing Automation",
+    "descriptionCreate": "Set up automated workflows to engage with your clients at the right moments.",
+    "descriptionEdit": "Update the subject, content, or trigger for this automation. Toggle the Active switch on the list to pause without deleting.",
+    "chooseTemplate": "Choose an Automation Template",
+    "delay": "Delay: {{delay}}",
+    "createCustom": "Create Custom Automation",
+    "customDescription": "Custom automation",
+    "automationDetails": "Automation Details",
+    "changeTemplate": "Change Template",
+    "templates": {
+      "appointment_confirmation": {
+        "name": "Appointment Confirmation",
+        "description": "Email the client the moment a new appointment is booked",
+        "delay": "Immediate",
+        "subject": "Your appointment is confirmed — [DATE] at [TIME]",
+        "content": "Hi [NAME],\n\nYour [TREATMENT] appointment is confirmed for [DATE] at [TIME] with [STAFF].\n\nWe look forward to seeing you!\n\n— [ORG]"
+      },
+      "welcome": {
+        "name": "Welcome Series",
+        "description": "Welcome new clients with a series of messages",
+        "delay": "1 hour",
+        "subject": "Welcome to Our Spa! Here's What to Expect",
+        "content": "Welcome! We're excited to have you as a client. Here's everything you need to know about our services..."
+      },
+      "birthday": {
+        "name": "Birthday Automation",
+        "description": "Automatically send birthday wishes and offers",
+        "delay": "0 days",
+        "subject": "🎉 Happy Birthday! Special Gift Inside",
+        "content": "Happy Birthday! Enjoy 20% off your next appointment as our birthday gift to you!"
+      },
+      "followup": {
+        "name": "Post-Appointment Follow-up",
+        "description": "Follow up after appointments for feedback",
+        "delay": "1 day",
+        "subject": "How was your recent appointment?",
+        "content": "We hope you enjoyed your recent visit! Please let us know how we did and book your next appointment."
+      },
+      "reminder": {
+        "name": "Appointment Reminders",
+        "description": "Remind clients about upcoming appointments",
+        "delay": "24 hours before",
+        "subject": "Appointment Reminder",
+        "content": "Reminder: You have an appointment tomorrow at [TIME]. Reply CONFIRM to confirm or RESCHEDULE to change."
+      },
+      "reactivation": {
+        "name": "Win-Back Campaign",
+        "description": "Re-engage inactive clients automatically",
+        "delay": "90 days",
+        "subject": "We Miss You! Come Back for 15% Off",
+        "content": "It's been a while since your last visit. We miss you! Come back and enjoy 15% off your next service."
+      },
+      "booking_request_received": {
+        "name": "Booking Request Received (to visitor)",
+        "description": "Acknowledge a public booking request the moment it's submitted",
+        "delay": "Immediate",
+        "subject": "We got your booking request — [DATE] at [TIME]",
+        "content": "Hi [NAME],\n\nThanks for booking with [ORG]. We've received your request for [TREATMENT] on [DATE] at [TIME] and will confirm by email shortly.\n\nIf anything's wrong, just reply to this email.\n\n— [ORG]"
+      },
+      "booking_request_admin_alert": {
+        "name": "New Booking Request (to staff)",
+        "description": "Notify your admins the moment a public booking request comes in",
+        "delay": "Immediate",
+        "subject": "New booking request — [VISITOR_NAME] · [TREATMENT] · [DATE] [TIME]",
+        "content": "A new public booking request just arrived.\n\nVisitor: [VISITOR_NAME]\nEmail: [VISITOR_EMAIL]\nPhone: [VISITOR_PHONE]\nTreatment: [TREATMENT]\nRequested: [DATE] at [TIME]\nNotes: [VISITOR_NOTES]\n\nApprove or decline in the Booking Requests panel."
+      },
+      "booking_request_declined": {
+        "name": "Booking Declined (to visitor)",
+        "description": "Send a polite decline message when staff rejects a public booking",
+        "delay": "Immediate",
+        "subject": "About your booking request for [DATE] at [TIME]",
+        "content": "Hi [NAME],\n\nUnfortunately we're unable to confirm your [TREATMENT] booking on [DATE] at [TIME].\n\n[REASON]\n\nPlease pick another time on our booking page — we'd love to see you.\n\n— [ORG]"
+      }
+    },
+    "triggerOptions": {
+      "client_created": "New Client Registration",
+      "appointment_scheduled": "Appointment Scheduled",
+      "appointment_completed": "Appointment Completed",
+      "client_birthday": "Client Birthday",
+      "client_inactive": "Client Inactive (90+ days)",
+      "package_expiring": "Package Expiring Soon",
+      "package_expired": "Package Expired",
+      "public_booking_request": "Public Booking Request (to visitor)",
+      "public_booking_request_admin": "Public Booking Request (to staff)",
+      "booking_request_rejected": "Booking Request Rejected"
+    },
+    "fields": {
+      "name": "Automation Name",
+      "namePlaceholder": "Enter automation name",
+      "trigger": "Trigger Event",
+      "triggerPlaceholder": "Select trigger",
+      "delay": "Delay",
+      "delayPlaceholder": "e.g., 1 hour, 1 day, 24 hours before",
+      "messageType": "Message Type",
+      "typeEmail": "Email",
+      "typeSms": "SMS",
+      "typeBoth": "Both",
+      "subject": "Email Subject",
+      "subjectPlaceholder": "Enter email subject",
+      "content": "Message Content",
+      "contentPlaceholder": "Enter your message content",
+      "variablesHint": "You can use variables like [NAME], [DATE], [TIME] in your content."
+    },
+    "toasts": {
+      "missingFields": "Missing required fields",
+      "missingFieldsDescription": "Name and Trigger Event are required.",
+      "updated": "Automation updated",
+      "saved": "Automation saved",
+      "nowActive": "\"{{name}}\" is now active.",
+      "nowPaused": "\"{{name}}\" is now paused."
+    },
+    "saving": "Saving...",
+    "creating": "Creating...",
+    "saveChanges": "Save Changes",
+    "createAutomation": "Create Automation"
+  },
+  "smsTemplates": {
+    "title": "SMS Templates",
+    "description": "Save reusable SMS messages to load into campaigns, automations, and quick-sends. Use <code>{first_name}</code> or <code>{name}</code> for personalization.",
+    "newTemplate": "New Template",
+    "empty": "No templates yet.",
+    "untitled": "Untitled",
+    "fields": {
+      "name": "Template Name",
+      "namePlaceholder": "e.g. Appointment reminder",
+      "message": "Message",
+      "insertFirstName": "+ first name",
+      "insertName": "+ name",
+      "bodyPlaceholder": "Hi {first_name}, ..."
+    },
+    "stats": "{{chars}} chars · {{segments}} · {{encoding}}",
+    "segments_one": "{{count}} segment",
+    "segments_two": "{{count}} segments",
+    "segments_many": "{{count}} segments",
+    "segments_other": "{{count}} segments",
+    "saveChanges": "Save Changes",
+    "createTemplate": "Create Template",
+    "toasts": {
+      "loadError": "Error loading templates",
+      "nameRequired": "Name required",
+      "nameRequiredDescription": "Give the template a name.",
+      "messageRequired": "Message required",
+      "messageRequiredDescription": "Add a message body.",
+      "saved": "Template saved",
+      "saveError": "Error saving template",
+      "deleted": "Template deleted",
+      "deleteError": "Error deleting template"
+    }
+  },
+  "emailDesigner": {
+    "loading": "Loading templates...",
+    "title": "Email Template Designer",
+    "subtitle": "Customize your email templates with your brand colors and styling",
+    "saveTemplate": "Save Template",
+    "templateTypes": {
+      "welcome": "Welcome / Thank You Template",
+      "general": "General Template",
+      "birthday": "Birthday Template",
+      "inactive": "Inactive Client Template",
+      "package_renewal": "Package Renewal Template",
+      "appointment_reminder": "Appointment Reminder Template",
+      "booking_request_received": "Booking Request Received (Visitor)",
+      "booking_request_admin_alert": "Booking Request Alert (Admin)",
+      "booking_request_declined": "Booking Declined (Visitor)"
+    },
+    "automations": {
+      "title": "Email Automations",
+      "description": "Activate any of these to send your designed templates automatically. Saved separately from the template content.",
+      "save": "Save Automations",
+      "active": "Active",
+      "trigger": "Trigger: {{trigger}}",
+      "vipOnly": "VIP only",
+      "daysOffset": "Days offset",
+      "daysInactive": "Days inactive",
+      "daysBeforeExpiry": "Days before expiry",
+      "hoursBefore": "Hours before",
+      "meta": {
+        "welcome": {
+          "title": "Welcome / Thank You",
+          "description": "Sent automatically when a client purchases a package.",
+          "trigger": "On package purchase"
+        },
+        "birthday": {
+          "title": "Birthday Greeting",
+          "description": "Sent on each client's birthday at 9am local time.",
+          "trigger": "Daily at 9am — matches client birthday"
+        },
+        "inactive": {
+          "title": "Win-Back / Inactive Client",
+          "description": "Sent when a client hasn't visited for the configured number of days.",
+          "trigger": "Daily at 9am — based on last completed visit"
+        },
+        "package_renewal": {
+          "title": "Package Renewal Reminder",
+          "description": "Sent before a client's active package expires.",
+          "trigger": "Daily — before expiry date"
+        },
+        "appointment_reminder": {
+          "title": "Appointment Reminder",
+          "description": "Sent ahead of an upcoming appointment.",
+          "trigger": "Hourly — before appointment time"
+        }
+      }
+    },
+    "templateType": {
+      "title": "Template Type",
+      "placeholder": "Select template type"
+    },
+    "tabs": {
+      "visual": "Visual Editor",
+      "code": "HTML Editor",
+      "preview": "Preview"
+    },
+    "header": {
+      "title": "Header Image",
+      "description": "Shown at the top of every email. Recommended: 1200×400px, JPG or PNG, under 8MB. Used across all template types — change once, update everywhere.",
+      "alt": "Email header",
+      "replace": "Replace Image",
+      "uploading": "Uploading…",
+      "clickToUpload": "Click to upload header image",
+      "fileHint": "PNG, JPG, WEBP up to 8MB"
+    },
+    "colors": {
+      "title": "Brand Colors",
+      "primary": "Primary Color",
+      "background": "Background Color",
+      "text": "Text Color"
+    },
+    "signature": {
+      "title": "Signature & Content",
+      "label": "Email Signature",
+      "placeholder": "Best regards",
+      "availableVariables": "Available Variables for {{name}}"
+    },
+    "code": {
+      "title": "HTML Template Editor",
+      "description": "Edit the raw HTML template. Use variables like {{example}} for dynamic content.",
+      "placeholder": "Enter your HTML template here..."
+    },
+    "preview": {
+      "variablesTitle": "Preview Variables",
+      "variablesDescription": "These are sample values for the preview only. Business name, phone, address, email, logo, and header image are pulled from your real settings.",
+      "enterVariable": "Enter {{variable}}",
+      "title": "Email Preview - {{name}}"
+    },
+    "variableLabels": {
+      "subject": "Subject",
+      "message": "Message",
+      "sender_name": "Sender Name",
+      "client_name": "Client Name",
+      "date": "Date",
+      "cta_url": "Cta Url",
+      "birthday_date": "Birthday Date",
+      "special_offer": "Special Offer",
+      "discount_code": "Discount Code",
+      "last_visit_date": "Last Visit Date",
+      "months_inactive": "Months Inactive",
+      "comeback_offer": "Comeback Offer",
+      "package_name": "Package Name",
+      "expiry_date": "Expiry Date",
+      "sessions_remaining": "Sessions Remaining",
+      "renewal_discount": "Renewal Discount",
+      "appointment_date": "Appointment Date",
+      "appointment_time": "Appointment Time",
+      "service_name": "Service Name",
+      "staff_name": "Staff Name",
+      "location": "Location",
+      "treatment": "Treatment",
+      "time": "Time",
+      "staff": "Staff",
+      "visitor_name": "Visitor Name",
+      "visitor_email": "Visitor Email",
+      "visitor_phone": "Visitor Phone",
+      "visitor_notes": "Visitor Notes",
+      "reason": "Reason"
+    },
+    "sampleValues": {
+      "subject": "A note from us",
+      "message": "Thank you for being a part of our community. We're so happy to have you with us.",
+      "organization_name": "Your Business",
+      "client_name": "Jane",
+      "organization_phone": "(555) 123-4567",
+      "organization_address": "123 Main St, City, State",
+      "organization_email": "hello@yourbusiness.com",
+      "sender_name": "The Team",
+      "birthday_date": "March 15",
+      "special_offer": "20% off your next treatment",
+      "discount_code": "BIRTHDAY20",
+      "last_visit_date": "6 months ago",
+      "months_inactive": "6",
+      "comeback_offer": "15% off your next visit",
+      "package_name": "Ultimate Spa Package",
+      "expiry_date": "March 30",
+      "sessions_remaining": "3",
+      "renewal_discount": "10% off renewal",
+      "appointment_date": "Tomorrow",
+      "appointment_time": "2:00 PM",
+      "service_name": "Deep Cleansing Facial",
+      "staff_name": "Sarah",
+      "location": "Room 3"
+    },
+    "toasts": {
+      "invalidFile": "Invalid file",
+      "invalidFileDescription": "Please choose an image (PNG, JPG, WEBP).",
+      "fileTooLarge": "File too large",
+      "fileTooLargeDescription": "Header image must be under 8MB.",
+      "headerSaved": "Header image saved",
+      "headerSavedDescription": "The new image will appear on all your email templates.",
+      "uploadFailed": "Upload failed",
+      "headerRemoved": "Header image removed",
+      "removeFailed": "Failed to remove image",
+      "templateSaved": "Template saved",
+      "templateSavedDescription": "{{name}} has been updated successfully.",
+      "templateSaveError": "Error saving template",
+      "automationsSaved": "Automations saved",
+      "automationsSavedDescription": "Your automation settings have been updated.",
+      "automationsSaveError": "Error saving automations"
+    }
+  }
+}

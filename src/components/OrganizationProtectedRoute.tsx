@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { OrganizationSetup } from '@/components/OrganizationSetup';
@@ -13,6 +14,7 @@ interface OrganizationProtectedRouteProps {
 const STUCK_TIMEOUT_MS = 12000;
 
 export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProps> = ({ children }) => {
+  const { t } = useTranslation('shell');
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const { currentOrganization, loading: orgLoading } = useOrganization();
   const [setupComplete, setSetupComplete] = useState(false);
@@ -43,10 +45,10 @@ export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProp
             <div className="mt-6 p-3 rounded border border-amber-300 bg-amber-50 text-amber-900 text-sm space-y-2">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <p>This is taking longer than expected. Try signing out and back in.</p>
+                <p>{t('orgProtected.takingLonger')}</p>
               </div>
               <Button size="sm" variant="outline" onClick={() => void signOut()}>
-                Sign out
+                {t('common:actions.signOut')}
               </Button>
             </div>
           )}
@@ -67,15 +69,19 @@ export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProp
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h2 className="font-semibold">Account profile not found</h2>
+              <h2 className="font-semibold">{t('orgProtected.profileNotFound')}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                You're signed in as <span className="font-medium">{user.email}</span>, but no profile exists for this account.
-                Ask your administrator to create your user profile, or sign out and try a different account.
+                <Trans
+                  t={t}
+                  i18nKey="orgProtected.profileNotFoundDescription"
+                  values={{ email: user.email }}
+                  components={{ em: <span className="font-medium ltr-inline" /> }}
+                />
               </p>
             </div>
           </div>
           <Button onClick={() => void signOut()} variant="outline" className="w-full">
-            Sign out
+            {t('common:actions.signOut')}
           </Button>
         </div>
       </div>
@@ -96,15 +102,14 @@ export const OrganizationProtectedRoute: React.FC<OrganizationProtectedRouteProp
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h2 className="font-semibold">Organization unavailable</h2>
+              <h2 className="font-semibold">{t('orgProtected.orgUnavailable')}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Your account is linked to an organization that can't be loaded. It may have been deleted or moved.
-                Sign out and try again, or contact your administrator.
+                {t('orgProtected.orgUnavailableDescription')}
               </p>
             </div>
           </div>
           <Button onClick={() => void signOut()} variant="outline" className="w-full">
-            Sign out
+            {t('common:actions.signOut')}
           </Button>
         </div>
       </div>

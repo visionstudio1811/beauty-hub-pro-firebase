@@ -1,0 +1,120 @@
+{
+  "sidebar": {
+    "workspace": "סביבת עבודה",
+    "logoAlt": "לוגו",
+    "defaultOrgName": "Beauty Hub",
+    "defaultUserName": "משתמש/ת",
+    "settingsSections": {
+      "general": "כללי",
+      "users": "משתמשים",
+      "packages": "חבילות",
+      "treatments": "טיפולים",
+      "addons": "תוספות",
+      "products": "מוצרים",
+      "categories": "קטגוריות",
+      "brands": "מותגים",
+      "scheduling": "זימון תורים",
+      "staffSchedules": "משמרות צוות",
+      "schedulerLinks": "קישורי זימון",
+      "waivers": "טופסי ויתור",
+      "intake": "טופסי קליטה",
+      "agreements": "הסכמי רכישה",
+      "invoiceSettings": "הגדרות חשבוניות",
+      "invoiceHistory": "היסטוריית חשבוניות",
+      "acuity": "Acuity"
+    },
+    "marketingSections": {
+      "overview": "סקירה",
+      "campaigns": "קמפיינים",
+      "integrations": "אינטגרציות"
+    },
+    "logoutDialog": {
+      "title": "להתנתק?",
+      "description": "האם להתנתק מהמערכת?",
+      "confirm": "התנתקות"
+    }
+  },
+  "layout": {
+    "appTitle": "אפליקציה",
+    "toggleSidebar": "פתיחה/סגירה של תפריט הצד"
+  },
+  "sidebarSearch": {
+    "placeholder": "חיפוש לקוחות, תורים...",
+    "placeholderShort": "חיפוש...",
+    "noResults": "לא נמצאו תוצאות.",
+    "appointmentSubtitle": "{{date}} בשעה {{time}}",
+    "treatmentSubtitle": "{{price}} - {{duration}} דק'"
+  },
+  "themeToggle": {
+    "toggle": "החלפת ערכת נושא"
+  },
+  "roleProtected": {
+    "accessDenied": "הגישה נדחתה",
+    "noPermission": "אין לך הרשאה לגשת לעמוד זה.",
+    "returnToDashboard": "חזרה ללוח הבקרה"
+  },
+  "orgProtected": {
+    "takingLonger": "זה לוקח יותר זמן מהצפוי. נסו להתנתק ולהתחבר מחדש.",
+    "profileNotFound": "פרופיל החשבון לא נמצא",
+    "profileNotFoundDescription": "התחברת בתור <em>{{email}}</em>, אך לא קיים פרופיל לחשבון זה. פנו למנהל/ת המערכת ליצירת פרופיל משתמש, או התנתקו ונסו חשבון אחר.",
+    "orgUnavailable": "הארגון אינו זמין",
+    "orgUnavailableDescription": "החשבון שלך מקושר לארגון שלא ניתן לטעון. ייתכן שהוא נמחק או הועבר. התנתקו ונסו שוב, או פנו למנהל/ת המערכת."
+  },
+  "orgSetup": {
+    "welcomeToast": {
+      "title": "ברוכים הבאים!",
+      "description": "הארגון שלך הוגדר בהצלחה."
+    },
+    "title": "ברוכים הבאים ל-Beauty CRM",
+    "description": "בואו נגדיר את ארגון הסלון שלכם כדי להתחיל",
+    "fields": {
+      "name": "שם הסלון *",
+      "namePlaceholder": "סלון יופי וספא",
+      "slug": "כתובת URL (slug) *",
+      "slugPlaceholder": "beautiful-salon-spa",
+      "slugHelp": "ישמש בכתובת ה-URL המותאמת שלכם",
+      "emailPlaceholder": "contact@beautifulsalon.com",
+      "phonePlaceholder": "050-123-4567",
+      "addressPlaceholder": "רחוב היופי 123, תל אביב"
+    },
+    "creating": "בתהליך יצירה...",
+    "create": "יצירת ארגון"
+  },
+  "notFound": {
+    "message": "אופס! העמוד לא נמצא",
+    "returnHome": "חזרה לדף הבית"
+  },
+  "auth": {
+    "staffWorkspace": "סביבת עבודה לצוות",
+    "crmSignIn": "כניסה ל-CRM",
+    "welcomeBack": "ברוכים השבים",
+    "tagline": "ניהול תורים, לקוחות ותפעול הספא מלוח בקרה אחד ואלגנטי.",
+    "secureAccess": "גישה מאובטחת לחברי צוות מורשים בלבד.",
+    "signIn": "התחברות",
+    "instructions": "השתמשו באימייל ובסיסמה שקיבלתם ממנהל/ת המערכת, או ב-Google אם הופעל עבור החשבון שלכם.",
+    "continueWithGoogle": "המשך עם Google",
+    "signingIn": "בתהליך התחברות…",
+    "or": "או",
+    "emailPlaceholder": "you@example.com",
+    "password": "סיסמה",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "הצגת סיסמה",
+    "hidePassword": "הסתרת סיסמה",
+    "rememberMe": "לזכור אותי במכשיר זה",
+    "accountsNote": "חשבונות נוצרים על ידי מנהל/ת המערכת. פנו אליהם אם דרושה לכם גישה.",
+    "toasts": {
+      "signInFailed": "ההתחברות נכשלה",
+      "googleFailed": "לא ניתן להתחבר באמצעות Google. נסו שוב.",
+      "missingInfo": "חסרים פרטים",
+      "missingInfoDescription": "יש להזין אימייל וסיסמה",
+      "tooManyAttempts": "יותר מדי ניסיונות. נסו שוב מאוחר יותר.",
+      "invalidCredentials": "אימייל או סיסמה שגויים."
+    }
+  },
+  "idle": {
+    "title": "עדיין כאן?",
+    "description": "מטעמי אבטחה תתבצע התנתקות בעוד {{time}}. אפשר להישאר מחוברים או להתנתק עכשיו.",
+    "logOut": "התנתקות",
+    "staySignedIn": "להישאר מחובר/ת"
+  }
+}

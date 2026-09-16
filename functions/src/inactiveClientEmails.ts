@@ -8,13 +8,28 @@ import {
   localHour,
   todayInTimezone,
   addDaysISO,
+  orgEmailLanguage,
 } from './lib/orgEmail';
+import { defineStrings, makeT, localeFor } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+const STRINGS = defineStrings({
+  en: {
+    greeting_fallback: 'there',
+    subject: 'We miss you, {{name}}!',
+    subject_no_name: 'We miss you!',
+  },
+  he: {
+    greeting_fallback: 'לקוח/ה יקר/ה',
+    subject: 'התגעגענו אליך, {{name}}!',
+    subject_no_name: 'התגעגענו אליך!',
+  },
+});
 
 /**
  * Hourly scheduled function that sends each org's "inactive" templated email
@@ -52,6 +67,10 @@ export const inactiveClientEmails = onSchedule(
 
       const cfg = getAutomation(ctx, 'inactive');
       if (!cfg.is_active) continue;
+
+      const lang = orgEmailLanguage(ctx);
+      const t = makeT(STRINGS, lang);
+      const locale = localeFor(lang);
 
       const daysThreshold = cfg.days_threshold ?? 90;
       const today = todayInTimezone(orgTz);
@@ -106,11 +125,12 @@ export const inactiveClientEmails = onSchedule(
           if (client.deleted_at != null) continue;
           if (!client.email) continue;
 
-          const firstName = (client.name || '').split(' ')[0] || 'there';
+          const rawFirstName = (client.name || '').split(' ')[0];
+          const firstName = rawFirstName || t('greeting_fallback');
 
           let lastVisitDate = cutoffDate;
           try {
-            lastVisitDate = new Date(`${cutoffDate}T12:00:00Z`).toLocaleDateString('en-US', {
+            lastVisitDate = new Date(`${cutoffDate}T12:00:00Z`).toLocaleDateString(locale, {
               timeZone: orgTz,
               month: 'long',
               day: 'numeric',
@@ -120,7 +140,7 @@ export const inactiveClientEmails = onSchedule(
             // fall back to raw YYYY-MM-DD
           }
 
-          const subject = `We miss you, ${firstName}!`;
+          const subject = rawFirstName ? t('subject', { name: rawFirstName }) : t('subject_no_name');
 
           await sendOrgEmail({
             ctx,
@@ -137,6 +157,7 @@ export const inactiveClientEmails = onSchedule(
             automationKey: 'inactive',
             refType: 'inactive',
             refId,
+            lang,
           });
         } catch (err) {
           console.error(

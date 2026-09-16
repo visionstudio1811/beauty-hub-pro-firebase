@@ -31,6 +31,9 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { ClientPackage } from '@/hooks/useClientPackages';
 import { syncMembershipStatus, logMembershipEvent } from '@/hooks/useMembershipSync';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface PurchaseManagementModalProps {
   client: Client | null;
@@ -79,6 +82,8 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
   onClose,
   onUpdate,
 }) => {
+  const { t } = useTranslation('packages');
+  const { locale } = useLanguage();
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const { treatments: treatmentsList } = useSupabaseTreatments();
@@ -154,9 +159,11 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
       setEditValues(initial);
     } catch (error) {
       console.error('Error fetching client packages:', error);
+      // i18n.t (module instance) is identity-stable, so a language switch while the
+      // modal is open does not re-run this fetch and wipe in-progress edits.
       toast({
-        title: 'Error',
-        description: 'Failed to load client packages',
+        title: i18n.t('common:status.error'),
+        description: i18n.t('packages:purchaseManagementModal.loadFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -322,22 +329,22 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         newExpiry: edit.expiry || null,
       });
 
-      toast({ title: 'Package Updated', description: 'Changes saved.' });
+      toast({ title: t('purchaseManagementModal.updatedTitle'), description: t('purchaseManagementModal.updatedDescription') });
       setEditingPackage(null);
       await fetchClientPackages();
       onUpdate();
     } catch (error) {
       console.error('Error updating package:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update package',
+        title: t('common:status.error'),
+        description: t('purchaseManagementModal.updateFailed'),
         variant: 'destructive',
       });
     }
   };
 
   const handleDeletePackage = async (packageId: string, packageName: string) => {
-    if (!confirm(`Are you sure you want to remove the ${packageName} package?`)) return;
+    if (!confirm(t('purchaseManagementModal.confirmRemove', { name: packageName }))) return;
     if (!currentOrganization?.id || !client) return;
     try {
       await updateDoc(doc(db, 'organizations', currentOrganization.id, 'purchases', packageId), {
@@ -352,27 +359,27 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         packageName,
       });
 
-      toast({ title: 'Package Removed', description: `${packageName} has been removed from ${client.name}.` });
+      toast({ title: t('purchaseManagementModal.removedTitle'), description: t('purchaseManagementModal.removedDescription', { packageName, clientName: client.name }) });
       fetchClientPackages();
       onUpdate();
     } catch (error) {
       console.error('Error deleting package:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to remove package',
+        title: t('common:status.error'),
+        description: t('purchaseManagementModal.removeFailed'),
         variant: 'destructive',
       });
     }
   };
 
   const formatExpiryDate = (dateString: string | null) => {
-    if (!dateString) return 'No expiry';
+    if (!dateString) return t('purchaseManagementModal.noExpiry');
     const date = new Date(dateString);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString(locale);
   };
 
   const treatmentNameFor = (id: string) =>
-    treatmentsList.find(t => t.id === id)?.name ?? 'Pick a treatment';
+    treatmentsList.find(tr => tr.id === id)?.name ?? t('purchaseManagementModal.pickTreatment');
 
   if (!client) return null;
 
@@ -380,12 +387,12 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex items-center space-x-2 rtl:space-x-reverse">
             <Package className="h-5 w-5" />
-            <span>Manage {client.name}'s Packages</span>
+            <span>{t('purchaseManagementModal.title', { name: client.name })}</span>
           </DialogTitle>
           <DialogDescription>
-            Edit description, sessions, expiry, and included products. Changes apply to this client's purchase only — the catalog package stays untouched.
+            {t('purchaseManagementModal.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -398,7 +405,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         ) : packages.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No active packages for this client</p>
+            <p>{t('purchaseManagementModal.empty')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -411,15 +418,15 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                     <div className="flex items-start justify-between mb-3 gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-semibold">{pkg.package_name || 'Package'}</h3>
+                          <h3 className="text-lg font-semibold">{pkg.package_name || t('purchaseManagementModal.packageFallback')}</h3>
                           {pkg.is_custom && (
                             <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-xs">
-                              <Sparkles className="h-3 w-3 mr-0.5" />
-                              Custom
+                              <Sparkles className="h-3 w-3 me-0.5" />
+                              {t('purchaseManagementModal.custom')}
                             </Badge>
                           )}
                           <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 text-xs">
-                            Active
+                            {t('purchaseManagementModal.active')}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
@@ -429,7 +436,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                       <div className="flex gap-2 flex-shrink-0">
                         {!isEditing && (
                           <Button onClick={() => beginEdit(pkg)} variant="outline" size="sm">
-                            Edit
+                            {t('common:actions.edit')}
                           </Button>
                         )}
                         <Button
@@ -437,7 +444,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                           size="sm"
                           onClick={() => handleDeletePackage(pkg.id, pkg.package_name)}
                           className="text-red-600 hover:text-red-700"
-                          title="Remove package"
+                          title={t('purchaseManagementModal.removePackage')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -447,22 +454,22 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                     {/* Description */}
                     <div className="mb-4">
                       <label className="text-sm font-medium text-gray-700 mb-1 block">
-                        Description
+                        {t('purchaseManagementModal.descriptionLabel')}
                         {pkg.description_override && !isEditing && (
-                          <span className="ml-2 text-xs text-purple-700">(per-client override)</span>
+                          <span className="ms-2 text-xs text-purple-700">{t('purchaseManagementModal.overrideHint')}</span>
                         )}
                       </label>
                       {isEditing ? (
                         <Textarea
                           rows={2}
-                          placeholder="Describe what's in this package…"
+                          placeholder={t('purchaseManagementModal.descriptionPlaceholder')}
                           value={edit?.description ?? ''}
                           onChange={(e) => updateEditState(pkg.id, { description: e.target.value })}
                         />
                       ) : (
                         <p className="text-sm text-gray-600 whitespace-pre-wrap">
                           {pkg.description_override || pkg.template_description || (
-                            <span className="text-muted-foreground italic">No description</span>
+                            <span className="text-muted-foreground italic">{t('purchaseManagementModal.noDescription')}</span>
                           )}
                         </p>
                       )}
@@ -472,9 +479,9 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Sessions Remaining
+                          {t('purchaseManagementModal.sessionsRemaining')}
                           {edit?.slots && edit.slots.length > 0 && isEditing && (
-                            <span className="ml-2 text-xs text-muted-foreground">(auto = sum of slots)</span>
+                            <span className="ms-2 text-xs text-muted-foreground">{t('purchaseManagementModal.autoSum')}</span>
                           )}
                         </label>
                         {isEditing ? (
@@ -492,13 +499,13 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                         ) : (
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-400" />
-                            <span>{pkg.sessions_remaining} remaining{pkg.total_sessions ? ` of ${pkg.total_sessions}` : ''}</span>
+                            <span>{pkg.total_sessions ? t('purchaseManagementModal.remainingOf', { remaining: pkg.sessions_remaining, total: pkg.total_sessions }) : t('purchaseManagementModal.remaining', { remaining: pkg.sessions_remaining })}</span>
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-gray-700 mb-1 block">Expiry Date</label>
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">{t('purchaseManagementModal.expiryDate')}</label>
                         {isEditing ? (
                           <Input
                             type="date"
@@ -518,7 +525,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                     {(isEditing || (pkg.sessions_by_treatment && pkg.sessions_by_treatment.length > 0)) && (
                       <div className="mb-4">
                         <label className="text-sm font-medium text-gray-700 mb-1 block">
-                          Sessions by treatment
+                          {t('purchaseManagementModal.sessionsByTreatment')}
                         </label>
                         {isEditing ? (
                           <div className="space-y-2">
@@ -530,17 +537,17 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                     onValueChange={(v) => updateSlot(pkg.id, idx, { treatment_id: v })}
                                   >
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Choose a treatment" />
+                                      <SelectValue placeholder={t('purchaseManagementModal.chooseTreatment')} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {treatmentsList.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                      {treatmentsList.map(tr => (
+                                        <SelectItem key={tr.id} value={tr.id}>{tr.name}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
                                 </div>
                                 <div className="col-span-5 md:col-span-2">
-                                  <label className="text-xs text-muted-foreground">Total</label>
+                                  <label className="text-xs text-muted-foreground">{t('purchaseManagementModal.total')}</label>
                                   <Input
                                     type="number"
                                     min="0"
@@ -549,7 +556,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                   />
                                 </div>
                                 <div className="col-span-5 md:col-span-3">
-                                  <label className="text-xs text-muted-foreground">Remaining</label>
+                                  <label className="text-xs text-muted-foreground">{t('purchaseManagementModal.remainingCol')}</label>
                                   <Input
                                     type="number"
                                     value={slot.remaining}
@@ -563,7 +570,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                     variant="ghost"
                                     className="text-destructive hover:text-destructive"
                                     onClick={() => removeSlot(pkg.id, idx)}
-                                    title="Remove slot"
+                                    title={t('purchaseManagementModal.removeSlot')}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -571,8 +578,8 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                               </div>
                             ))}
                             <Button type="button" variant="outline" size="sm" onClick={() => addSlot(pkg.id)}>
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add treatment
+                              <Plus className="h-4 w-4 me-1" />
+                              {t('purchaseManagementModal.addTreatment')}
                             </Button>
                           </div>
                         ) : (
@@ -583,7 +590,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                 <li key={slot.treatment_id || i} className="flex justify-between border rounded p-2 bg-purple-50/50">
                                   <span>{treatmentNameFor(slot.treatment_id)}</span>
                                   <span className="text-purple-900">
-                                    {used} used / {slot.remaining} remaining (of {slot.total})
+                                    {t('purchaseManagementModal.slotSummary', { used, remaining: slot.remaining, total: slot.total })}
                                   </span>
                                 </li>
                               );
@@ -598,7 +605,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                       <div className="mb-2">
                         <label className="text-sm font-medium text-gray-700 mb-1 block flex items-center gap-1">
                           <ShoppingBag className="h-4 w-4" />
-                          Included products
+                          {t('purchaseManagementModal.includedProducts')}
                         </label>
                         {isEditing ? (
                           <div className="space-y-2">
@@ -611,7 +618,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                   />
                                 </div>
                                 <div className="col-span-4 md:col-span-2">
-                                  <label className="text-xs text-muted-foreground">Qty</label>
+                                  <label className="text-xs text-muted-foreground">{t('purchaseManagementModal.qty')}</label>
                                   <Input
                                     type="number"
                                     min="0"
@@ -620,7 +627,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                   />
                                 </div>
                                 <div className="col-span-6 md:col-span-3">
-                                  <label className="text-xs text-muted-foreground">Price ($)</label>
+                                  <label className="text-xs text-muted-foreground">{t('purchaseManagementModal.price')}</label>
                                   <Input
                                     type="number"
                                     min="0"
@@ -636,7 +643,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                     variant="ghost"
                                     className="text-destructive hover:text-destructive"
                                     onClick={() => removeProduct(pkg.id, idx)}
-                                    title="Remove product"
+                                    title={t('purchaseManagementModal.removeProduct')}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -649,12 +656,12 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                                 onValueChange={(v) => addProduct(pkg.id, v)}
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Add a product…" />
+                                  <SelectValue placeholder={t('purchaseManagementModal.addProductPlaceholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {productOptions.map(opt => (
                                     <SelectItem key={opt.id} value={opt.id}>
-                                      {opt.name} — ${opt.price.toFixed(2)}
+                                      {t('purchaseManagementModal.productOption', { name: opt.name, price: opt.price.toFixed(2) })}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -665,8 +672,8 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                           <ul className="space-y-1 text-sm">
                             {pkg.product_snapshot?.map((p, i) => (
                               <li key={i} className="flex justify-between border rounded p-2 bg-blue-50/50">
-                                <span>{p.product_name} × {p.quantity}</span>
-                                <span className="text-blue-900">${p.price.toFixed(2)}/ea</span>
+                                <span>{t('purchaseManagementModal.productLine', { name: p.product_name, quantity: p.quantity })}</span>
+                                <span className="text-blue-900">{t('purchaseManagementModal.perEach', { price: p.price.toFixed(2) })}</span>
                               </li>
                             ))}
                           </ul>
@@ -678,11 +685,11 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
                     {isEditing && (
                       <div className="flex gap-2 mt-4 pt-3 border-t">
                         <Button onClick={() => handleUpdatePackage(pkg.id)} size="sm">
-                          <Save className="h-4 w-4 mr-1" />
-                          Save
+                          <Save className="h-4 w-4 me-1" />
+                          {t('common:actions.save')}
                         </Button>
                         <Button onClick={cancelEdit} variant="outline" size="sm">
-                          Cancel
+                          {t('common:actions.cancel')}
                         </Button>
                       </div>
                     )}
@@ -694,7 +701,7 @@ export const PurchaseManagementModal: React.FC<PurchaseManagementModalProps> = (
         )}
 
         <div className="flex justify-end pt-4 border-t">
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>{t('common:actions.close')}</Button>
         </div>
       </DialogContent>
     </Dialog>

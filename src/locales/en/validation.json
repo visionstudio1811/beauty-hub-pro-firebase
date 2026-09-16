@@ -1,0 +1,60 @@
+{
+  "fields": {
+    "_default": "This field",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone number",
+    "address": "Address",
+    "city": "City",
+    "date_of_birth": "Date of birth",
+    "referral_source": "Referral source",
+    "allergies": "Allergies",
+    "notes": "Notes",
+    "client_name": "Client name",
+    "client_email": "Client email",
+    "client_phone": "Client phone",
+    "treatment_name": "Treatment name",
+    "staff_name": "Staff name",
+    "appointment_date": "Appointment date",
+    "appointment_time": "Appointment time",
+    "duration": "Duration",
+    "status": "Status",
+    "description": "Description",
+    "price": "Price",
+    "category": "Category",
+    "color": "Color",
+    "specialties": "Specialties",
+    "full_name": "Full name",
+    "role": "Role"
+  },
+  "codes": {
+    "required": "{{field}} is required",
+    "invalid_type": "{{field}} is invalid",
+    "too_small": {
+      "string": "{{field}} must be at least {{min}} characters",
+      "number": "{{field}} must be at least {{min}}",
+      "array": "{{field}} must have at least {{min}} items"
+    },
+    "too_big": {
+      "string": "{{field}} cannot exceed {{max}} characters",
+      "number": "{{field}} cannot exceed {{max}}",
+      "array": "{{field}} cannot have more than {{max}} items"
+    },
+    "invalid_string": {
+      "email": "Please enter a valid email address",
+      "url": "Please enter a valid URL",
+      "regex": "{{field}} contains invalid characters"
+    },
+    "invalid_enum_value": "{{field}} must be one of: {{options}}"
+  },
+  "fieldMessages": {
+    "phone": { "too_small": "Phone number must be at least 10 digits", "invalid_string": "Please enter a valid phone number" },
+    "client_phone": { "too_small": "Phone number must be at least 10 digits", "invalid_string": "Please enter a valid phone number" },
+    "appointment_date": { "invalid_string": "Please enter a valid date (YYYY-MM-DD)" },
+    "appointment_time": { "invalid_string": "Please enter a valid time (HH:MM)" },
+    "duration": { "too_small": "Duration must be at least 15 minutes", "too_big": "Duration cannot exceed 8 hours" },
+    "price": { "too_small": "Price cannot be negative", "too_big": "Price cannot exceed 10,000" },
+    "color": { "invalid_string": "Color must be a 6-digit hex code (e.g. #FFD700)" },
+    "role": { "invalid_enum_value": "Role must be staff, reception, or beautician", "invalid_type": "Role must be staff, reception, or beautician" }
+  }
+}

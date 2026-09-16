@@ -6,8 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { DeletedClientsTable } from '@/components/clients/DeletedClientsTable';
 import { useDeletedClients } from '@/hooks/useDeletedClients';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from 'react-i18next';
 
 const DeletedClients = () => {
+  const { t } = useTranslation('clients');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { deletedClients, loading, restoreClient, permanentlyDeleteClient } = useDeletedClients();
@@ -24,7 +26,7 @@ const DeletedClients = () => {
     return (
       <div className="w-full max-w-none mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex items-center justify-center py-8">
-          <div className="text-gray-600">Loading deleted clients...</div>
+          <div className="text-gray-600">{t('deletedPage.loading')}</div>
         </div>
       </div>
     );
@@ -42,15 +44,16 @@ const DeletedClients = () => {
                 size="sm"
                 onClick={() => navigate('/clients')}
                 className="p-2"
+                aria-label={t('deletedPage.back')}
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
               </Button>
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white truncate">
-                  Deleted Clients
+                  {t('deletedPage.title')}
                 </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-1">
-                  Manage clients in trash (auto-deleted after 30 days)
+                  {t('deletedPage.subtitle')}
                 </p>
               </div>
             </div>
@@ -62,7 +65,7 @@ const DeletedClients = () => {
           <div className="flex items-center gap-3">
             <Users className="h-5 w-5 text-red-500" />
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Clients in Trash</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">{t('deletedPage.clientsInTrash')}</div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {deletedClients.length}
               </div>
@@ -75,10 +78,10 @@ const DeletedClients = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg border p-8 text-center">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No deleted clients
+              {t('deletedPage.emptyTitle')}
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Clients moved to trash will appear here
+              {t('deletedPage.emptyDescription')}
             </p>
           </div>
         ) : (
@@ -97,11 +100,8 @@ const DeletedClients = () => {
             <div className="flex items-start gap-3">
               <RotateCcw className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800 dark:text-blue-200">
-                <p className="font-medium mb-1">Restore or Delete</p>
-                <p>
-                  Use the restore button to bring clients back, or permanently delete them. 
-                  Clients in trash are automatically deleted after 30 days.
-                </p>
+                <p className="font-medium mb-1">{t('deletedPage.instructionsTitle')}</p>
+                <p>{t('deletedPage.instructionsBody')}</p>
               </div>
             </div>
           </div>

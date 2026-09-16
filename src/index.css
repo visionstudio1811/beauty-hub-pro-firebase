@@ -284,3 +284,31 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   RTL / Hebrew support
+   <html dir="rtl" lang="he"> is set by src/i18n (applyDocumentLanguage).
+   Cormorant Garamond / Bricolage / Instrument Serif have no Hebrew glyphs, so
+   display headings fall back to Rubik when the document is Hebrew.
+   Layout direction itself is handled by Tailwind logical utilities
+   (ms-/me-/ps-/pe-/start-/end-/text-start/text-end) in components.
+--------------------------------------------------------------------------- */
+:root[lang="he"] .font-display,
+:root[lang="he"] .gc-site .font-display,
+:root[lang="he"] .gc-site .font-display em,
+:root[lang="he"] .gc-site .font-display i {
+  font-family: 'Rubik', system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0;
+}
+
+/* Keep phone numbers, emails, invoice numbers and prices LTR inside RTL text. */
+[dir="rtl"] .ltr-inline,
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="url"],
+[dir="rtl"] input[type="number"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}

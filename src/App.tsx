@@ -27,6 +27,7 @@ import SmsTerms from './pages/SmsTerms';
 import AcceptableUsePolicy from './pages/AcceptableUsePolicy';
 import DataProcessingAddendum from './pages/DataProcessingAddendum';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { LanguageProvider } from '@/i18n/LanguageProvider';
 import { IdleLogoutGuard } from '@/components/auth/IdleLogoutGuard';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { ClientsProvider } from '@/contexts/ClientsContext';
@@ -60,6 +61,7 @@ function App() {
         <AuthProvider>
           <IdleLogoutGuard />
           <OrganizationProvider>
+            <LanguageProvider>
             <ClientsProvider>
             <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
               <DropdownDataProvider>
@@ -125,6 +127,7 @@ function App() {
               </DropdownDataProvider>
             </ThemeProvider>
             </ClientsProvider>
+            </LanguageProvider>
           </OrganizationProvider>
         </AuthProvider>
       </Router>

@@ -3,15 +3,63 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from './rateLimit';
 import { resolveProvider, sendSms, ensureOptOutSuffix, SmsProvider } from './lib/smsProviders';
-import { RECONFIRM_FOOTER } from './lib/appointmentConfirm';
+import { reconfirmFooter } from './lib/appointmentConfirm';
 import { buildAppointmentButtons, injectBeforeBodyEnd } from './lib/appointmentEmailButtons';
 import { loadSecret } from './lib/integrationSecrets';
+import {
+  AppLanguage,
+  DEFAULT_LANGUAGE,
+  defineStrings,
+  htmlDirAttrs,
+  localeFor,
+  makeT,
+  orgLanguageFromData,
+} from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Copy sent to the client in the org's language (organizations/{orgId}.language).
+// Automation subject/body are org-authored; these are only the fallbacks and
+// the bare-bones wrapper used when no branded template exists.
+const STRINGS = defineStrings({
+  en: {
+    fallbackName: 'there',
+    fallbackTreatment: 'your appointment',
+    optOutSuffix: 'Reply STOP to unsubscribe.',
+    defaultSubject: 'Your appointment is confirmed',
+    defaultSmsBody: 'Your appointment is confirmed.',
+    // {{client_name}} / {{organization_name}} are resolved later by renderTemplate.
+    fallbackGreeting: 'Hi {{client_name}},',
+    fallbackSignoff: '— {{organization_name}}',
+  },
+  he: {
+    // Fills the [NAME] slot inside org-authored 'שלום [NAME], …' copy, so it must
+    // read as a name-like noun rather than a greeting.
+    fallbackName: 'לקוח/ה יקר/ה',
+    fallbackTreatment: 'התור שלך',
+    optOutSuffix: 'להסרה השיבו STOP.',
+    defaultSubject: 'התור שלך אושר',
+    defaultSmsBody: 'התור שלך אושר.',
+    fallbackGreeting: 'שלום {{client_name}},',
+    fallbackSignoff: '— {{organization_name}}',
+  },
+});
+
+/**
+ * Carrier opt-out footer in the org's language. English goes through the shared
+ * ensureOptOutSuffix(); Hebrew appends a Hebrew instruction that keeps the
+ * literal STOP keyword, because carriers (and quoWebhook's STOP_WORDS) only
+ * recognise the English keyword for opt-out.
+ */
+function withOptOutSuffix(body: string, lang: AppLanguage): string {
+  if (lang === DEFAULT_LANGUAGE) return ensureOptOutSuffix(body);
+  if (/\bSTOP\b/i.test(body)) return body;
+  return `${body.replace(/\s+$/, '')} ${makeT(STRINGS, lang)('optOutSuffix')}`;
+}
 
 interface AppointmentDoc {
   client_id?: string;
@@ -45,28 +93,42 @@ interface ResendIntegrationConfig {
   fromEmail?: string;
 }
 
-/** Format YYYY-MM-DD as "Jan 15, 2026" in the org's timezone for display. */
-function formatDateForDisplay(dateStr: string, tz: string): string {
+/** Format YYYY-MM-DD as "Jan 15, 2026" (or "15 בינו׳ 2026") in the org's timezone + language. */
+function formatDateForDisplay(dateStr: string, tz: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   if (!dateStr) return '';
   // Build a date at noon to dodge DST cliff.
   const d = new Date(`${dateStr}T12:00:00`);
   try {
-    return d.toLocaleDateString('en-US', { timeZone: tz, year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(localeFor(lang), { timeZone: tz, year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return dateStr;
   }
 }
 
-/** Format HH:MM as "2:30 PM" — timezone-agnostic since the time is a wall-clock. */
-function formatTimeForDisplay(timeStr: string): string {
+/**
+ * Format HH:MM as "2:30 PM" (English) or "14:30" (Hebrew) — timezone-agnostic
+ * since the time is a wall-clock value.
+ */
+function formatTimeForDisplay(timeStr: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   if (!timeStr) return '';
   const [hStr, mStr] = timeStr.split(':');
   const h = Number(hStr);
   const m = Number(mStr);
   if (Number.isNaN(h) || Number.isNaN(m)) return timeStr;
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+  if (lang === DEFAULT_LANGUAGE) {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+  }
+  try {
+    return new Intl.DateTimeFormat(localeFor(lang), {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
+  } catch {
+    return timeStr;
+  }
 }
 
 /** HTML-escapes a value so untrusted text can't inject markup into an email. */
@@ -125,16 +187,24 @@ function renderTemplate(html: string, variables: Record<string, string>): string
   });
 }
 
-/** Fallback HTML wrapper for orgs that haven't configured email templates yet. */
-const DEFAULT_TEMPLATE_HTML = `
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+/**
+ * Fallback HTML wrapper for orgs that haven't configured email templates yet.
+ * Rendered in the org's language; Hebrew gets dir="rtl" + right alignment.
+ * The {{merge_tags}} inside are resolved later by renderTemplate.
+ */
+function defaultTemplateHtml(lang: AppLanguage = DEFAULT_LANGUAGE): string {
+  const t = makeT(STRINGS, lang);
+  const { dir, align } = htmlDirAttrs(lang);
+  return `
+<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8"></head>
+<body dir="${dir}" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;text-align:${align}">
   <h2 style="color:#1a1a1a">{{subject}}</h2>
-  <p>Hi {{client_name}},</p>
+  <p>${t('fallbackGreeting')}</p>
   <div style="line-height:1.6">{{message}}</div>
   <br>
-  <p style="color:#666;font-size:13px">— {{organization_name}}</p>
+  <p style="color:#666;font-size:13px">${t('fallbackSignoff')}</p>
 </body></html>`;
+}
 
 export const appointmentScheduledNotification = onDocumentCreated(
   {
@@ -187,12 +257,16 @@ export const appointmentScheduledNotification = onDocumentCreated(
     const orgDoc = await db.collection('organizations').doc(orgId).get();
     const orgData = orgDoc.data() || {};
     const tz = String(orgData.timezone || 'America/New_York');
+    const lang = orgLanguageFromData(orgData);
+    const t = makeT(STRINGS, lang);
 
     const vars: Record<string, string> = {
-      NAME: String(appt.client_name || (appt.client_email ? appt.client_email.split('@')[0] : 'there')),
-      TREATMENT: String(appt.treatment_name || 'your appointment'),
-      DATE: formatDateForDisplay(String(appt.appointment_date || ''), tz),
-      TIME: formatTimeForDisplay(String(appt.appointment_time || '')),
+      NAME: String(
+        appt.client_name || (appt.client_email ? appt.client_email.split('@')[0] : t('fallbackName')),
+      ),
+      TREATMENT: String(appt.treatment_name || t('fallbackTreatment')),
+      DATE: formatDateForDisplay(String(appt.appointment_date || ''), tz, lang),
+      TIME: formatTimeForDisplay(String(appt.appointment_time || ''), lang),
       STAFF: String(appt.staff_name || ''),
       ORG: String(orgData.name || ''),
     };
@@ -245,19 +319,19 @@ export const appointmentScheduledNotification = onDocumentCreated(
           Object.entries(emailTemplates).find(
             ([k, t]) => !TRANSACTIONAL_OUTCOME_KEYS.has(k) && typeof t?.html === 'string' && t!.html!.length > 0,
           )?.[1];
-        const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
+        const templateHtml = template?.html || defaultTemplateHtml(lang);
         const templateSettings = (template?.settings ?? {}) as Record<string, string>;
         const headerImageUrl = String(integrationData.email_header_image_url ?? '');
 
-        // Confirm + Cancel buttons signed with the org's Resend key.
-        const buttons = buildAppointmentButtons(orgId, event.params.apptId, apiKey);
+        // Confirm + Cancel buttons signed with the org's Resend key, in the org's language.
+        const buttons = buildAppointmentButtons(orgId, event.params.apptId, apiKey, lang);
         const resend = new Resend(apiKey);
 
         for (const { id, data } of emailAutomations) {
           try {
             await consumeRateLimit(orgId, 'appointmentScheduledEmail', 500);
 
-            const subject = renderAutomationContent(String(data.subject || 'Your appointment is confirmed'), vars);
+            const subject = renderAutomationContent(String(data.subject || t('defaultSubject')), vars);
             // Body renders into the wrapper as raw {{message}} HTML, so escape the
             // substituted token VALUES (e.g. an attacker-controlled visitor name)
             // first. The subject is a plain-text email header and stays unescaped.
@@ -330,15 +404,16 @@ export const appointmentScheduledNotification = onDocumentCreated(
 
     /* ------------------------------------------------------------------- SMS */
     if (smsAutomations.length > 0) {
-      await sendConfirmationSms(orgId, event.params.apptId, appt, smsAutomations, vars);
+      await sendConfirmationSms(orgId, event.params.apptId, appt, smsAutomations, vars, lang);
     }
   },
 );
 
 /**
  * Sends an appointment-confirmation SMS for each active sms/both automation,
- * appending the "Reply 1/2/3" footer + STOP suffix. Respects opt-out and the
- * per-org daily cap; skips silently when no SMS provider is enabled.
+ * appending the "Reply 1/2/3" footer (in the org's language; reply keywords stay
+ * numeric) + STOP suffix. Respects opt-out and the per-org daily cap; skips
+ * silently when no SMS provider is enabled.
  */
 async function sendConfirmationSms(
   orgId: string,
@@ -346,7 +421,9 @@ async function sendConfirmationSms(
   appt: AppointmentDoc,
   smsAutomations: Array<{ id: string; data: AutomationDoc }>,
   vars: Record<string, string>,
+  lang: AppLanguage = DEFAULT_LANGUAGE,
 ): Promise<void> {
+  const t = makeT(STRINGS, lang);
   // Resolve phone + opt-out (denormalized first, then the client doc).
   let phone = appt.client_phone ? String(appt.client_phone) : '';
   let optedOut = appt.sms_opt_out === true;
@@ -378,8 +455,8 @@ async function sendConfirmationSms(
 
   for (const { id, data } of smsAutomations) {
     try {
-      const base = renderAutomationContent(String(data.content || 'Your appointment is confirmed.'), vars);
-      const body = ensureOptOutSuffix(`${base}\n\n${RECONFIRM_FOOTER}`);
+      const base = renderAutomationContent(String(data.content || t('defaultSmsBody')), vars);
+      const body = withOptOutSuffix(`${base}\n\n${reconfirmFooter(lang)}`, lang);
       await consumeRateLimit(orgId, 'appointmentConfirmSms', 500);
       await sendSms(orgId, phone, body, provider);
       await Promise.all([

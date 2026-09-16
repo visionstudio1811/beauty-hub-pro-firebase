@@ -7,6 +7,8 @@ export interface UserProfile {
   organizationId: string | null;
   organizationRole: string | null;
   isActive: boolean;
+  /** UI language preference. Overrides the org default. */
+  language?: 'en' | 'he';
   createdAt: any;
   updatedAt: any;
 }
@@ -17,6 +19,8 @@ export interface Organization {
   slug: string;
   logoUrl?: string;
   timezone: string; // IANA timezone e.g. "America/New_York"
+  /** Org default language — client portal, public forms, emails/SMS, and staff without their own choice. */
+  language?: 'en' | 'he';
   settings?: Record<string, any>;
   isActive: boolean;
   createdAt: any;

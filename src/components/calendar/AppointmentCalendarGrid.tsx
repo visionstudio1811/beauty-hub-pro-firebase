@@ -2,6 +2,8 @@ import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer, View, SlotInfo, Components } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale/en-US';
+import { he } from 'date-fns/locale/he';
+import { useTranslation } from 'react-i18next';
 import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,11 +15,15 @@ import type { Treatment } from '@/hooks/useSupabaseTreatments';
 import type { Staff } from '@/hooks/useSupabaseStaff';
 import { useTimezone } from '@/hooks/useTimezone';
 import { getBusinessNow } from '@/lib/timeUtils';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/styles/calendar.css';
 
-const locales = { 'en-US': enUS };
+// Keyed by the BCP-47 locale that useLanguage().locale returns so the
+// `culture` prop picks the matching date-fns locale (weekday/month names,
+// first day of week).
+const locales = { 'en-US': enUS, 'he-IL': he };
 
 const localizer = dateFnsLocalizer({
   format,
@@ -71,12 +77,12 @@ interface Props {
   onSlotSelect?: (start: Date, staffId?: string) => void;
 }
 
-const VIEW_LABELS: Record<string, string> = {
-  day: 'Day',
-  week: 'Week',
-  month: 'Month',
-  work_week: 'Work Week',
-  agenda: 'Agenda',
+const VIEW_KEYS: Record<string, string> = {
+  day: 'calendar.views.day',
+  week: 'calendar.views.week',
+  month: 'calendar.views.month',
+  work_week: 'calendar.views.work_week',
+  agenda: 'calendar.views.agenda',
 };
 
 /**
@@ -95,6 +101,7 @@ interface ToolbarProps {
 }
 
 const CalendarToolbar: React.FC<ToolbarProps> = ({ label, view, views, onNavigate, onView }) => {
+  const { t } = useTranslation('appointments');
   const viewList: View[] = Array.isArray(views)
     ? views
     : (Object.keys(views).filter((k) => (views as Record<string, boolean>)[k]) as View[]);
@@ -103,25 +110,25 @@ const CalendarToolbar: React.FC<ToolbarProps> = ({ label, view, views, onNavigat
     <div className="flex items-center gap-2 pb-2">
       <div className="flex items-center gap-1 flex-shrink-0">
         <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={() => onNavigate('TODAY')}>
-          Today
+          {t('calendar.today')}
         </Button>
         <Button
           variant="outline"
           size="icon"
           className="h-8 w-8"
           onClick={() => onNavigate('PREV')}
-          aria-label="Previous"
+          aria-label={t('calendar.previous')}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <Button
           variant="outline"
           size="icon"
           className="h-8 w-8"
           onClick={() => onNavigate('NEXT')}
-          aria-label="Next"
+          aria-label={t('calendar.next')}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>
       </div>
 
@@ -134,7 +141,7 @@ const CalendarToolbar: React.FC<ToolbarProps> = ({ label, view, views, onNavigat
         <SelectContent>
           {viewList.map((v) => (
             <SelectItem key={v} value={v}>
-              {VIEW_LABELS[v] ?? v}
+              {VIEW_KEYS[v] ? t(VIEW_KEYS[v]) : v}
             </SelectItem>
           ))}
         </SelectContent>
@@ -165,6 +172,8 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
   onSlotSelect,
 }) => {
   const tz = useTimezone();
+  const { t } = useTranslation('appointments');
+  const { locale, isRtl } = useLanguage();
   const [view, setView] = useState<View>(defaultView);
   const [date, setDate] = useState<Date>(defaultDate ?? getBusinessNow(tz));
   const [visibleStaffIds, setVisibleStaffIds] = useState<Set<string>>(new Set());
@@ -269,7 +278,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
         backgroundColor: bg,
         color: fg,
         border: '0',
-        borderLeft: `3px solid ${bg}`,
+        borderInlineStart: `3px solid ${bg}`,
         borderRadius: '4px',
         opacity: event.source.status === 'cancelled' ? 0.55 : 1,
         textDecoration: event.source.status === 'cancelled' ? 'line-through' : 'none',
@@ -295,20 +304,20 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
           <span
             aria-hidden
             className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-300 shrink-0"
-            title="Synced to Acuity"
+            title={t('calendar.syncedToAcuity')}
           />
         )}
         {failed && (
           <span
             aria-hidden
             className="inline-block h-1.5 w-1.5 rounded-full bg-red-400 shrink-0"
-            title="Acuity sync failed"
+            title={t('calendar.acuitySyncFailed')}
           />
         )}
         <span className="truncate">{title}</span>
       </div>
     );
-  }, []);
+  }, [t]);
 
   const handleSelectSlot = useCallback(
     (slot: SlotInfo) => {
@@ -333,26 +342,49 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
 
   const showStaffFilter = activeStaff.length > 1;
 
+  // react-big-calendar UI strings (agenda headers, "+N more", empty range).
+  const calendarMessages = useMemo(
+    () => ({
+      date: t('calendar.messages.date'),
+      time: t('calendar.messages.time'),
+      event: t('calendar.messages.event'),
+      allDay: t('calendar.messages.allDay'),
+      week: t('calendar.views.week'),
+      work_week: t('calendar.views.work_week'),
+      day: t('calendar.views.day'),
+      month: t('calendar.views.month'),
+      previous: t('calendar.previous'),
+      next: t('calendar.next'),
+      yesterday: t('calendar.messages.yesterday'),
+      tomorrow: t('calendar.messages.tomorrow'),
+      today: t('calendar.today'),
+      agenda: t('calendar.views.agenda'),
+      noEventsInRange: t('calendar.messages.noEventsInRange'),
+      showMore: (count: number) => t('calendar.messages.showMore', { count }),
+    }),
+    [t],
+  );
+
   return (
     <div className="rbc-shadcn-wrap flex flex-col" style={{ height, minHeight: '34rem' }}>
       <div className="flex items-center justify-between pb-2 gap-2 flex-wrap">
         <div className="text-xs text-muted-foreground">
-          Times shown in <span className="font-medium">{tz}</span>
+          {t('calendar.timesShownIn')} <span className="font-medium" dir="ltr">{tz}</span>
         </div>
         {showStaffFilter && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="h-8">
-                <Users className="h-3.5 w-3.5 mr-2" />
-                Staff
-                <Badge variant="secondary" className="ml-2 px-1.5 text-xs font-normal">
+                <Users className="h-3.5 w-3.5 me-2" />
+                {t('calendar.staff')}
+                <Badge variant="secondary" className="ms-2 px-1.5 text-xs font-normal">
                   {visibleStaffIds.size}/{activeStaff.length}
                 </Badge>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3" align="end">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">Show staff</span>
+                <span className="text-xs font-medium text-muted-foreground">{t('calendar.showStaff')}</span>
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"
@@ -361,7 +393,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
                     onClick={selectAllStaff}
                     disabled={allStaffSelected}
                   >
-                    All
+                    {t('calendar.all')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -370,7 +402,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
                     onClick={clearStaff}
                     disabled={visibleStaffIds.size === 0}
                   >
-                    None
+                    {t('calendar.none')}
                   </Button>
                 </div>
               </div>
@@ -390,7 +422,7 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
               </div>
               {visibleStaffIds.size === 0 && (
                 <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                  Nothing selected — calendar is empty. Click All to restore.
+                  {t('calendar.nothingSelected')}
                 </p>
               )}
             </PopoverContent>
@@ -400,6 +432,9 @@ export const AppointmentCalendarGrid: React.FC<Props> = ({
       <div className="flex-1 min-h-0">
         <Calendar
           localizer={localizer}
+          culture={locale}
+          rtl={isRtl}
+          messages={calendarMessages}
           events={visibleEvents}
           startAccessor="start"
           endAccessor="end"

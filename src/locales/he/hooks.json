@@ -1,0 +1,127 @@
+{
+  "common": {
+    "noOrganization": "לא נבחר ארגון",
+    "notSignedIn": "לא בוצעה התחברות למערכת"
+  },
+  "fallbacks": {
+    "unknownClient": "לקוח לא ידוע",
+    "unknownTreatment": "טיפול לא ידוע",
+    "unknownStaff": "איש צוות לא ידוע",
+    "noPhone": "אין טלפון",
+    "noEmail": "אין אימייל",
+    "addon": "תוספת",
+    "unknown": "לא ידוע",
+    "package": "חבילה",
+    "product": "מוצר",
+    "customPackage": "חבילה מותאמת אישית",
+    "facial": "טיפול פנים",
+    "staff": "צוות"
+  },
+  "appointments": {
+    "loadFailed": "טעינת התורים נכשלה. נסו לרענן את הדף.",
+    "mustBeLoggedIn": "יש להתחבר כדי ליצור תורים",
+    "profileNeedsOrganization": "פרופיל המשתמש חייב להיות משויך לארגון",
+    "created": "התור נוצר בהצלחה",
+    "createFailed": "יצירת התור נכשלה",
+    "updated": "התור עודכן בהצלחה",
+    "updateFailed": "עדכון התור נכשל",
+    "deleted": "התור נמחק בהצלחה",
+    "deleteFailed": "מחיקת התור נכשלה"
+  },
+  "appointmentForm": {
+    "selectTreatmentAndStaff": "יש לבחור טיפול ואיש צוות",
+    "enterTime": "יש להזין שעה",
+    "selectTimeSlot": "יש לבחור חלון זמן",
+    "customTimeFormat": "שעה מותאמת חייבת להיות בפורמט HH:MM",
+    "staffFree_one": "{{time}} (איש צוות אחד פנוי)",
+    "staffFree_two": "{{time}} ({{count}} אנשי צוות פנויים)",
+    "staffFree_other": "{{time}} ({{count}} אנשי צוות פנויים)"
+  },
+  "organizations": {
+    "loadFailed": "טעינת הארגון נכשלה",
+    "created": "הארגון נוצר בהצלחה",
+    "createFailed": "יצירת הארגון נכשלה",
+    "updated": "הארגון עודכן בהצלחה",
+    "updateFailed": "עדכון הארגון נכשל",
+    "switchNotAvailableTitle": "לא זמין",
+    "switchNotAvailable": "מעבר בין ארגונים מתבצע על ידי מנהל מערכת בלבד.",
+    "switchDisabled": "מעבר בין ארגונים מושבת בצד הלקוח."
+  },
+  "automations": {
+    "noOrganizationTitle": "אין ארגון",
+    "cannotCreate": "לא ניתן ליצור אוטומציה.",
+    "saveFailed": "שמירת האוטומציה נכשלה",
+    "updateFailed": "עדכון האוטומציה נכשל",
+    "deleteFailed": "מחיקת האוטומציה נכשלה"
+  },
+  "treatments": {
+    "loadFailed": "טעינת הטיפולים נכשלה",
+    "added": "הטיפול נוסף בהצלחה",
+    "addFailed": "הוספת הטיפול נכשלה",
+    "updated": "הטיפול עודכן בהצלחה",
+    "updateFailed": "עדכון הטיפול נכשל"
+  },
+  "addons": {
+    "loadFailed": "טעינת התוספות נכשלה",
+    "indexBuilding": "האינדקס עדיין בבנייה. יש להמתין 1–2 דקות ולרענן.",
+    "rulesNotDeployed": "כללי Firestore לא פורסמו. יש להריץ firebase deploy --only firestore.",
+    "added": "התוספת נוספה בהצלחה",
+    "addFailed": "הוספת התוספת נכשלה",
+    "updated": "התוספת עודכנה בהצלחה",
+    "updateFailed": "עדכון התוספת נכשל"
+  },
+  "schedulingConfig": {
+    "loadFailed": "טעינת הגדרות הזימון נכשלה",
+    "added": "הגדרת הזימון נוספה בהצלחה",
+    "addFailed": "הוספת הגדרת הזימון נכשלה",
+    "updated": "הגדרת הזימון עודכנה בהצלחה",
+    "updateFailed": "עדכון הגדרת הזימון נכשל",
+    "deleted": "הגדרת הזימון נמחקה בהצלחה",
+    "deleteFailed": "מחיקת הגדרת הזימון נכשלה"
+  },
+  "dropdownData": {
+    "loadFailed": "טעינת נתוני הרשימות נכשלה",
+    "cityRemoved": "העיר הוסרה בהצלחה",
+    "cityRemoveFailed": "הסרת העיר נכשלה",
+    "referralSourceRemoved": "מקור ההפניה הוסר בהצלחה",
+    "referralSourceRemoveFailed": "הסרת מקור ההפניה נכשלה"
+  },
+  "businessHours": {
+    "loadFailed": "טעינת שעות הפעילות נכשלה",
+    "updated": "שעות הפעילות עודכנו בהצלחה",
+    "updateFailed": "עדכון שעות הפעילות נכשל"
+  },
+  "clientPackages": {
+    "loadFailed": "טעינת חבילות הלקוח נכשלה"
+  },
+  "clientOperations": {
+    "packageAssigned": "החבילה שויכה בהצלחה",
+    "productAssigned": "המוצר שויך בהצלחה",
+    "appointmentBooked": "התור נקבע בהצלחה"
+  },
+  "staff": {
+    "loadFailed": "טעינת הצוות נכשלה",
+    "added": "איש הצוות נוסף בהצלחה",
+    "addFailed": "הוספת איש הצוות נכשלה",
+    "updated": "איש הצוות עודכן בהצלחה",
+    "updateFailed": "עדכון איש הצוות נכשל"
+  },
+  "deletedClients": {
+    "loadFailed": "טעינת הלקוחות שנמחקו נכשלה",
+    "restored": "הלקוח שוחזר בהצלחה",
+    "restoreFailed": "שחזור הלקוח נכשל",
+    "permanentlyDeleted": "הלקוח נמחק לצמיתות",
+    "permanentDeleteFailed": "מחיקת הלקוח לצמיתות נכשלה"
+  },
+  "businessInfo": {
+    "loadFailed": "טעינת פרטי העסק נכשלה",
+    "updated": "פרטי העסק עודכנו בהצלחה",
+    "updateFailed": "עדכון פרטי העסק נכשל"
+  },
+  "profiles": {
+    "loadFailed": "טעינת פרופילי הצוות נכשלה"
+  },
+  "clientRevenue": {
+    "fetchFailed": "טעינת נתוני ההכנסות נכשלה"
+  }
+}

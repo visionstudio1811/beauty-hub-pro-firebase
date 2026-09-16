@@ -14,6 +14,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 export interface Organization {
   id: string;
@@ -25,6 +26,8 @@ export interface Organization {
   logo_url?: string | null;
   timezone: string; // IANA timezone identifier e.g. "America/New_York"
   settings?: any;
+  /** Org default UI language (admins set it in Settings); per-user users/{uid}.language wins. */
+  language?: 'en' | 'he';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -41,6 +44,7 @@ const docToOrganization = (id: string, data: any): Organization => ({
   logo_url: data.logo_url ?? null,
   timezone: data.timezone || 'America/New_York',
   settings: data.settings ?? null,
+  language: data.language === 'he' || data.language === 'en' ? data.language : undefined,
   is_active: data.is_active ?? true,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
   updated_at: data.updated_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
@@ -52,6 +56,7 @@ export const useFirebaseOrganizations = () => {
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { user, profile } = useAuth();
 
   // Only fetch the organization the current user belongs to.
@@ -75,8 +80,8 @@ export const useFirebaseOrganizations = () => {
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to load organization',
+        title: t('common:status.error'),
+        description: t('organizations.loadFailed'),
         variant: 'destructive',
       });
     }
@@ -151,11 +156,11 @@ export const useFirebaseOrganizations = () => {
       setOrganizations(prev => [...prev, newOrg]);
       setCurrentOrganization(newOrg);
 
-      toast({ title: 'Success', description: 'Organization created successfully' });
+      toast({ title: t('common:status.success'), description: t('organizations.created') });
       return newOrg;
     } catch (error) {
       console.error('Error creating organization:', error);
-      toast({ title: 'Error', description: 'Failed to create organization', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('organizations.createFailed'), variant: 'destructive' });
       throw error;
     }
   };
@@ -171,11 +176,11 @@ export const useFirebaseOrganizations = () => {
         setCurrentOrganization(updatedOrg);
       }
 
-      toast({ title: 'Success', description: 'Organization updated successfully' });
+      toast({ title: t('common:status.success'), description: t('organizations.updated') });
       return updatedOrg;
     } catch (error) {
       console.error('Error updating organization:', error);
-      toast({ title: 'Error', description: 'Failed to update organization', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('organizations.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };
@@ -186,11 +191,11 @@ export const useFirebaseOrganizations = () => {
     // prevent cross-tenant escalation. If multi-org membership is ever needed,
     // add a Cloud Function that validates an invite/membership record.
     toast({
-      title: 'Not available',
-      description: 'Organization switching must be performed by an administrator.',
+      title: t('organizations.switchNotAvailableTitle'),
+      description: t('organizations.switchNotAvailable'),
       variant: 'destructive',
     });
-    throw new Error('Organization switching is disabled on the client.');
+    throw new Error(t('organizations.switchDisabled'));
   };
 
   return {

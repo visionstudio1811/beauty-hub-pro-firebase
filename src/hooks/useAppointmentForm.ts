@@ -18,6 +18,7 @@ import { useAvailableSlots } from '@/hooks/scheduling/useAvailableSlots';
 import { checkCustomTimeConflict } from '@/lib/scheduling/availability';
 import type { StaffForScheduling, TreatmentForScheduling } from '@/lib/scheduling/types';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 
 interface AppointmentFormData {
@@ -64,6 +65,7 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const [useCustomTime, setUseCustomTime] = useState(false);
   const [customTime, setCustomTime] = useState<string>('');
 
+  const { t } = useTranslation('hooks');
   const { user, profile } = useAuth();
   const { validateUserRole } = useSecurityValidation();
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
@@ -151,11 +153,11 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   const staffForScheduling: StaffForScheduling[] = useMemo(() => {
     return staffProfiles.map(p => ({
       id: p.id,
-      name: p.full_name || p.email || 'Staff',
+      name: p.full_name || p.email || t('fallbacks.staff'),
       // Profile docs don't carry treatment_ids/default_buffer; those live on the
       // staff metadata. For now we pass undefined (no restriction).
     }));
-  }, [staffProfiles]);
+  }, [staffProfiles, t]);
 
   const existingAppointmentsForScheduling = useMemo(() => {
     return appointments.map(apt => ({
@@ -207,9 +209,9 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
         available: true,
         availableCount: staffIds.length,
         maxCount: staffIds.length,
-        displayText: staffIds.length > 1 ? `${time} (${staffIds.length} staff free)` : time,
+        displayText: staffIds.length > 1 ? t('appointmentForm.staffFree', { time, count: staffIds.length }) : time,
       }));
-  }, [availabilitySlots.slots, availabilitySlots.byTime, formData.staffId]);
+  }, [availabilitySlots.slots, availabilitySlots.byTime, formData.staffId, t]);
 
   // For the custom-time mode: returns a conflict descriptor if the typed time
   // overlaps an existing appointment for the chosen staff (advisory only).
@@ -229,14 +231,14 @@ export const useAppointmentForm = (clientId?: string, clientName?: string) => {
   // intentionally permissive — staff override is intentional (walk-ins / VIPs).
   const validateAppointmentBooking = (): string | null => {
     if (!selectedTreatment || !formData.staffId) {
-      return 'Please select treatment and staff';
+      return t('appointmentForm.selectTreatmentAndStaff');
     }
     const effectiveTime = useCustomTime ? customTime : formData.time;
     if (!effectiveTime) {
-      return useCustomTime ? 'Please enter a time' : 'Please select a time slot';
+      return useCustomTime ? t('appointmentForm.enterTime') : t('appointmentForm.selectTimeSlot');
     }
     if (useCustomTime && !/^\d{2}:\d{2}$/.test(customTime)) {
-      return 'Custom time must be in HH:MM format';
+      return t('appointmentForm.customTimeFormat');
     }
     return null;
   };

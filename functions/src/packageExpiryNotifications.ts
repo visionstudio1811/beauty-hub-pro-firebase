@@ -8,13 +8,28 @@ import {
   todayInTimezone,
   addDaysISO,
   localHour,
+  orgEmailLanguage,
 } from './lib/orgEmail';
+import { defineStrings, makeT, localeFor } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+const STRINGS = defineStrings({
+  en: {
+    greeting_fallback: 'there',
+    package_fallback: 'your package',
+    subject: 'Your package is expiring soon',
+  },
+  he: {
+    greeting_fallback: 'לקוח/ה יקר/ה',
+    package_fallback: 'החבילה שלך',
+    subject: 'תוקף החבילה שלך עומד לפוג בקרוב',
+  },
+});
 
 /**
  * Hourly schedule. For every organisation, when the local hour is 09:
@@ -55,6 +70,10 @@ export const packageExpiryNotifications = onSchedule(
       const cfg = getAutomation(ctx, 'package_renewal');
       // Default ON for back-compat: only skip if explicitly disabled.
       if (cfg.is_active === false) continue;
+
+      const lang = orgEmailLanguage(ctx);
+      const t = makeT(STRINGS, lang);
+      const locale = localeFor(lang);
 
       const daysBefore = cfg.days_before_expiry ?? 7;
       const warningStr = addDaysISO(todayStr, daysBefore);
@@ -97,7 +116,7 @@ export const packageExpiryNotifications = onSchedule(
         if (!client.email) continue;
 
         // Fetch package name
-        let packageName = 'your package';
+        let packageName = t('package_fallback');
         if (purchase.package_id) {
           const pkgDoc = await db
             .collection('organizations')
@@ -114,17 +133,17 @@ export const packageExpiryNotifications = onSchedule(
             (1000 * 60 * 60 * 24),
         );
 
-        const firstName = (client.name || '').split(' ')[0] || 'there';
+        const firstName = (client.name || '').split(' ')[0] || t('greeting_fallback');
         const formattedExpiry = new Date(
           purchase.expiry_date + 'T12:00:00Z',
-        ).toLocaleDateString('en-US', {
+        ).toLocaleDateString(locale, {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         });
 
-        const subject = 'Your package is expiring soon';
+        const subject = t('subject');
 
         try {
           await sendOrgEmail({
@@ -143,6 +162,7 @@ export const packageExpiryNotifications = onSchedule(
             automationKey: 'package_renewal',
             refType: 'purchase',
             refId: purchaseDoc.id,
+            lang,
           });
 
           // Audit entry on the client's membership history (separate from

@@ -16,6 +16,7 @@ import { clientSchema, validateAndSanitize } from '@/lib/validation';
 import { useSecurityValidation } from '@/hooks/useSecurityValidation';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
+import i18n from '@/i18n';
 
 export interface Client {
   id: string;
@@ -148,7 +149,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error) {
       console.error('Error fetching clients:', error);
       await logSecurityEvent('CLIENTS_FETCH_ERROR', { error: errMessage(error) });
-      toast({ title: 'Error', description: 'Failed to load clients', variant: 'destructive' });
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:clients.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -159,7 +160,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [fetchClients]);
 
   const addClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> => {
-    if (!currentOrganization) throw new Error('No organization selected');
+    if (!currentOrganization) throw new Error(i18n.t('contexts:errors.noOrganization'));
 
     try {
       const validatedData = validateAndSanitize(clientSchema, {
@@ -205,7 +206,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       setClients(prev => [newClient, ...prev]);
       await logSecurityEvent('CLIENT_CREATED', { clientId: docRef.id });
-      toast({ title: 'Success', description: 'Client added successfully' });
+      toast({ title: i18n.t('common:status.success'), description: i18n.t('contexts:clients.added') });
       return newClient;
     } catch (error: any) {
       console.error('Error adding client:', error);
@@ -213,16 +214,16 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (error.errors) {
         const validationErrors = error.errors.map((err: any) => err.message).join(', ');
-        toast({ title: 'Validation Error', description: validationErrors, variant: 'destructive' });
+        toast({ title: i18n.t('contexts:clients.validationError'), description: validationErrors, variant: 'destructive' });
       } else {
-        toast({ title: 'Error', description: 'Failed to add client', variant: 'destructive' });
+        toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:clients.addFailed'), variant: 'destructive' });
       }
       throw error;
     }
   };
 
   const updateClient = async (id: string, updates: Partial<Client>): Promise<Client> => {
-    if (!currentOrganization) throw new Error('No organization selected');
+    if (!currentOrganization) throw new Error(i18n.t('contexts:errors.noOrganization'));
 
     try {
       let validatedData: any = updates;
@@ -270,7 +271,7 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       setClients(prev => prev.map(client => (client.id === id ? updatedClient : client)));
       await logSecurityEvent('CLIENT_UPDATED', { clientId: id });
-      toast({ title: 'Success', description: 'Client updated successfully' });
+      toast({ title: i18n.t('common:status.success'), description: i18n.t('contexts:clients.updated') });
       return updatedClient;
     } catch (error: any) {
       console.error('Error updating client:', error);
@@ -278,16 +279,16 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (error.errors) {
         const validationErrors = error.errors.map((err: any) => err.message).join(', ');
-        toast({ title: 'Validation Error', description: validationErrors, variant: 'destructive' });
+        toast({ title: i18n.t('contexts:clients.validationError'), description: validationErrors, variant: 'destructive' });
       } else {
-        toast({ title: 'Error', description: 'Failed to update client', variant: 'destructive' });
+        toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:clients.updateFailed'), variant: 'destructive' });
       }
       throw error;
     }
   };
 
   const softDeleteClient = async (id: string) => {
-    if (!currentOrganization) throw new Error('No organization selected');
+    if (!currentOrganization) throw new Error(i18n.t('contexts:errors.noOrganization'));
     try {
       const clientRef = doc(db, 'organizations', currentOrganization.id, 'clients', id);
       await updateDoc(clientRef, {
@@ -297,11 +298,11 @@ export const ClientsProvider: React.FC<{ children: ReactNode }> = ({ children })
       });
       setClients(prev => prev.filter(client => client.id !== id));
       await logSecurityEvent('CLIENT_DELETED', { clientId: id });
-      toast({ title: 'Success', description: 'Client moved to trash (can be restored within 30 days)' });
+      toast({ title: i18n.t('common:status.success'), description: i18n.t('contexts:clients.movedToTrash') });
     } catch (error) {
       console.error('Error deleting client:', error);
       await logSecurityEvent('CLIENT_DELETE_FAILED', { clientId: id, error: errMessage(error) });
-      toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' });
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:clients.deleteFailed'), variant: 'destructive' });
       throw error;
     }
   };

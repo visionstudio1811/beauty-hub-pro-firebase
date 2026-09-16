@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import i18n from '@/i18n';
 
 export interface Treatment {
   id: string;
@@ -32,12 +33,12 @@ interface TreatmentProviderProps {
 
 export const TreatmentProvider: React.FC<TreatmentProviderProps> = ({ children }) => {
   const [treatments, setTreatments] = useState<Treatment[]>([
-    { id: '1', name: 'Classic Facial', price: 80, duration: 60, description: 'Traditional facial treatment for all skin types' },
-    { id: '2', name: 'Glow Dermaplane Facial', price: 120, duration: 75, description: 'Dermaplaning with hydrating facial for radiant skin' },
-    { id: '3', name: 'Acne Treatment Facial', price: 100, duration: 90, description: 'Specialized treatment for acne-prone skin' },
-    { id: '4', name: "Men's Facial", price: 90, duration: 60, description: 'Customized facial treatment designed for men' },
-    { id: '5', name: 'LED Skin Tightening', price: 150, duration: 45, description: 'LED light therapy for skin tightening and rejuvenation' },
-    { id: '6', name: 'Non-Surgical RF Facial', price: 200, duration: 90, description: 'Radio frequency treatment for skin lifting and tightening' },
+    { id: '1', name: i18n.t('contexts:seed.treatments.classicFacial.name'), price: 80, duration: 60, description: i18n.t('contexts:seed.treatments.classicFacial.description') },
+    { id: '2', name: i18n.t('contexts:seed.treatments.glowDermaplaneFacial.name'), price: 120, duration: 75, description: i18n.t('contexts:seed.treatments.glowDermaplaneFacial.description') },
+    { id: '3', name: i18n.t('contexts:seed.treatments.acneTreatmentFacial.name'), price: 100, duration: 90, description: i18n.t('contexts:seed.treatments.acneTreatmentFacial.description') },
+    { id: '4', name: i18n.t('contexts:seed.treatments.mensFacial.name'), price: 90, duration: 60, description: i18n.t('contexts:seed.treatments.mensFacial.description') },
+    { id: '5', name: i18n.t('contexts:seed.treatments.ledSkinTightening.name'), price: 150, duration: 45, description: i18n.t('contexts:seed.treatments.ledSkinTightening.description') },
+    { id: '6', name: i18n.t('contexts:seed.treatments.nonSurgicalRfFacial.name'), price: 200, duration: 90, description: i18n.t('contexts:seed.treatments.nonSurgicalRfFacial.description') },
   ]);
 
   const addTreatment = (treatment: Treatment) => {

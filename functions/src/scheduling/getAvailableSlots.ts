@@ -10,12 +10,60 @@ import type {
   TreatmentForScheduling,
 } from '../lib/scheduling/types';
 import { consumeRateLimit } from '../rateLimit';
+import {
+  DEFAULT_LANGUAGE,
+  defineStrings,
+  getOrgLanguage,
+  isAppLanguage,
+  makeT,
+  type AppLanguage,
+} from '../lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Fallback staff display name shown in the portal / public slot picker when a
+// user has neither fullName nor email, plus every HttpsError message a visitor
+// can see. Language: request.data.lang when valid, else the org language, else
+// 'en'. Errors thrown before the org is known use request.data.lang ?? 'en'.
+// English wording is byte-identical to the previous hard-coded messages.
+const STRINGS = defineStrings({
+  en: {
+    staffFallback: 'Staff',
+    errMissingFields: 'Missing required fields',
+    errDateFormat: 'Dates must be YYYY-MM-DD',
+    errDateRange: 'Date range must be 1–{{max}} days',
+    errLinkNotFound: 'Link not found',
+    errLinkInactive: 'Link is no longer active',
+    errLinkExpired: 'Link has expired',
+    errTreatmentUnscoped: 'Treatment must be specified for unscoped links',
+    errAuthRequired: 'Authentication required',
+    errOrgTreatmentRequired: 'organizationId and treatmentId are required',
+    errNotMember: 'Not a member of this organization',
+    errTreatmentNotFound: 'Treatment not found',
+    errTreatmentInactive: 'Treatment is inactive',
+  },
+  he: {
+    staffFallback: 'איש/אשת צוות',
+    errMissingFields: 'חסרים שדות חובה',
+    errDateFormat: 'התאריכים חייבים להיות בפורמט YYYY-MM-DD',
+    errDateRange: 'טווח התאריכים חייב להיות בין 1 ל-{{max}} ימים',
+    errLinkNotFound: 'הקישור לא נמצא',
+    errLinkInactive: 'הקישור אינו פעיל עוד',
+    errLinkExpired: 'תוקף הקישור פג',
+    errTreatmentUnscoped: 'יש לציין טיפול עבור קישורים שאינם מוגדרים לטיפול',
+    errAuthRequired: 'נדרשת התחברות',
+    errOrgTreatmentRequired: 'נדרשים organizationId ו-treatmentId',
+    errNotMember: 'אינך חבר/ה בארגון זה',
+    errTreatmentNotFound: 'הטיפול לא נמצא',
+    errTreatmentInactive: 'הטיפול אינו פעיל',
+  },
+});
+
+const requestLanguage = (lang: unknown): AppLanguage | null => (isAppLanguage(lang) ? lang : null);
 
 interface GetAvailableSlotsRequest {
   organizationId?: string;
@@ -27,6 +75,8 @@ interface GetAvailableSlotsRequest {
   // When present, bypasses auth and reads org/treatment/staff from the token.
   // Public booking page uses this; staff CRM uses the auth path.
   linkToken?: string;
+  // Caller's active UI language ('en' | 'he'); used for visitor-facing errors.
+  lang?: string;
 }
 
 const MAX_DATE_RANGE_DAYS = 14;
@@ -50,17 +100,20 @@ const datesInRange = (from: string, to: string): string[] => {
  * read access to staff availability + appointments.
  */
 export const getAvailableSlots = onCall(async (request) => {
-  const data = request.data as GetAvailableSlotsRequest;
+  const data = (request.data ?? {}) as GetAvailableSlotsRequest;
+  // Org isn't known yet → visitor's requested language or 'en'.
+  const requestedLang = requestLanguage(data.lang);
+  let t = makeT(STRINGS, requestedLang ?? DEFAULT_LANGUAGE);
   if (!data.fromDate || !data.toDate) {
-    throw new HttpsError('invalid-argument', 'Missing required fields');
+    throw new HttpsError('invalid-argument', t('errMissingFields'));
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(data.toDate)) {
-    throw new HttpsError('invalid-argument', 'Dates must be YYYY-MM-DD');
+    throw new HttpsError('invalid-argument', t('errDateFormat'));
   }
 
   const dates = datesInRange(data.fromDate, data.toDate);
   if (dates.length === 0 || dates.length > MAX_DATE_RANGE_DAYS) {
-    throw new HttpsError('invalid-argument', `Date range must be 1–${MAX_DATE_RANGE_DAYS} days`);
+    throw new HttpsError('invalid-argument', t('errDateRange', { max: MAX_DATE_RANGE_DAYS }));
   }
 
   // Two paths:
@@ -74,23 +127,27 @@ export const getAvailableSlots = onCall(async (request) => {
   // named roster or reconstruct each staff member's free/busy schedule.
   let isPublicPath = false;
   let allowStaffSelection = false;
+  // Authenticated STAFF caller's own language preference (users/{uid}.language),
+  // per the lib/i18n.ts contract for errors shown to signed-in staff. Stays null
+  // for public visitors and portal clients, who get the org language instead.
+  let staffCallerLang: AppLanguage | null = null;
 
   if (data.linkToken) {
     isPublicPath = true;
     const tokenSnap = await db.collection('schedulerLinkTokens').doc(data.linkToken).get();
-    if (!tokenSnap.exists) throw new HttpsError('not-found', 'Link not found');
+    if (!tokenSnap.exists) throw new HttpsError('not-found', t('errLinkNotFound'));
     const tokenData = tokenSnap.data() ?? {};
-    if (tokenData.is_active === false) throw new HttpsError('failed-precondition', 'Link is no longer active');
+    if (tokenData.is_active === false) throw new HttpsError('failed-precondition', t('errLinkInactive'));
     const expiresAt = tokenData.expires_at?.toDate?.();
     if (expiresAt && expiresAt < new Date()) {
-      throw new HttpsError('failed-precondition', 'Link has expired');
+      throw new HttpsError('failed-precondition', t('errLinkExpired'));
     }
     resolvedOrgId = tokenData.organization_id;
     // Token-scoped treatment/staff take precedence; otherwise accept from request.
     resolvedTreatmentId = tokenData.treatment_id ?? resolvedTreatmentId ?? '';
     if (tokenData.staff_id) resolvedStaffId = tokenData.staff_id;
     if (!resolvedOrgId || !resolvedTreatmentId) {
-      throw new HttpsError('invalid-argument', 'Treatment must be specified for unscoped links');
+      throw new HttpsError('invalid-argument', t('errTreatmentUnscoped'));
     }
     // A link pre-scoped to one staff already commits the visitor to that
     // staff, so exposing that single id is intentional. Otherwise the named
@@ -98,7 +155,7 @@ export const getAvailableSlots = onCall(async (request) => {
     allowStaffSelection = tokenData.allow_staff_selection === true || Boolean(tokenData.staff_id);
   } else {
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Authentication required');
+      throw new HttpsError('unauthenticated', t('errAuthRequired'));
     }
     // Read org + treatment from the request payload, then verify the caller
     // is allowed to query that org. Prior to this, both were initialized to
@@ -107,13 +164,17 @@ export const getAvailableSlots = onCall(async (request) => {
     resolvedOrgId = data.organizationId ?? '';
     resolvedTreatmentId = data.treatmentId ?? '';
     if (!resolvedOrgId || !resolvedTreatmentId) {
-      throw new HttpsError('invalid-argument', 'organizationId and treatmentId are required');
+      throw new HttpsError('invalid-argument', t('errOrgTreatmentRequired'));
     }
 
     const callerUid = request.auth.uid;
     const callerUserSnap = await db.collection('users').doc(callerUid).get();
     const callerOrgId = callerUserSnap.data()?.organizationId;
-    if (callerOrgId !== resolvedOrgId) {
+    if (callerOrgId === resolvedOrgId) {
+      // Staff CRM caller — reuse the users/{uid} doc already loaded (same
+      // resolution as getCallerLanguage, minus the second read).
+      staffCallerLang = requestLanguage(callerUserSnap.data()?.language);
+    } else {
       const portalSnap = await db
         .collection('clientPortalAccess')
         .doc(callerUid)
@@ -121,13 +182,19 @@ export const getAvailableSlots = onCall(async (request) => {
         .doc(resolvedOrgId)
         .get();
       if (!portalSnap.exists) {
-        throw new HttpsError('permission-denied', 'Not a member of this organization');
+        throw new HttpsError('permission-denied', t('errNotMember'));
       }
     }
   }
 
   // Soft per-org rate limit — reads only, no external cost, but prevents scraping.
   await consumeRateLimit(resolvedOrgId, 'getAvailableSlots', 1000);
+
+  // Org is known now. Public visitors + portal clients: request lang → org
+  // language (60s cached read) → 'en'. Staff CRM callers: request lang → their
+  // users/{uid}.language → org language → 'en'. Used for the remaining errors
+  // and fallback labels.
+  t = makeT(STRINGS, requestedLang ?? staffCallerLang ?? (await getOrgLanguage(resolvedOrgId)));
 
   // Load treatment
   const treatmentSnap = await db
@@ -137,11 +204,11 @@ export const getAvailableSlots = onCall(async (request) => {
     .doc(resolvedTreatmentId)
     .get();
   if (!treatmentSnap.exists) {
-    throw new HttpsError('not-found', 'Treatment not found');
+    throw new HttpsError('not-found', t('errTreatmentNotFound'));
   }
   const treatmentData = treatmentSnap.data() ?? {};
   if (!treatmentData.is_active) {
-    throw new HttpsError('failed-precondition', 'Treatment is inactive');
+    throw new HttpsError('failed-precondition', t('errTreatmentInactive'));
   }
   const treatment: TreatmentForScheduling = {
     id: resolvedTreatmentId,
@@ -257,7 +324,7 @@ export const getAvailableSlots = onCall(async (request) => {
       });
       return {
         id: sid,
-        name: userDoc.data()?.fullName ?? userDoc.data()?.email ?? 'Staff',
+        name: userDoc.data()?.fullName ?? userDoc.data()?.email ?? t('staffFallback'),
         availability,
       };
     })

@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useTranslation } from 'react-i18next';
 
 interface OrgProduct {
   id: string;
@@ -43,6 +44,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
   submitLabelOverride,
   extraFields,
 }) => {
+  const { t } = useTranslation('packages');
   const { treatments, loading: treatmentsLoading } = useSupabaseTreatments();
   const { addPackage, updatePackage } = usePackages();
   const { toast } = useToast();
@@ -127,8 +129,8 @@ export const PackageForm: React.FC<PackageFormProps> = ({
     } catch (error) {
       console.error('Package submission error:', error);
       toast({
-        title: editingPackage ? 'Failed to update package' : 'Failed to create package',
-        description: 'Please try again.',
+        title: editingPackage ? t('packageForm.toast.updateFailed') : t('packageForm.toast.createFailed'),
+        description: t('packageForm.toast.tryAgain'),
         variant: 'destructive',
       });
     } finally {
@@ -150,31 +152,31 @@ export const PackageForm: React.FC<PackageFormProps> = ({
       <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
-            {titleOverride ?? (editingPackage ? 'Edit Package' : 'Create New Package')}
+            {titleOverride ?? (editingPackage ? t('packageForm.editTitle') : t('packageForm.createTitle'))}
           </DialogTitle>
           <DialogDescription className="text-sm">
-            {editingPackage ? 'Update package details' : 'Create a new treatment package for clients'}
+            {editingPackage ? t('packageForm.editDescription') : t('packageForm.createDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div>
-            <label className="text-sm font-medium">Package Name *</label>
+            <label className="text-sm font-medium">{t('packageForm.fields.name')}</label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., 6 Facials Package"
+              placeholder={t('packageForm.fields.namePlaceholder')}
               disabled={isSubmitting}
               className="w-full mt-1 text-sm"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium">Description</label>
+            <label className="text-sm font-medium">{t('packageForm.fields.description')}</label>
             <Input
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief description of the package"
+              placeholder={t('packageForm.fields.descriptionPlaceholder')}
               disabled={isSubmitting}
               className="w-full mt-1 text-sm"
             />
@@ -182,7 +184,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
 
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-sm font-medium">Total Price ($) *</label>
+              <label className="text-sm font-medium">{t('packageForm.fields.price')}</label>
               <Input
                 type="number"
                 value={formData.price || ''}
@@ -195,7 +197,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Validity (months) *</label>
+              <label className="text-sm font-medium">{t('packageForm.fields.validity')}</label>
               <Input
                 type="number"
                 value={formData.validity_months || ''}
@@ -212,19 +214,19 @@ export const PackageForm: React.FC<PackageFormProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Included Treatments *</label>
+              <label className="text-sm font-medium">{t('packageForm.fields.includedTreatments')}</label>
               <span className="text-xs text-muted-foreground">
-                Total sessions: <span className="font-semibold text-foreground">{totalSessions}</span>
+                {t('packageForm.fields.totalSessions')} <span className="font-semibold text-foreground">{totalSessions}</span>
               </span>
             </div>
             {treatmentsLoading ? (
               <div className="flex items-center justify-center p-4 border border-dashed rounded text-sm">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                <span className="text-gray-500">Loading treatments...</span>
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
+                <span className="text-gray-500">{t('packageForm.loadingTreatments')}</span>
               </div>
             ) : treatments.length === 0 ? (
               <div className="text-sm text-gray-500 p-4 border border-dashed rounded">
-                No treatments available. Please add treatments first in the Settings page.
+                {t('packageForm.noTreatments')}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-1 max-h-64 overflow-y-auto border rounded p-2">
@@ -242,7 +244,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
                         onChange={() => toggleTreatment(treatment.id)}
                         disabled={isSubmitting}
                         className="flex-shrink-0"
-                        aria-label={`Include ${treatment.name}`}
+                        aria-label={t('packageForm.aria.include', { name: treatment.name })}
                       />
                       <span className="text-sm break-words min-w-0 flex-1">{treatment.name}</span>
                       <Input
@@ -256,7 +258,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
                         }}
                         disabled={isSubmitting || !included}
                         className="w-20 text-sm h-8"
-                        aria-label={`Sessions of ${treatment.name}`}
+                        aria-label={t('packageForm.aria.sessionsOf', { name: treatment.name })}
                       />
                     </div>
                   );
@@ -267,17 +269,17 @@ export const PackageForm: React.FC<PackageFormProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Included Products</label>
-              <span className="text-xs text-muted-foreground">optional</span>
+              <label className="text-sm font-medium">{t('packageForm.fields.includedProducts')}</label>
+              <span className="text-xs text-muted-foreground">{t('packageForm.fields.optional')}</span>
             </div>
             {productsLoading ? (
               <div className="flex items-center p-4 border border-dashed rounded text-sm">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                <span className="text-gray-500">Loading products...</span>
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
+                <span className="text-gray-500">{t('packageForm.loadingProducts')}</span>
               </div>
             ) : orgProducts.length === 0 ? (
               <div className="text-sm text-gray-500 p-3 border border-dashed rounded">
-                No products found. Add products first in the Settings page.
+                {t('packageForm.noProducts')}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto border rounded p-2">
@@ -291,18 +293,18 @@ export const PackageForm: React.FC<PackageFormProps> = ({
                         onChange={() => toggleProduct(product.id, product.price)}
                         disabled={isSubmitting}
                         className="flex-shrink-0"
-                        aria-label={`Include ${product.name}`}
+                        aria-label={t('packageForm.aria.include', { name: product.name })}
                       />
                       <span className="text-sm flex-1 truncate">{product.name}</span>
                       <Input
                         type="number"
                         min="1"
                         value={included ? included.quantity : ''}
-                        placeholder="Qty"
+                        placeholder={t('packageForm.fields.qtyPlaceholder')}
                         onChange={e => setProductQuantity(product.id, parseInt(e.target.value, 10) || 1)}
                         disabled={isSubmitting || !included}
                         className="w-16 text-xs h-7"
-                        aria-label={`Quantity of ${product.name}`}
+                        aria-label={t('packageForm.aria.quantityOf', { name: product.name })}
                       />
                       <Input
                         type="number"
@@ -313,7 +315,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
                         onChange={e => setProductPrice(product.id, parseFloat(e.target.value) || 0)}
                         disabled={isSubmitting || !included}
                         className="w-20 text-xs h-7"
-                        aria-label={`Price of ${product.name}`}
+                        aria-label={t('packageForm.aria.priceOf', { name: product.name })}
                       />
                     </div>
                   );
@@ -330,11 +332,11 @@ export const PackageForm: React.FC<PackageFormProps> = ({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editingPackage ? 'Updating...' : 'Creating...'}
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
+                  {editingPackage ? t('packageForm.updating') : t('packageForm.creating')}
                 </>
               ) : (
-                submitLabelOverride ?? (editingPackage ? 'Update Package' : 'Create Package')
+                submitLabelOverride ?? (editingPackage ? t('packageForm.updatePackage') : t('packageForm.createPackage'))
               )}
             </Button>
             <Button
@@ -343,7 +345,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
               className="w-full text-sm h-9"
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
           </div>
         </div>

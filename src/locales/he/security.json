@@ -1,0 +1,146 @@
+{
+  "severity": {
+    "high": "גבוהה",
+    "medium": "בינונית",
+    "low": "נמוכה"
+  },
+  "risk": {
+    "high": "גבוה",
+    "medium": "בינוני",
+    "low": "נמוך"
+  },
+  "dashboard": {
+    "title": "לוח אבטחה",
+    "description": "מעקב אחר אירועי אבטחה וניהול חיבורים פעילים",
+    "loading": "טוען לוח אבטחה...",
+    "tabs": {
+      "events": "אירועי אבטחה",
+      "sessions": "חיבורים פעילים"
+    },
+    "noEvents": "לא נמצאו אירועי אבטחה",
+    "noSessions": "לא נמצאו חיבורים פעילים",
+    "activeSessionsCount_one": "חיבור פעיל אחד",
+    "activeSessionsCount_two": "שני חיבורים פעילים",
+    "activeSessionsCount_other": "{{count}} חיבורים פעילים",
+    "cleanupExpired": "ניקוי חיבורים שפג תוקפם",
+    "sessionLabel": "חיבור {{id}}...",
+    "lastActive": "פעילות אחרונה: {{time}}",
+    "expires": "תפוגה: {{time}}",
+    "details": {
+      "attempts": "ניסיונות: {{n}}",
+      "ipHash": "גיבוב IP: {{hash}}...",
+      "roleChange": "שינוי תפקיד: {{from}} → {{to}}",
+      "ips": "כתובות IP: {{n}}"
+    },
+    "toasts": {
+      "accessDenied": {
+        "title": "הגישה נדחתה",
+        "description": "אין לך הרשאה לצפות בלוח האבטחה."
+      },
+      "loadEventsFailed": "טעינת אירועי האבטחה נכשלה",
+      "loadSessionsFailed": "טעינת החיבורים הפעילים נכשלה",
+      "refreshed": {
+        "title": "הרשימה רועננה",
+        "description": "רשימת החיבורים רועננה."
+      }
+    }
+  },
+  "monitor": {
+    "title": "ניטור אבטחה",
+    "loading": "טוען אירועי אבטחה...",
+    "noEvents": "לא נמצאו אירועי אבטחה",
+    "details": {
+      "role": "תפקיד: {{role}}",
+      "permission": "הרשאה: {{permission}}",
+      "resource": "משאב: {{resource}}",
+      "granted": "אושר: {{granted}}"
+    },
+    "toasts": {
+      "accessDenied": {
+        "title": "הגישה נדחתה",
+        "description": "אין לך הרשאה לצפות באירועי אבטחה."
+      },
+      "loadEventsFailed": "טעינת אירועי האבטחה נכשלה"
+    }
+  },
+  "sessionManager": {
+    "title": "ניהול חיבורים",
+    "description": "ניהול החיבורים הפעילים שלך במכשירים השונים",
+    "loading": "טוען חיבורים...",
+    "noSessions": "לא נמצאו חיבורים",
+    "terminateAllOthers": "ניתוק כל השאר",
+    "terminateAll": "ניתוק הכול",
+    "terminate": "ניתוק",
+    "terminateSessionAria": "ניתוק חיבור",
+    "terminateAllDialog": {
+      "title": "ניתוק כל החיבורים האחרים",
+      "description": "פעולה זו תנתק את כל המכשירים האחרים שלך. החיבור במכשיר זה יישאר פעיל."
+    },
+    "terminateDialog": {
+      "title": "ניתוק חיבור",
+      "description": "פעולה זו תנתק את המכשיר הזה באופן מיידי. לא ניתן לבטל פעולה זו."
+    },
+    "current": "נוכחי",
+    "browser": "דפדפן",
+    "lastActive": "פעילות אחרונה: {{time}}",
+    "ipCreated": "IP: {{ip}} • נוצר: {{date}}",
+    "relative": {
+      "justNow": "ממש עכשיו",
+      "minutesAgo_one": "לפני דקה",
+      "minutesAgo_two": "לפני שתי דקות",
+      "minutesAgo_other": "לפני {{count}} דקות",
+      "hoursAgo_one": "לפני שעה",
+      "hoursAgo_two": "לפני שעתיים",
+      "hoursAgo_other": "לפני {{count}} שעות",
+      "daysAgo_one": "לפני יום",
+      "daysAgo_two": "לפני יומיים",
+      "daysAgo_other": "לפני {{count}} ימים"
+    },
+    "unknownIp": "לא ידוע"
+  },
+  "enhancedSecurity": {
+    "messages": {
+      "unknown": "לא ידוע",
+      "unknownResource": "משאב לא ידוע",
+      "suspiciousLoginAttempts": "זוהו ניסיונות התחברות כושלים מרובים ({{attempts}} ניסיונות)",
+      "multipleIpLogins": "המשתמש התחבר ממספר כתובות IP ({{n}} כתובות שונות)",
+      "roleChange": "תפקיד המשתמש שונה מ-{{from}} ל-{{to}}",
+      "sessionCleanup": "{{n}} חיבורים שפג תוקפם נוקו",
+      "permissionCheckFailed": "בדיקת ההרשאה נכשלה עבור {{resource}}",
+      "default": "אירוע אבטחה: {{action}}",
+      "multipleIpLoginsUnknown": "המשתמש התחבר ממספר כתובות IP"
+    },
+    "toasts": {
+      "alertAcknowledged": {
+        "title": "ההתראה אושרה",
+        "description": "התראת האבטחה סומנה כטופלה."
+      },
+      "acknowledgeFailed": "אישור ההתראה נכשל",
+      "passwordResetInitiated": {
+        "title": "איפוס סיסמה הופעל",
+        "description": "נכפה איפוס סיסמה עבור המשתמש."
+      },
+      "passwordResetFailed": "כפיית איפוס הסיסמה נכשלה",
+      "accountLocked": {
+        "title": "החשבון ננעל",
+        "description": "חשבון המשתמש ננעל מטעמי אבטחה."
+      },
+      "lockFailed": "נעילת חשבון המשתמש נכשלה"
+    }
+  },
+  "sessionSecurity": {
+    "toasts": {
+      "loadFailed": "טעינת נתוני החיבורים נכשלה",
+      "sessionTerminated": {
+        "title": "החיבור נותק",
+        "description": "החיבור נותק בהצלחה"
+      },
+      "terminateFailed": "ניתוק החיבור נכשל",
+      "sessionsTerminated": {
+        "title": "החיבורים נותקו",
+        "description": "כל החיבורים האחרים נותקו"
+      },
+      "terminateOthersFailed": "ניתוק החיבורים האחרים נכשל"
+    }
+  }
+}

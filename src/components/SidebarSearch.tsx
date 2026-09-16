@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useClients } from '@/hooks/useClients';
 import { useSupabaseAppointments } from '@/hooks/useSupabaseAppointments';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
+import { useLanguage } from '@/i18n/LanguageProvider';
 import { useNavigate } from 'react-router-dom';
 
 interface SearchResult {
@@ -18,15 +20,17 @@ interface SearchResult {
 }
 
 export function SidebarSearch() {
+  const { t } = useTranslation('shell');
+  const { isRtl, locale } = useLanguage();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
   const { state } = useSidebar();
   const navigate = useNavigate();
-  
+
   const { clients } = useClients();
   const { appointments } = useSupabaseAppointments();
   const { treatments } = useSupabaseTreatments();
-  
+
   const isCollapsed = state === 'collapsed';
 
   const searchResults = useMemo(() => {
@@ -37,7 +41,7 @@ export function SidebarSearch() {
 
     // Search clients
     clients.forEach(client => {
-      if (client.name.toLowerCase().includes(searchTerm) || 
+      if (client.name.toLowerCase().includes(searchTerm) ||
           client.email.toLowerCase().includes(searchTerm) ||
           client.phone.includes(searchTerm)) {
         results.push({
@@ -57,7 +61,10 @@ export function SidebarSearch() {
           type: 'appointment',
           id: appointment.id,
           name: `${appointment.treatment_name} - ${appointment.client_name}`,
-          subtitle: `${appointment.appointment_date} at ${appointment.appointment_time}`
+          subtitle: t('sidebarSearch.appointmentSubtitle', {
+            date: appointment.appointment_date,
+            time: appointment.appointment_time,
+          })
         });
       }
     });
@@ -70,18 +77,26 @@ export function SidebarSearch() {
           type: 'treatment',
           id: treatment.id,
           name: treatment.name,
-          subtitle: `$${treatment.price} - ${treatment.duration}min`
+          subtitle: t('sidebarSearch.treatmentSubtitle', {
+            price: new Intl.NumberFormat(locale, {
+              style: 'currency',
+              currency: 'USD',
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            }).format(treatment.price),
+            duration: treatment.duration,
+          })
         });
       }
     });
 
     return results.slice(0, 20);
-  }, [value, clients, appointments, treatments]);
+  }, [value, clients, appointments, treatments, t, locale]);
 
   const handleItemSelect = (item: SearchResult) => {
     setOpen(false);
     setValue('');
-    
+
     switch (item.type) {
       case 'client':
         navigate('/clients');
@@ -104,27 +119,28 @@ export function SidebarSearch() {
               variant="ghost"
               size="icon"
               className="w-14 h-14 hover:bg-muted/60 transition-colors duration-200 rounded-xl mx-auto"
+              aria-label={t('common:actions.search')}
             >
               <Search className="h-6 w-6" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" side="right" align="start">
+          <PopoverContent className="w-80 p-0" side={isRtl ? 'left' : 'right'} align="start">
             <Command>
-              <CommandInput 
-                placeholder="Search clients, appointments..." 
+              <CommandInput
+                placeholder={t('sidebarSearch.placeholder')}
                 value={value}
                 onValueChange={setValue}
               />
               <CommandList>
                 {searchResults.length === 0 && value.trim() && (
-                  <CommandEmpty>No results found.</CommandEmpty>
+                  <CommandEmpty>{t('sidebarSearch.noResults')}</CommandEmpty>
                 )}
                 {searchResults.length > 0 && (
                   <>
                     {searchResults.filter(item => item.type === 'client').length > 0 && (
-                      <CommandGroup heading="Clients">
+                      <CommandGroup heading={t('common:labels.clients')}>
                         {searchResults.filter(item => item.type === 'client').map((item) => (
-                          <CommandItem 
+                          <CommandItem
                             key={`client-${item.id}`}
                             onSelect={() => handleItemSelect(item)}
                             className="cursor-pointer p-3"
@@ -140,9 +156,9 @@ export function SidebarSearch() {
                       </CommandGroup>
                     )}
                     {searchResults.filter(item => item.type === 'appointment').length > 0 && (
-                      <CommandGroup heading="Appointments">
+                      <CommandGroup heading={t('common:labels.appointments')}>
                         {searchResults.filter(item => item.type === 'appointment').map((item) => (
-                          <CommandItem 
+                          <CommandItem
                             key={`appointment-${item.id}`}
                             onSelect={() => handleItemSelect(item)}
                             className="cursor-pointer p-3"
@@ -158,9 +174,9 @@ export function SidebarSearch() {
                       </CommandGroup>
                     )}
                     {searchResults.filter(item => item.type === 'treatment').length > 0 && (
-                      <CommandGroup heading="Treatments">
+                      <CommandGroup heading={t('common:labels.treatments')}>
                         {searchResults.filter(item => item.type === 'treatment').map((item) => (
-                          <CommandItem 
+                          <CommandItem
                             key={`treatment-${item.id}`}
                             onSelect={() => handleItemSelect(item)}
                             className="cursor-pointer p-3"
@@ -190,11 +206,11 @@ export function SidebarSearch() {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search..."
-              className="w-full pl-12 pr-4 py-3 text-sm bg-muted/40 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600/50 focus:border-purple-600/50 transition-all duration-200"
+              placeholder={t('sidebarSearch.placeholderShort')}
+              className="w-full ps-12 pe-4 py-3 text-sm bg-muted/40 border border-border/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600/50 focus:border-purple-600/50 transition-all duration-200"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onFocus={() => setOpen(true)}
@@ -203,21 +219,21 @@ export function SidebarSearch() {
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" side="bottom" align="start">
           <Command>
-            <CommandInput 
-              placeholder="Search clients, appointments..." 
-              value={value} 
-              onValueChange={setValue} 
+            <CommandInput
+              placeholder={t('sidebarSearch.placeholder')}
+              value={value}
+              onValueChange={setValue}
             />
             <CommandList>
               {searchResults.length === 0 && value.trim() && (
-                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandEmpty>{t('sidebarSearch.noResults')}</CommandEmpty>
               )}
               {searchResults.length > 0 && (
                 <>
                   {searchResults.filter(item => item.type === 'client').length > 0 && (
-                    <CommandGroup heading="Clients">
+                    <CommandGroup heading={t('common:labels.clients')}>
                       {searchResults.filter(item => item.type === 'client').map((item) => (
-                        <CommandItem 
+                        <CommandItem
                           key={`client-${item.id}`}
                           onSelect={() => handleItemSelect(item)}
                           className="cursor-pointer p-3"
@@ -233,9 +249,9 @@ export function SidebarSearch() {
                     </CommandGroup>
                   )}
                   {searchResults.filter(item => item.type === 'appointment').length > 0 && (
-                    <CommandGroup heading="Appointments">
+                    <CommandGroup heading={t('common:labels.appointments')}>
                       {searchResults.filter(item => item.type === 'appointment').map((item) => (
-                        <CommandItem 
+                        <CommandItem
                           key={`appointment-${item.id}`}
                           onSelect={() => handleItemSelect(item)}
                           className="cursor-pointer p-3"
@@ -251,9 +267,9 @@ export function SidebarSearch() {
                     </CommandGroup>
                   )}
                   {searchResults.filter(item => item.type === 'treatment').length > 0 && (
-                    <CommandGroup heading="Treatments">
+                    <CommandGroup heading={t('common:labels.treatments')}>
                       {searchResults.filter(item => item.type === 'treatment').map((item) => (
-                        <CommandItem 
+                        <CommandItem
                           key={`treatment-${item.id}`}
                           onSelect={() => handleItemSelect(item)}
                           className="cursor-pointer p-3"

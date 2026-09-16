@@ -16,6 +16,7 @@ import {
   overrideDocId,
 } from '@/hooks/scheduling/useStaffAvailability';
 import type { StaffAvailabilityDoc } from '@/lib/scheduling/types';
+import { useTranslation } from 'react-i18next';
 
 interface StaffScheduleEditorProps {
   staffId: string;
@@ -23,7 +24,7 @@ interface StaffScheduleEditorProps {
 }
 
 // Mon-first order (matches the business hours convention used elsewhere)
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 interface WeeklyRow {
   is_active: boolean;
@@ -34,19 +35,20 @@ interface WeeklyRow {
 const defaultWeekly = (): WeeklyRow => ({ is_active: false, start_time: '09:00', end_time: '18:00' });
 
 interface StaffTemplate {
-  label: string;
+  key: 'weekdays' | 'sixDays' | 'allWeek';
   enabledDays: number[];
   openTime: string;
   closeTime: string;
 }
 
 const STAFF_TEMPLATES: StaffTemplate[] = [
-  { label: 'Mon–Fri 10–6', enabledDays: [0, 1, 2, 3, 4], openTime: '10:00', closeTime: '18:00' },
-  { label: 'Mon–Sat 10–6', enabledDays: [0, 1, 2, 3, 4, 5], openTime: '10:00', closeTime: '18:00' },
-  { label: 'All Week 10–6', enabledDays: [0, 1, 2, 3, 4, 5, 6], openTime: '10:00', closeTime: '18:00' },
+  { key: 'weekdays', enabledDays: [0, 1, 2, 3, 4], openTime: '10:00', closeTime: '18:00' },
+  { key: 'sixDays', enabledDays: [0, 1, 2, 3, 4, 5], openTime: '10:00', closeTime: '18:00' },
+  { key: 'allWeek', enabledDays: [0, 1, 2, 3, 4, 5, 6], openTime: '10:00', closeTime: '18:00' },
 ];
 
 export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffId, staffName }) => {
+  const { t } = useTranslation('scheduling');
   const { toast } = useToast();
   const { data: availability, isLoading } = useStaffAvailability(staffId);
   const { businessHours } = useSupabaseBusinessHours();
@@ -103,7 +105,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
         end_time: tpl.closeTime,
       }))
     );
-    toast({ title: 'Template applied', description: `${tpl.label} — click Save to persist.` });
+    toast({ title: t('staffScheduleEditor.templateApplied'), description: t('staffScheduleEditor.templateAppliedDescription', { label: t(`staffScheduleEditor.templates.${tpl.key}`) }) });
   };
 
   const copyFromBusinessHours = () => {
@@ -115,7 +117,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
         end_time: bh.closeTime,
       }))
     );
-    toast({ title: 'Copied from Business Hours', description: 'Click Save to persist.' });
+    toast({ title: t('staffScheduleEditor.copiedTitle'), description: t('staffScheduleEditor.copiedDescription') });
   };
 
   const saveAll = async () => {
@@ -135,10 +137,10 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
           })
         )
       );
-      toast({ title: 'Schedule saved', description: `Weekly hours updated for ${staffName}` });
+      toast({ title: t('staffScheduleEditor.scheduleSaved'), description: t('staffScheduleEditor.scheduleSavedDescription', { name: staffName }) });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      toast({ title: 'Save failed', description: msg, variant: 'destructive' });
+      const msg = e instanceof Error ? e.message : t('staffScheduleEditor.unknownError');
+      toast({ title: t('staffScheduleEditor.saveFailed'), description: msg, variant: 'destructive' });
     }
   };
 
@@ -150,7 +152,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
 
   const addOverride = async () => {
     if (!overrideDate || !/^\d{4}-\d{2}-\d{2}$/.test(overrideDate)) {
-      toast({ title: 'Pick a date', description: 'Date must be in YYYY-MM-DD format', variant: 'destructive' });
+      toast({ title: t('staffScheduleEditor.pickDate'), description: t('staffScheduleEditor.pickDateDescription'), variant: 'destructive' });
       return;
     }
     try {
@@ -162,20 +164,20 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
           : { type: 'override', date: overrideDate, is_active: true, start_time: overrideStart, end_time: overrideEnd },
       });
       setOverrideDate('');
-      toast({ title: 'Override saved' });
+      toast({ title: t('staffScheduleEditor.overrideSaved') });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      toast({ title: 'Save failed', description: msg, variant: 'destructive' });
+      const msg = e instanceof Error ? e.message : t('staffScheduleEditor.unknownError');
+      toast({ title: t('staffScheduleEditor.saveFailed'), description: msg, variant: 'destructive' });
     }
   };
 
   const removeOverride = async (date: string) => {
     try {
       await remove.mutateAsync({ staffId, docId: overrideDocId(date) });
-      toast({ title: 'Override removed' });
+      toast({ title: t('staffScheduleEditor.overrideRemoved') });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+      const msg = e instanceof Error ? e.message : t('staffScheduleEditor.unknownError');
+      toast({ title: t('staffScheduleEditor.deleteFailed'), description: msg, variant: 'destructive' });
     }
   };
 
@@ -185,11 +187,10 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
-            Weekly Hours
+            {t('staffScheduleEditor.weeklyTitle')}
           </CardTitle>
           <CardDescription>
-            Working days and hours for {staffName}. When set, these override the org's business hours
-            for this staff member only.
+            {t('staffScheduleEditor.weeklyDescription', { name: staffName })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -197,24 +198,24 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
           <div className="rounded-lg border border-dashed border-purple-200 bg-purple-50/40 p-3">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium">Quick Templates</span>
+              <span className="text-sm font-medium">{t('staffScheduleEditor.quickTemplates')}</span>
             </div>
             <p className="text-xs text-muted-foreground mb-2">
-              One click fills in the weekly grid. Click Save to persist.
+              {t('staffScheduleEditor.quickTemplatesHelp')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" className="bg-white" onClick={copyFromBusinessHours}>
-                Copy from Business Hours
+                {t('staffScheduleEditor.copyFromBusinessHours')}
               </Button>
               {STAFF_TEMPLATES.map(tpl => (
                 <Button
-                  key={tpl.label}
+                  key={tpl.key}
                   size="sm"
                   variant="outline"
                   onClick={() => applyTemplate(tpl)}
                   className="bg-white"
                 >
-                  {tpl.label}
+                  {t(`staffScheduleEditor.templates.${tpl.key}`)}
                 </Button>
               ))}
             </div>
@@ -225,17 +226,17 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
               key={dow}
               className="grid grid-cols-1 md:grid-cols-[120px_80px_1fr_1fr] gap-3 items-center border rounded-md p-3"
             >
-              <div className="font-medium">{DAYS[dow]}</div>
+              <div className="font-medium">{t(`common:days.${DAY_KEYS[dow]}`)}</div>
               <div className="flex items-center gap-2">
                 <Switch
                   checked={row.is_active}
                   onCheckedChange={(v) => updateWeeklyRow(dow, { is_active: v })}
-                  aria-label={`Toggle ${DAYS[dow]} active`}
+                  aria-label={t('staffScheduleEditor.toggleDay', { day: t(`common:days.${DAY_KEYS[dow]}`) })}
                 />
-                <span className="text-xs text-muted-foreground">{row.is_active ? 'On' : 'Off'}</span>
+                <span className="text-xs text-muted-foreground">{row.is_active ? t('staffScheduleEditor.on') : t('staffScheduleEditor.off')}</span>
               </div>
               <div>
-                <Label className="text-xs">Start</Label>
+                <Label className="text-xs">{t('staffScheduleEditor.start')}</Label>
                 <Input
                   type="time"
                   value={row.start_time}
@@ -244,7 +245,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
                 />
               </div>
               <div>
-                <Label className="text-xs">End</Label>
+                <Label className="text-xs">{t('staffScheduleEditor.end')}</Label>
                 <Input
                   type="time"
                   value={row.end_time}
@@ -256,7 +257,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
           ))}
           <div className="flex justify-end">
             <Button onClick={saveAll} disabled={upsert.isPending}>
-              {upsert.isPending ? 'Saving…' : 'Save Weekly Hours'}
+              {upsert.isPending ? t('staffScheduleEditor.saving') : t('staffScheduleEditor.saveWeekly')}
             </Button>
           </div>
         </CardContent>
@@ -264,24 +265,24 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
 
       <Card>
         <CardHeader>
-          <CardTitle>Date Overrides</CardTitle>
+          <CardTitle>{t('staffScheduleEditor.overridesTitle')}</CardTitle>
           <CardDescription>
-            Day-off, vacation, or custom hours for a specific date. Overrides win over the weekly schedule.
+            {t('staffScheduleEditor.overridesDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {overrides.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No overrides yet.</p>
+            <p className="text-sm text-muted-foreground">{t('staffScheduleEditor.noOverrides')}</p>
           ) : (
             <div className="space-y-2">
               {overrides.map(o => (
                 <div key={o.date} className="flex items-center justify-between border rounded-md p-2">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm">{o.date}</span>
+                    <span className="font-mono text-sm" dir="ltr">{o.date}</span>
                     {o.is_active && o.start_time && o.end_time ? (
-                      <Badge variant="outline">{o.start_time}–{o.end_time}</Badge>
+                      <Badge variant="outline"><span dir="ltr">{o.start_time}–{o.end_time}</span></Badge>
                     ) : (
-                      <Badge variant="destructive">Day off</Badge>
+                      <Badge variant="destructive">{t('staffScheduleEditor.dayOff')}</Badge>
                     )}
                   </div>
                   <Button
@@ -299,7 +300,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_1fr_1fr_auto] gap-3 items-end border-t pt-3">
             <div>
-              <Label className="text-xs">Date</Label>
+              <Label className="text-xs">{t('staffScheduleEditor.date')}</Label>
               <Input
                 type="date"
                 value={overrideDate}
@@ -307,18 +308,18 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
               />
             </div>
             <div>
-              <Label className="text-xs">Type</Label>
+              <Label className="text-xs">{t('staffScheduleEditor.type')}</Label>
               <select
                 value={overrideMode}
                 onChange={(e) => setOverrideMode(e.target.value as 'off' | 'custom')}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="off">Day off</option>
-                <option value="custom">Custom hours</option>
+                <option value="off">{t('staffScheduleEditor.dayOff')}</option>
+                <option value="custom">{t('staffScheduleEditor.customHours')}</option>
               </select>
             </div>
             <div>
-              <Label className="text-xs">Start</Label>
+              <Label className="text-xs">{t('staffScheduleEditor.start')}</Label>
               <Input
                 type="time"
                 value={overrideStart}
@@ -327,7 +328,7 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
               />
             </div>
             <div>
-              <Label className="text-xs">End</Label>
+              <Label className="text-xs">{t('staffScheduleEditor.end')}</Label>
               <Input
                 type="time"
                 value={overrideEnd}
@@ -336,8 +337,8 @@ export const StaffScheduleEditor: React.FC<StaffScheduleEditorProps> = ({ staffI
               />
             </div>
             <Button onClick={addOverride} disabled={upsert.isPending}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add
+              <Plus className="h-4 w-4 me-1" />
+              {t('staffScheduleEditor.add')}
             </Button>
           </div>
         </CardContent>

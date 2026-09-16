@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 export type AutomationMessageType = 'email' | 'sms' | 'both';
 
@@ -59,6 +60,7 @@ export function useAutomations() {
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const [automations, setAutomations] = useState<MarketingAutomation[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -107,7 +109,7 @@ export function useAutomations() {
 
   const createAutomation = async (draft: AutomationDraft): Promise<string | null> => {
     if (!currentOrganization?.id) {
-      toast({ title: 'No organization', description: 'Cannot create automation.', variant: 'destructive' });
+      toast({ title: t('automations.noOrganizationTitle'), description: t('automations.cannotCreate'), variant: 'destructive' });
       return null;
     }
     try {
@@ -126,7 +128,7 @@ export function useAutomations() {
     } catch (err) {
       console.error('createAutomation failed', err);
       toast({
-        title: 'Failed to save automation',
+        title: t('automations.saveFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });
@@ -145,7 +147,7 @@ export function useAutomations() {
     } catch (err) {
       console.error('updateAutomation failed', err);
       toast({
-        title: 'Failed to update automation',
+        title: t('automations.updateFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });
@@ -163,7 +165,7 @@ export function useAutomations() {
     } catch (err) {
       console.error('toggleAutomation failed', err);
       toast({
-        title: 'Failed to update automation',
+        title: t('automations.updateFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });
@@ -177,7 +179,7 @@ export function useAutomations() {
     } catch (err) {
       console.error('deleteAutomation failed', err);
       toast({
-        title: 'Failed to delete automation',
+        title: t('automations.deleteFailed'),
         description: err instanceof Error ? err.message : String(err),
         variant: 'destructive',
       });

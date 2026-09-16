@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,15 +29,24 @@ interface PurchasesSectionProps {
   description?: string;
 }
 
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
+const formatCurrencyFor = (locale: string) => (n: number) =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
+
+const PURCHASE_TYPE_LABEL_KEY: Record<PurchaseRow['type'], string> = {
+  package: 'purchases.types.package',
+  product: 'purchases.types.product',
+  treatment: 'purchases.types.facial',
+};
 
 export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
   dateFilter = '',
   productFilter = 'all',
-  title = 'Purchases',
+  title,
   description,
 }) => {
+  const { t } = useTranslation('dashboard');
+  const { locale } = useLanguage();
+  const formatCurrency = useMemo(() => formatCurrencyFor(locale), [locale]);
   const { rows, loading } = usePurchasesData();
   const [typeFilter, setTypeFilter] = useState<PurchaseTypeFilter>('all');
   const [search, setSearch] = useState('');
@@ -80,24 +91,27 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <TrendingUp className="h-5 w-5 text-violet-600" />
-          {title}
+          {title ?? t('purchases.title')}
         </CardTitle>
         <CardDescription>
-          {description ?? `Revenue from packages, product sales, and facials${dateFilter ? ` on ${dateFilter}` : ''}.`}
+          {description ??
+            (dateFilter
+              ? t('purchases.descriptionOnDate', { date: dateFilter })
+              : t('purchases.description'))}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
             icon={<DollarSign className="h-4 w-4" />}
-            label="Total Revenue"
+            label={t('purchases.totalRevenue')}
             value={formatCurrency(totals.totalRevenue)}
             accent="border-emerald-500"
             iconBg="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"
           />
           <StatCard
             icon={<Package className="h-4 w-4" />}
-            label="Packages Sold"
+            label={t('purchases.packagesSold')}
             value={String(totals.packagesCount)}
             sub={formatCurrency(totals.packageRevenue)}
             accent="border-violet-500"
@@ -105,7 +119,7 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
           />
           <StatCard
             icon={<ShoppingBag className="h-4 w-4" />}
-            label="Products Sold"
+            label={t('purchases.productsSold')}
             value={String(totals.productsCount)}
             sub={formatCurrency(totals.productRevenue)}
             accent="border-amber-500"
@@ -113,7 +127,7 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
           />
           <StatCard
             icon={<Sparkles className="h-4 w-4" />}
-            label="Facials Sold"
+            label={t('purchases.facialsSold')}
             value={String(totals.facialsCount)}
             sub={formatCurrency(totals.facialRevenue)}
             accent="border-pink-500"
@@ -123,29 +137,29 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Type</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('purchases.filters.type')}</label>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as PurchaseTypeFilter)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="packages">Packages only</SelectItem>
-                <SelectItem value="products">Products only</SelectItem>
-                <SelectItem value="facials">Facials only</SelectItem>
+                <SelectItem value="all">{t('purchases.filters.all')}</SelectItem>
+                <SelectItem value="packages">{t('purchases.filters.packagesOnly')}</SelectItem>
+                <SelectItem value="products">{t('purchases.filters.productsOnly')}</SelectItem>
+                <SelectItem value="facials">{t('purchases.filters.facialsOnly')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Search</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('purchases.filters.search')}</label>
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Client or item"
+              placeholder={t('purchases.filters.searchPlaceholder')}
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Quick</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('purchases.filters.quick')}</label>
             <Button
               variant="outline"
               className="w-full justify-start"
@@ -154,17 +168,17 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
                 setSearch('');
               }}
             >
-              Clear filters
+              {t('purchases.filters.clearFilters')}
             </Button>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-6 text-sm text-muted-foreground">Loading purchases…</div>
+          <div className="text-center py-6 text-sm text-muted-foreground">{t('purchases.loading')}</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No purchases match these filters.</p>
+            <p className="text-sm">{t('purchases.noMatches')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -184,13 +198,13 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
                   <div className="min-w-0">
                     <div className="font-medium truncate">{r.description}</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {r.client_name} · {r.date || '—'}
+                      {r.client_name} · <span className="ltr-inline">{r.date || '—'}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">
-                    {r.type === 'treatment' ? 'facial' : r.type}
+                    {t(PURCHASE_TYPE_LABEL_KEY[r.type] ?? 'purchases.types.product')}
                   </Badge>
                   <div className="font-medium tabular-nums">{formatCurrency(r.amount)}</div>
                 </div>
@@ -198,7 +212,7 @@ export const PurchasesSection: React.FC<PurchasesSectionProps> = ({
             ))}
             {filtered.length > 25 && (
               <p className="text-xs text-muted-foreground text-center pt-2">
-                Showing 25 of {filtered.length} matches.
+                {t('purchases.showingMatches', { shown: 25, total: filtered.length })}
               </p>
             )}
           </div>
@@ -218,7 +232,7 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ icon, label, value, sub, accent, iconBg }) => (
-  <div className={`bg-card border border-border rounded-lg p-4 border-l-4 ${accent} shadow-sm`}>
+  <div className={`bg-card border border-border rounded-lg p-4 border-s-4 ${accent} shadow-sm`}>
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 truncate">

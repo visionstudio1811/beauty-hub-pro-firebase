@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, UserPlus, Star, DollarSign } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface ClientStatsCardsProps {
   clients: Client[];
@@ -23,6 +25,8 @@ export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({
   vipCount,
   newCount,
 }) => {
+  const { t } = useTranslation('clients');
+  const { locale } = useLanguage();
   const isAdmin = useIsAdmin();
   const totalClients = totalCount ?? clients.length;
   const newClients = newCount ?? 0;
@@ -31,21 +35,21 @@ export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({
 
   const stats = [
     {
-      title: 'Total Clients',
+      title: t('stats.totalClients'),
       value: totalClients,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100'
     },
     {
-      title: 'New Clients',
+      title: t('stats.newClients'),
       value: newClients,
       icon: UserPlus,
       color: 'text-green-600',
       bgColor: 'bg-green-100'
     },
     {
-      title: 'VIP Clients',
+      title: t('stats.vipClients'),
       value: vipClients,
       icon: Star,
       color: 'text-purple-600',
@@ -54,8 +58,8 @@ export const ClientStatsCards: React.FC<ClientStatsCardsProps> = ({
     // Total Revenue is admin-only — front-desk users don't see financial totals.
     ...(isAdmin
       ? [{
-          title: 'Total Revenue',
-          value: `$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          title: t('stats.totalRevenue'),
+          value: `$${totalRevenue.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: DollarSign,
           color: 'text-emerald-600',
           bgColor: 'bg-emerald-100',

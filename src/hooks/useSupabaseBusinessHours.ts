@@ -13,6 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface BusinessHour {
   id: string;
@@ -44,8 +45,11 @@ export const useSupabaseBusinessHours = () => {
   const [businessHours, setBusinessHours] = useState<DayHours[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
+  // `day` is a stable English identifier, not display text: consumers render it
+  // via t(`common:days.${day.toLowerCase()}`). Do not localize here.
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const fetchBusinessHours = async () => {
@@ -79,7 +83,7 @@ export const useSupabaseBusinessHours = () => {
       setBusinessHours(formattedHours);
     } catch (error) {
       console.error('Error fetching business hours:', error);
-      toast({ title: 'Error', description: 'Failed to load business hours', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('businessHours.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -117,10 +121,10 @@ export const useSupabaseBusinessHours = () => {
       await insertBatch.commit();
 
       setBusinessHours(hours);
-      toast({ title: 'Success', description: 'Business hours updated successfully' });
+      toast({ title: t('common:status.success'), description: t('businessHours.updated') });
     } catch (error) {
       console.error('Error updating business hours:', error);
-      toast({ title: 'Error', description: 'Failed to update business hours', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('businessHours.updateFailed'), variant: 'destructive' });
     }
   };
 

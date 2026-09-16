@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +18,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { useTimezone } from '@/hooks/useTimezone';
 import { toast } from '@/hooks/use-toast';
 import { SmsProvider } from '@/types/sms';
+import { getDateFnsLocale } from '@/i18n/dateLocale';
 
 interface CampaignCreationModalProps {
   open: boolean;
@@ -35,36 +38,39 @@ interface CampaignTemplate {
   targetAudience: string;
 }
 
-const templates: CampaignTemplate[] = [
+// Template copy lives in the `marketing` namespace (campaignModal.templates.*)
+// so prefilled subject/content follow the active language. Tokens inside the
+// text are left untouched by translation.
+const buildTemplates = (t: TFunction): CampaignTemplate[] => [
   {
     id: 'birthday',
-    name: 'Birthday Special',
-    description: 'Send personalized birthday offers to clients',
+    name: t('campaignModal.templates.birthday.name'),
+    description: t('campaignModal.templates.birthday.description'),
     type: 'both',
     icon: <Gift className="h-5 w-5" />,
-    subject: '🎉 Happy Birthday! Special Gift Inside',
-    content: 'Happy Birthday! As a special gift, enjoy 20% off your next appointment. Book now and celebrate with us!',
-    targetAudience: 'Clients with birthdays this month'
+    subject: t('campaignModal.templates.birthday.subject'),
+    content: t('campaignModal.templates.birthday.content'),
+    targetAudience: t('campaignModal.templates.birthday.targetAudience')
   },
   {
     id: 'reactivation',
-    name: 'Inactive Clients',
-    description: 'Re-engage clients who haven\'t visited recently',
+    name: t('campaignModal.templates.reactivation.name'),
+    description: t('campaignModal.templates.reactivation.description'),
     type: 'email',
     icon: <UserCheck className="h-5 w-5" />,
-    subject: 'We Miss You! Come Back for 15% Off',
-    content: 'It\'s been a while since your last visit. We miss you! Come back and enjoy 15% off your next service.',
-    targetAudience: 'Clients inactive for 3+ months'
+    subject: t('campaignModal.templates.reactivation.subject'),
+    content: t('campaignModal.templates.reactivation.content'),
+    targetAudience: t('campaignModal.templates.reactivation.targetAudience')
   },
   {
     id: 'renewal',
-    name: 'Package Renewal',
-    description: 'Remind clients to renew their packages',
+    name: t('campaignModal.templates.renewal.name'),
+    description: t('campaignModal.templates.renewal.description'),
     type: 'sms',
     icon: <RotateCcw className="h-5 w-5" />,
-    subject: 'Package Renewal Reminder',
-    content: 'Your package is about to expire! Renew now to continue enjoying our services at the best rates.',
-    targetAudience: 'Clients with expiring packages'
+    subject: t('campaignModal.templates.renewal.subject'),
+    content: t('campaignModal.templates.renewal.content'),
+    targetAudience: t('campaignModal.templates.renewal.targetAudience')
   }
 ];
 
@@ -74,8 +80,10 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
   template,
   onCampaignCreated
 }) => {
+  const { t } = useTranslation('marketing');
+  const templates = useMemo(() => buildTemplates(t), [t]);
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(
-    template ? templates.find(t => t.id === template) || null : null
+    template ? templates.find(tpl => tpl.id === template) || null : null
   );
   const [formData, setFormData] = useState({
     name: '',
@@ -119,14 +127,14 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
   // Invalid-Date RangeError that a bad scheduled date/time would throw at
   // `.toISOString()` time.
   const getValidationError = (): string | null => {
-    if (!formData.name.trim()) return 'Please enter a campaign name.';
+    if (!formData.name.trim()) return t('campaignModal.validation.nameRequired');
     const needsEmail = formData.type === 'email' || formData.type === 'both';
-    if (needsEmail && !formData.subject.trim()) return 'Please enter an email subject.';
-    if (!formData.content.trim()) return 'Please enter message content.';
+    if (needsEmail && !formData.subject.trim()) return t('campaignModal.validation.subjectRequired');
+    if (!formData.content.trim()) return t('campaignModal.validation.contentRequired');
     if (formData.scheduleType === 'scheduled') {
-      if (!formData.scheduledDate) return 'Please choose a date for the scheduled campaign.';
-      if (!formData.scheduledTime) return 'Please choose a time for the scheduled campaign.';
-      if (!scheduledInstant) return 'The scheduled date/time is invalid.';
+      if (!formData.scheduledDate) return t('campaignModal.validation.dateRequired');
+      if (!formData.scheduledTime) return t('campaignModal.validation.timeRequired');
+      if (!scheduledInstant) return t('campaignModal.validation.invalidDateTime');
     }
     return null;
   };
@@ -183,8 +191,8 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
   const handleCreateCampaign = async () => {
     if (!currentOrganization?.id) {
       toast({
-        title: "Error",
-        description: "Organization not found",
+        title: t('common:status.error'),
+        description: t('campaignModal.toasts.orgNotFound'),
         variant: "destructive"
       });
       return;
@@ -194,7 +202,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
     // date/time reach `.toISOString()` and throw an Invalid-Date RangeError.
     const error = getValidationError();
     if (error) {
-      toast({ title: 'Please fix the form', description: error, variant: 'destructive' });
+      toast({ title: t('campaignModal.toasts.fixForm'), description: error, variant: 'destructive' });
       return;
     }
 
@@ -237,8 +245,11 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
       );
 
       toast({
-        title: "Campaign created successfully",
-        description: `Your ${formData.type} campaign "${formData.name}" has been created.`
+        title: t('campaignModal.toasts.created'),
+        description: t('campaignModal.toasts.createdDescription', {
+          type: t(`campaignType.${formData.type}`, { defaultValue: formData.type }),
+          name: formData.name,
+        })
       });
 
       onCampaignCreated();
@@ -259,7 +270,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
       setSelectedTemplate(null);
     } catch (error: any) {
       toast({
-        title: "Error creating campaign",
+        title: t('campaignModal.toasts.createError'),
         description: error.message,
         variant: "destructive"
       });
@@ -272,9 +283,9 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Marketing Campaign</DialogTitle>
+          <DialogTitle>{t('campaignModal.title')}</DialogTitle>
           <DialogDescription>
-            Choose a template or create a custom campaign to engage with your clients.
+            {t('campaignModal.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -282,7 +293,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
           {/* Template Selection */}
           {!selectedTemplate && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Choose a Template</h3>
+              <h3 className="text-lg font-medium">{t('campaignModal.chooseTemplate')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {templates.map((template) => (
                   <Card
@@ -291,7 +302,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     onClick={() => setSelectedTemplate(template)}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
                         {template.icon}
                         <CardTitle className="text-base">{template.name}</CardTitle>
                       </div>
@@ -302,7 +313,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     <CardContent>
                       <div className="flex items-center justify-between">
                         <Badge variant="secondary">
-                          {template.type === 'both' ? 'Email + SMS' : template.type.toUpperCase()}
+                          {t(`messageType.${template.type}`, { defaultValue: template.type.toUpperCase() })}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
                           {template.targetAudience}
@@ -317,7 +328,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                 className="w-full"
                 onClick={() => setSelectedTemplate({} as CampaignTemplate)}
               >
-                Start from Scratch
+                {t('campaignModal.startFromScratch')}
               </Button>
             </div>
           )}
@@ -326,29 +337,29 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
           {selectedTemplate && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Campaign Details</h3>
+                <h3 className="text-lg font-medium">{t('campaignModal.campaignDetails')}</h3>
                 <Button 
                   variant="ghost" 
                   size="sm"
                   onClick={() => setSelectedTemplate(null)}
                 >
-                  Change Template
+                  {t('campaignModal.changeTemplate')}
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Campaign Name</Label>
+                  <Label htmlFor="name">{t('campaignModal.fields.name')}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter campaign name"
+                    placeholder={t('campaignModal.fields.namePlaceholder')}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="type">Campaign Type</Label>
+                  <Label htmlFor="type">{t('campaignModal.fields.type')}</Label>
                   <Select
                     value={formData.type}
                     onValueChange={(value: 'email' | 'sms' | 'both') => 
@@ -361,20 +372,20 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     <SelectContent>
                       <SelectItem value="email">
                         <div className="flex items-center">
-                          <Mail className="h-4 w-4 mr-2" />
-                          Email
+                          <Mail className="h-4 w-4 me-2" />
+                          {t('campaignModal.fields.typeEmail')}
                         </div>
                       </SelectItem>
                       <SelectItem value="sms">
                         <div className="flex items-center">
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          SMS
+                          <MessageSquare className="h-4 w-4 me-2" />
+                          {t('campaignModal.fields.typeSms')}
                         </div>
                       </SelectItem>
                       <SelectItem value="both">
                         <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-2" />
-                          Email + SMS
+                          <Users className="h-4 w-4 me-2" />
+                          {t('campaignModal.fields.typeBoth')}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -384,19 +395,19 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
 
               {(formData.type === 'email' || formData.type === 'both') && (
                 <div className="space-y-2">
-                  <Label htmlFor="subject">Email Subject</Label>
+                  <Label htmlFor="subject">{t('campaignModal.fields.subject')}</Label>
                   <Input
                     id="subject"
                     value={formData.subject}
                     onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                    placeholder="Enter email subject"
+                    placeholder={t('campaignModal.fields.subjectPlaceholder')}
                   />
                 </div>
               )}
 
               {(formData.type === 'sms' || formData.type === 'both') && (
                 <div className="space-y-2">
-                  <Label htmlFor="smsProvider">SMS Provider</Label>
+                  <Label htmlFor="smsProvider">{t('campaignModal.fields.smsProvider')}</Label>
                   <Select
                     value={formData.smsProvider || undefined}
                     onValueChange={(value: SmsProvider) =>
@@ -404,64 +415,64 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Auto (use enabled integration)" />
+                      <SelectValue placeholder={t('campaignModal.fields.smsProviderAuto')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="infobip" disabled={!providerOptions.infobip}>
-                        Infobip {!providerOptions.infobip && '(not configured)'}
+                        Infobip {!providerOptions.infobip && t('campaignModal.fields.notConfigured')}
                       </SelectItem>
                       <SelectItem value="twilio" disabled={!providerOptions.twilio}>
-                        Twilio {!providerOptions.twilio && '(not configured)'}
+                        Twilio {!providerOptions.twilio && t('campaignModal.fields.notConfigured')}
                       </SelectItem>
                       <SelectItem value="quo" disabled={!providerOptions.quo}>
-                        Quo {!providerOptions.quo && '(not configured)'}
+                        Quo {!providerOptions.quo && t('campaignModal.fields.notConfigured')}
                       </SelectItem>
                     </SelectContent>
                   </Select>
                   {!providerOptions.twilio && !providerOptions.infobip && !providerOptions.quo && (
                     <p className="text-xs text-destructive">
-                      No SMS provider is enabled. Configure one in Marketing → Integrations.
+                      {t('campaignModal.fields.noProviderEnabled')}
                     </p>
                   )}
                   {smsTemplates.length > 0 && (
                     <div className="space-y-1">
-                      <Label htmlFor="smsTemplate">Load SMS template</Label>
+                      <Label htmlFor="smsTemplate">{t('campaignModal.fields.loadSmsTemplate')}</Label>
                       <Select
                         onValueChange={(id) => {
-                          const tpl = smsTemplates.find((t) => t.id === id);
+                          const tpl = smsTemplates.find((item) => item.id === id);
                           if (tpl) setFormData((prev) => ({ ...prev, content: tpl.body }));
                         }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a saved template (optional)" />
+                          <SelectValue placeholder={t('campaignModal.fields.loadSmsTemplatePlaceholder')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {smsTemplates.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>{t.name || 'Untitled'}</SelectItem>
+                          {smsTemplates.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>{item.name || t('campaignModal.fields.untitled')}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    A "Reply STOP to unsubscribe" footer is added automatically to comply with carrier rules.
+                    {t('campaignModal.fields.stopFooterNote')}
                   </p>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="content">Message Content</Label>
+                <Label htmlFor="content">{t('campaignModal.fields.content')}</Label>
                 <Textarea
                   id="content"
                   value={formData.content}
                   onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Enter your message"
+                  placeholder={t('campaignModal.fields.contentPlaceholder')}
                   rows={4}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="audience">Target Audience</Label>
+                <Label htmlFor="audience">{t('campaignModal.fields.audience')}</Label>
                 <Select
                   value={formData.targetAudience}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, targetAudience: value }))}
@@ -470,32 +481,32 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    <SelectItem value="active">Active Clients</SelectItem>
-                    <SelectItem value="inactive">Inactive Clients (3+ months)</SelectItem>
-                    <SelectItem value="birthday">Birthday This Month</SelectItem>
-                    <SelectItem value="expiring">Expiring Packages</SelectItem>
+                    <SelectItem value="all">{t('campaignModal.fields.audienceAll')}</SelectItem>
+                    <SelectItem value="active">{t('campaignModal.fields.audienceActive')}</SelectItem>
+                    <SelectItem value="inactive">{t('campaignModal.fields.audienceInactive')}</SelectItem>
+                    <SelectItem value="birthday">{t('campaignModal.fields.audienceBirthday')}</SelectItem>
+                    <SelectItem value="expiring">{t('campaignModal.fields.audienceExpiring')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-4">
-                <Label>Schedule</Label>
-                <div className="flex space-x-4">
+                <Label>{t('campaignModal.fields.schedule')}</Label>
+                <div className="flex space-x-4 rtl:space-x-reverse">
                   <Button
                     type="button"
                     variant={formData.scheduleType === 'now' ? 'default' : 'outline'}
                     onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'now' }))}
                   >
-                    Send Now
+                    {t('campaignModal.fields.sendNow')}
                   </Button>
                   <Button
                     type="button"
                     variant={formData.scheduleType === 'scheduled' ? 'default' : 'outline'}
                     onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'scheduled' }))}
                   >
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    Schedule
+                    <CalendarIcon className="h-4 w-4 me-2" />
+                    {t('campaignModal.fields.scheduleButton')}
                   </Button>
                 </div>
 
@@ -503,7 +514,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="date">Date</Label>
+                        <Label htmlFor="date">{t('campaignModal.fields.date')}</Label>
                         <Input
                           id="date"
                           type="date"
@@ -512,7 +523,7 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="time">Time</Label>
+                        <Label htmlFor="time">{t('campaignModal.fields.time')}</Label>
                         <Input
                           id="time"
                           type="time"
@@ -523,14 +534,15 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
                     </div>
                     {(!formData.scheduledDate || !formData.scheduledTime) && (
                       <p className="text-xs text-destructive">
-                        Choose both a date and a time to schedule this campaign.
+                        {t('campaignModal.fields.chooseDateAndTime')}
                       </p>
                     )}
                     {scheduledInstant && (
                       <p className="text-xs text-muted-foreground">
-                        Will send{' '}
-                        {formatInTimeZone(scheduledInstant, timezone, "EEE, MMM d, yyyy 'at' h:mm a")}{' '}
-                        ({timezone}).
+                        {t('campaignModal.fields.willSend', {
+                          when: formatInTimeZone(scheduledInstant, timezone, t('campaignModal.fields.willSendFormat'), { locale: getDateFnsLocale() }),
+                          timezone,
+                        })}
                       </p>
                     )}
                   </div>
@@ -542,12 +554,12 @@ export const CampaignCreationModal: React.FC<CampaignCreationModalProps> = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           {selectedTemplate && (
             <div className="flex flex-col items-end gap-1">
               <Button onClick={handleCreateCampaign} disabled={isLoading || !!validationError}>
-                {isLoading ? "Creating..." : "Create Campaign"}
+                {isLoading ? t('campaignModal.creating') : t('campaignModal.createCampaign')}
               </Button>
               {validationError && (
                 <p className="text-xs text-destructive">{validationError}</p>

@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import i18n from '@/i18n';
 
 export interface Appointment {
   id: string;
@@ -45,12 +46,12 @@ export const AppointmentProvider: React.FC<{ children: ReactNode }> = ({ childre
       date: new Date().toISOString().split('T')[0],
       time: '09:00',
       treatmentId: 't1',
-      treatmentName: 'Facial Treatment',
+      treatmentName: i18n.t('contexts:seed.appointments.facialTreatment'),
       staffId: '1',
       staffName: 'Emma Wilson',
       duration: 60,
       status: 'scheduled',
-      notes: 'Regular client, prefers gentle products',
+      notes: i18n.t('contexts:seed.appointments.regularClientNote'),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }

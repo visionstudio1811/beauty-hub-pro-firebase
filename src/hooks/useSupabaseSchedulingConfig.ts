@@ -14,6 +14,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface SchedulingConfig {
   id: string;
@@ -49,6 +50,7 @@ export const useSupabaseSchedulingConfig = () => {
   const [schedulingConfigs, setSchedulingConfigs] = useState<SchedulingConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchSchedulingConfigs = async () => {
@@ -68,7 +70,7 @@ export const useSupabaseSchedulingConfig = () => {
       setSchedulingConfigs(snapshot.docs.map(d => docToConfig(d.id, d.data())));
     } catch (error) {
       console.error('Error fetching scheduling configs:', error);
-      toast({ title: 'Error', description: 'Failed to load scheduling configurations', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('schedulingConfig.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -90,11 +92,11 @@ export const useSupabaseSchedulingConfig = () => {
         updated_at: { toDate: () => new Date() },
       });
       setSchedulingConfigs(prev => [...prev, newConfig]);
-      toast({ title: 'Success', description: 'Scheduling configuration added successfully' });
+      toast({ title: t('common:status.success'), description: t('schedulingConfig.added') });
       return newConfig;
     } catch (error) {
       console.error('Error adding scheduling config:', error);
-      toast({ title: 'Error', description: 'Failed to add scheduling configuration', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('schedulingConfig.addFailed'), variant: 'destructive' });
       throw error;
     }
   };
@@ -103,31 +105,31 @@ export const useSupabaseSchedulingConfig = () => {
     id: string,
     updates: Partial<SchedulingConfig>
   ): Promise<SchedulingConfig> => {
-    if (!currentOrganization?.id) throw new Error('No organization');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const configRef = doc(db, 'organizations', currentOrganization.id, 'schedulingConfig', id);
       await updateDoc(configRef, { ...updates, updated_at: serverTimestamp() });
       const updatedConfig = { ...schedulingConfigs.find(c => c.id === id)!, ...updates };
       setSchedulingConfigs(prev => prev.map(config => (config.id === id ? updatedConfig : config)));
-      toast({ title: 'Success', description: 'Scheduling configuration updated successfully' });
+      toast({ title: t('common:status.success'), description: t('schedulingConfig.updated') });
       return updatedConfig;
     } catch (error) {
       console.error('Error updating scheduling config:', error);
-      toast({ title: 'Error', description: 'Failed to update scheduling configuration', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('schedulingConfig.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };
 
   const deleteSchedulingConfig = async (id: string) => {
-    if (!currentOrganization?.id) throw new Error('No organization');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const configRef = doc(db, 'organizations', currentOrganization.id, 'schedulingConfig', id);
       await deleteDoc(configRef);
       setSchedulingConfigs(prev => prev.filter(config => config.id !== id));
-      toast({ title: 'Success', description: 'Scheduling configuration deleted successfully' });
+      toast({ title: t('common:status.success'), description: t('schedulingConfig.deleted') });
     } catch (error) {
       console.error('Error deleting scheduling config:', error);
-      toast({ title: 'Error', description: 'Failed to delete scheduling configuration', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('schedulingConfig.deleteFailed'), variant: 'destructive' });
       throw error;
     }
   };

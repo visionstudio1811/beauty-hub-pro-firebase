@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,13 +10,14 @@ import { useSessionSecurity } from '@/hooks/useSessionSecurity';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 
 export const SessionManager: React.FC = () => {
-  const { 
-    sessions, 
-    loading, 
-    currentSessionId, 
-    terminateSession, 
+  const { t } = useTranslation('security');
+  const {
+    sessions,
+    loading,
+    currentSessionId,
+    terminateSession,
     terminateAllOtherSessions,
-    getSessionRisk 
+    getSessionRisk
   } = useSessionSecurity();
 
   const getDeviceIcon = (userAgent: string) => {
@@ -39,6 +41,13 @@ export const SessionManager: React.FC = () => {
     }
   };
 
+  const formatIp = (ip: string) => {
+    if (!ip || ip === 'unknown' || ip === 'client-ip-placeholder') {
+      return t('sessionManager.unknownIp');
+    }
+    return ip;
+  };
+
   const formatLastActivity = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -47,10 +56,10 @@ export const SessionManager: React.FC = () => {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minutes ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    return `${diffDays} days ago`;
+    if (diffMins < 1) return t('sessionManager.relative.justNow');
+    if (diffMins < 60) return t('sessionManager.relative.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('sessionManager.relative.hoursAgo', { count: diffHours });
+    return t('sessionManager.relative.daysAgo', { count: diffDays });
   };
 
   if (loading) {
@@ -58,7 +67,7 @@ export const SessionManager: React.FC = () => {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <div className="text-sm text-gray-500">Loading sessions...</div>
+            <div className="text-sm text-gray-500">{t('sessionManager.loading')}</div>
           </div>
         </CardContent>
       </Card>
@@ -72,31 +81,31 @@ export const SessionManager: React.FC = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
-              Session Manager
+              {t('sessionManager.title')}
             </CardTitle>
             <CardDescription>
-              Manage your active sessions across different devices
+              {t('sessionManager.description')}
             </CardDescription>
           </div>
           {sessions.filter(s => s.is_active && s.id !== currentSessionId).length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Terminate All Others
+                  <Trash2 className="h-4 w-4 me-2" />
+                  {t('sessionManager.terminateAllOthers')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Terminate All Other Sessions</AlertDialogTitle>
+                  <AlertDialogTitle>{t('sessionManager.terminateAllDialog.title')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will sign out all your other devices. You will remain signed in on this device.
+                    {t('sessionManager.terminateAllDialog.description')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
                   <AlertDialogAction onClick={terminateAllOtherSessions}>
-                    Terminate All
+                    {t('sessionManager.terminateAll')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -109,13 +118,13 @@ export const SessionManager: React.FC = () => {
           {sessions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Monitor className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No sessions found</p>
+              <p>{t('sessionManager.noSessions')}</p>
             </div>
           ) : (
             sessions.map((session) => {
               const risk = getSessionRisk(session);
               const isCurrent = session.id === currentSessionId;
-              
+
               return (
                 <div
                   key={session.id}
@@ -123,72 +132,75 @@ export const SessionManager: React.FC = () => {
                     isCurrent ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' : ''
                   }`}
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 rtl:space-x-reverse">
                     {getDeviceIcon(session.user_agent)}
-                    
+
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">
                           {session.user_agent.includes('Chrome') ? 'Chrome' :
                            session.user_agent.includes('Firefox') ? 'Firefox' :
-                           session.user_agent.includes('Safari') ? 'Safari' : 'Browser'}
+                           session.user_agent.includes('Safari') ? 'Safari' : t('sessionManager.browser')}
                         </span>
                         {isCurrent && (
                           <Badge variant="outline" className="text-xs">
-                            Current
+                            {t('sessionManager.current')}
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="text-sm text-muted-foreground">
-                        Last active: {formatLastActivity(session.last_activity)}
+                        {t('sessionManager.lastActive', { time: formatLastActivity(session.last_activity) })}
                       </div>
-                      
+
                       <div className="text-xs text-muted-foreground">
-                        IP: {session.ip_address} • Created: {safeFormatters.shortDate(session.created_at) || '—'}
+                        {t('sessionManager.ipCreated', {
+                          ip: formatIp(session.ip_address),
+                          date: safeFormatters.shortDate(session.created_at) || '—',
+                        })}
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
+
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <Badge className={getRiskColor(risk)}>
-                      {risk.toUpperCase()}
+                      {t(`risk.${risk}`)}
                     </Badge>
-                    
+
                     {session.is_active ? (
                       <Badge variant="outline" className="bg-green-50 text-green-700">
-                        Active
+                        {t('common:labels.active')}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                        Inactive
+                        {t('common:labels.inactive')}
                       </Badge>
                     )}
-                    
+
                     {session.is_active && !isCurrent && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" aria-label={t('sessionManager.terminateSessionAria')}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Terminate Session</AlertDialogTitle>
+                            <AlertDialogTitle>{t('sessionManager.terminateDialog.title')}</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This will sign out this device immediately. This action cannot be undone.
+                              {t('sessionManager.terminateDialog.description')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={() => terminateSession(session.id)}>
-                              Terminate
+                              {t('sessionManager.terminate')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     )}
-                    
+
                     {risk === 'high' && (
                       <AlertTriangle className="h-4 w-4 text-red-500" />
                     )}

@@ -17,6 +17,9 @@ import { Badge } from '@/components/ui/badge';
 import { SchedulingConfig } from '@/hooks/useSupabaseSchedulingConfig';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useTranslation } from 'react-i18next';
+
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 // Helper function to format time strings (remove seconds)
 const formatTimeDisplay = (time: string): string => {
@@ -35,6 +38,7 @@ export const SchedulingConfiguration = () => {
   const { isAdmin, roleFlagsLoading } = useSecurityValidation();
   const staffProfiles = getStaffProfiles();
   const { toast } = useToast();
+  const { t } = useTranslation('scheduling');
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
@@ -61,7 +65,7 @@ export const SchedulingConfiguration = () => {
   // Get unique treatment categories
   const treatmentCategories = Array.from(new Set(treatments.map(t => t.category).filter(Boolean) as string[]));
 
-  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const dayNames = DAY_KEYS.map((key) => t(`common:days.${key}`));
 
   const resetFormData = () => {
     setFormData({
@@ -105,8 +109,8 @@ export const SchedulingConfiguration = () => {
     try {
       if (!hasAdminAccess) {
         toast({
-          title: "Permission Denied",
-          description: "You don't have permission to modify scheduling configurations.",
+          title: t('schedulingConfiguration.permissionDenied'),
+          description: t('schedulingConfiguration.permissionModify'),
           variant: "destructive"
         });
         return;
@@ -121,8 +125,8 @@ export const SchedulingConfiguration = () => {
     } catch (error) {
       console.error('Failed to save configuration:', error);
       toast({
-        title: "Error",
-        description: "Failed to save scheduling configuration. Please check your permissions.",
+        title: t('schedulingConfiguration.errorTitle'),
+        description: t('schedulingConfiguration.saveError'),
         variant: "destructive"
       });
     }
@@ -131,21 +135,21 @@ export const SchedulingConfiguration = () => {
   const handleDelete = async (id: string) => {
     if (!hasAdminAccess) {
       toast({
-        title: "Permission Denied",
-        description: "You don't have permission to delete scheduling configurations.",
+        title: t('schedulingConfiguration.permissionDenied'),
+        description: t('schedulingConfiguration.permissionDelete'),
         variant: "destructive"
       });
       return;
     }
     
-    if (confirm('Are you sure you want to delete this configuration?')) {
+    if (confirm(t('schedulingConfiguration.confirmDelete'))) {
       try {
         await deleteSchedulingConfig(id);
       } catch (error) {
         console.error('Failed to delete configuration:', error);
         toast({
-          title: "Error",
-          description: "Failed to delete scheduling configuration. Please check your permissions.",
+          title: t('schedulingConfiguration.errorTitle'),
+          description: t('schedulingConfiguration.deleteError'),
           variant: "destructive"
         });
       }
@@ -178,10 +182,10 @@ export const SchedulingConfiguration = () => {
     <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center space-x-2 min-w-0">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
             <CalendarClock className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <CardTitle className="text-lg font-semibold truncate">Scheduling Configuration</CardTitle>
-            <Badge variant="outline" className="ml-1 text-xs">Legacy</Badge>
+            <CardTitle className="text-lg font-semibold truncate">{t('schedulingConfiguration.title')}</CardTitle>
+            <Badge variant="outline" className="ms-1 text-xs">{t('schedulingConfiguration.legacy')}</Badge>
           </div>
           {hasAdminAccess && (
             <Button
@@ -190,40 +194,39 @@ export const SchedulingConfiguration = () => {
               className="h-8 w-full sm:w-auto"
               onClick={() => handleDialogOpen()}
             >
-              <Plus className="h-4 w-4 mr-1" /> Add Config
+              <Plus className="h-4 w-4 me-1" /> {t('schedulingConfiguration.addConfig')}
             </Button>
           )}
         </div>
         <CardDescription>
-          Configure time slots and concurrent appointments for your business
+          {t('schedulingConfiguration.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
         <Alert variant="default" className="mb-4 border-blue-200 bg-blue-50">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            <strong>How layering works:</strong> Business Hours sets the outer bound. Configs here
-            narrow the window further when no staff schedule applies. <strong>Staff Schedules</strong>{' '}
-            (Settings → Staff Schedules) take precedence when set for a given day. Date overrides
-            on a staff schedule replace the window for that exact date.
+            <strong>{t('schedulingConfiguration.layeringTitle')}</strong> {t('schedulingConfiguration.layeringBody')}{' '}
+            <strong>{t('schedulingConfiguration.layeringStaff')}</strong>{' '}
+            {t('schedulingConfiguration.layeringTail')}
           </AlertDescription>
         </Alert>
         {hasAdminAccess === false && (
           <Alert variant="default" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              You need admin permissions to modify scheduling configurations.
+              {t('schedulingConfiguration.adminRequired')}
             </AlertDescription>
           </Alert>
         )}
         
         {loading ? (
           <div className="flex justify-center p-4">
-            <p>Loading configurations...</p>
+            <p>{t('schedulingConfiguration.loading')}</p>
           </div>
         ) : schedulingConfigs.length === 0 ? (
           <div className="text-center p-4 border border-dashed rounded-md">
-            <p className="text-sm text-gray-500">No scheduling configurations yet</p>
+            <p className="text-sm text-gray-500">{t('schedulingConfiguration.empty')}</p>
             {hasAdminAccess && (
               <Button 
                 variant="outline" 
@@ -231,7 +234,7 @@ export const SchedulingConfiguration = () => {
                 className="mt-2 w-full sm:w-auto" 
                 onClick={() => handleDialogOpen()}
               >
-                <Plus className="h-4 w-4 mr-1" /> Add Your First Configuration
+                <Plus className="h-4 w-4 me-1" /> {t('schedulingConfiguration.addFirst')}
               </Button>
             )}
           </div>
@@ -258,22 +261,22 @@ export const SchedulingConfiguration = () => {
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center space-x-2 mb-2 sm:mb-1">
+                          <div className="flex items-center space-x-2 rtl:space-x-reverse mb-2 sm:mb-1">
                             <Clock className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                            <span className="text-sm font-medium">
+                            <span className="text-sm font-medium" dir="ltr">
                               {formatTimeDisplay(config.start_time)} - {formatTimeDisplay(config.end_time)}
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             <Badge variant="outline" className="text-xs">
-                              {config.max_concurrent_appointments} concurrent
+                              {t('schedulingConfiguration.concurrent', { count: config.max_concurrent_appointments })}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
-                              {config.time_interval_minutes} min intervals
+                              {t('schedulingConfiguration.intervals', { count: config.time_interval_minutes })}
                             </Badge>
                             {!config.is_active && (
                               <Badge variant="secondary" className="text-xs">
-                                Inactive
+                                {t('schedulingConfiguration.inactive')}
                               </Badge>
                             )}
                           </div>
@@ -323,20 +326,20 @@ export const SchedulingConfiguration = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingConfigId ? 'Edit' : 'Add'} Scheduling Configuration</DialogTitle>
+            <DialogTitle>{editingConfigId ? t('schedulingConfiguration.dialog.editTitle') : t('schedulingConfiguration.dialog.addTitle')}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="day_of_week">Day of Week</Label>
+                <Label htmlFor="day_of_week">{t('schedulingConfiguration.dialog.dayOfWeek')}</Label>
                 <Select 
                   value={formData.day_of_week.toString()} 
                   onValueChange={(value) => setFormData({...formData, day_of_week: parseInt(value)})}
                   disabled={!hasAdminAccess}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select day" />
+                    <SelectValue placeholder={t('schedulingConfiguration.dialog.selectDay')} />
                   </SelectTrigger>
                   <SelectContent>
                     {dayNames.map((day, index) => (
@@ -347,19 +350,19 @@ export const SchedulingConfiguration = () => {
               </div>
               
               <div>
-                <Label htmlFor="time_interval_minutes">Time Interval (min)</Label>
+                <Label htmlFor="time_interval_minutes">{t('schedulingConfiguration.dialog.timeInterval')}</Label>
                 <Select 
                   value={formData.time_interval_minutes.toString()} 
                   onValueChange={(value) => setFormData({...formData, time_interval_minutes: parseInt(value)})}
                   disabled={!hasAdminAccess}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select interval" />
+                    <SelectValue placeholder={t('schedulingConfiguration.dialog.selectInterval')} />
                   </SelectTrigger>
                   <SelectContent>
                     {[15, 30, 45, 60, 90, 120].map((interval) => (
                       <SelectItem key={interval} value={interval.toString()}>
-                        {interval} minutes
+                        {t('schedulingConfiguration.dialog.intervalMinutes', { count: interval })}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -369,7 +372,7 @@ export const SchedulingConfiguration = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="start_time">Start Time</Label>
+                <Label htmlFor="start_time">{t('schedulingConfiguration.dialog.startTime')}</Label>
                 <Input 
                   id="start_time"
                   type="time"
@@ -380,7 +383,7 @@ export const SchedulingConfiguration = () => {
               </div>
               
               <div>
-                <Label htmlFor="end_time">End Time</Label>
+                <Label htmlFor="end_time">{t('schedulingConfiguration.dialog.endTime')}</Label>
                 <Input 
                   id="end_time"
                   type="time"
@@ -392,7 +395,7 @@ export const SchedulingConfiguration = () => {
             </div>
 
             <div>
-              <Label htmlFor="max_concurrent_appointments">Max Concurrent Appointments</Label>
+              <Label htmlFor="max_concurrent_appointments">{t('schedulingConfiguration.dialog.maxConcurrent')}</Label>
               <Select 
                 value={formData.max_concurrent_appointments.toString()} 
                 onValueChange={(value) => setFormData({...formData, max_concurrent_appointments: parseInt(value)})}
@@ -404,7 +407,7 @@ export const SchedulingConfiguration = () => {
                 <SelectContent>
                   {[1, 2, 3, 4, 5].map((num) => (
                     <SelectItem key={num} value={num.toString()}>
-                      {num} {num === 1 ? 'appointment' : 'appointments'}
+                      {t('schedulingConfiguration.dialog.appointments', { count: num })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -412,11 +415,11 @@ export const SchedulingConfiguration = () => {
             </div>
 
             <div>
-              <Label className="mb-2 block">Treatment Categories (Optional)</Label>
+              <Label className="mb-2 block">{t('schedulingConfiguration.dialog.treatmentCategories')}</Label>
               <ScrollArea className="h-24 border rounded-md p-2">
                 <div className="space-y-2">
                   {treatmentCategories.map(category => (
-                    <div key={category} className="flex items-center space-x-2">
+                    <div key={category} className="flex items-center space-x-2 rtl:space-x-reverse">
                       <Checkbox 
                         id={`category-${category}`}
                         checked={formData.treatment_categories.includes(category)}
@@ -433,11 +436,11 @@ export const SchedulingConfiguration = () => {
             </div>
 
             <div>
-              <Label className="mb-2 block">Assign Staff (Optional)</Label>
+              <Label className="mb-2 block">{t('schedulingConfiguration.dialog.assignStaff')}</Label>
               <ScrollArea className="h-24 border rounded-md p-2">
                 <div className="space-y-2">
                   {staffProfiles.map(staff => (
-                    <div key={staff.id} className="flex items-center space-x-2">
+                    <div key={staff.id} className="flex items-center space-x-2 rtl:space-x-reverse">
                       <Checkbox 
                         id={`staff-${staff.id}`}
                         checked={formData.staff_ids.includes(staff.id)}
@@ -453,7 +456,7 @@ export const SchedulingConfiguration = () => {
               </ScrollArea>
             </div>
 
-            <div className="flex items-center space-x-2 pt-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse pt-2">
               <Checkbox 
                 id="is_active" 
                 checked={formData.is_active}
@@ -462,18 +465,18 @@ export const SchedulingConfiguration = () => {
                 }
                 disabled={!hasAdminAccess}
               />
-              <Label htmlFor="is_active">Active</Label>
+              <Label htmlFor="is_active">{t('schedulingConfiguration.dialog.active')}</Label>
             </div>
           </div>
 
           <DialogFooter className="mt-4 flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleDialogClose} className="w-full sm:w-auto">Cancel</Button>
+            <Button variant="outline" onClick={handleDialogClose} className="w-full sm:w-auto">{t('common:actions.cancel')}</Button>
             <Button 
               onClick={handleSave}
               disabled={!hasAdminAccess}
               className="w-full sm:w-auto"
             >
-              Save Configuration
+              {t('schedulingConfiguration.dialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

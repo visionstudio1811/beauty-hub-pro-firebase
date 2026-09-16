@@ -1,5 +1,8 @@
 import { format, parseISO } from 'date-fns';
+import type { Locale } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import i18n from '@/i18n';
+import { getDateFnsLocale } from '@/i18n/dateLocale';
 
 /**
  * Default timezone used when no organization timezone is available yet
@@ -35,7 +38,8 @@ export const formatTime12Hour = (timeString: string | null | undefined): string 
   if (!time24) return '';
   const [hours, minutes] = time24.split(':');
   const hour = parseInt(hours, 10);
-  return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
+  const suffix = hour >= 12 ? i18n.t('contexts:time.pm') : i18n.t('contexts:time.am');
+  return `${hour % 12 || 12}:${minutes} ${suffix}`;
 };
 
 /**
@@ -122,25 +126,30 @@ export const toBusinessTime = (date: Date | string, tz: string = DEFAULT_TIMEZON
 /**
  * Formats a date in the given timezone using date-fns format tokens.
  * Falls back through multiple layers so it never throws.
+ *
+ * Month / weekday names (MMM, MMMM, EEE, EEEE) follow the active UI language
+ * via `locale`, which defaults to the date-fns locale for `i18n.language`.
+ * Numeric-only patterns such as 'yyyy-MM-dd' are unaffected by the locale.
  */
 export const formatInBusinessTime = (
   date: Date | string,
   formatString: string,
   tz: string = DEFAULT_TIMEZONE,
+  locale: Locale = getDateFnsLocale(),
 ): string => {
   const valid = validateDate(date);
   if (!valid) return '';
 
   // Layer 1 — formatInTimeZone (ideal)
   try {
-    const result = formatInTimeZone(valid, tz, formatString);
+    const result = formatInTimeZone(valid, tz, formatString, { locale });
     if (result && !isMalformed(result)) return result;
   } catch { /* fall through */ }
 
   // Layer 2 — toZonedTime + format
   try {
     const zoned = toZonedTime(valid, tz);
-    const result = format(zoned, formatString);
+    const result = format(zoned, formatString, { locale });
     if (result && !isMalformed(result)) return result;
   } catch { /* fall through */ }
 

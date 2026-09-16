@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { SendAgreementDialog } from '@/components/agreements/SendAgreementDialog';
+import { useTranslation } from 'react-i18next';
 
 interface CatalogPackage {
   id: string;
@@ -75,6 +76,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
   onClose,
   onAssign,
 }) => {
+  const { t } = useTranslation('packages');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const { treatments } = useSupabaseTreatments();
@@ -152,7 +154,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
       setEdits(initial);
     } catch (error) {
       console.error('Error fetching packages:', error);
-      toast({ title: 'Error', description: 'Failed to load packages', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('assignmentModal.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -199,7 +201,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
   const handleAssignPackage = async (pkg: CatalogPackage) => {
     if (!client) return;
     if (!currentOrganization?.id) {
-      toast({ title: 'Error', description: 'No organization selected.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('assignmentModal.noOrg'), variant: 'destructive' });
       return;
     }
 
@@ -207,16 +209,16 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
     if (!edit) return;
     if (edit.items.length === 0 || edit.items.some(i => i.quantity < 1)) {
       toast({
-        title: 'Invalid package',
-        description: 'Each included treatment needs a quantity of at least 1.',
+        title: t('assignmentModal.invalidTitle'),
+        description: t('assignmentModal.invalidQuantity'),
         variant: 'destructive',
       });
       return;
     }
     if (edit.price <= 0 || edit.validity_months <= 0) {
       toast({
-        title: 'Invalid package',
-        description: 'Price and validity must be greater than 0.',
+        title: t('assignmentModal.invalidTitle'),
+        description: t('assignmentModal.invalidPriceValidity'),
         variant: 'destructive',
       });
       return;
@@ -293,7 +295,9 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
               package_id: pkg.id,
               purchase_id: purchaseRef.id,
               organization_id: currentOrganization.id,
-              notes: 'Retroactively logged during package assignment',
+              // Persisted marker: always written in English so stored data does not
+              // depend on the writer's UI language (matches the pre-i18n constant).
+              notes: t('assignmentModal.retroNote', { lng: 'en' }),
               created_at: now,
               created_at_ts: serverTimestamp(),
             })
@@ -313,16 +317,16 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
       });
 
       toast({
-        title: 'Package Assigned',
-        description: `${pkg.name} has been assigned to ${client.name}. Package is now active and can be used for bookings.`,
+        title: t('assignmentModal.assignedTitle'),
+        description: t('assignmentModal.assignedDescription', { packageName: pkg.name, clientName: client.name }),
       });
 
       onAssign(client, { package: pkg, purchase });
       setPendingAgreement({ purchaseId: purchaseRef.id, packageName: pkg.name });
     } catch (error) {
       console.error('Error assigning package:', error);
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      toast({ title: 'Error', description: `Failed to assign package: ${msg}`, variant: 'destructive' });
+      const msg = error instanceof Error ? error.message : t('assignmentModal.unknownError');
+      toast({ title: t('common:status.error'), description: t('assignmentModal.assignFailed', { error: msg }), variant: 'destructive' });
     } finally {
       setAssigning(null);
     }
@@ -348,17 +352,17 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex items-center space-x-2 rtl:space-x-reverse">
             <PackageIcon className="h-5 w-5" />
-            <span>Assign Package to {client.name}</span>
+            <span>{t('assignmentModal.title', { name: client.name })}</span>
           </DialogTitle>
           <DialogDescription>
-            Select a package and adjust price, validity, or per-treatment quantities before assigning.
+            {t('assignmentModal.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center gap-3 py-2 border-b">
-          <label className="text-sm font-medium whitespace-nowrap">Purchase Date</label>
+          <label className="text-sm font-medium whitespace-nowrap">{t('assignmentModal.purchaseDate')}</label>
           <Input
             type="date"
             value={purchaseDate}
@@ -367,7 +371,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
             max={new Date().toISOString().split('T')[0]}
           />
           <span className="text-xs text-muted-foreground">
-            Use a past date for retroactive assignments.
+            {t('assignmentModal.purchaseDateHelp')}
           </span>
         </div>
 
@@ -380,8 +384,8 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
         ) : catalogPackages.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <PackageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No active packages available</p>
-            <p className="text-sm">Create packages in Settings to assign them to clients.</p>
+            <p>{t('assignmentModal.emptyTitle')}</p>
+            <p className="text-sm">{t('assignmentModal.emptyDescription')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,7 +408,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs font-medium">Price ($)</label>
+                        <label className="text-xs font-medium">{t('assignmentModal.price')}</label>
                         <Input
                           type="number"
                           min="0"
@@ -420,7 +424,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium">Validity (months)</label>
+                        <label className="text-xs font-medium">{t('assignmentModal.validity')}</label>
                         <Input
                           type="number"
                           min="1"
@@ -438,16 +442,16 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium">Treatments & quantities</label>
+                        <label className="text-xs font-medium">{t('assignmentModal.treatmentsAndQuantities')}</label>
                         <span className="text-xs text-muted-foreground">
-                          Total: <span className="font-semibold">{totalSessions}</span>
+                          {t('assignmentModal.total')} <span className="font-semibold">{totalSessions}</span>
                         </span>
                       </div>
                       <div className="space-y-1 max-h-40 overflow-y-auto border rounded p-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs text-muted-foreground flex-1">Treatment</span>
-                          <span className="text-xs text-muted-foreground w-14 text-center">Total</span>
-                          <span className="text-xs text-muted-foreground w-14 text-center">Used</span>
+                          <span className="text-xs text-muted-foreground flex-1">{t('assignmentModal.colTreatment')}</span>
+                          <span className="text-xs text-muted-foreground w-14 text-center">{t('assignmentModal.colTotal')}</span>
+                          <span className="text-xs text-muted-foreground w-14 text-center">{t('assignmentModal.colUsed')}</span>
                         </div>
                         {pkg.treatments.map(tid => {
                           const current = edit.items.find(i => i.treatment_id === tid)?.quantity ?? 0;
@@ -485,12 +489,12 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 
                     {edit.product_items.length > 0 && (
                       <div>
-                        <label className="text-xs font-medium">Included Products</label>
+                        <label className="text-xs font-medium">{t('assignmentModal.includedProducts')}</label>
                         <div className="space-y-1 mt-1 border rounded p-2">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs text-muted-foreground flex-1">Product</span>
-                            <span className="text-xs text-muted-foreground w-14 text-center">Qty</span>
-                            <span className="text-xs text-muted-foreground w-20 text-center">Price ($)</span>
+                            <span className="text-xs text-muted-foreground flex-1">{t('assignmentModal.colProduct')}</span>
+                            <span className="text-xs text-muted-foreground w-14 text-center">{t('assignmentModal.colQty')}</span>
+                            <span className="text-xs text-muted-foreground w-20 text-center">{t('assignmentModal.colPrice')}</span>
                           </div>
                           {edit.product_items.map(item => (
                             <div key={item.product_id} className="flex items-center gap-2">
@@ -518,7 +522,7 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
 
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      <span>Expires in {edit.validity_months} month(s)</span>
+                      <span>{t('assignmentModal.expiresIn', { count: edit.validity_months })}</span>
                     </div>
 
                     <Button
@@ -528,13 +532,13 @@ export const PackageAssignmentModal: React.FC<PackageAssignmentModalProps> = ({
                     >
                       {assigning === pkg.id ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                          Assigning...
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white me-2" />
+                          {t('assignmentModal.assigning')}
                         </>
                       ) : (
                         <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Assign Package
+                          <Plus className="h-4 w-4 me-2" />
+                          {t('assignmentModal.assignPackage')}
                         </>
                       )}
                     </Button>

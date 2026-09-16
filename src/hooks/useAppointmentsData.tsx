@@ -3,6 +3,7 @@ import { Appointment } from '../components/AppointmentModal';
 import { formatTimeDisplay, formatInBusinessTime } from '@/lib/timeUtils';
 import { filterAppointments } from '@/utils/appointmentFilters';
 import { sanitizeString, sanitizeStringArray, scanAndSanitizeDOM, containsMalformedPattern } from '@/lib/dataSanitization';
+import { useTranslation } from 'react-i18next';
 
 interface UseAppointmentsDataProps {
   appointments: any[];
@@ -19,6 +20,7 @@ interface AppointmentFilterState {
 }
 
 export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointmentsDataProps) => {
+  const { t } = useTranslation('hooks');
   
   // Filter states with sanitized initialization
   const [dateFilter, setDateFilter] = useState('');
@@ -72,13 +74,13 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
         id: sanitizeString(apt.id, `temp-${Date.now()}`),
         time: sanitizeString(formatTimeDisplay(apt.appointment_time), '09:00'),
         date: sanitizeString(apt.appointment_date, new Date().toISOString().split('T')[0]),
-        client: sanitizeString(apt.client_name, 'Unknown Client'),
-        treatment: sanitizeString(apt.treatment_name, 'Unknown Treatment'),
-        staff: sanitizeString(apt.staff_name, 'Unknown Staff'),
+        client: sanitizeString(apt.client_name, t('fallbacks.unknownClient')),
+        treatment: sanitizeString(apt.treatment_name, t('fallbacks.unknownTreatment')),
+        staff: sanitizeString(apt.staff_name, t('fallbacks.unknownStaff')),
         duration: typeof apt.duration === 'number' ? apt.duration : 60,
         status: (apt.status as Appointment['status']) || 'scheduled',
-        phone: sanitizeString(apt.client_phone, 'No Phone'),
-        email: sanitizeString(apt.client_email, 'No Email'),
+        phone: sanitizeString(apt.client_phone, t('fallbacks.noPhone')),
+        email: sanitizeString(apt.client_email, t('fallbacks.noEmail')),
         notes: sanitizeString(apt.notes || '', ''),
         allergies: '',
         addons: Array.isArray(apt.addons) ? apt.addons : [],
@@ -106,7 +108,7 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
     });
 
     return transformed;
-  }, [appointments]);
+  }, [appointments, t]);
 
   // Memoize filtered appointments
   const filteredAppointments = useMemo(() => {
@@ -131,18 +133,18 @@ export const useAppointmentsData = ({ appointments, selectedDate }: UseAppointme
       return [];
     }
     const rawStaffList = transformedAppointments.map(apt => apt.staff).filter(Boolean);
-    const sanitizedStaffList = sanitizeStringArray(rawStaffList, 'Unknown Staff');
+    const sanitizedStaffList = sanitizeStringArray(rawStaffList, t('fallbacks.unknownStaff'));
     return [...new Set(sanitizedStaffList)];
-  }, [transformedAppointments]);
+  }, [transformedAppointments, t]);
   
   const treatments = useMemo(() => {
     if (!transformedAppointments || transformedAppointments.length === 0) {
       return [];
     }
     const rawTreatmentList = transformedAppointments.map(apt => apt.treatment).filter(Boolean);
-    const sanitizedTreatmentList = sanitizeStringArray(rawTreatmentList, 'Unknown Treatment');
+    const sanitizedTreatmentList = sanitizeStringArray(rawTreatmentList, t('fallbacks.unknownTreatment'));
     return [...new Set(sanitizedTreatmentList)];
-  }, [transformedAppointments]);
+  }, [transformedAppointments, t]);
 
   // Calculate statistics with proper null safety and error handling
   const statistics = useMemo(() => {

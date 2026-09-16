@@ -10,6 +10,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { StaffAvailabilityDoc } from '@/lib/scheduling/types';
+import i18n from '@/i18n';
 
 // Path: organizations/{orgId}/staffSchedules/{staffId}/availability/{docId}
 // {staffId} matches the value stored as appointment.staff_id (a users/{uid} UID).
@@ -103,7 +104,7 @@ export const useUpsertStaffAvailability = () => {
       docId: string;             // e.g. "weekly-0" or "override-2026-06-15"
       data: StaffAvailabilityDoc;
     }) => {
-      if (!orgId) throw new Error('No organization selected');
+      if (!orgId) throw new Error(i18n.t('hooks:common.noOrganization'));
       const ref = doc(db, 'organizations', orgId, 'staff', params.staffId, 'availability', params.docId);
       await setDoc(ref, { ...params.data, updated_at: serverTimestamp(), created_at: serverTimestamp() }, { merge: true });
     },
@@ -120,7 +121,7 @@ export const useDeleteStaffAvailability = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { staffId: string; docId: string }) => {
-      if (!orgId) throw new Error('No organization selected');
+      if (!orgId) throw new Error(i18n.t('hooks:common.noOrganization'));
       await deleteDoc(doc(db, 'organizations', orgId, 'staff', params.staffId, 'availability', params.docId));
     },
     onSuccess: (_, variables) => {

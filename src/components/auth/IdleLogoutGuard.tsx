@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 // dialog with a 2-minute countdown; after 60 minutes total it signs the user
 // out. Activity in any tab keeps all tabs alive via a localStorage broadcast.
 export const IdleLogoutGuard: React.FC = () => {
+  const { t } = useTranslation('shell');
   const { user, signOut } = useAuth();
   const [warningOpen, setWarningOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(Math.floor(WARN_BEFORE_MS / 1000));
@@ -193,16 +195,16 @@ export const IdleLogoutGuard: React.FC = () => {
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Still there?</AlertDialogTitle>
+          <AlertDialogTitle>{t('idle.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            You'll be signed out in {mm}:{ss} for security. Stay signed in, or log out now.
+            {t('idle.description', { time: `${mm}:${ss}` })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => { intentionalLogoutRef.current = true; void handleSignOut(); }}>
-            Log out
+            {t('idle.logOut')}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={handleStaySignedIn}>Stay signed in</AlertDialogAction>
+          <AlertDialogAction onClick={handleStaySignedIn}>{t('idle.staySignedIn')}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

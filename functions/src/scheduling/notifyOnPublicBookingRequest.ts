@@ -10,12 +10,30 @@ import {
   renderAndSend,
   resolveEmailContext,
 } from './bookingEmailSend';
+import { defineStrings, getOrgLanguage, makeT } from '../lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Fallback merge-tag values, sent in the org's language. The email subject and
+// body themselves are org-authored automations.
+const STRINGS = defineStrings({
+  en: {
+    fallbackName: 'there',
+    fallbackTreatment: 'your appointment',
+    adminFallbackName: 'Admin',
+  },
+  he: {
+    // Fills the [NAME] / {{client_name}} slot inside 'שלום [NAME], …' copy, so it
+    // must read as a name-like noun rather than a greeting.
+    fallbackName: 'לקוח/ה יקר/ה',
+    fallbackTreatment: 'התור שלך',
+    adminFallbackName: 'מנהל/ת',
+  },
+});
 
 // Abuse limits for the visitor-acknowledgment email. The public booking link is
 // unauthenticated, so these caps stop it from being used as an open email relay.
@@ -67,9 +85,13 @@ export const notifyOnPublicBookingRequest = onDocumentCreated(
     // (silent until approval, then appointmentScheduledNotification fires).
     if (req.source !== 'public_link') return;
 
+    // Resolve the org language once (60s cached) — both emails use it.
+    const lang = await getOrgLanguage(orgId);
+    const t = makeT(STRINGS, lang);
+
     const dateStr = String(req.preferred_slot?.date || '');
     const timeStr = String(req.preferred_slot?.time || '');
-    const visitorName = (String(req.client_name || 'there').trim()) || 'there';
+    const visitorName = (String(req.client_name || '').trim()) || t('fallbackName');
 
     // -------- Email 1: visitor acknowledgment --------
     if (isValidEmail(req.client_email)) {
@@ -82,9 +104,9 @@ export const notifyOnPublicBookingRequest = onDocumentCreated(
           const tz = String(ctx.orgData.timezone || 'America/New_York');
           const vars: Record<string, string> = {
             NAME: visitorName,
-            TREATMENT: String(req.treatment_name || 'your appointment'),
-            DATE: formatDateForDisplay(dateStr, tz),
-            TIME: formatTimeForDisplay(timeStr),
+            TREATMENT: String(req.treatment_name || t('fallbackTreatment')),
+            DATE: formatDateForDisplay(dateStr, tz, lang),
+            TIME: formatTimeForDisplay(timeStr, lang),
             STAFF: String(req.staff_name || ''),
             ORG: String(ctx.orgData.name || ctx.fromName),
           };
@@ -159,9 +181,9 @@ export const notifyOnPublicBookingRequest = onDocumentCreated(
       const tz = String(ctx.orgData.timezone || 'America/New_York');
       const adminVars: Record<string, string> = {
         NAME: visitorName,
-        TREATMENT: String(req.treatment_name || 'your appointment'),
-        DATE: formatDateForDisplay(dateStr, tz),
-        TIME: formatTimeForDisplay(timeStr),
+        TREATMENT: String(req.treatment_name || t('fallbackTreatment')),
+        DATE: formatDateForDisplay(dateStr, tz, lang),
+        TIME: formatTimeForDisplay(timeStr, lang),
         STAFF: String(req.staff_name || ''),
         ORG: String(ctx.orgData.name || ctx.fromName),
         VISITOR_NAME: visitorName,
@@ -175,7 +197,7 @@ export const notifyOnPublicBookingRequest = onDocumentCreated(
           await renderAndSend({
             orgId,
             toEmail: user.email,
-            toName: user.name || 'Admin',
+            toName: user.name || t('adminFallbackName'),
             automation: adminAutomation,
             ctx,
             vars: adminVars,

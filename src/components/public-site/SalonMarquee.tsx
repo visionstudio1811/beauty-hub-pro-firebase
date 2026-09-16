@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface SalonMarqueeProps {
@@ -23,18 +24,28 @@ export const SalonMarquee = ({
   speedSec = 38,
   desaturate = true,
 }: SalonMarqueeProps) => {
+  const { t } = useTranslation("publicSite");
   const items = [...LOGOS, ...LOGOS]; // duplicated for seamless -50% loop
 
   return (
     <section
-      aria-label="Salons on the Beauty Hub Pro network"
+      aria-label={t("salonMarquee.aria")}
+      // Pinned LTR on purpose: the `gc-marquee` keyframes translate 0 -> -50%,
+      // which assumes the `w-max` track starts at the LEFT edge. Under
+      // <html dir="rtl"> the track would be right-aligned, overflow to the left
+      // and slide fully off-screen every loop. Logos are not text, so forcing
+      // LTR here has no reading-direction cost.
+      dir="ltr"
       className={cn(
         "is-dark relative overflow-hidden border-y border-[rgb(var(--c-line)/0.4)]",
         className,
       )}
     >
       {/* Edge fades — dark surface → transparent. Arbitrary values because the
-          `cream` color isn't registered in this app's Tailwind config. */}
+          `cream` color isn't registered in this app's Tailwind config.
+          Intentionally physical (left/right): the whole <section> is pinned
+          dir="ltr" above, so the track always scrolls left and these symmetric
+          fades must stay on their physical edges. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 left-0 w-20 z-10 bg-[linear-gradient(to_right,rgb(var(--c-cream)),transparent)]"

@@ -5,9 +5,87 @@ import { consumeRateLimit } from './rateLimit';
 import { sendSms, resolveProvider, ensureOptOutSuffix, SmsProvider } from './lib/smsProviders';
 import { computeUnsubToken } from './lib/unsubscribeToken';
 import { loadResendCredentials } from './lib/resendKey';
+import {
+  AppLanguage,
+  DEFAULT_LANGUAGE,
+  defineStrings,
+  getCallerLanguage,
+  getOrgLanguage,
+  htmlDirAttrs,
+  makeT,
+  orgLanguageFromData,
+} from './lib/i18n';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
+
+// Client-facing copy (org language): only the compliance footer (email) and
+// carrier opt-out suffix (SMS) are generated here; the campaign body is
+// staff-authored content and stays as-is.
+// Staff-facing copy (caller language, org language for the scheduler path):
+// HttpsError messages surfaced as CRM toasts / marketingCampaigns.last_error,
+// and the per-channel prefixes stored in campaignRecipients.errors.
+const STRINGS = defineStrings({
+  en: {
+    optOutSuffix: 'Reply STOP to unsubscribe.',
+    footerReason: "You're receiving this because you're a client of {{org}}.",
+    footerUnsubscribe: 'To stop receiving marketing emails, {{link}}{{replyHint}}.',
+    footerUnsubscribeLink: 'unsubscribe here',
+    footerReplyHint: ' or reply with "unsubscribe"',
+    firstNameFallback: 'there',
+    err_unauthorized: 'Unauthorized',
+    err_missing_args: 'campaignId and organizationId are required',
+    err_user_not_found: 'User not found',
+    err_org_mismatch: 'Organization mismatch',
+    err_admin_required: 'Admin role required',
+    err_campaign_not_found: 'Campaign not found',
+    err_already_sending: 'Campaign is already sending',
+    err_already_sent: 'Campaign has already been sent',
+    err_email_not_configured:
+      'Email provider not configured. Set up Resend in Marketing → Integrations or set RESEND_API_KEY.',
+    errSms: 'SMS: {{msg}}',
+    errEmail: 'Email: {{msg}}',
+  },
+  he: {
+    optOutSuffix: 'להסרה השיבו STOP.',
+    footerReason: 'הודעה זו נשלחה אליכם מפני שאתם לקוחות של {{org}}.',
+    footerUnsubscribe: 'להפסקת קבלת הודעות שיווקיות, {{link}}{{replyHint}}.',
+    footerUnsubscribeLink: 'לחצו כאן להסרה',
+    footerReplyHint: ' או השיבו עם "unsubscribe"',
+    firstNameFallback: 'לקוח/ה יקר/ה',
+    err_unauthorized: 'אין הרשאה',
+    err_missing_args: 'נדרשים campaignId ו-organizationId',
+    err_user_not_found: 'המשתמש לא נמצא',
+    err_org_mismatch: 'אי-התאמה בין הארגונים',
+    err_admin_required: 'נדרשת הרשאת מנהל',
+    err_campaign_not_found: 'הקמפיין לא נמצא',
+    err_already_sending: 'הקמפיין כבר בתהליך שליחה',
+    err_already_sent: 'הקמפיין כבר נשלח',
+    err_email_not_configured:
+      'ספק הדוא"ל לא הוגדר. הגדירו Resend תחת שיווק ← אינטגרציות או הגדירו RESEND_API_KEY.',
+    errSms: 'SMS: {{msg}}',
+    errEmail: 'דוא"ל: {{msg}}',
+  },
+});
+
+// Subject of the mailto: unsubscribe fallback. Deliberately a fixed English
+// keyword, not a translated string: nothing in this repo parses it — it lands
+// in the org's inbox as a human-readable signal — and it matches the literal
+// "unsubscribe" keyword that footerReplyHint tells clients to reply with in
+// every language, so staff inbox filters keyed on that word keep working.
+const UNSUBSCRIBE_MAILTO_SUBJECT = 'Unsubscribe';
+
+/**
+ * Carrier opt-out footer in the org's language (mirrors sendClientSms). English
+ * goes through the shared ensureOptOutSuffix(); Hebrew appends a Hebrew
+ * instruction that keeps the literal STOP keyword, because carriers (and
+ * quoWebhook's STOP_WORDS) only recognise the English keyword for opt-out.
+ */
+function withOptOutSuffix(body: string, lang: AppLanguage): string {
+  if (lang === DEFAULT_LANGUAGE) return ensureOptOutSuffix(body);
+  if (/\bSTOP\b/i.test(body)) return body;
+  return `${body.replace(/\s+$/, '')} ${makeT(STRINGS, lang)('optOutSuffix')}`;
+}
 
 interface SendMarketingCampaignRequest {
   campaignId: string;
@@ -57,9 +135,9 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-function personalize(template: string, client: ClientRecord): string {
+function personalize(template: string, client: ClientRecord, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   const fullName = (client.name ?? '').trim();
-  const firstName = fullName.split(/\s+/)[0] || 'there';
+  const firstName = fullName.split(/\s+/)[0] || makeT(STRINGS, lang)('firstNameFallback');
   return template
     .replace(/\{first_name\}/gi, firstName)
     .replace(/\{name\}/gi, fullName || firstName)
@@ -185,10 +263,22 @@ async function withConcurrency<T, R>(
 export async function executeCampaign(
   organizationId: string,
   campaignId: string,
-  opts: { dryRun?: boolean; smsProviderOverride?: SmsProvider; consumeQuota?: boolean } = {},
+  opts: {
+    dryRun?: boolean;
+    smsProviderOverride?: SmsProvider;
+    consumeQuota?: boolean;
+    /**
+     * Language for staff-facing errors (HttpsError messages, last_error,
+     * campaignRecipients.errors). The callable passes the caller's language;
+     * the scheduler omits it and we fall back to the org default.
+     */
+    lang?: AppLanguage;
+  } = {},
 ): Promise<CampaignExecutionResult> {
   const dryRun = opts.dryRun ?? false;
   const consumeQuota = opts.consumeQuota ?? true;
+  const staffLang = opts.lang ?? (await getOrgLanguage(organizationId));
+  const te = makeT(STRINGS, staffLang);
 
   if (consumeQuota && !dryRun) {
     await consumeRateLimit(organizationId, 'marketing_campaign_send', 20);
@@ -206,17 +296,17 @@ export async function executeCampaign(
   let campaign: Campaign;
   if (dryRun) {
     const campaignSnap = await campaignRef.get();
-    if (!campaignSnap.exists) throw new HttpsError('not-found', 'Campaign not found');
+    if (!campaignSnap.exists) throw new HttpsError('not-found', te('err_campaign_not_found'));
     campaign = campaignSnap.data() as Campaign;
   } else {
     campaign = await db.runTransaction(async (tx) => {
       const snap = await tx.get(campaignRef);
-      if (!snap.exists) throw new HttpsError('not-found', 'Campaign not found');
+      if (!snap.exists) throw new HttpsError('not-found', te('err_campaign_not_found'));
       const c = snap.data() as Campaign;
       if (c.status === 'sending')
-        throw new HttpsError('failed-precondition', 'Campaign is already sending');
+        throw new HttpsError('failed-precondition', te('err_already_sending'));
       if (c.status === 'completed')
-        throw new HttpsError('failed-precondition', 'Campaign has already been sent');
+        throw new HttpsError('failed-precondition', te('err_already_sent'));
       tx.update(campaignRef, {
         status: 'sending',
         started_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -245,7 +335,7 @@ export async function executeCampaign(
     if (needsEmail) {
       resendCfg = await loadResendConfig(organizationId);
       if (!resendCfg)
-        throw new HttpsError('failed-precondition', 'Email provider not configured. Set up Resend in Marketing → Integrations or set RESEND_API_KEY.');
+        throw new HttpsError('failed-precondition', te('err_email_not_configured'));
     }
 
     const recipients = await resolveAudience(organizationId, campaign.target_audience);
@@ -286,6 +376,12 @@ export async function executeCampaign(
     const resend = resendCfg ? new Resend(resendCfg.apiKey) : null;
     const orgSnapData = (await db.collection('organizations').doc(organizationId).get()).data() ?? {};
     const orgName = (orgSnapData.name as string) ?? '';
+    // Org language drives the CLIENT-facing compliance footer + SMS opt-out
+    // suffix (not the caller's preference — clients read this, not staff).
+    // The staff-authored campaign body is untouched.
+    const lang = orgLanguageFromData(orgSnapData);
+    const t = makeT(STRINGS, lang);
+    const { dir, align } = htmlDirAttrs(lang);
     // CAN-SPAM requires a valid physical postal address + a working opt-out in
     // every commercial email. Pull both from the org record so the footer below
     // can include them.
@@ -316,12 +412,12 @@ export async function executeCampaign(
         else if (client.sms_opt_out === true) smsStatus = 'skipped';
         else {
           try {
-            const body = ensureOptOutSuffix(personalize(campaign.content, client));
+            const body = withOptOutSuffix(personalize(campaign.content, client, lang), lang);
             await sendSms(organizationId, client.phone, body, smsProvider!);
             smsStatus = 'sent';
           } catch (e) {
             smsStatus = 'failed';
-            errors.push(`SMS: ${e instanceof Error ? e.message : String(e)}`);
+            errors.push(te('errSms', { msg: e instanceof Error ? e.message : String(e) }));
           }
         }
       }
@@ -331,7 +427,7 @@ export async function executeCampaign(
         else if (client.email_opt_out === true) emailStatus = 'skipped';
         else {
           try {
-            const personalized = personalize(campaign.content, client);
+            const personalized = personalize(campaign.content, client, lang);
             // CAN-SPAM compliant footer: sender identity, a working opt-out, and
             // the sender's physical postal address. The opt-out is a real
             // one-click unsubscribe URL (verified, sets email_opt_out) plus a
@@ -339,14 +435,18 @@ export async function executeCampaign(
             const unsubToken = computeUnsubToken(resendCfg.apiKey, organizationId, client.id);
             const unsubUrl = `https://beautyhubpro.com/u?o=${encodeURIComponent(organizationId)}&c=${encodeURIComponent(client.id)}&t=${encodeURIComponent(unsubToken)}`;
             const unsubMailto = orgUnsubEmail
-              ? `mailto:${orgUnsubEmail}?subject=Unsubscribe`
+              ? `mailto:${orgUnsubEmail}?subject=${encodeURIComponent(UNSUBSCRIBE_MAILTO_SUBJECT)}`
               : '';
+            const unsubLink = `<a href="${unsubUrl}" style="color:#6b7280">${escapeHtml(t('footerUnsubscribeLink'))}</a>`;
             const footerLines = [
-              `You're receiving this because you're a client of ${escapeHtml(orgName)}.`,
-              `To stop receiving marketing emails, <a href="${unsubUrl}" style="color:#6b7280">unsubscribe here</a>${unsubMailto ? ' or reply with "unsubscribe"' : ''}.`,
+              t('footerReason', { org: escapeHtml(orgName) }),
+              t('footerUnsubscribe', {
+                link: unsubLink,
+                replyHint: unsubMailto ? escapeHtml(t('footerReplyHint')) : '',
+              }),
               orgAddress ? escapeHtml(orgAddress) : '',
             ].filter(Boolean).join('<br>');
-            const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333"><div style="line-height:1.6">${escapeHtml(personalized).replace(/\n/g, '<br>')}</div><br><p style="color:#9ca3af;font-size:12px">${footerLines}</p></body></html>`;
+            const html = `<!DOCTYPE html><html dir="${dir}"><body dir="${dir}" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;text-align:${align}"><div style="line-height:1.6">${escapeHtml(personalized).replace(/\n/g, '<br>')}</div><br><p style="color:#9ca3af;font-size:12px;text-align:${align}">${footerLines}</p></body></html>`;
             // RFC 8058: List-Unsubscribe (URL + mailto) and one-click POST so
             // Gmail/Apple Mail surface a native unsubscribe button.
             const listUnsub = unsubMailto ? `<${unsubUrl}>, <${unsubMailto}>` : `<${unsubUrl}>`;
@@ -363,13 +463,13 @@ export async function executeCampaign(
             if (resp.error) {
               emailStatus = 'failed';
               const msg = (resp.error as { message?: string })?.message || JSON.stringify(resp.error);
-              errors.push(`Email: ${msg}`);
+              errors.push(te('errEmail', { msg }));
             } else {
               emailStatus = 'sent';
             }
           } catch (e) {
             emailStatus = 'failed';
-            errors.push(`Email: ${e instanceof Error ? e.message : String(e)}`);
+            errors.push(te('errEmail', { msg: e instanceof Error ? e.message : String(e) }));
           }
         }
       }
@@ -422,26 +522,37 @@ export async function executeCampaign(
 export const sendMarketingCampaign = onCall(
   { secrets: ['RESEND_API_KEY'], timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
-    if (!request.auth) throw new HttpsError('unauthenticated', 'Unauthorized');
+    // No caller yet → no user preference to read; fall back to the default
+    // language for the unauthenticated rejection (same as sibling callables).
+    if (!request.auth)
+      throw new HttpsError('unauthenticated', makeT(STRINGS, DEFAULT_LANGUAGE)('err_unauthorized'));
 
     const uid = request.auth.uid;
     const data = request.data as SendMarketingCampaignRequest;
     const { campaignId, organizationId, dryRun = false } = data;
 
-    if (!campaignId || !organizationId)
-      throw new HttpsError('invalid-argument', 'campaignId and organizationId are required');
+    // Language resolved once per invocation (user preference → org default →
+    // en), in parallel with the caller lookup so it adds no latency.
+    const [userDoc, lang] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      getCallerLanguage(uid, organizationId || null),
+    ]);
+    const t = makeT(STRINGS, lang);
 
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) throw new HttpsError('permission-denied', 'User not found');
+    if (!campaignId || !organizationId)
+      throw new HttpsError('invalid-argument', t('err_missing_args'));
+
+    if (!userDoc.exists) throw new HttpsError('permission-denied', t('err_user_not_found'));
     const userData = userDoc.data()!;
     if (userData.organizationId !== organizationId)
-      throw new HttpsError('permission-denied', 'Organization mismatch');
+      throw new HttpsError('permission-denied', t('err_org_mismatch'));
     if (userData.role !== 'admin')
-      throw new HttpsError('permission-denied', 'Admin role required');
+      throw new HttpsError('permission-denied', t('err_admin_required'));
 
     return executeCampaign(organizationId, campaignId, {
       dryRun,
       smsProviderOverride: data.smsProvider,
+      lang,
     });
   }
 );

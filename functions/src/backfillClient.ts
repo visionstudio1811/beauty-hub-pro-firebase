@@ -73,27 +73,33 @@ export async function backfillClientFromSignedWaiver(
     return '';
   };
 
+  // Labels are matched in English and Hebrew — waiver templates are authored in
+  // the org's language (see addStandardFieldsToTemplates / WaiverTemplateEditor).
   const isBirthdayLabel = (lbl: string) =>
     lbl.includes('birthday') || lbl.includes('date of birth') ||
-    lbl.includes('dob') || lbl.includes('birth date');
+    lbl.includes('dob') || lbl.includes('birth date') ||
+    lbl.includes('תאריך לידה') || lbl.includes('יום הולדת');
 
-  const firstNameAnswer = findAnswer(lbl => lbl.includes('first name'));
-  const lastNameAnswer  = findAnswer(lbl => lbl.includes('last name'));
+  const firstNameAnswer = findAnswer(lbl => lbl.includes('first name') || lbl.includes('שם פרטי'));
+  const lastNameAnswer  = findAnswer(lbl => lbl.includes('last name') || lbl.includes('שם משפחה'));
   const combinedName    = [firstNameAnswer, lastNameAnswer].filter(Boolean).join(' ').trim();
 
   const addressAnswer = findAnswer(lbl =>
-    lbl.includes('address') && !lbl.includes('line 2') && !lbl.includes('email'),
+    (lbl.includes('address') || lbl.includes('כתובת')) &&
+    !lbl.includes('line 2') && !lbl.includes('שורה 2') &&
+    !lbl.includes('email') && !lbl.includes('אימייל') && !lbl.includes('דוא"ל'),
   );
-  const cityAnswer = findAnswer((lbl, type) => type === 'city' || lbl.includes('city'));
+  const cityAnswer = findAnswer((lbl, type) => type === 'city' || lbl.includes('city') || lbl.includes('עיר'));
   const dobAnswer  = findAnswer((lbl, type) =>
     isBirthdayLabel(lbl) || (type === 'date' && isBirthdayLabel(lbl)),
   );
-  const genderAnswer = findAnswer(lbl => lbl.includes('gender') || lbl === 'sex');
+  const genderAnswer = findAnswer(lbl => lbl.includes('gender') || lbl === 'sex' || lbl.includes('מגדר') || lbl === 'מין');
   const referralAnswer = findAnswer((lbl, type) =>
     type === 'referral_source' ||
-    lbl.includes('how did you hear') || lbl.includes('referral') || lbl.includes('find us') || lbl.includes('hear about us'),
+    lbl.includes('how did you hear') || lbl.includes('referral') || lbl.includes('find us') || lbl.includes('hear about us') ||
+    lbl.includes('איך שמעת') || lbl.includes('איך הגעת') || lbl.includes('הפניה') || lbl.includes('מקור הגעה'),
   );
-  const ageAnswer = findAnswer(lbl => lbl === 'age' || lbl.endsWith(' age') || lbl.startsWith('age '));
+  const ageAnswer = findAnswer(lbl => lbl === 'age' || lbl.endsWith(' age') || lbl.startsWith('age ') || lbl === 'גיל');
 
   const updates: Record<string, string | number> = {};
 

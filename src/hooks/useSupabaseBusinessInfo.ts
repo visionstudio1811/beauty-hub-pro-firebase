@@ -8,6 +8,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface BusinessInfo {
   id: string;
@@ -27,6 +28,7 @@ export const useSupabaseBusinessInfo = () => {
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchBusinessInfo = async () => {
@@ -58,7 +60,7 @@ export const useSupabaseBusinessInfo = () => {
       }
     } catch (error) {
       console.error('Error fetching business info:', error);
-      toast({ title: 'Error', description: 'Failed to load business information', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('businessInfo.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -82,10 +84,10 @@ export const useSupabaseBusinessInfo = () => {
       };
       setBusinessInfo(updatedInfo);
 
-      toast({ title: 'Success', description: 'Business information updated successfully' });
+      toast({ title: t('common:status.success'), description: t('businessInfo.updated') });
     } catch (error) {
       console.error('Error updating business info:', error);
-      toast({ title: 'Error', description: 'Failed to update business information', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('businessInfo.updateFailed'), variant: 'destructive' });
     }
   };
 

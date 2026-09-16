@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
+import { useTranslation } from 'react-i18next';
 import { functions } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ const initialState: FormState = {
 };
 
 export const QuoteRequestForm: React.FC = () => {
+  const { t } = useTranslation('publicSite');
   const { toast } = useToast();
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -37,11 +39,11 @@ export const QuoteRequestForm: React.FC = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const validate = (): string | null => {
-    if (!form.name.trim()) return 'Please enter your name.';
-    if (!form.business.trim()) return 'Please enter your business name.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return 'Please enter a valid email.';
-    if (!form.phone.trim()) return 'Please enter a phone number.';
-    if (!form.message.trim()) return 'Tell us a little about what you need.';
+    if (!form.name.trim()) return t('quoteForm.validation.name');
+    if (!form.business.trim()) return t('quoteForm.validation.business');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return t('quoteForm.validation.email');
+    if (!form.phone.trim()) return t('quoteForm.validation.phone');
+    if (!form.message.trim()) return t('quoteForm.validation.message');
     return null;
   };
 
@@ -49,7 +51,7 @@ export const QuoteRequestForm: React.FC = () => {
     e.preventDefault();
     const err = validate();
     if (err) {
-      toast({ title: 'Please check the form', description: err, variant: 'destructive' });
+      toast({ title: t('quoteForm.toasts.checkForm'), description: err, variant: 'destructive' });
       return;
     }
 
@@ -66,13 +68,18 @@ export const QuoteRequestForm: React.FC = () => {
         website: form.website,
       });
       toast({
-        title: 'Request received',
-        description: 'A Golden Circle consultant will reach out within one business day.',
+        title: t('quoteForm.toasts.received'),
+        description: t('quoteForm.toasts.receivedDescription'),
       });
       setForm(initialState);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Please try again in a moment.';
-      toast({ title: "Couldn't send your request", description: msg, variant: 'destructive' });
+      // Log the raw Firebase HttpsError for debugging, but show visitors a translated message.
+      console.error('submitQuoteRequest failed', err);
+      toast({
+        title: t('quoteForm.toasts.sendFailed'),
+        description: t('quoteForm.toasts.tryAgain'),
+        variant: 'destructive',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -82,47 +89,47 @@ export const QuoteRequestForm: React.FC = () => {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-2">
-          <Label htmlFor="quote-name">Your name</Label>
+          <Label htmlFor="quote-name">{t('quoteForm.fields.name')}</Label>
           <Input
             id="quote-name"
             value={form.name}
             onChange={(e) => update('name')(e.target.value)}
-            placeholder="Jane Doe"
+            placeholder={t('quoteForm.fields.namePlaceholder')}
             autoComplete="name"
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="quote-business">Business name</Label>
+          <Label htmlFor="quote-business">{t('quoteForm.fields.business')}</Label>
           <Input
             id="quote-business"
             value={form.business}
             onChange={(e) => update('business')(e.target.value)}
-            placeholder="The Golden Spa"
+            placeholder={t('quoteForm.fields.businessPlaceholder')}
             autoComplete="organization"
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="quote-email">Email</Label>
+          <Label htmlFor="quote-email">{t('quoteForm.fields.email')}</Label>
           <Input
             id="quote-email"
             type="email"
             value={form.email}
             onChange={(e) => update('email')(e.target.value)}
-            placeholder="you@yourbusiness.com"
+            placeholder={t('quoteForm.fields.emailPlaceholder')}
             autoComplete="email"
             required
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="quote-phone">Phone</Label>
+          <Label htmlFor="quote-phone">{t('quoteForm.fields.phone')}</Label>
           <Input
             id="quote-phone"
             type="tel"
             value={form.phone}
             onChange={(e) => update('phone')(e.target.value)}
-            placeholder="(555) 123-4567"
+            placeholder={t('quoteForm.fields.phonePlaceholder')}
             autoComplete="tel"
             required
           />
@@ -130,20 +137,20 @@ export const QuoteRequestForm: React.FC = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="quote-message">What should we know about your business?</Label>
+        <Label htmlFor="quote-message">{t('quoteForm.fields.message')}</Label>
         <Textarea
           id="quote-message"
           value={form.message}
           onChange={(e) => update('message')(e.target.value)}
-          placeholder="Team size, current software, biggest pain point, timeline…"
+          placeholder={t('quoteForm.fields.messagePlaceholder')}
           rows={5}
           required
         />
       </div>
 
-      {/* Honeypot — real users never see this */}
+      {/* Honeypot — real users never see this (physical offset keeps it off-screen in both directions) */}
       <div aria-hidden="true" style={{ position: 'absolute', left: '-5000px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden' }}>
-        <Label htmlFor="quote-website">Website</Label>
+        <Label htmlFor="quote-website">{t('quoteForm.fields.website')}</Label>
         <Input
           id="quote-website"
           tabIndex={-1}
@@ -156,16 +163,16 @@ export const QuoteRequestForm: React.FC = () => {
       <Button type="submit" size="lg" className="w-full glow-effect" disabled={submitting}>
         {submitting ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Sending…
+            <Loader2 className="me-2 h-4 w-4 animate-spin" />
+            {t('quoteForm.sending')}
           </>
         ) : (
-          'Request My Quote'
+          t('quoteForm.submit')
         )}
       </Button>
 
       <p className="text-xs text-muted-foreground text-center">
-        By submitting you agree to be contacted by The Golden Circle Consulting. We never share your information.
+        {t('quoteForm.disclaimer')}
       </p>
     </form>
   );

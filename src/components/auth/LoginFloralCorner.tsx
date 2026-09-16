@@ -1,10 +1,14 @@
 import { cn } from '@/lib/utils';
 
-/** Subtle line-art botanical for the top-right of login form panels. */
+/**
+ * Subtle line-art botanical for the top-end corner of login form panels.
+ * The artwork is drawn for the top-right; in RTL it is mirrored so it hugs
+ * the top-left corner instead.
+ */
 export function LoginFloralCorner({ className }: { className?: string }) {
   return (
     <svg
-      className={cn('pointer-events-none text-foreground/10', className)}
+      className={cn('pointer-events-none text-foreground/10 rtl:-scale-x-100', className)}
       viewBox="0 0 320 280"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

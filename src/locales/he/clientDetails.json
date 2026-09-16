@@ -1,0 +1,316 @@
+{
+  "statuses": {
+    "haveMembership": "בעל/ת מנוי",
+    "noMembership": "ללא מנוי",
+    "membershipEnded": "המנוי הסתיים",
+    "scheduled": "מתוכנן",
+    "confirmed": "מאושר",
+    "arrived": "הגיע/ה",
+    "inProgress": "בטיפול",
+    "completed": "הושלם",
+    "cancelled": "בוטל",
+    "noShow": "לא הגיע/ה",
+    "pending": "ממתין",
+    "assigned": "שויך",
+    "delivered": "נמסר",
+    "issued": "הונפקה",
+    "void": "מבוטלת",
+    "active": "פעיל"
+  },
+  "enhanced": {
+    "title": {
+      "edit": "עריכת לקוח/ה",
+      "view": "פרטי לקוח/ה"
+    },
+    "description": {
+      "edit": "עדכון פרטי הלקוח/ה",
+      "view": "צפייה בפרטי הלקוח/ה, בתורים ובהיסטוריית החבילות"
+    },
+    "sectionsNav": "מקטעי לקוח/ה",
+    "tabs": {
+      "details": "פרטים",
+      "appointments": "תורים ({{count}})",
+      "packages": "חבילות ({{count}})",
+      "membership": "מנוי",
+      "actions": "פעולות",
+      "waivers": "טופסי ויתור",
+      "intake": "טופסי קליטה",
+      "agreements": "הסכמי רכישה",
+      "invoices": "חשבוניות ({{count}})"
+    },
+    "details": {
+      "fillFromForm": "מילוי מהטופס החתום האחרון",
+      "filling": "ממלא…",
+      "fields": {
+        "name": "שם",
+        "phone": "טלפון",
+        "email": "אימייל",
+        "birthday": "תאריך לידה",
+        "age": "גיל",
+        "gender": "מגדר",
+        "city": "עיר",
+        "referralSource": "איך שמעת עלינו?",
+        "address": "כתובת",
+        "allergies": "אלרגיות / התראות רפואיות",
+        "notes": "הערות"
+      },
+      "agePlaceholder": "לדוגמה: 35",
+      "pickDate": "בחירת תאריך",
+      "selectGender": "בחירת מגדר",
+      "female": "נקבה",
+      "male": "זכר",
+      "selectCity": "בחירת עיר",
+      "selectSource": "בחירת מקור",
+      "internalOnly": "פנימי — לא מוצג ללקוחות",
+      "allergiesPlaceholder": "לדוגמה: לטקס, אגוזים, רגישות לבשמים",
+      "hasMembership": "בעל/ת מנוי",
+      "smsOptOut": "הסרה מדיוור SMS",
+      "emailOptOut": "הסרה מדיוור באימייל",
+      "stats": {
+        "status": "סטטוס:",
+        "totalVisits": "סה\"כ ביקורים: {{count}}",
+        "lastVisit": "ביקור אחרון: {{date}}",
+        "never": "אף פעם",
+        "totalRevenue": "סה\"כ הכנסות: ${{amount}}",
+        "activePackages": "חבילות פעילות: {{count}}",
+        "activeProducts": "מוצרים פעילים: {{count}}"
+      }
+    },
+    "appointments": {
+      "title": "היסטוריית תורים",
+      "logPast": "רישום טיפול שבוצע",
+      "book": "קביעת תור",
+      "empty": "אין תורים עדיין",
+      "bookFirst": "קביעת תור ראשון",
+      "fromPackage": "מתוך {{name}}",
+      "packageFallback": "חבילה",
+      "alaCarte": "תשלום נפרד",
+      "dateTime": "{{date}} בשעה {{time}} • {{duration}} דק'",
+      "staff": "צוות: {{name}}",
+      "notes": "הערות:"
+    },
+    "packages": {
+      "title": "חבילות משויכות",
+      "manage": "ניהול חבילות",
+      "custom": "חבילה מותאמת אישית",
+      "assign": "שיוך חבילה",
+      "empty": "עדיין לא שויכו חבילות",
+      "assignFirst": "שיוך חבילה ראשונה",
+      "unknownPackage": "חבילה לא ידועה",
+      "packageFallback": "חבילה",
+      "packagePrice": "חבילה • ${{amount}}",
+      "active": "פעילה",
+      "itemsOwed_one": "פריט אחד לאספקה",
+      "itemsOwed_two": "{{count}} פריטים לאספקה",
+      "itemsOwed_other": "{{count}} פריטים לאספקה",
+      "generateInvoice": "הפקת חשבונית",
+      "generating": "מפיק…",
+      "sendAgreement": "שליחת הסכם",
+      "sessionsUsed": "מפגשים: נוצלו {{used}}/{{total}} (נותרו {{remaining}})",
+      "sessionsByTreatment": "מפגשים לפי טיפול",
+      "treatmentFallback": "טיפול",
+      "slotUsage": "נוצלו {{used}} / נותרו {{remaining}}",
+      "over": "({{count}} מעבר למכסה)",
+      "includedProducts": "מוצרים כלולים",
+      "productQty": "{{name}} × {{quantity}}",
+      "given": "נמסרו {{delivered}}/{{quantity}}",
+      "allDelivered": "הכול נמסר",
+      "owed": "{{count}} לאספקה"
+    },
+    "products": {
+      "title": "מוצרים משויכים",
+      "manage": "ניהול מוצרים",
+      "assign": "שיוך מוצר",
+      "empty": "עדיין לא שויכו מוצרים",
+      "assignFirst": "שיוך מוצר ראשון",
+      "unknownProduct": "מוצר לא ידוע",
+      "productLine": "מוצר • ${{amount}} • כמות: {{quantity}}",
+      "generateInvoice": "הפקת חשבונית",
+      "notes": "הערות:"
+    },
+    "actions": {
+      "quickActions": "פעולות מהירות",
+      "bookNew": "קביעת תור חדש",
+      "assignPackage": "שיוך חבילה",
+      "assignProduct": "שיוך מוצר",
+      "sendMessage": "שליחת הודעה",
+      "contactOptions": "אפשרויות יצירת קשר",
+      "call": "חיוג",
+      "email": "אימייל",
+      "clearHistory": "מחיקת כל ההיסטוריה",
+      "clearHistoryDescription": "פעולה זו תמחק לצמיתות את כל היסטוריית התורים והרכישות של הלקוח/ה. לא ניתן לבטל פעולה זו.",
+      "clearHistoryConfirm": "מחיקת היסטוריה"
+    },
+    "invoices": {
+      "title": "חשבוניות",
+      "hint": "הפקת חשבוניות מתבצעת מלשונית <strong>חבילות</strong>.",
+      "empty": "עדיין לא הונפקו חשבוניות",
+      "packageFallback": "חבילה",
+      "download": "הורדה",
+      "email": "אימייל",
+      "sending": "שולח…",
+      "emailTitle": "שליחת החשבונית ללקוח/ה באימייל"
+    },
+    "footer": {
+      "saveChanges": "שמירת שינויים"
+    },
+    "paymentMethod": {
+      "title": "בחירת אמצעי תשלום",
+      "description": "איך הלקוח/ה שילם/ה עבור החבילה?",
+      "placeholder": "בחירת אמצעי תשלום",
+      "options": {
+        "cash": "מזומן",
+        "creditCard": "כרטיס אשראי",
+        "check": "צ'ק",
+        "other": "אחר"
+      },
+      "generate": "הפקת חשבונית"
+    },
+    "pastLog": {
+      "title": "רישום טיפול שבוצע",
+      "description": "הוספת טיפול שכבר בוצע. אפשר לשייך אותו לאחת מחבילות הלקוח/ה כדי לנצל מפגש.",
+      "treatment": "טיפול *",
+      "noTreatmentsInPackage": "אין טיפולים בחבילה זו",
+      "selectTreatment": "בחירת טיפול",
+      "noTreatmentsAvailable": "אין טיפולים זמינים לחבילה זו.",
+      "date": "תאריך *",
+      "pickDate": "בחירת תאריך",
+      "staffName": "שם איש/אשת הצוות",
+      "staffPlaceholder": "לדוגמה: שרה",
+      "duration": "משך (דקות)",
+      "price": "מחיר ($)",
+      "addons": "תוספות (אופציונלי)",
+      "oneMaxWithPackage": "עד תוספת אחת עם חבילה",
+      "addonPrice": "+${{price}}",
+      "addonDuration": "· +{{minutes}} דק'",
+      "packageSessionWithAddons": "מפגש מחבילה — הטיפול ללא עלות, התוספות מחויבות בנפרד",
+      "packageSessionFree": "מפגש מחבילה — ללא חיוב נוסף",
+      "notes": "הערות",
+      "notesPlaceholder": "הערות על הטיפול (לא חובה)",
+      "save": "שמירת טיפול",
+      "saving": "שומר…"
+    },
+    "overConsume": {
+      "title": "לא נותרו מפגשים",
+      "description": "לא נותרו מפגשים עבור {{treatment}} בחבילה זו. לשמור בכל זאת? מונה המפגשים של החבילה יירד מתחת לאפס.",
+      "saveAnyway": "שמירה בכל זאת"
+    },
+    "toasts": {
+      "loadPackagesFailed": "טעינת החבילות נכשלה",
+      "missingFields": "חסרים שדות",
+      "missingFieldsDescription": "יש למלא שם טיפול ותאריך.",
+      "tooManyAddons": "יותר מדי תוספות",
+      "tooManyAddonsDescription": "מפגש מחבילה מוגבל לתוספת אחת. יש להסיר את התוספות הנוספות כדי להמשיך.",
+      "packageGone": "החבילה כבר לא קיימת.",
+      "noRemainingForTreatment": "לא נותרו מפגשים לטיפול זה.",
+      "noRemainingOnPackage": "לא נותרו מפגשים בחבילה זו.",
+      "treatmentAdded": "הטיפול נוסף",
+      "treatmentAddedDescription": "הטיפול שבוצע נרשם.",
+      "saveTreatmentFailed": "שמירת הטיפול נכשלה.",
+      "clientUpdated": "הלקוח/ה עודכן/ה",
+      "clientUpdatedDescription": "פרטי הלקוח/ה עודכנו בהצלחה.",
+      "historyCleared": "ההיסטוריה נמחקה",
+      "historyClearedDescription": "כל היסטוריית התורים והרכישות נמחקה.",
+      "clearHistoryFailed": "מחיקת ההיסטוריה נכשלה",
+      "tryAgain": "נסו שוב.",
+      "clientInfoUpdated": "פרטי הלקוח/ה עודכנו",
+      "nothingToFill": "אין מה למלא",
+      "backfillFailed": "המילוי האוטומטי נכשל",
+      "backfillFailedDescription": "לא ניתן היה למלא אוטומטית מהטופס האחרון.",
+      "invoice": "חשבונית",
+      "invoiceOpened": "{{number}} נפתחה.",
+      "invoiceGenerated": "החשבונית הופקה",
+      "invoiceReady": "{{number}} מוכנה.",
+      "dailyInvoiceLimit": "הגעתם למכסת החשבוניות היומית של הארגון.",
+      "invoiceGenerateFailed": "הפקת החשבונית נכשלה",
+      "pdfNotReady": "ה-PDF עדיין לא מוכן",
+      "pdfNotReadyDescription": "לחשבונית זו עדיין אין PDF. יש להפיק מחדש משורת החבילה.",
+      "noEmail": "אין אימייל במערכת",
+      "noEmailDescription": "ללקוח/ה אין כתובת אימייל.",
+      "generatePdfFirst": "יש להפיק תחילה את ה-PDF של החשבונית.",
+      "invoiceSent": "החשבונית נשלחה",
+      "invoiceSentDescription": "נשלחה באימייל אל {{email}}.",
+      "sendFailed": "השליחה נכשלה",
+      "sendFailedDescription": "לא ניתן היה לשלוח את החשבונית באימייל."
+    },
+    "invoiceEmail": {
+      "subject": "החשבונית שלך {{number}}",
+      "greetingFallback": "לקוח/ה יקר/ה",
+      "body": "שלום {{name}},\n\nמצורפת החשבונית שלך.\n\nמספר חשבונית: {{number}}\nסה\"כ: {{total}}\n\nלצפייה / הורדה של החשבונית:\n{{url}}\n\nתודה!"
+    }
+  },
+  "legacy": {
+    "title": {
+      "edit": "עריכת לקוח/ה",
+      "view": "פרטי לקוח/ה"
+    },
+    "description": {
+      "edit": "עדכון פרטי הלקוח/ה",
+      "view": "צפייה בפרטי הלקוח/ה ובהיסטוריית הרכישות"
+    },
+    "tabs": {
+      "details": "פרטים",
+      "purchases": "רכישות",
+      "appointments": "תורים"
+    },
+    "fields": {
+      "name": "שם",
+      "phone": "טלפון",
+      "email": "אימייל",
+      "birthday": "תאריך לידה",
+      "city": "עיר",
+      "referralSource": "איך שמעת עלינו?",
+      "address": "כתובת",
+      "notes": "הערות"
+    },
+    "selectCity": "בחירת עיר",
+    "selectSource": "בחירת מקור",
+    "stats": {
+      "status": "סטטוס:",
+      "totalVisits": "סה\"כ ביקורים: {{count}}",
+      "lastVisit": "ביקור אחרון: {{date}}",
+      "never": "אף פעם",
+      "totalRevenue": "סה\"כ הכנסות: ${{amount}}",
+      "review": "ביקורת:",
+      "reviewReceived": "התקבלה",
+      "reviewPending": "ממתינה"
+    },
+    "purchases": {
+      "title": "היסטוריית רכישות",
+      "manage": "ניהול רכישות",
+      "empty": "אין רכישות עדיין",
+      "package": "חבילה",
+      "product": "מוצר",
+      "typePrice": "{{type}} • ${{price}}",
+      "sessionsUsed": "מפגשים: נוצלו {{used}}/{{total}} (נותרו {{remaining}})"
+    },
+    "appointments": {
+      "title": "היסטוריית תורים",
+      "clearHistory": "מחיקת כל ההיסטוריה",
+      "clearHistoryDescription": "פעולה זו תמחק לצמיתות את כל היסטוריית התורים והרכישות של הלקוח/ה. לא ניתן לבטל פעולה זו.",
+      "clearHistoryConfirm": "מחיקת היסטוריה",
+      "dateTime": "{{date}} בשעה {{time}} • {{duration}} דק'",
+      "staff": "צוות: {{name}}",
+      "notes": "הערות:"
+    },
+    "mock": {
+      "time1": "10:00",
+      "treatment1": "טיפול פנים קלאסי",
+      "notes1": "הלקוח/ה ביקש/ה דגש נוסף על אזור ה-T",
+      "time2": "14:00",
+      "treatment2": "טיפול פנים דרמהפלנינג זוהר",
+      "notes2": "טיפול דרמהפלנינג ראשון, נסבל היטב",
+      "time3": "11:30",
+      "treatment3": "מיצוק עור ב-LED"
+    },
+    "footer": {
+      "saveChanges": "שמירת שינויים"
+    },
+    "toasts": {
+      "clientUpdated": "הלקוח/ה עודכן/ה",
+      "clientUpdatedDescription": "פרטי הלקוח/ה עודכנו בהצלחה.",
+      "historyCleared": "ההיסטוריה נמחקה",
+      "historyClearedDescription": "כל היסטוריית התורים והרכישות נמחקה."
+    }
+  }
+}

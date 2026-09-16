@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import i18n, { DEFAULT_LANGUAGE, isAppLanguage, type AppLanguage } from '@/i18n';
 import {
   Dialog,
   DialogContent,
@@ -104,10 +107,16 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   initialDraftId,
   onCreated,
 }) => {
+  const { t } = useTranslation('invoices');
+  const { locale } = useLanguage();
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const { clients } = useClients();
   const { drafts, saveDraft, loadDraft, deleteDraft } = useInvoiceDrafts(initialClientId ?? null);
+  // Client-facing output (the issued PDF, which is stored permanently) follows
+  // the org's language setting, never the signed-in staff member's UI language.
+  const orgLanguage = currentOrganization?.language;
+  const outboundLang: AppLanguage = isAppLanguage(orgLanguage) ? orgLanguage : DEFAULT_LANGUAGE;
 
   const [mode, setMode] = useState<DialogMode>('edit');
   const [clientId, setClientId] = useState<string>('');
@@ -151,7 +160,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       (async () => {
         const d = await loadDraft(initialDraftId);
         if (!d) {
-          toast({ title: 'Draft not found', description: 'It may have been deleted.', variant: 'destructive' });
+          toast({ title: t('createDialog.toasts.draftNotFound'), description: t('createDialog.toasts.draftNotFoundDesc'), variant: 'destructive' });
           setCurrentDraftId(null);
           return;
         }
@@ -198,7 +207,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         if (cancelled) return;
         const data: Record<string, unknown> = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
         setBusinessInfo({
-          name: String(data.name ?? currentOrganization.name ?? 'Business'),
+          name: String(data.name ?? currentOrganization.name ?? t('createDialog.businessFallback')),
           address: String(data.address ?? ''),
           phone: String(data.phone ?? ''),
           email: String(data.email ?? ''),
@@ -374,12 +383,12 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
   const validateForSubmit = (): boolean => {
     if (!clientId) {
-      toast({ title: 'Select a client', description: 'Pick a client to bill.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.selectClient'), description: t('createDialog.toasts.selectClientDesc'), variant: 'destructive' });
       return false;
     }
     const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
     if (validRows.length === 0) {
-      toast({ title: 'Add at least one line', description: 'Pick a product or facial.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.addLine'), description: t('createDialog.toasts.addLineDesc'), variant: 'destructive' });
       return false;
     }
     return true;
@@ -400,7 +409,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       const subCents = unitCents * r.quantity;
       return {
         type: r.kind,
-        name: item?.name ?? 'Item',
+        name: item?.name ?? t('createDialog.itemFallback'),
         description: '',
         package_id: null,
         product_id: r.kind === 'product' ? r.item_id : null,
@@ -421,7 +430,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
     return {
       id: 'preview',
-      invoice_number: 'PREVIEW',
+      invoice_number: i18n.getFixedT(outboundLang, 'invoices')('createDialog.preview.invoiceNumberPlaceholder'),
       invoice_number_int: 0,
       issued_at: { toDate: () => new Date() } as unknown as Invoice['issued_at'],
       purchase_id: null,
@@ -463,17 +472,17 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const handlePreview = async () => {
     if (!validateForSubmit()) return;
     if (!businessInfo) {
-      toast({ title: 'Loading…', description: 'Business info still loading. Try again in a second.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.loading'), description: t('createDialog.toasts.loadingDesc'), variant: 'destructive' });
       return;
     }
     const synthetic = buildPreviewInvoice();
     if (!synthetic) {
-      toast({ title: 'Cannot preview', description: 'Missing client or business info.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.cannotPreview'), description: t('createDialog.toasts.cannotPreviewDesc'), variant: 'destructive' });
       return;
     }
     setBuilding(true);
     try {
-      const blob = await buildInvoicePdf(synthetic);
+      const blob = await buildInvoicePdf(synthetic, undefined, { lang: outboundLang });
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       const url = URL.createObjectURL(blob);
       objectUrlRef.current = url;
@@ -482,7 +491,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       setMode('preview');
     } catch (err) {
       console.error('Failed to build preview', err);
-      toast({ title: 'Preview failed', description: 'Could not render preview.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.previewFailed'), description: t('createDialog.toasts.previewFailedDesc'), variant: 'destructive' });
     } finally {
       setBuilding(false);
     }
@@ -515,7 +524,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const handleSaveDraft = async () => {
     if (savingDraft) return;
     if (!clientId && (rows.length === 0 || !rows.some(r => r.item_id))) {
-      toast({ title: 'Nothing to save', description: 'Pick a client or add at least one line item.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.nothingToSave'), description: t('createDialog.toasts.nothingToSaveDesc'), variant: 'destructive' });
       return;
     }
     setSavingDraft(true);
@@ -530,10 +539,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         currentDraftId ?? undefined,
       );
       setCurrentDraftId(id);
-      toast({ title: 'Draft saved', description: 'You can finish it later from Drafts.' });
+      toast({ title: t('createDialog.toasts.draftSaved'), description: t('createDialog.toasts.draftSavedDesc') });
     } catch (err) {
       console.error('Save draft failed', err);
-      toast({ title: 'Error', description: 'Failed to save draft.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('createDialog.toasts.draftSaveFailed'), variant: 'destructive' });
     } finally {
       setSavingDraft(false);
     }
@@ -593,9 +602,9 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
       if (res.data.reused && invoice.pdf_url) {
         window.open(invoice.pdf_url, '_blank');
-        toast({ title: 'Invoice', description: `Opened ${invoice.invoice_number}.` });
+        toast({ title: t('createDialog.toasts.invoice'), description: t('createDialog.toasts.opened', { number: invoice.invoice_number }) });
       } else {
-        const blob = await buildInvoicePdf(invoice);
+        const blob = await buildInvoicePdf(invoice, undefined, { lang: outboundLang });
         const pdfBase64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
@@ -617,7 +626,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
           pdfBase64,
         });
         window.open(uploadRes.data.url, '_blank');
-        toast({ title: 'Invoice generated', description: `${invoice.invoice_number} is ready.` });
+        toast({ title: t('createDialog.toasts.generated'), description: t('createDialog.toasts.generatedDesc', { number: invoice.invoice_number }) });
       }
 
       // If we issued from a draft, clean it up. Don't block success on failure.
@@ -629,11 +638,11 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
       onCreated?.(invoice.id);
       onClose();
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Failed to generate invoice';
+      const errMsg = err instanceof Error ? err.message : t('createDialog.toasts.generateFailed');
       const message = errMsg.includes('Daily generateInvoice limit')
-        ? 'Daily invoice limit reached for this organization.'
+        ? t('createDialog.toasts.dailyLimit')
         : errMsg;
-      toast({ title: 'Error', description: message, variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: message, variant: 'destructive' });
       setMode('preview');
     } finally {
       setSubmitting(false);
@@ -643,7 +652,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const handleContinueDraft = async (draftId: string) => {
     const d = await loadDraft(draftId);
     if (!d) {
-      toast({ title: 'Draft not found', description: 'It may have been deleted.', variant: 'destructive' });
+      toast({ title: t('createDialog.toasts.draftNotFound'), description: t('createDialog.toasts.draftNotFoundDesc'), variant: 'destructive' });
       return;
     }
     setCurrentDraftId(draftId);
@@ -662,10 +671,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     try {
       await deleteDraft(draftId);
       if (currentDraftId === draftId) setCurrentDraftId(null);
-      toast({ title: 'Draft deleted' });
+      toast({ title: t('createDialog.toasts.draftDeleted') });
     } catch (err) {
       console.error('Delete draft failed', err);
-      toast({ title: 'Error', description: 'Failed to delete draft.', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('createDialog.toasts.draftDeleteFailed'), variant: 'destructive' });
     }
   };
 
@@ -675,7 +684,19 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   );
 
   const formatMoney = (cents: number) =>
-    `${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `${(cents / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Org currency from config/businessInfo (USD until it loads).
+  const currencyCode = businessInfo?.currency || 'USD';
+  const formatPrice = (amount: number) => {
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)} ${currencyCode}`;
+    }
+  };
+
+  const paymentMethodLabel = (m: string) => t(`paymentMethods.${m}`, { defaultValue: m });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -683,15 +704,15 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === 'preview' ? <FileText className="h-5 w-5" /> : <Receipt className="h-5 w-5" />}
-            {mode === 'preview' ? 'Invoice Preview' : 'New Invoice'}
+            {mode === 'preview' ? t('createDialog.titlePreview') : t('createDialog.titleNew')}
             {currentDraftId && mode === 'edit' && (
-              <Badge variant="outline" className="ml-1 text-xs">Editing draft</Badge>
+              <Badge variant="outline" className="ms-1 text-xs">{t('createDialog.editingDraft')}</Badge>
             )}
           </DialogTitle>
           <DialogDescription>
             {mode === 'preview'
-              ? 'Preview the invoice before issuing. Numbers and totals will be finalized by the server when you click Issue.'
-              : 'Create an invoice for retail products, facials, or any combination — outside of a package.'}
+              ? t('createDialog.descriptionPreview')
+              : t('createDialog.descriptionNew')}
           </DialogDescription>
         </DialogHeader>
 
@@ -700,14 +721,14 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Folder className="h-4 w-4" />
-                Drafts ({drafts.length})
+                {t('createDialog.drafts.title', { count: drafts.length })}
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => setShowDrafts(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             {drafts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No saved drafts.</p>
+              <p className="text-sm text-muted-foreground">{t('createDialog.drafts.empty')}</p>
             ) : (
               <ul className="space-y-1.5 max-h-48 overflow-y-auto">
                 {drafts.map(d => {
@@ -715,15 +736,15 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                   return (
                     <li key={d.id} className="flex items-center justify-between gap-2 text-sm border rounded p-2 bg-background">
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{client?.name ?? 'No client'}</div>
+                        <div className="font-medium truncate">{client?.name ?? t('createDialog.drafts.noClient')}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {d.lines.length} line{d.lines.length === 1 ? '' : 's'}
+                          {t('createDialog.drafts.lines', { count: d.lines.length })}
                           {d.notes ? ` • ${d.notes}` : ''}
                         </div>
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
                         <Button type="button" size="sm" variant="outline" onClick={() => handleContinueDraft(d.id)}>
-                          Continue
+                          {t('createDialog.drafts.continue')}
                         </Button>
                         <Button
                           type="button"
@@ -731,6 +752,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                           variant="ghost"
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDeleteDraft(d.id)}
+                          aria-label={t('createDialog.drafts.delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -747,7 +769,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <div>
-                <div className="text-xs uppercase text-muted-foreground">Bill to</div>
+                <div className="text-xs uppercase text-muted-foreground">{t('createDialog.preview.billTo')}</div>
                 <div className="font-medium">{previewInvoice.client_snapshot.name}</div>
                 <div className="text-sm text-muted-foreground">
                   {[previewInvoice.client_snapshot.email, previewInvoice.client_snapshot.phone]
@@ -756,17 +778,17 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase text-muted-foreground mb-1">Line items</div>
+                <div className="text-xs uppercase text-muted-foreground mb-1">{t('createDialog.preview.lineItems')}</div>
                 <div className="border rounded-md divide-y">
                   {previewInvoice.line_items.map((li, i) => (
                     <div key={i} className="p-2 flex justify-between items-center text-sm">
                       <div className="min-w-0">
                         <div className="font-medium truncate">{li.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {li.quantity} × {formatMoney(li.unit_price_cents)} {previewInvoice.currency}
+                          <span dir="ltr" className="ltr-inline">{li.quantity} × {formatMoney(li.unit_price_cents)} {previewInvoice.currency}</span>
                         </div>
                       </div>
-                      <div className="font-medium tabular-nums">
+                      <div className="font-medium tabular-nums" dir="ltr">
                         {formatMoney(li.subtotal_cents)}
                       </div>
                     </div>
@@ -775,39 +797,39 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
               </div>
               <div className="border rounded-md p-3 space-y-1 bg-muted/30">
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal</span>
-                  <span className="tabular-nums">{formatMoney(previewInvoice.subtotal_cents)}</span>
+                  <span>{t('createDialog.preview.subtotal')}</span>
+                  <span className="tabular-nums" dir="ltr">{formatMoney(previewInvoice.subtotal_cents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Tax ({previewInvoice.tax_rate.toFixed(2)}%)</span>
-                  <span className="tabular-nums">{formatMoney(previewInvoice.tax_amount_cents)}</span>
+                  <span>{t('createDialog.preview.tax', { rate: previewInvoice.tax_rate.toFixed(2) })}</span>
+                  <span className="tabular-nums" dir="ltr">{formatMoney(previewInvoice.tax_amount_cents)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-base pt-1 border-t">
-                  <span>Total</span>
-                  <span className="tabular-nums">
+                  <span>{t('createDialog.preview.total')}</span>
+                  <span className="tabular-nums" dir="ltr">
                     {formatMoney(previewInvoice.total_cents)} {previewInvoice.currency}
                   </span>
                 </div>
               </div>
               {previewInvoice.payment_method && (
                 <div className="text-sm text-muted-foreground">
-                  Payment method: <span className="text-foreground">{previewInvoice.payment_method}</span>
+                  {t('createDialog.preview.paymentMethod')} <span className="text-foreground">{paymentMethodLabel(previewInvoice.payment_method)}</span>
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                The invoice number and exact totals are finalized server-side when you click Issue.
+                {t('createDialog.preview.finalizedNote')}
               </p>
             </div>
             <div className="min-h-[400px] border rounded-md overflow-hidden bg-muted/20">
               {previewPdfUrl ? (
                 <iframe
-                  title="Invoice preview"
+                  title={t('createDialog.preview.iframeTitle')}
                   src={previewPdfUrl}
                   className="w-full h-[60vh]"
                 />
               ) : (
                 <div className="h-[60vh] flex items-center justify-center text-sm text-muted-foreground">
-                  Building PDF…
+                  {t('createDialog.preview.building')}
                 </div>
               )}
             </div>
@@ -815,10 +837,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
         ) : (
           <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Client *</label>
+            <label className="text-sm font-medium">{t('createDialog.form.client')}</label>
             <Select value={clientId} onValueChange={setClientId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a client" />
+                <SelectValue placeholder={t('createDialog.form.clientPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {activeClients.map(c => (
@@ -832,62 +854,62 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Line Items *</label>
+              <label className="text-sm font-medium">{t('createDialog.form.lineItems')}</label>
               <div className="flex gap-2">
                 <Button type="button" size="sm" variant="outline" onClick={() => addRow('product')}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add product
+                  <Plus className="h-3.5 w-3.5 me-1" />
+                  {t('createDialog.form.addProduct')}
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => addRow('treatment')}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add facial
+                  <Plus className="h-3.5 w-3.5 me-1" />
+                  {t('createDialog.form.addFacial')}
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => addRow('addon')}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add add-on
+                  <Plus className="h-3.5 w-3.5 me-1" />
+                  {t('createDialog.form.addAddon')}
                 </Button>
               </div>
             </div>
 
             <div className="hidden md:grid grid-cols-12 gap-2 mb-1 text-xs text-muted-foreground">
-              <div className="col-span-2">Type</div>
-              <div className="col-span-4">Item</div>
-              <div className="col-span-2">Qty</div>
-              <div className="col-span-3">Unit price ($)</div>
+              <div className="col-span-2">{t('createDialog.form.columns.type')}</div>
+              <div className="col-span-4">{t('createDialog.form.columns.item')}</div>
+              <div className="col-span-2">{t('createDialog.form.columns.qty')}</div>
+              <div className="col-span-3">{t('createDialog.form.columns.unitPrice', { currency: currencyCode })}</div>
               <div className="col-span-1" />
             </div>
 
             <div className="space-y-2">
               {rows.map((row, rowIndex) => {
                 const catalog = catalogForKind(row.kind);
-                const kindLabel = row.kind === 'treatment' ? 'facials' : row.kind === 'addon' ? 'add-ons' : 'products';
-                const placeholder = row.kind === 'treatment' ? 'Choose a facial' : row.kind === 'addon' ? 'Choose an add-on' : 'Choose a product';
+                const kindLabel = t(`createDialog.form.kindPlural.${row.kind}`);
+                const placeholder = t(`createDialog.form.choose.${row.kind}`);
                 // Human-readable handle for this row's a11y labels — the chosen
                 // item name when set, otherwise a 1-based row number.
-                const rowItemName = mapForKind(row.kind).get(row.item_id)?.name ?? `line ${rowIndex + 1}`;
+                const rowItemName = mapForKind(row.kind).get(row.item_id)?.name ?? t('createDialog.form.lineFallback', { index: rowIndex + 1 });
                 return (
                   <div key={row.uid} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 md:col-span-2">
                       <Select value={row.kind} onValueChange={(v) => handleKindChange(row.uid, v as LineKind)}>
-                        <SelectTrigger aria-label={`Line type for ${rowItemName}`}>
+                        <SelectTrigger aria-label={t('createDialog.form.aria.lineType', { item: rowItemName })}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="product">Product</SelectItem>
-                          <SelectItem value="treatment">Facial</SelectItem>
-                          <SelectItem value="addon">Add-on</SelectItem>
+                          <SelectItem value="product">{t('createDialog.form.kinds.product')}</SelectItem>
+                          <SelectItem value="treatment">{t('createDialog.form.kinds.treatment')}</SelectItem>
+                          <SelectItem value="addon">{t('createDialog.form.kinds.addon')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="col-span-12 md:col-span-4">
                       <Select value={row.item_id} onValueChange={v => handleItemChange(row.uid, v)}>
-                        <SelectTrigger aria-label={`Item for ${rowItemName}`}>
+                        <SelectTrigger aria-label={t('createDialog.form.aria.item', { item: rowItemName })}>
                           <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
                         <SelectContent>
                           {catalog.length === 0 ? (
                             <div className="px-3 py-2 text-xs text-muted-foreground">
-                              No active {kindLabel} found
+                              {t('createDialog.form.noActive', { kind: kindLabel })}
                             </div>
                           ) : (
                             catalog.map(item => (
@@ -895,9 +917,9 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                                 <div className="flex flex-col">
                                   <span>{item.name}</span>
                                   <span className="text-xs text-muted-foreground">
-                                    ${item.price.toFixed(2)}
+                                    <span dir="ltr" className="ltr-inline">{formatPrice(item.price)}</span>
                                     {item.brand ? ` · ${item.brand}` : ''}
-                                    {item.duration ? ` · ${item.duration} min` : ''}
+                                    {item.duration ? ` · ${t('createDialog.form.minutes', { count: item.duration })}` : ''}
                                   </span>
                                 </div>
                               </SelectItem>
@@ -912,8 +934,8 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         min="1"
                         value={row.quantity}
                         onChange={e => updateRow(row.uid, { quantity: parseInt(e.target.value) || 1 })}
-                        placeholder="Qty"
-                        aria-label={`Quantity for ${rowItemName}`}
+                        placeholder={t('createDialog.form.qtyPlaceholder')}
+                        aria-label={t('createDialog.form.aria.quantity', { item: rowItemName })}
                       />
                     </div>
                     <div className="col-span-6 md:col-span-3">
@@ -923,8 +945,8 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         step="0.01"
                         value={row.unit_price}
                         onChange={e => updateRow(row.uid, { unit_price: parseFloat(e.target.value) || 0 })}
-                        placeholder="Price"
-                        aria-label={`Unit price for ${rowItemName}`}
+                        placeholder={t('createDialog.form.pricePlaceholder')}
+                        aria-label={t('createDialog.form.aria.unitPrice', { item: rowItemName })}
                       />
                     </div>
                     <div className="col-span-2 md:col-span-1 flex justify-end">
@@ -935,7 +957,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         onClick={() => removeRow(row.uid)}
                         disabled={rows.length <= 1}
                         className="text-destructive hover:text-destructive"
-                        aria-label={`Remove ${rowItemName}`}
+                        aria-label={t('createDialog.form.aria.remove', { item: rowItemName })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -948,33 +970,33 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Payment method</label>
+              <label className="text-sm font-medium">{t('createDialog.form.paymentMethod')}</label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
+                  <SelectValue placeholder={t('createDialog.form.paymentMethodPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map(m => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                    <SelectItem key={m} value={m}>{paymentMethodLabel(m)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-end">
-              <div className="text-right ml-auto">
-                <div className="text-xs text-muted-foreground">Subtotal</div>
-                <div className="text-2xl font-bold">${(subtotalCents / 100).toFixed(2)}</div>
-                <div className="text-xs text-muted-foreground">Tax is calculated on the server.</div>
+              <div className="text-end ms-auto">
+                <div className="text-xs text-muted-foreground">{t('createDialog.form.subtotal')}</div>
+                <div className="text-2xl font-bold" dir="ltr">{formatPrice(subtotalCents / 100)}</div>
+                <div className="text-xs text-muted-foreground">{t('createDialog.form.taxOnServer')}</div>
               </div>
             </div>
           </div>
 
           <div>
-            <label className="text-sm font-medium">Notes (optional)</label>
+            <label className="text-sm font-medium">{t('createDialog.form.notes')}</label>
             <Textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="Internal notes about this invoice"
+              placeholder={t('createDialog.form.notesPlaceholder')}
               rows={2}
             />
           </div>
@@ -985,35 +1007,35 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
           {mode === 'preview' ? (
             <>
               <Button type="button" variant="outline" onClick={backToEdit} disabled={submitting}>
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to Edit
+                <ArrowLeft className="h-4 w-4 me-1 rtl:rotate-180" />
+                {t('createDialog.footer.backToEdit')}
               </Button>
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
-                <Save className="h-4 w-4 mr-1" />
-                {savingDraft ? 'Saving…' : currentDraftId ? 'Update Draft' : 'Save as Draft'}
+                <Save className="h-4 w-4 me-1" />
+                {savingDraft ? t('createDialog.footer.saving') : currentDraftId ? t('createDialog.footer.updateDraft') : t('createDialog.footer.saveAsDraft')}
               </Button>
               <Button onClick={handleIssue} disabled={submitting}>
-                <Receipt className="h-4 w-4 mr-1" />
-                {submitting ? 'Issuing…' : 'Issue Invoice'}
+                <Receipt className="h-4 w-4 me-1" />
+                {submitting ? t('createDialog.footer.issuing') : t('createDialog.footer.issueInvoice')}
               </Button>
             </>
           ) : (
             <>
               <Button type="button" variant="outline" onClick={() => setShowDrafts(s => !s)} disabled={submitting || savingDraft}>
-                <Folder className="h-4 w-4 mr-1" />
-                Drafts ({drafts.length})
+                <Folder className="h-4 w-4 me-1" />
+                {t('createDialog.footer.drafts', { count: drafts.length })}
               </Button>
               <div className="flex-1" />
               <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={savingDraft || submitting}>
-                <Save className="h-4 w-4 mr-1" />
-                {savingDraft ? 'Saving…' : currentDraftId ? 'Update Draft' : 'Save as Draft'}
+                <Save className="h-4 w-4 me-1" />
+                {savingDraft ? t('createDialog.footer.saving') : currentDraftId ? t('createDialog.footer.updateDraft') : t('createDialog.footer.saveAsDraft')}
               </Button>
               <Button onClick={handlePreview} disabled={building || submitting}>
-                <FileText className="h-4 w-4 mr-1" />
-                {building ? 'Building…' : 'Preview'}
+                <FileText className="h-4 w-4 me-1" />
+                {building ? t('createDialog.footer.building') : t('createDialog.footer.preview')}
               </Button>
             </>
           )}

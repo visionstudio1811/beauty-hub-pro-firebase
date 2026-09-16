@@ -2,12 +2,44 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { randomBytes } from 'crypto';
 import { consumeRateLimit } from '../rateLimit';
+import { defineStrings, makeT, getCallerLanguage, Translator } from '../lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Staff-facing HttpsError copy (rendered verbatim in the Scheduler Links
+// settings UI toasts). Follows the caller's language (users/{uid}.language,
+// then their own org's default; never a caller-supplied orgId). The `unauthenticated` error is thrown before any
+// Firestore read and therefore stays English.
+const STRINGS = defineStrings({
+  en: {
+    user_not_found: 'User not found',
+    org_mismatch: 'Organization mismatch',
+    admin_required: 'Admin access required',
+    org_required: 'organizationId is required',
+    treatment_not_found: 'Treatment not found',
+    staff_not_found: 'Staff not found in this organization',
+    org_token_required: 'organizationId and token are required',
+    link_not_found: 'Link not found',
+    active_must_revoke: 'Active links must be revoked before deletion.',
+  },
+  he: {
+    user_not_found: 'המשתמש לא נמצא',
+    org_mismatch: 'אי-התאמה בין הארגונים',
+    admin_required: 'נדרשת הרשאת מנהל',
+    org_required: 'נדרש מזהה ארגון (organizationId)',
+    treatment_not_found: 'הטיפול לא נמצא',
+    staff_not_found: 'איש הצוות לא נמצא בארגון זה',
+    org_token_required: 'נדרשים מזהה ארגון (organizationId) וטוקן',
+    link_not_found: 'הקישור לא נמצא',
+    active_must_revoke: 'יש לבטל קישורים פעילים לפני מחיקתם.',
+  },
+});
+
+type T = Translator<keyof typeof STRINGS.en>;
 
 interface CreateRequest {
   organizationId: string;
@@ -19,15 +51,23 @@ interface CreateRequest {
 
 const DEFAULT_TTL_DAYS = 90;
 
-const assertAdmin = async (uid: string, orgId: string): Promise<void> => {
+const resolveT = async (uid: string): Promise<T> => {
+  // Caller's own profile language, then their own org (from users/{uid}) — the
+  // caller-supplied organizationId is deliberately NOT used here because it is
+  // unverified until assertAdmin runs.
+  const lang = await getCallerLanguage(uid);
+  return makeT(STRINGS, lang);
+};
+
+const assertAdmin = async (uid: string, orgId: string, t: T): Promise<void> => {
   const userSnap = await db.collection('users').doc(uid).get();
   const userData = userSnap.data();
-  if (!userData) throw new HttpsError('permission-denied', 'User not found');
+  if (!userData) throw new HttpsError('permission-denied', t('user_not_found'));
   if (userData.organizationId !== orgId) {
-    throw new HttpsError('permission-denied', 'Organization mismatch');
+    throw new HttpsError('permission-denied', t('org_mismatch'));
   }
   if (userData.role !== 'admin') {
-    throw new HttpsError('permission-denied', 'Admin access required');
+    throw new HttpsError('permission-denied', t('admin_required'));
   }
 };
 
@@ -47,11 +87,12 @@ export const createSchedulerLink = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
 
   const data = request.data as CreateRequest;
+  const t = await resolveT(request.auth.uid);
   if (!data.organizationId) {
-    throw new HttpsError('invalid-argument', 'organizationId is required');
+    throw new HttpsError('invalid-argument', t('org_required'));
   }
 
-  await assertAdmin(request.auth.uid, data.organizationId);
+  await assertAdmin(request.auth.uid, data.organizationId, t);
   await consumeRateLimit(data.organizationId, 'createSchedulerLink', 50);
 
   // Validate treatment_id / staff_id belong to this org if provided
@@ -62,12 +103,12 @@ export const createSchedulerLink = onCall(async (request) => {
       .collection('treatments')
       .doc(data.treatmentId)
       .get();
-    if (!tSnap.exists) throw new HttpsError('not-found', 'Treatment not found');
+    if (!tSnap.exists) throw new HttpsError('not-found', t('treatment_not_found'));
   }
   if (data.staffId) {
     const sSnap = await db.collection('users').doc(data.staffId).get();
     if (!sSnap.exists || sSnap.data()?.organizationId !== data.organizationId) {
-      throw new HttpsError('not-found', 'Staff not found in this organization');
+      throw new HttpsError('not-found', t('staff_not_found'));
     }
   }
 
@@ -122,11 +163,12 @@ export const revokeSchedulerLink = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
 
   const { organizationId, token } = request.data as { organizationId: string; token: string };
+  const t = await resolveT(request.auth.uid);
   if (!organizationId || !token) {
-    throw new HttpsError('invalid-argument', 'organizationId and token are required');
+    throw new HttpsError('invalid-argument', t('org_token_required'));
   }
 
-  await assertAdmin(request.auth.uid, organizationId);
+  await assertAdmin(request.auth.uid, organizationId, t);
 
   const now = admin.firestore.Timestamp.now();
   const batch = db.batch();
@@ -156,11 +198,12 @@ export const deleteSchedulerLink = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
 
   const { organizationId, token } = request.data as { organizationId: string; token: string };
+  const t = await resolveT(request.auth.uid);
   if (!organizationId || !token) {
-    throw new HttpsError('invalid-argument', 'organizationId and token are required');
+    throw new HttpsError('invalid-argument', t('org_token_required'));
   }
 
-  await assertAdmin(request.auth.uid, organizationId);
+  await assertAdmin(request.auth.uid, organizationId, t);
 
   const linkRef = db
     .collection('organizations')
@@ -169,7 +212,7 @@ export const deleteSchedulerLink = onCall(async (request) => {
     .doc(token);
   const linkSnap = await linkRef.get();
   if (!linkSnap.exists) {
-    throw new HttpsError('not-found', 'Link not found');
+    throw new HttpsError('not-found', t('link_not_found'));
   }
 
   const linkData = linkSnap.data() ?? {};
@@ -180,7 +223,7 @@ export const deleteSchedulerLink = onCall(async (request) => {
   if (isActive && !isExpired) {
     throw new HttpsError(
       'failed-precondition',
-      'Active links must be revoked before deletion.',
+      t('active_must_revoke'),
     );
   }
 

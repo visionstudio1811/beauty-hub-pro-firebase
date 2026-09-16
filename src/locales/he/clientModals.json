@@ -1,0 +1,147 @@
+{
+  "addClientModal": {
+    "title": "הוספת לקוח/ה",
+    "description": "הוספת לקוח/ה חדש/ה למאגר. שדות חובה מסומנים ב-*.",
+    "toasts": {
+      "cityAdded": "העיר נוספה",
+      "cityAddedDescription": "\"{{name}}\" זמינה כעת ברשימה.",
+      "cityAddFailed": "הוספת העיר נכשלה.",
+      "sourceAdded": "המקור נוסף",
+      "sourceAddedDescription": "\"{{name}}\" זמין כעת ברשימה.",
+      "sourceAddFailed": "הוספת המקור נכשלה.",
+      "validationError": "שגיאת אימות",
+      "nameAndPhoneRequired": "שם וטלפון הם שדות חובה."
+    },
+    "matches": {
+      "likelyDuplicate": "כנראה כפילות",
+      "similarClients": "לקוחות דומים",
+      "matchCount_one": "התאמה אחת",
+      "matchCount_two": "{{count}} התאמות",
+      "matchCount_many": "{{count}} התאמות",
+      "matchCount_other": "{{count}} התאמות",
+      "hide": "הסתרה",
+      "show": "הצגה",
+      "nameMatch": "התאמת שם",
+      "emailMatch": "התאמת אימייל",
+      "phoneMatch": "התאמת טלפון"
+    },
+    "fields": {
+      "name": "שם *",
+      "phone": "טלפון *",
+      "email": "אימייל",
+      "dateOfBirth": "תאריך לידה",
+      "city": "עיר",
+      "selectCity": "בחירת עיר",
+      "addNewCity": "+ הוספת עיר חדשה…",
+      "enterNewCity": "שם העיר החדשה",
+      "referralSource": "איך שמעת עלינו?",
+      "selectSource": "בחירת מקור",
+      "addNewSource": "+ הוספת מקור חדש…",
+      "enterNewSource": "שם המקור החדש",
+      "address": "כתובת",
+      "internalOnly": "פנימי — לא מוצג ללקוחות",
+      "allergies": "אלרגיות / התראות רפואיות",
+      "allergiesPlaceholder": "אלרגיות ידועות...",
+      "notes": "הערות",
+      "notesPlaceholder": "הערות נוספות על הלקוח/ה...",
+      "hasMembership": "בעל/ת מנוי"
+    },
+    "actions": {
+      "addClient": "הוספת לקוח/ה",
+      "addAnyway": "הוספה בכל זאת"
+    },
+    "duplicateDialog": {
+      "title": "כנראה כפילות",
+      "description": "כבר קיים/ת לקוח/ה עם {{identifier}} הזה. להוסיף רשומה כפולה בכל זאת?",
+      "identifierEmail": "האימייל",
+      "identifierPhone": "מספר הטלפון"
+    }
+  },
+  "clientSelector": {
+    "placeholder": "בחירת לקוח/ה...",
+    "searchPlaceholder": "חיפוש לקוחות...",
+    "noClientFound": "לא נמצאו לקוחות.",
+    "createNewClient": "יצירת לקוח/ה חדש/ה"
+  },
+  "clientPackageSelector": {
+    "noActivePackages": "לא נמצאו חבילות פעילות ללקוח/ה",
+    "noExpiry": "ללא תפוגה",
+    "availablePackages": "חבילות זמינות",
+    "noPackageTitle": "ללא חבילה — חיוב נפרד",
+    "noPackageDescription": "קביעת הטיפול מחוץ לכל חבילה",
+    "selected": "נבחר",
+    "sessionsOf": "{{remaining}} מתוך {{total}} מפגשים",
+    "expiringSoon": "פג בקרוב",
+    "free": "חינם",
+    "perSession": "${{price}} למפגש"
+  },
+  "staffTransferModal": {
+    "title": "העברת תור",
+    "toastTitle": "התור הועבר",
+    "toastDescription": "התור הועבר מ-{{from}} אל {{to}}",
+    "currentAssignment": "שיוך נוכחי",
+    "transferTo": "העברה לאיש/אשת צוות",
+    "selectStaff": "בחירת איש/אשת צוות",
+    "reason": "סיבת ההעברה (אופציונלי)",
+    "reasonPlaceholder": "סיבה להעברה...",
+    "transfer": "העברת התור"
+  },
+  "assignmentModal": {
+    "title": "שיוך מוצר",
+    "description": "שיוך מוצר ל{{name}}",
+    "loadingProducts": "טוען מוצרים...",
+    "noActiveProducts": "לא נמצאו מוצרים פעילים",
+    "assign": "שיוך",
+    "toastTitle": "המוצר שויך",
+    "toastDescription": "{{product}} שויך ל{{client}}"
+  },
+  "manageClientProductsModal": {
+    "title": "ניהול המוצרים של {{name}}",
+    "description": "עריכת מחיר משויך, כמות וסטטוס, או הסרת מוצרים מהלקוח/ה.",
+    "statusOptions": {
+      "assigned": "משויך",
+      "delivered": "נמסר"
+    },
+    "unknownProduct": "מוצר לא ידוע",
+    "loadFailed": "טעינת המוצרים המשויכים נכשלה",
+    "invalidValues": "ערכים לא תקינים",
+    "invalidValuesDescription": "המחיר חייב להיות ≥ 0 והכמות ≥ 1.",
+    "saved": "נשמר",
+    "savedDescription": "{{product}} עודכן.",
+    "saveFailed": "שמירת המוצר נכשלה",
+    "confirmRemove": "להסיר את \"{{product}}\" מ{{client}}?",
+    "removed": "הוסר",
+    "removedDescription": "{{product}} הוסר מ{{client}}.",
+    "removeFailed": "הסרת המוצר נכשלה",
+    "empty": "אין מוצרים משויכים ללקוח/ה",
+    "emptyHint": "השתמשו ב\"שיוך מוצר\" כדי להוסיף.",
+    "basePrice": "מחיר בסיס: ${{price}}",
+    "fromPackageBadge": "מתוך {{package}}",
+    "packageFallback": "חבילה",
+    "fromPackageLabel": "מתוך חבילה",
+    "standalone": "עצמאי (לא מתוך חבילה)",
+    "packageIncludes": "{{name}} — כולל {{quantity}}",
+    "packageDoesNotInclude": "{{name}} (לא כולל מוצר זה)",
+    "priceLabel": "מחיר ($)",
+    "removeProduct": "הסרת מוצר",
+    "notesPlaceholder": "הערות (אופציונלי)"
+  },
+  "productAssignmentModal": {
+    "title": "שיוך מוצר ללקוח/ה",
+    "description": "שיוך \"{{product}}\" ללקוח/ה במחיר מותאם",
+    "validationError": "שגיאת אימות",
+    "fillRequired": "יש למלא את כל שדות החובה",
+    "noOrganization": "לא נבחר ארגון",
+    "successTitle": "השיוך בוצע בהצלחה",
+    "successDescription": "{{product}} שויך ל{{client}}",
+    "assignFailed": "שיוך המוצר נכשל",
+    "basePrice": "מחיר בסיס: ${{price}}",
+    "selectClient": "בחירת לקוח/ה *",
+    "chooseClient": "בחירת לקוח/ה",
+    "assignedPrice": "מחיר משויך *",
+    "notesOptional": "הערות (אופציונלי)",
+    "notesPlaceholder": "הערות על השיוך...",
+    "assigning": "משייך...",
+    "assignProduct": "שיוך מוצר"
+  }
+}

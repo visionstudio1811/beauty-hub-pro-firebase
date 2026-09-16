@@ -1,27 +1,31 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppSidebar } from './AppSidebar';
 import { ThemeToggle } from './theme-toggle';
 import { useAuth } from '@/contexts/AuthContext';
 
-const PAGE_TITLES: Record<string, string> = {
-  '/admin':              'Dashboard',
-  '/admin/clients':      'Clients',
-  '/admin/appointments': 'Appointments',
-  '/admin/marketing':    'Marketing',
-  '/admin/invoices':     'Invoices',
-  '/admin/settings':     'Settings',
+// Values are i18n keys resolved at render time.
+const PAGE_TITLE_KEYS: Record<string, string> = {
+  '/admin':              'common:labels.dashboard',
+  '/admin/clients':      'common:labels.clients',
+  '/admin/appointments': 'common:labels.appointments',
+  '/admin/marketing':    'common:labels.marketing',
+  '/admin/invoices':     'common:labels.invoices',
+  '/admin/settings':     'common:labels.settings',
 };
 
 const Layout = () => {
+  const { t } = useTranslation('shell');
   const location = useLocation();
   const { user } = useAuth();
 
-  const pageTitle = PAGE_TITLES[location.pathname] ??
-    Object.entries(PAGE_TITLES).find(([p]) => location.pathname.startsWith(p + '/'))?.[1] ??
-    'App';
+  const pageTitleKey = PAGE_TITLE_KEYS[location.pathname] ??
+    Object.entries(PAGE_TITLE_KEYS).find(([p]) => location.pathname.startsWith(p + '/'))?.[1] ??
+    'layout.appTitle';
+  const pageTitle = t(pageTitleKey);
 
   const userInitial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
 
@@ -32,7 +36,11 @@ const Layout = () => {
           <AppSidebar />
           <SidebarInset className="flex-1 min-w-0">
             <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 px-4">
-              <SidebarTrigger className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" />
+              <SidebarTrigger
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors rtl:rotate-180"
+                aria-label={t('layout.toggleSidebar')}
+                title={t('layout.toggleSidebar')}
+              />
               <div className="w-px h-4 bg-border" />
               <h1 className="text-sm font-semibold text-foreground">{pageTitle}</h1>
 

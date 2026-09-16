@@ -24,12 +24,15 @@ interface StatusBadgeProps {
   status: AppointmentStatus | ClientStatus;
   variant?: 'appointment' | 'client';
   className?: string;
+  /** Translated display text. Falls back to the raw status value (styling still keys off `status`). */
+  label?: React.ReactNode;
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
   variant = 'appointment',
   className,
+  label,
 }) => {
   const map = variant === 'client' ? CLIENT_STYLES : APPOINTMENT_STYLES;
   const styles = map[status] ?? FALLBACK;
@@ -42,7 +45,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
         className
       )}
     >
-      {status}
+      {label ?? status}
     </span>
   );
 };

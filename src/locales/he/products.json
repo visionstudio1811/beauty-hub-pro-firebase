@@ -1,0 +1,215 @@
+{
+  "productManagement": {
+    "title": "ניהול מוצרים",
+    "subtitle": "ניהול המוצרים והמלאי שלכם",
+    "loading": "טוען מוצרים...",
+    "addProduct": "הוספת מוצר",
+    "addNewProduct": "הוספת מוצר חדש",
+    "editProduct": "עריכת מוצר",
+    "updateProduct": "עדכון מוצר",
+    "updateDescription": "עדכון פרטי המוצר",
+    "createDescription": "הזינו את פרטי המוצר",
+    "emptyTitle": "אין מוצרים עדיין",
+    "emptyDescription": "התחילו בהוספת המוצר הראשון שלכם.",
+    "card": {
+      "price": "מחיר:",
+      "category": "קטגוריה:",
+      "status": "סטטוס:"
+    },
+    "fields": {
+      "name": "שם המוצר *",
+      "namePlaceholder": "הזינו שם מוצר",
+      "description": "תיאור",
+      "descriptionPlaceholder": "הזינו תיאור מוצר",
+      "price": "מחיר *",
+      "pricePlaceholder": "0.00",
+      "category": "קטגוריה",
+      "categoryPlaceholder": "הזינו קטגוריה",
+      "active": "פעיל"
+    },
+    "confirmDelete": "האם למחוק את המוצר הזה?",
+    "toasts": {
+      "validationTitle": "שגיאת אימות",
+      "fillNameAndPrice": "יש למלא שם ומחיר",
+      "loadFailed": "טעינת המוצרים נכשלה",
+      "updated": "המוצר עודכן בהצלחה",
+      "created": "המוצר נוצר בהצלחה",
+      "saveFailed": "שמירת המוצר נכשלה",
+      "deleted": "המוצר נמחק בהצלחה",
+      "deleteFailed": "מחיקת המוצר נכשלה",
+      "activated": "המוצר הופעל",
+      "deactivated": "המוצר הושבת",
+      "statusFailed": "עדכון סטטוס המוצר נכשל"
+    }
+  },
+  "enhancedProductManagement": {
+    "searchPlaceholder": "חיפוש מוצרים...",
+    "filters": {
+      "category": "קטגוריה",
+      "brand": "מותג",
+      "status": "סטטוס",
+      "allCategories": "כל הקטגוריות",
+      "allBrands": "כל המותגים",
+      "allStatus": "כל הסטטוסים"
+    },
+    "assign": "שיוך",
+    "noMatchTitle": "אין מוצרים התואמים לסינון",
+    "noMatchDescription": "נסו לשנות את החיפוש או את תנאי הסינון.",
+    "image": {
+      "label": "תמונת מוצר",
+      "previewAlt": "תצוגה מקדימה של המוצר",
+      "upload": "העלאת תמונה",
+      "uploading": "מעלה..."
+    },
+    "fields": {
+      "brand": "מותג",
+      "selectCategory": "בחירת קטגוריה",
+      "selectBrand": "בחירת מותג",
+      "none": "— ללא —",
+      "new": "חדש",
+      "newCategoryPlaceholder": "שם קטגוריה חדשה",
+      "newBrandPlaceholder": "שם מותג חדש",
+      "saving": "שומר…"
+    },
+    "toasts": {
+      "loadFailed": "טעינת הנתונים נכשלה",
+      "noOrganization": "לא נבחר ארגון",
+      "imageUploaded": "התמונה הועלתה בהצלחה",
+      "imageUploadFailed": "העלאת התמונה נכשלה",
+      "nameRequiredTitle": "נדרש שם",
+      "enterCategoryName": "הזינו שם קטגוריה.",
+      "enterBrandName": "הזינו שם מותג.",
+      "alreadyExistsTitle": "כבר קיים",
+      "categoryExists": "\"{{name}}\" כבר קיימת כקטגוריה.",
+      "brandExists": "\"{{name}}\" כבר קיים כמותג.",
+      "categoryAddedTitle": "הקטגוריה נוספה",
+      "brandAddedTitle": "המותג נוסף",
+      "categoryNowSelected": "הקטגוריה \"{{name}}\" נבחרה.",
+      "brandNowSelected": "המותג \"{{name}}\" נבחר.",
+      "addCategoryFailed": "הוספת הקטגוריה נכשלה",
+      "addBrandFailed": "הוספת המותג נכשלה"
+    }
+  },
+  "categoryManagement": {
+    "title": "קטגוריות",
+    "scopes": {
+      "product": "מוצרים",
+      "treatment": "טיפולי פנים"
+    },
+    "loading": "טוען קטגוריות...",
+    "addCategory": "הוספת קטגוריה",
+    "addNewCategory": "הוספת קטגוריה חדשה",
+    "editCategory": "עריכת קטגוריה",
+    "updateCategory": "עדכון קטגוריה",
+    "updateDescription": "עדכון פרטי הקטגוריה",
+    "createDescription": "יצירת קטגוריה למוצרים, לטיפולי פנים או לשניהם",
+    "emptyTitle": "אין קטגוריות עדיין",
+    "emptyDescription": "צרו קטגוריות כדי לארגן את המוצרים וטיפולי הפנים שלכם.",
+    "fields": {
+      "name": "שם הקטגוריה *",
+      "namePlaceholder": "הזינו שם קטגוריה",
+      "description": "תיאור",
+      "descriptionPlaceholder": "הזינו תיאור קטגוריה (אופציונלי)",
+      "sortOrder": "סדר מיון",
+      "sortOrderPlaceholder": "0",
+      "appliesTo": "חל על *",
+      "appliesToHelp": "היכן הקטגוריה תופיע כאפשרות בתפריט הבחירה.",
+      "active": "פעיל"
+    },
+    "confirmDelete": "האם למחוק את הקטגוריה הזו? מוצרים המשויכים לקטגוריה זו יאבדו את הקטגוריה שלהם.",
+    "toasts": {
+      "loadFailed": "טעינת הקטגוריות נכשלה",
+      "validationTitle": "שגיאת אימות",
+      "enterName": "יש להזין שם קטגוריה",
+      "pickScope": "יש לבחור לפחות ישות אחת (מוצרים או טיפולי פנים).",
+      "noOrganization": "לא נבחר ארגון",
+      "updated": "הקטגוריה עודכנה בהצלחה",
+      "created": "הקטגוריה נוצרה בהצלחה",
+      "saveFailed": "שמירת הקטגוריה נכשלה",
+      "deleted": "הקטגוריה נמחקה בהצלחה",
+      "deleteFailed": "מחיקת הקטגוריה נכשלה",
+      "activated": "הקטגוריה הופעלה",
+      "deactivated": "הקטגוריה הושבתה",
+      "statusFailed": "עדכון סטטוס הקטגוריה נכשל"
+    }
+  },
+  "brandManagement": {
+    "title": "מותגי מוצרים",
+    "loading": "טוען מותגים...",
+    "addBrand": "הוספת מותג",
+    "addNewBrand": "הוספת מותג חדש",
+    "editBrand": "עריכת מותג",
+    "updateBrand": "עדכון מותג",
+    "updateDescription": "עדכון פרטי המותג",
+    "createDescription": "יצירת מותג מוצרים חדש",
+    "emptyTitle": "אין מותגים עדיין",
+    "emptyDescription": "הוסיפו את המותגים שאתם מוכרים — הם יופיעו בתפריט הבחירה בעת עריכת מוצרים.",
+    "fields": {
+      "name": "שם המותג *",
+      "namePlaceholder": "לדוגמה: Napara, Skinceuticals",
+      "description": "תיאור",
+      "descriptionPlaceholder": "תיאור (אופציונלי)",
+      "sortOrder": "סדר מיון",
+      "sortOrderPlaceholder": "0",
+      "active": "פעיל"
+    },
+    "confirmDelete": "למחוק את המותג הזה? מוצרים המשויכים למותג ישמרו את הערך שלהם, אך הוא לא יופיע עוד בתפריט הבחירה.",
+    "toasts": {
+      "loadFailed": "טעינת המותגים נכשלה",
+      "validationTitle": "שגיאת אימות",
+      "enterName": "יש להזין שם מותג",
+      "noOrganization": "לא נבחר ארגון",
+      "updated": "המותג עודכן בהצלחה",
+      "created": "המותג נוצר בהצלחה",
+      "saveFailed": "שמירת המותג נכשלה",
+      "deleted": "המותג נמחק בהצלחה",
+      "deleteFailed": "מחיקת המותג נכשלה",
+      "activated": "המותג הופעל",
+      "deactivated": "המותג הושבת",
+      "statusFailed": "עדכון סטטוס המותג נכשל"
+    }
+  },
+  "addonManagement": {
+    "title": "תוספות",
+    "loading": "טוען תוספות...",
+    "addAddon": "הוספת תוספת",
+    "addNewAddon": "הוספת תוספת חדשה",
+    "editAddon": "עריכת תוספת",
+    "updateAddon": "עדכון תוספת",
+    "updateDescription": "עדכנו את פרטי התוספת למטה.",
+    "createDescription": "יצירת תוספת שניתן לצרף לכל תור.",
+    "cardDescription": "תוספות שניתן לצרף לכל תור (לדוגמה: מסכת עיניים, עיסוי קרקפת). משך זמן נוסף אופציונלי.",
+    "empty": "אין תוספות עדיין. צרו את הראשונה — היא תופיע בבורר התוספות בטופס התור.",
+    "fields": {
+      "name": "שם התוספת *",
+      "namePlaceholder": "לדוגמה: מסכת עיניים, עיסוי קרקפת",
+      "price": "מחיר ($) *",
+      "pricePlaceholder": "15",
+      "duration": "משך זמן נוסף (דקות, אופציונלי)",
+      "durationPlaceholder": "0 למחיר בלבד",
+      "durationHelp": "השאירו ריק או 0 אם התוספת לא מאריכה את זמן התור.",
+      "category": "קטגוריה (אופציונלי)",
+      "categoryPlaceholder": "לדוגמה: תוספות עיסוי",
+      "sortOrder": "סדר מיון (אופציונלי)",
+      "sortOrderPlaceholder": "0",
+      "color": "צבע ביומן",
+      "noColor": "ללא צבע",
+      "clearColor": "ניקוי",
+      "pickColorAria": "בחירת {{color}}",
+      "custom": "מותאם אישית:",
+      "colorPlaceholder": "#FFD700",
+      "description": "תיאור",
+      "descriptionPlaceholder": "תיאור קצר של התוספת"
+    },
+    "badges": {
+      "extraMinutes": "+{{count}} דק׳",
+      "noExtraTime": "ללא זמן נוסף",
+      "colorAria": "צבע {{color}}"
+    },
+    "toasts": {
+      "nameAndPriceRequired": "שם ומחיר הם שדות חובה.",
+      "pricePositive": "המחיר חייב להיות מספר חיובי.",
+      "durationNegative": "משך הזמן לא יכול להיות שלילי."
+    }
+  }
+}

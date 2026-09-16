@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { safeToLocaleDateString } from '@/lib/safeDateFormatter';
+import { enUS } from 'date-fns/locale';
+import i18n from '@/i18n';
+import { DEFAULT_TIMEZONE, formatInBusinessTime } from '@/lib/timeUtils';
+
+// `workingHours` is keyed by English weekday names, so the weekday is computed
+// in the business timezone with an explicit English locale — never through the
+// UI-language-aware formatters.
+const businessWeekday = (date: string): string =>
+  formatInBusinessTime(new Date(date), 'EEEE', DEFAULT_TIMEZONE, enUS);
 
 export interface StaffMember {
   id: string;
@@ -30,8 +38,12 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       id: '1',
       name: 'Emma Wilson',
       email: 'emma@clinic.com',
-      role: 'Senior Aesthetician',
-      specialties: ['Facial Treatment', 'Chemical Peels', 'Microdermabrasion'],
+      role: i18n.t('contexts:seed.staff.roles.seniorAesthetician'),
+      specialties: [
+        i18n.t('contexts:seed.staff.specialties.facialTreatment'),
+        i18n.t('contexts:seed.staff.specialties.chemicalPeels'),
+        i18n.t('contexts:seed.staff.specialties.microdermabrasion'),
+      ],
       workingHours: {
         Monday: { enabled: true, start: '09:00', end: '17:00' },
         Tuesday: { enabled: true, start: '09:00', end: '17:00' },
@@ -47,8 +59,12 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       id: '2',
       name: 'Lisa Johnson',
       email: 'lisa@clinic.com',
-      role: 'Laser Specialist',
-      specialties: ['Laser Hair Removal', 'IPL', 'Skin Rejuvenation'],
+      role: i18n.t('contexts:seed.staff.roles.laserSpecialist'),
+      specialties: [
+        i18n.t('contexts:seed.staff.specialties.laserHairRemoval'),
+        'IPL',
+        i18n.t('contexts:seed.staff.specialties.skinRejuvenation'),
+      ],
       workingHours: {
         Monday: { enabled: true, start: '10:00', end: '18:00' },
         Tuesday: { enabled: true, start: '10:00', end: '18:00' },
@@ -81,7 +97,7 @@ export const StaffProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const getAvailableStaff = (date: string, time: string, treatmentType?: string) => {
-    const dayOfWeek = safeToLocaleDateString(new Date(date), 'en-US', { weekday: 'long' });
+    const dayOfWeek = businessWeekday(date);
     
     return staff.filter(member => {
       if (!member.isActive) return false;

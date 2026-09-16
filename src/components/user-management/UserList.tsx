@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { UserCard } from './UserCard';
 
 interface Profile {
@@ -21,10 +22,11 @@ export const UserList: React.FC<UserListProps> = ({
   profiles,
   onToggleActive
 }) => {
+  const { t } = useTranslation('settings');
   if (profiles.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        No users found. Create your first user to get started.
+        {t('userList.empty')}
       </div>
     );
   }

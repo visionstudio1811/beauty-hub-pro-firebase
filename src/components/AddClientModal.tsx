@@ -19,6 +19,7 @@ import { useDropdownData } from '@/contexts/DropdownDataContext';
 import { validateAndSanitize, clientSchema } from '@/lib/validation';
 import { Client, useClients } from '@/hooks/useClients';
 import { Plus, AlertTriangle, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()
 const OTHER_VALUE = '__other__';
 
 const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientModalProps) => {
+  const { t } = useTranslation('clientModals');
   const { toast } = useToast();
   const { dropdownData, addCity, addReferralSource } = useDropdownData();
   const { clients } = useClients();
@@ -145,9 +147,9 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
       setFormData(prev => ({ ...prev, city: trimmed }));
       setShowNewCity(false);
       setNewCity('');
-      toast({ title: "City added", description: `"${trimmed}" is now available in the list.` });
+      toast({ title: t('addClientModal.toasts.cityAdded'), description: t('addClientModal.toasts.cityAddedDescription', { name: trimmed }) });
     } catch {
-      toast({ title: "Error", description: "Failed to add city.", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('addClientModal.toasts.cityAddFailed'), variant: "destructive" });
     }
   };
 
@@ -170,9 +172,9 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
       setFormData(prev => ({ ...prev, referral_source: trimmed }));
       setShowNewSource(false);
       setNewSource('');
-      toast({ title: "Source added", description: `"${trimmed}" is now available in the list.` });
+      toast({ title: t('addClientModal.toasts.sourceAdded'), description: t('addClientModal.toasts.sourceAddedDescription', { name: trimmed }) });
     } catch {
-      toast({ title: "Error", description: "Failed to add source.", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('addClientModal.toasts.sourceAddFailed'), variant: "destructive" });
     }
   };
 
@@ -224,8 +226,8 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
       // Validate required fields
       if (!formData.name.trim() || !formData.phone.trim()) {
         toast({
-          title: "Validation Error",
-          description: "Name and phone are required fields.",
+          title: t('addClientModal.toasts.validationError'),
+          description: t('addClientModal.toasts.nameAndPhoneRequired'),
           variant: "destructive"
         });
         return;
@@ -265,9 +267,9 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Client</DialogTitle>
+          <DialogTitle>{t('addClientModal.title')}</DialogTitle>
           <DialogDescription>
-            Add a new client to your database. Required fields are marked with *.
+            {t('addClientModal.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -285,7 +287,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className={`text-sm font-medium ${hasHardMatch ? 'text-red-900 dark:text-red-200' : 'text-amber-900 dark:text-amber-200'}`}>
-                      {hasHardMatch ? 'Likely duplicate' : 'Similar clients'} — {matches.length} match{matches.length === 1 ? '' : 'es'}
+                      {hasHardMatch ? t('addClientModal.matches.likelyDuplicate') : t('addClientModal.matches.similarClients')} — {t('addClientModal.matches.matchCount', { count: matches.length })}
                     </p>
                     <button
                       type="button"
@@ -293,7 +295,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
                       className="text-xs text-muted-foreground hover:underline flex items-center gap-0.5"
                     >
                       {showMatches ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      {showMatches ? 'Hide' : 'Show'}
+                      {showMatches ? t('addClientModal.matches.hide') : t('addClientModal.matches.show')}
                     </button>
                   </div>
                   {showMatches && (
@@ -304,7 +306,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
                             <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                             <div className="min-w-0">
                               <div className="truncate font-medium">{client.name}</div>
-                              <div className="truncate text-xs text-muted-foreground">
+                              <div className="truncate text-xs text-muted-foreground ltr-inline">
                                 {[client.email, client.phone].filter(Boolean).join(' • ')}
                               </div>
                             </div>
@@ -318,7 +320,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
                                       : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
                                   }`}
                                 >
-                                  {r === 'name' ? 'name match' : r === 'email' ? 'email match' : 'phone match'}
+                                  {r === 'name' ? t('addClientModal.matches.nameMatch') : r === 'email' ? t('addClientModal.matches.emailMatch') : t('addClientModal.matches.phoneMatch')}
                                 </span>
                               ))}
                             </div>
@@ -331,7 +333,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
                               onClick={() => handleOpenExisting(client)}
                               className="flex-shrink-0"
                             >
-                              Open
+                              {t('common:actions.open')}
                             </Button>
                           )}
                         </li>
@@ -344,7 +346,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name">{t('addClientModal.fields.name')}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -353,7 +355,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               />
             </div>
             <div>
-              <Label htmlFor="phone">Phone *</Label>
+              <Label htmlFor="phone">{t('addClientModal.fields.phone')}</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -362,7 +364,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               />
             </div>
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('addClientModal.fields.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -371,7 +373,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               />
             </div>
             <div>
-              <Label htmlFor="birthday">Date of Birth</Label>
+              <Label htmlFor="birthday">{t('addClientModal.fields.dateOfBirth')}</Label>
               <Input
                 id="birthday"
                 type="date"
@@ -380,23 +382,23 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               />
             </div>
             <div>
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t('addClientModal.fields.city')}</Label>
               <select
                 id="city"
                 value={showNewCity ? OTHER_VALUE : formData.city}
                 onChange={(e) => handleCityChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="">Select City</option>
+                <option value="">{t('addClientModal.fields.selectCity')}</option>
                 {dropdownData.cities.map((city) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
-                <option value={OTHER_VALUE}>+ Add new city…</option>
+                <option value={OTHER_VALUE}>{t('addClientModal.fields.addNewCity')}</option>
               </select>
               {showNewCity && (
                 <div className="flex gap-2 mt-2">
                   <Input
-                    placeholder="Enter new city"
+                    placeholder={t('addClientModal.fields.enterNewCity')}
                     value={newCity}
                     onChange={(e) => setNewCity(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveNewCity())}
@@ -409,23 +411,23 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               )}
             </div>
             <div>
-              <Label htmlFor="referral_source">How did you hear about us?</Label>
+              <Label htmlFor="referral_source">{t('addClientModal.fields.referralSource')}</Label>
               <select
                 id="referral_source"
                 value={showNewSource ? OTHER_VALUE : formData.referral_source}
                 onChange={(e) => handleSourceChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="">Select Source</option>
+                <option value="">{t('addClientModal.fields.selectSource')}</option>
                 {dropdownData.referralSources.map((source) => (
                   <option key={source} value={source}>{source}</option>
                 ))}
-                <option value={OTHER_VALUE}>+ Add new source…</option>
+                <option value={OTHER_VALUE}>{t('addClientModal.fields.addNewSource')}</option>
               </select>
               {showNewSource && (
                 <div className="flex gap-2 mt-2">
                   <Input
-                    placeholder="Enter new source"
+                    placeholder={t('addClientModal.fields.enterNewSource')}
                     value={newSource}
                     onChange={(e) => setNewSource(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveNewSource())}
@@ -440,7 +442,7 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
           </div>
 
           <div>
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">{t('addClientModal.fields.address')}</Label>
             <Input
               id="address"
               value={formData.address}
@@ -450,34 +452,34 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
 
           <div className="rounded-md border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-3 space-y-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
-              Internal — not visible to clients
+              {t('addClientModal.fields.internalOnly')}
             </div>
             <div>
-              <Label htmlFor="allergies">Allergies / Medical alerts</Label>
+              <Label htmlFor="allergies">{t('addClientModal.fields.allergies')}</Label>
               <textarea
                 id="allergies"
                 className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-background"
                 rows={2}
                 value={formData.allergies}
                 onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-                placeholder="Any known allergies..."
+                placeholder={t('addClientModal.fields.allergiesPlaceholder')}
               />
             </div>
 
             <div>
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">{t('addClientModal.fields.notes')}</Label>
               <textarea
                 id="notes"
                 className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-background"
                 rows={3}
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes about the client..."
+                placeholder={t('addClientModal.fields.notesPlaceholder')}
               />
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <input
               type="checkbox"
               id="membership"
@@ -485,15 +487,15 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
               onChange={(e) => setFormData({ ...formData, has_membership: e.target.checked })}
               className="rounded"
             />
-            <Label htmlFor="membership">Has Membership</Label>
+            <Label htmlFor="membership">{t('addClientModal.fields.hasMembership')}</Label>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end space-x-2 rtl:space-x-reverse pt-4">
             <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button type="submit">
-              Add Client
+              {t('addClientModal.actions.addClient')}
             </Button>
           </div>
         </form>
@@ -501,15 +503,19 @@ const AddClientModal = ({ isOpen, onClose, onAdd, onOpenExisting }: AddClientMod
         <AlertDialog open={confirmDupOpen} onOpenChange={setConfirmDupOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Likely duplicate</AlertDialogTitle>
+              <AlertDialogTitle>{t('addClientModal.duplicateDialog.title')}</AlertDialogTitle>
               <AlertDialogDescription>
-                A client with this {matches.find(m => m.reasons.includes('email')) ? 'email' : 'phone number'} already exists. Add a duplicate record anyway?
+                {t('addClientModal.duplicateDialog.description', {
+                  identifier: matches.find(m => m.reasons.includes('email'))
+                    ? t('addClientModal.duplicateDialog.identifierEmail')
+                    : t('addClientModal.duplicateDialog.identifierPhone'),
+                })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={() => { void actuallyAdd(); }}>
-                Add Anyway
+                {t('addClientModal.actions.addAnyway')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

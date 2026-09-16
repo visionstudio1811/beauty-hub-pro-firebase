@@ -1,0 +1,240 @@
+{
+  "status": {
+    "haveMembership": "יש מנוי",
+    "membershipEnded": "המנוי הסתיים",
+    "noMembership": "אין מנוי"
+  },
+  "page": {
+    "subtitle": "ניהול מאגר הלקוחות שלך",
+    "trash": "אשפה ({{count}})",
+    "addClient": "הוספת לקוח",
+    "newAppointment": "תור חדש",
+    "loading": "טוען לקוחות…",
+    "showing_one": "מציג {{from}}–{{to}} מתוך לקוח אחד",
+    "showing_two": "מציג {{from}}–{{to}} מתוך {{count}} לקוחות",
+    "showing_many": "מציג {{from}}–{{to}} מתוך {{count}} לקוחות",
+    "showing_other": "מציג {{from}}–{{to}} מתוך {{count}} לקוחות",
+    "inTrash_one": "לקוח אחד באשפה",
+    "inTrash_two": "{{count}} באשפה",
+    "inTrash_many": "{{count}} באשפה",
+    "inTrash_other": "{{count}} באשפה",
+    "previousPage": "העמוד הקודם",
+    "nextPage": "העמוד הבא"
+  },
+  "deletedPage": {
+    "loading": "טוען לקוחות שנמחקו...",
+    "back": "חזרה ללקוחות",
+    "title": "לקוחות שנמחקו",
+    "subtitle": "ניהול לקוחות באשפה (נמחקים אוטומטית לאחר 30 יום)",
+    "clientsInTrash": "לקוחות באשפה",
+    "emptyTitle": "אין לקוחות שנמחקו",
+    "emptyDescription": "לקוחות שהועברו לאשפה יופיעו כאן",
+    "instructionsTitle": "שחזור או מחיקה",
+    "instructionsBody": "השתמשו בכפתור השחזור כדי להחזיר לקוחות, או מחקו אותם לצמיתות. לקוחות באשפה נמחקים אוטומטית לאחר 30 יום."
+  },
+  "header": {
+    "title": "לקוחות",
+    "subtitle": "ניהול מאגר הלקוחות שלך",
+    "addNewClient": "הוספת לקוח חדש"
+  },
+  "stats": {
+    "totalClients": "סה\"כ לקוחות",
+    "newClients": "לקוחות חדשים",
+    "vipClients": "לקוחות VIP",
+    "totalRevenue": "סה\"כ הכנסות"
+  },
+  "filters": {
+    "searchPlaceholder": "חיפוש לקוחות...",
+    "allStatus": "כל הסטטוסים",
+    "purchases": {
+      "all": "כל הרכישות",
+      "hasPackages": "רכשו חבילות",
+      "hasProducts": "רכשו מוצרים",
+      "hasBoth": "רכשו חבילות ומוצרים",
+      "none": "ללא רכישות"
+    },
+    "sort": {
+      "createdDesc": "החדשים ביותר תחילה",
+      "createdAsc": "הישנים ביותר תחילה",
+      "visitsDesc": "הכי הרבה ביקורים",
+      "visitsAsc": "הכי מעט ביקורים",
+      "revenueDesc": "ההכנסה הגבוהה ביותר",
+      "revenueAsc": "ההכנסה הנמוכה ביותר",
+      "lastVisitDesc": "ביקור אחרון (הכי עדכני)",
+      "lastVisitAsc": "ביקור אחרון (הכי ישן)"
+    },
+    "tableView": "טבלה",
+    "gridView": "כרטיסים"
+  },
+  "columns": {
+    "name": "שם",
+    "phone": "טלפון",
+    "email": "אימייל",
+    "status": "סטטוס",
+    "lastVisit": "ביקור אחרון",
+    "visits": "ביקורים",
+    "revenue": "הכנסות",
+    "actions": "פעולות",
+    "deletedDate": "תאריך מחיקה"
+  },
+  "actions": {
+    "menu": "פעולות",
+    "viewDetails": "צפייה בפרטים",
+    "view": "צפייה",
+    "editClient": "עריכת לקוח",
+    "sendMessage": "שליחת הודעה",
+    "message": "הודעה",
+    "bookAppointment": "קביעת תור",
+    "book": "קביעת תור",
+    "assignPackage": "שיוך חבילה",
+    "package": "חבילה",
+    "sendWaiver": "שליחת טופס הסכמה",
+    "waiver": "טופס הסכמה",
+    "deleteClient": "מחיקת לקוח",
+    "delete": "מחיקה"
+  },
+  "table": {
+    "notAvailable": "לא זמין"
+  },
+  "cards": {
+    "statusLabel": "סטטוס:",
+    "visits": "ביקורים: {{count}}",
+    "lastVisit": "אחרון: {{date}}"
+  },
+  "deleteDialog": {
+    "title": "האם אתם בטוחים?",
+    "description": "הפעולה תעביר את {{name}} לאשפה למשך 30 יום. ניתן לשחזר במהלך תקופה זו. לאחר 30 יום נתוני הלקוח יימחקו לצמיתות.",
+    "fallbackName": "הלקוח",
+    "confirm": "העברה לאשפה"
+  },
+  "deletedTable": {
+    "restoreClient": "שחזור לקוח",
+    "permanentlyDeleteClient": "מחיקת לקוח לצמיתות",
+    "dialogTitle": "למחוק את הלקוח לצמיתות?",
+    "dialogDescription": "הפעולה תמחק את {{name}} מהמאגר לצמיתות. לא ניתן לבטל פעולה זו.",
+    "confirm": "מחיקה לצמיתות"
+  },
+  "communication": {
+    "title": "תקשורת - {{name}}",
+    "tabs": {
+      "sms": "SMS",
+      "email": "אימייל",
+      "call": "יומן שיחות",
+      "history": "היסטוריה"
+    },
+    "sms": {
+      "heading": "שליחת SMS",
+      "to": "אל: {{value}}",
+      "noPhone": "אין מספר טלפון",
+      "template": "תבנית",
+      "templatePlaceholder": "טעינת תבנית שמורה (אופציונלי)",
+      "untitled": "ללא שם",
+      "message": "הודעה",
+      "messagePlaceholder": "הקלידו את הודעת ה-SMS...",
+      "segments_one": "{{chars}} תווים · מקטע אחד",
+      "segments_two": "{{chars}} תווים · {{count}} מקטעים",
+      "segments_many": "{{chars}} תווים · {{count}} מקטעים",
+      "segments_other": "{{chars}} תווים · {{count}} מקטעים",
+      "send": "שליחת SMS"
+    },
+    "email": {
+      "heading": "שליחת אימייל",
+      "to": "אל: {{value}}",
+      "noEmail": "אין כתובת אימייל",
+      "subject": "נושא",
+      "subjectPlaceholder": "נושא האימייל...",
+      "message": "הודעה",
+      "messagePlaceholder": "הקלידו את הודעת האימייל...",
+      "send": "שליחת אימייל"
+    },
+    "call": {
+      "heading": "תיעוד שיחת טלפון",
+      "phone": "טלפון: {{value}}",
+      "notes": "הערות שיחה",
+      "notesPlaceholder": "מה נדון בשיחה...",
+      "save": "תיעוד שיחה"
+    },
+    "history": {
+      "heading": "היסטוריית תקשורת",
+      "empty": "אין עדיין היסטוריית תקשורת"
+    },
+    "types": {
+      "sms": "SMS",
+      "email": "אימייל",
+      "call": "שיחה",
+      "note": "הערה"
+    },
+    "statuses": {
+      "delivered": "נמסר",
+      "sent": "נשלח",
+      "pending": "ממתין",
+      "failed": "נכשל"
+    },
+    "toast": {
+      "success": {
+        "sms": "ה-SMS נשלח בהצלחה",
+        "email": "האימייל נשלח בהצלחה",
+        "call": "השיחה תועדה בהצלחה",
+        "note": "ההערה נוספה בהצלחה"
+      },
+      "error": {
+        "sms": "שליחת ה-SMS נכשלה",
+        "email": "שליחת האימייל נכשלה",
+        "call": "תיעוד השיחה נכשל",
+        "note": "הוספת ההערה נכשלה"
+      }
+    }
+  },
+  "details": {
+    "description": "פרטי הלקוח ומידע נוסף",
+    "basicInfo": "פרטים בסיסיים",
+    "email": "אימייל:",
+    "phone": "טלפון:",
+    "dob": "תאריך לידה:",
+    "dobWithAge": "{{date}} (גיל {{age}})",
+    "notProvided": "לא צוין",
+    "address": "כתובת:",
+    "referralSource": "מקור הפניה:",
+    "healthInfo": "מידע רפואי",
+    "allergies": "אלרגיות:",
+    "notes": "הערות",
+    "clientSince": "לקוח מאז: {{date}}",
+    "lastUpdated": "עדכון אחרון: {{date}}"
+  },
+  "membershipHistory": {
+    "events": {
+      "package_assigned": "חבילה שויכה",
+      "membership_activated": "המנוי הופעל",
+      "membership_deactivated": "המנוי בוטל",
+      "sessions_edited": "המפגשים נערכו",
+      "package_removed": "חבילה הוסרה",
+      "package_expired": "החבילה פגה",
+      "expiry_reminder": "נשלחה תזכורת פקיעה",
+      "default": "אירוע"
+    },
+    "summary": {
+      "status": "סטטוס",
+      "active": "פעיל",
+      "inactive": "לא פעיל",
+      "activePackages": "חבילות פעילות",
+      "totalEvents": "סה\"כ אירועים"
+    },
+    "emptyTitle": "אין עדיין היסטוריית מנוי",
+    "emptyDescription": "אירועים יופיעו כאן כאשר חבילות משויכות, נערכות או פגות.",
+    "package": "חבילה:",
+    "sessions": "מפגשים: {{count}}",
+    "price": "מחיר: ${{price}}",
+    "expires": "פג בתאריך: {{date}}",
+    "newSessionsRemaining": "מפגשים חדשים שנותרו: {{count}}",
+    "newExpiry": "תאריך פקיעה חדש: {{date}}",
+    "daysUntilExpiry_one": "יום אחד עד לפקיעה",
+    "daysUntilExpiry_two": "יומיים עד לפקיעה",
+    "daysUntilExpiry_many": "{{count}} ימים עד לפקיעה",
+    "daysUntilExpiry_other": "{{count}} ימים עד לפקיעה",
+    "reason": "סיבה: {{reason}}",
+    "reasons": {
+      "allSessionsUsed": "כל המפגשים נוצלו",
+      "expiryDatePassed": "תאריך הפקיעה חלף"
+    }
+  }
+}

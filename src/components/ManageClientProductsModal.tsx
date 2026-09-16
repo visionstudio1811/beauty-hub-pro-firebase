@@ -27,6 +27,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useClientPackages } from '@/hooks/useClientPackages';
+import { useTranslation } from 'react-i18next';
 
 interface ClientProductRow {
   id: string;
@@ -48,10 +49,7 @@ interface ManageClientProductsModalProps {
   onUpdate: () => void;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'assigned', label: 'Assigned' },
-  { value: 'delivered', label: 'Delivered' },
-];
+const STATUS_OPTIONS = ['assigned', 'delivered'] as const;
 
 export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps> = ({
   client,
@@ -59,7 +57,10 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
   onClose,
   onUpdate,
 }) => {
+  const { t } = useTranslation('clientModals');
   const { toast } = useToast();
+  const statusLabel = (status: string) =>
+    t(`manageClientProductsModal.statusOptions.${status}`, { defaultValue: status });
   const { currentOrganization } = useOrganization();
   const { packages: clientPackages } = useClientPackages(client?.id);
   const [rows, setRows] = useState<ClientProductRow[]>([]);
@@ -106,7 +107,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
         return {
           id: d.id,
           product_id: data.product_id || '',
-          product_name: product?.name || 'Unknown product',
+          product_name: product?.name || t('manageClientProductsModal.unknownProduct'),
           product_image: product?.image_url ?? null,
           base_price: product?.price ?? 0,
           assigned_price: Number(data.assigned_price || 0),
@@ -121,7 +122,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
       setRows(result);
     } catch (err) {
       console.error('Failed to load assigned products', err);
-      toast({ title: 'Error', description: 'Failed to load assigned products', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('manageClientProductsModal.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -141,7 +142,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
   const handleSave = async (row: ClientProductRow) => {
     if (!currentOrganization?.id) return;
     if (row.assigned_price < 0 || row.quantity < 1) {
-      toast({ title: 'Invalid values', description: 'Price must be ≥ 0 and quantity ≥ 1.', variant: 'destructive' });
+      toast({ title: t('manageClientProductsModal.invalidValues'), description: t('manageClientProductsModal.invalidValuesDescription'), variant: 'destructive' });
       return;
     }
     setSavingId(row.id);
@@ -157,12 +158,12 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
           updated_at: serverTimestamp(),
         }
       );
-      toast({ title: 'Saved', description: `${row.product_name} updated.` });
+      toast({ title: t('manageClientProductsModal.saved'), description: t('manageClientProductsModal.savedDescription', { product: row.product_name }) });
       setEditingId(null);
       onUpdate();
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to save product', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('manageClientProductsModal.saveFailed'), variant: 'destructive' });
     } finally {
       setSavingId(null);
     }
@@ -170,7 +171,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
 
   const handleDelete = async (row: ClientProductRow) => {
     if (!currentOrganization?.id) return;
-    if (!confirm(`Remove "${row.product_name}" from ${client?.name}?`)) return;
+    if (!confirm(t('manageClientProductsModal.confirmRemove', { product: row.product_name, client: client?.name }))) return;
     setDeletingId(row.id);
     try {
       // Soft delete keeps the row out of revenue aggregates while preserving
@@ -184,12 +185,12 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
           updated_at: serverTimestamp(),
         }
       );
-      toast({ title: 'Removed', description: `${row.product_name} removed from ${client?.name}.` });
+      toast({ title: t('manageClientProductsModal.removed'), description: t('manageClientProductsModal.removedDescription', { product: row.product_name, client: client?.name }) });
       await fetchRows();
       onUpdate();
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to remove product', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('manageClientProductsModal.removeFailed'), variant: 'destructive' });
     } finally {
       setDeletingId(null);
     }
@@ -203,10 +204,10 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5" />
-            <span>Manage {client.name}'s Products</span>
+            <span>{t('manageClientProductsModal.title', { name: client.name })}</span>
           </DialogTitle>
           <DialogDescription>
-            Edit assigned price, quantity, status, or remove products from this client.
+            {t('manageClientProductsModal.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -219,8 +220,8 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
         ) : rows.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No products assigned to this client</p>
-            <p className="text-sm">Use "Assign Product" to add one.</p>
+            <p>{t('manageClientProductsModal.empty')}</p>
+            <p className="text-sm">{t('manageClientProductsModal.emptyHint')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -241,7 +242,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                         <div className="min-w-0">
                           <div className="font-medium truncate">{row.product_name}</div>
                           <div className="text-xs text-muted-foreground">
-                            Base price: ${row.base_price.toFixed(2)}
+                            {t('manageClientProductsModal.basePrice', { price: row.base_price.toFixed(2) })}
                           </div>
                         </div>
                       </div>
@@ -250,28 +251,28 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                           const pkg = clientPackages.find(p => p.id === row.purchase_id);
                           return (
                             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                              From {pkg?.package_name || 'Package'}
+                              {t('manageClientProductsModal.fromPackageBadge', { package: pkg?.package_name || t('manageClientProductsModal.packageFallback') })}
                             </Badge>
                           );
                         })()}
                         <Badge variant={row.status === 'delivered' ? 'default' : 'secondary'}>
-                          {row.status}
+                          {statusLabel(row.status)}
                         </Badge>
                       </div>
                     </div>
 
                     <div className="mt-4">
-                      <label className="text-xs font-medium text-muted-foreground mb-1 block">From package</label>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('manageClientProductsModal.fromPackageLabel')}</label>
                       <Select
                         value={row.purchase_id ?? 'standalone'}
                         onValueChange={v => updateRow(row.id, { purchase_id: v === 'standalone' ? null : v })}
                         disabled={!isEditing}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Standalone (not from a package)" />
+                          <SelectValue placeholder={t('manageClientProductsModal.standalone')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="standalone">Standalone (not from a package)</SelectItem>
+                          <SelectItem value="standalone">{t('manageClientProductsModal.standalone')}</SelectItem>
                           {[...clientPackages]
                             .sort((a, b) => {
                               const aHas = (a.product_snapshot || []).some(p => p.product_id === row.product_id) ? 1 : 0;
@@ -282,8 +283,9 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                               const inPackage = (pkg.product_snapshot || []).find(p => p.product_id === row.product_id);
                               return (
                                 <SelectItem key={pkg.id} value={pkg.id}>
-                                  {pkg.package_name}
-                                  {inPackage ? ` — includes ${inPackage.quantity}` : ' (does not include this product)'}
+                                  {inPackage
+                                    ? t('manageClientProductsModal.packageIncludes', { name: pkg.package_name, quantity: inPackage.quantity })
+                                    : t('manageClientProductsModal.packageDoesNotInclude', { name: pkg.package_name })}
                                 </SelectItem>
                               );
                             })}
@@ -293,7 +295,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Price ($)</label>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('manageClientProductsModal.priceLabel')}</label>
                         <Input
                           type="number"
                           min="0"
@@ -304,7 +306,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Quantity</label>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('common:labels.quantity')}</label>
                         <Input
                           type="number"
                           min="1"
@@ -314,7 +316,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('common:labels.status')}</label>
                         <Select
                           value={row.status}
                           onValueChange={v => updateRow(row.id, { status: v })}
@@ -325,7 +327,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                           </SelectTrigger>
                           <SelectContent>
                             {STATUS_OPTIONS.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              <SelectItem key={opt} value={opt}>{statusLabel(opt)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -339,8 +341,8 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                               onClick={() => handleSave(row)}
                               disabled={savingId === row.id}
                             >
-                              <Save className="h-4 w-4 mr-1" />
-                              {savingId === row.id ? 'Saving…' : 'Save'}
+                              <Save className="h-4 w-4 me-1" />
+                              {savingId === row.id ? t('common:actions.saving') : t('common:actions.save')}
                             </Button>
                             <Button
                               size="sm"
@@ -350,7 +352,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                                 fetchRows();
                               }}
                             >
-                              Cancel
+                              {t('common:actions.cancel')}
                             </Button>
                           </>
                         ) : (
@@ -360,7 +362,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                             className="flex-1"
                             onClick={() => setEditingId(row.id)}
                           >
-                            Edit
+                            {t('common:actions.edit')}
                           </Button>
                         )}
                         <Button
@@ -369,7 +371,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDelete(row)}
                           disabled={deletingId === row.id}
-                          title="Remove product"
+                          title={t('manageClientProductsModal.removeProduct')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -377,12 +379,12 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
                     </div>
 
                     <div className="mt-3">
-                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes</label>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">{t('common:labels.notes')}</label>
                       <Textarea
                         rows={2}
                         value={row.notes}
                         disabled={!isEditing}
-                        placeholder="Optional notes"
+                        placeholder={t('manageClientProductsModal.notesPlaceholder')}
                         onChange={e => updateRow(row.id, { notes: e.target.value })}
                       />
                     </div>
@@ -394,7 +396,7 @@ export const ManageClientProductsModal: React.FC<ManageClientProductsModalProps>
         )}
 
         <div className="flex justify-end pt-4 border-t">
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>{t('common:actions.close')}</Button>
         </div>
       </DialogContent>
     </Dialog>

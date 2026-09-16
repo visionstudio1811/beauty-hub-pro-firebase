@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface MergedTimeSlot {
   time: string;                     // "HH:MM"
@@ -13,10 +14,10 @@ interface TimeGridProps {
 }
 
 const groupByTimeOfDay = (slots: MergedTimeSlot[]) => {
-  const groups: { label: string; items: MergedTimeSlot[] }[] = [
-    { label: 'Morning', items: [] },
-    { label: 'Afternoon', items: [] },
-    { label: 'Evening', items: [] },
+  const groups: { label: 'morning' | 'afternoon' | 'evening'; items: MergedTimeSlot[] }[] = [
+    { label: 'morning', items: [] },
+    { label: 'afternoon', items: [] },
+    { label: 'evening', items: [] },
   ];
   for (const s of slots) {
     const h = parseInt(s.time.slice(0, 2), 10);
@@ -28,12 +29,13 @@ const groupByTimeOfDay = (slots: MergedTimeSlot[]) => {
 };
 
 export const TimeGrid: React.FC<TimeGridProps> = ({ slots, selectedTime, onSelect, emptyText }) => {
+  const { t } = useTranslation('scheduling');
   const groups = useMemo(() => groupByTimeOfDay(slots), [slots]);
 
   if (groups.length === 0) {
     return (
       <p className="text-sm text-muted-foreground mt-2">
-        {emptyText ?? 'No times available on this day. Pick another date.'}
+        {emptyText ?? t('timeGrid.empty')}
       </p>
     );
   }
@@ -42,7 +44,7 @@ export const TimeGrid: React.FC<TimeGridProps> = ({ slots, selectedTime, onSelec
     <div className="space-y-3 mt-1">
       {groups.map((group) => (
         <div key={group.label}>
-          <p className="text-xs text-muted-foreground mb-1">{group.label}</p>
+          <p className="text-xs text-muted-foreground mb-1">{t(`timeGrid.${group.label}`)}</p>
           <div className="flex flex-wrap gap-2">
             {group.items.map((s) => (
               <button
@@ -55,6 +57,7 @@ export const TimeGrid: React.FC<TimeGridProps> = ({ slots, selectedTime, onSelec
                     ? 'border-purple-600 bg-purple-50 text-purple-700'
                     : 'border-input hover:bg-accent')
                 }
+                dir="ltr"
               >
                 {s.time}
               </button>

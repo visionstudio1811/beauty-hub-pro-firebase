@@ -1,0 +1,146 @@
+{
+  "severity": {
+    "high": "HIGH",
+    "medium": "MEDIUM",
+    "low": "LOW"
+  },
+  "risk": {
+    "high": "HIGH",
+    "medium": "MEDIUM",
+    "low": "LOW"
+  },
+  "dashboard": {
+    "title": "Security Dashboard",
+    "description": "Monitor security events and manage active sessions",
+    "loading": "Loading security dashboard...",
+    "tabs": {
+      "events": "Security Events",
+      "sessions": "Active Sessions"
+    },
+    "noEvents": "No security events found",
+    "noSessions": "No active sessions found",
+    "activeSessionsCount_one": "{{count}} active session",
+    "activeSessionsCount_two": "{{count}} active sessions",
+    "activeSessionsCount_other": "{{count}} active sessions",
+    "cleanupExpired": "Cleanup Expired",
+    "sessionLabel": "Session {{id}}...",
+    "lastActive": "Last active: {{time}}",
+    "expires": "Expires: {{time}}",
+    "details": {
+      "attempts": "Attempts: {{n}}",
+      "ipHash": "IP Hash: {{hash}}...",
+      "roleChange": "{{from}} → {{to}}",
+      "ips": "IPs: {{n}}"
+    },
+    "toasts": {
+      "accessDenied": {
+        "title": "Access Denied",
+        "description": "You don't have permission to view the security dashboard."
+      },
+      "loadEventsFailed": "Failed to load security events",
+      "loadSessionsFailed": "Failed to load active sessions",
+      "refreshed": {
+        "title": "Refreshed",
+        "description": "Session list refreshed."
+      }
+    }
+  },
+  "monitor": {
+    "title": "Security Monitor",
+    "loading": "Loading security events...",
+    "noEvents": "No security events found",
+    "details": {
+      "role": "Role: {{role}}",
+      "permission": "Permission: {{permission}}",
+      "resource": "Resource: {{resource}}",
+      "granted": "Granted: {{granted}}"
+    },
+    "toasts": {
+      "accessDenied": {
+        "title": "Access Denied",
+        "description": "You don't have permission to view security events."
+      },
+      "loadEventsFailed": "Failed to load security events"
+    }
+  },
+  "sessionManager": {
+    "title": "Session Manager",
+    "description": "Manage your active sessions across different devices",
+    "loading": "Loading sessions...",
+    "noSessions": "No sessions found",
+    "terminateAllOthers": "Terminate All Others",
+    "terminateAll": "Terminate All",
+    "terminate": "Terminate",
+    "terminateSessionAria": "Terminate session",
+    "terminateAllDialog": {
+      "title": "Terminate All Other Sessions",
+      "description": "This will sign out all your other devices. You will remain signed in on this device."
+    },
+    "terminateDialog": {
+      "title": "Terminate Session",
+      "description": "This will sign out this device immediately. This action cannot be undone."
+    },
+    "current": "Current",
+    "browser": "Browser",
+    "lastActive": "Last active: {{time}}",
+    "ipCreated": "IP: {{ip}} • Created: {{date}}",
+    "relative": {
+      "justNow": "Just now",
+      "minutesAgo_one": "{{count}} minute ago",
+      "minutesAgo_two": "{{count}} minutes ago",
+      "minutesAgo_other": "{{count}} minutes ago",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_two": "{{count}} hours ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_two": "{{count}} days ago",
+      "daysAgo_other": "{{count}} days ago"
+    },
+    "unknownIp": "Unknown"
+  },
+  "enhancedSecurity": {
+    "messages": {
+      "unknown": "unknown",
+      "unknownResource": "unknown resource",
+      "suspiciousLoginAttempts": "Multiple failed login attempts detected ({{attempts}} attempts)",
+      "multipleIpLogins": "User logged in from multiple IP addresses ({{n}} different IPs)",
+      "roleChange": "User role changed from {{from}} to {{to}}",
+      "sessionCleanup": "{{n}} expired sessions cleaned up",
+      "permissionCheckFailed": "Permission check failed for {{resource}}",
+      "default": "Security event: {{action}}",
+      "multipleIpLoginsUnknown": "User logged in from multiple IP addresses"
+    },
+    "toasts": {
+      "alertAcknowledged": {
+        "title": "Alert Acknowledged",
+        "description": "The security alert has been acknowledged."
+      },
+      "acknowledgeFailed": "Failed to acknowledge alert",
+      "passwordResetInitiated": {
+        "title": "Password Reset Initiated",
+        "description": "A password reset has been forced for the user."
+      },
+      "passwordResetFailed": "Failed to force password reset",
+      "accountLocked": {
+        "title": "Account Locked",
+        "description": "The user account has been locked for security."
+      },
+      "lockFailed": "Failed to lock user account"
+    }
+  },
+  "sessionSecurity": {
+    "toasts": {
+      "loadFailed": "Failed to load session data",
+      "sessionTerminated": {
+        "title": "Session Terminated",
+        "description": "Session has been terminated successfully"
+      },
+      "terminateFailed": "Failed to terminate session",
+      "sessionsTerminated": {
+        "title": "Sessions Terminated",
+        "description": "All other sessions have been terminated"
+      },
+      "terminateOthersFailed": "Failed to terminate other sessions"
+    }
+  }
+}

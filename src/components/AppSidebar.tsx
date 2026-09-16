@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Calendar, Users, LayoutDashboard, Mail, Settings,
   LogOut, ChevronRight, ChevronDown,
@@ -16,6 +17,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -28,46 +31,49 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+// labelKey values are i18n keys resolved with the 'shell' namespace at render time.
 const SETTINGS_SECTIONS = [
-  { id: 'general',          label: 'General',          icon: Settings },
-  { id: 'users',            label: 'Users',            icon: Users },
-  { id: 'packages',         label: 'Packages',         icon: Package },
-  { id: 'treatments',       label: 'Treatments',       icon: Calendar },
-  { id: 'addons',           label: 'Add-ons',          icon: Sparkles },
-  { id: 'products',         label: 'Products',         icon: ShoppingBag },
-  { id: 'categories',       label: 'Categories',       icon: Tag },
-  { id: 'brands',           label: 'Brands',           icon: Tag },
-  { id: 'scheduling',       label: 'Scheduling',       icon: Clock },
-  { id: 'staff-schedules',  label: 'Staff Schedules',  icon: CalendarDays },
-  { id: 'scheduler-links',  label: 'Scheduler Links',  icon: LinkIcon },
-  { id: 'waivers',          label: 'Waivers',          icon: FileSignature },
-  { id: 'intake',           label: 'Intake Forms',     icon: ClipboardList },
-  { id: 'agreements',       label: 'Agreements of Purchase', icon: FileSignature },
-  { id: 'invoice-settings', label: 'Invoice Settings', icon: Receipt },
-  { id: 'invoice-history',  label: 'Invoice History',  icon: FileText },
-  { id: 'acuity',           label: 'Acuity',           icon: Zap },
+  { id: 'general',          labelKey: 'sidebar.settingsSections.general',         icon: Settings },
+  { id: 'users',            labelKey: 'sidebar.settingsSections.users',           icon: Users },
+  { id: 'packages',         labelKey: 'sidebar.settingsSections.packages',        icon: Package },
+  { id: 'treatments',       labelKey: 'sidebar.settingsSections.treatments',      icon: Calendar },
+  { id: 'addons',           labelKey: 'sidebar.settingsSections.addons',          icon: Sparkles },
+  { id: 'products',         labelKey: 'sidebar.settingsSections.products',        icon: ShoppingBag },
+  { id: 'categories',       labelKey: 'sidebar.settingsSections.categories',      icon: Tag },
+  { id: 'brands',           labelKey: 'sidebar.settingsSections.brands',          icon: Tag },
+  { id: 'scheduling',       labelKey: 'sidebar.settingsSections.scheduling',      icon: Clock },
+  { id: 'staff-schedules',  labelKey: 'sidebar.settingsSections.staffSchedules',  icon: CalendarDays },
+  { id: 'scheduler-links',  labelKey: 'sidebar.settingsSections.schedulerLinks',  icon: LinkIcon },
+  { id: 'waivers',          labelKey: 'sidebar.settingsSections.waivers',         icon: FileSignature },
+  { id: 'intake',           labelKey: 'sidebar.settingsSections.intake',          icon: ClipboardList },
+  { id: 'agreements',       labelKey: 'sidebar.settingsSections.agreements',      icon: FileSignature },
+  { id: 'invoice-settings', labelKey: 'sidebar.settingsSections.invoiceSettings', icon: Receipt },
+  { id: 'invoice-history',  labelKey: 'sidebar.settingsSections.invoiceHistory',  icon: FileText },
+  { id: 'acuity',           labelKey: 'sidebar.settingsSections.acuity',          icon: Zap },
 ];
 
 const MARKETING_SECTIONS = [
-  { id: 'overview',      label: 'Overview',      icon: LayoutDashboard },
-  { id: 'campaigns',     label: 'Campaigns',     icon: Mail },
-  { id: 'integrations',  label: 'Integrations',  icon: Settings },
+  { id: 'overview',      labelKey: 'sidebar.marketingSections.overview',     icon: LayoutDashboard },
+  { id: 'campaigns',     labelKey: 'sidebar.marketingSections.campaigns',    icon: Mail },
+  { id: 'integrations',  labelKey: 'sidebar.marketingSections.integrations', icon: Settings },
 ];
 
 const TOP_ITEMS = [
-  { icon: LayoutDashboard, label: 'Dashboard',    path: '/admin' },
-  { icon: Users,           label: 'Clients',      path: '/admin/clients' },
-  { icon: Calendar,        label: 'Appointments', path: '/admin/appointments' },
+  { icon: LayoutDashboard, labelKey: 'common:labels.dashboard',    path: '/admin' },
+  { icon: Users,           labelKey: 'common:labels.clients',      path: '/admin/clients' },
+  { icon: Calendar,        labelKey: 'common:labels.appointments', path: '/admin/appointments' },
 ];
 
 // Items only visible to admins. Kept separate from TOP_ITEMS so the array
 // passed to the renderer below already reflects the user's effective scope.
 const ADMIN_TOP_ITEMS = [
-  { icon: TrendingUp,      label: 'Sales',        path: '/admin/sales' },
-  { icon: Receipt,         label: 'Invoices',     path: '/admin/invoices' },
+  { icon: TrendingUp,      labelKey: 'common:labels.sales',    path: '/admin/sales' },
+  { icon: Receipt,         labelKey: 'common:labels.invoices', path: '/admin/invoices' },
 ];
 
 export function AppSidebar() {
+  const { t } = useTranslation('shell');
+  const { isRtl } = useLanguage();
   const location = useLocation();
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
@@ -95,9 +101,11 @@ export function AppSidebar() {
   }, []);
 
   const isCollapsed = state === 'collapsed';
-  const orgName = currentOrganization?.name || 'Beauty Hub';
+  const tooltipSide = isRtl ? 'left' : 'right';
+  const orgName = currentOrganization?.name || t('sidebar.defaultOrgName');
   const userInitial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
-  const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
+  const userName = user?.displayName || user?.email?.split('@')[0] || t('sidebar.defaultUserName');
+  const signOutLabel = t('common:actions.signOut');
 
   const itemClass = (isActive: boolean) =>
     `group h-9 rounded-lg transition-colors duration-150
@@ -110,14 +118,15 @@ export function AppSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r-0"
+      side={isRtl ? 'right' : 'left'}
+      className="border-e-0"
       style={{ '--sidebar-width-icon': '4rem' } as React.CSSProperties}
     >
       {/* Workspace header */}
       <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
         <div className={`flex items-center gap-3 min-w-0 ${isCollapsed ? 'justify-center' : ''}`}>
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="object-contain flex-shrink-0 rounded-md h-8 w-8" />
+            <img src={logoUrl} alt={t('sidebar.logoAlt')} className="object-contain flex-shrink-0 rounded-md h-8 w-8" />
           ) : (
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center flex-shrink-0">
               <span className="text-primary-foreground font-bold text-sm">{orgName.charAt(0).toUpperCase()}</span>
@@ -126,10 +135,10 @@ export function AppSidebar() {
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-sidebar-accent-foreground truncate leading-tight">{orgName}</p>
-              <p className="text-xs text-sidebar-foreground truncate">Workspace</p>
+              <p className="text-xs text-sidebar-foreground truncate">{t('sidebar.workspace')}</p>
             </div>
           )}
-          {!isCollapsed && <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground flex-shrink-0 opacity-60" />}
+          {!isCollapsed && <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground flex-shrink-0 opacity-60 rtl:rotate-180" />}
         </div>
       </SidebarHeader>
 
@@ -142,11 +151,12 @@ export function AppSidebar() {
               {[...TOP_ITEMS, ...(isAdmin ? ADMIN_TOP_ITEMS : [])].map(item => {
                 const isActive = location.pathname === item.path ||
                   (item.path !== '/admin' && location.pathname.startsWith(item.path));
+                const label = t(item.labelKey);
                 const button = (
                   <SidebarMenuButton asChild className={itemClass(isActive)}>
                     <Link to={item.path} className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+                      {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
                     </Link>
                   </SidebarMenuButton>
                 );
@@ -155,7 +165,7 @@ export function AppSidebar() {
                     {isCollapsed ? (
                       <Tooltip>
                         <TooltipTrigger asChild>{button}</TooltipTrigger>
-                        <TooltipContent side="right" className="ml-1">{item.label}</TooltipContent>
+                        <TooltipContent side={tooltipSide} className="ms-1">{label}</TooltipContent>
                       </Tooltip>
                     ) : button}
                   </SidebarMenuItem>
@@ -175,7 +185,7 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuButton>
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="ml-1">Marketing</TooltipContent>
+                      <TooltipContent side={tooltipSide} className="ms-1">{t('common:labels.marketing')}</TooltipContent>
                     </Tooltip>
                   ) : (
                     <SidebarMenuButton
@@ -184,7 +194,7 @@ export function AppSidebar() {
                     >
                       <div className="flex items-center gap-3 w-full">
                         <Mail className="h-4 w-4 flex-shrink-0" />
-                        <span className="text-sm font-medium flex-1 text-left">Marketing</span>
+                        <span className="text-sm font-medium flex-1 text-start">{t('common:labels.marketing')}</span>
                         <ChevronDown className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${marketingOpen ? 'rotate-180' : ''}`} />
                       </div>
                     </SidebarMenuButton>
@@ -192,7 +202,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
 
                 {!isCollapsed && marketingOpen && (
-                  <div className="ml-3 pl-3 border-l border-sidebar-border/50 space-y-0.5 mt-0.5 mb-1">
+                  <div className="ms-3 ps-3 border-s border-sidebar-border/50 space-y-0.5 mt-0.5 mb-1">
                     {MARKETING_SECTIONS.map(section => {
                       const isActive = isOnMarketing && currentMarketingSection === section.id;
                       return (
@@ -208,7 +218,7 @@ export function AppSidebar() {
                           >
                             <Link to={`/admin/marketing?section=${section.id}`} className="flex items-center gap-2">
                               <section.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span className="text-xs">{section.label}</span>
+                              <span className="text-xs">{t(section.labelKey)}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -232,7 +242,7 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuButton>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="ml-1">Settings</TooltipContent>
+                        <TooltipContent side={tooltipSide} className="ms-1">{t('common:labels.settings')}</TooltipContent>
                       </Tooltip>
                     ) : (
                       <SidebarMenuButton
@@ -241,7 +251,7 @@ export function AppSidebar() {
                       >
                         <div className="flex items-center gap-3 w-full">
                           <Settings className="h-4 w-4 flex-shrink-0" />
-                          <span className="text-sm font-medium flex-1 text-left">Settings</span>
+                          <span className="text-sm font-medium flex-1 text-start">{t('common:labels.settings')}</span>
                           <ChevronDown
                             className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${settingsOpen ? 'rotate-180' : ''}`}
                           />
@@ -252,7 +262,7 @@ export function AppSidebar() {
 
                   {/* Sub-items */}
                   {!isCollapsed && settingsOpen && (
-                    <div className="ml-3 pl-3 border-l border-sidebar-border/50 space-y-0.5 mt-0.5 mb-1">
+                    <div className="ms-3 ps-3 border-s border-sidebar-border/50 space-y-0.5 mt-0.5 mb-1">
                       {SETTINGS_SECTIONS.map(section => {
                         const isActive = isOnSettings && currentSection === section.id;
                         return (
@@ -271,7 +281,7 @@ export function AppSidebar() {
                                 className="flex items-center gap-2"
                               >
                                 <section.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                <span className="text-xs">{section.label}</span>
+                                <span className="text-xs">{t(section.labelKey)}</span>
                               </Link>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
@@ -296,41 +306,60 @@ export function AppSidebar() {
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-sidebar-accent-foreground truncate leading-tight">{userName}</p>
-              <p className="text-xs text-sidebar-foreground truncate opacity-70">{user?.email}</p>
+              <p className="text-xs text-sidebar-foreground truncate opacity-70 ltr-inline">{user?.email}</p>
             </div>
           )}
           {!isCollapsed ? (
-            <button
-              onClick={() => setLogoutConfirmOpen(true)}
-              className="ml-auto p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-              title="Sign out"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
+            <div className="ms-auto flex items-center gap-0.5">
+              <LanguageSwitcher
+                variant="compact"
+                className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              />
+              <button
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                title={signOutLabel}
+                aria-label={signOutLabel}
+              >
+                <LogOut className="h-3.5 w-3.5 rtl:rotate-180" />
+              </button>
+            </div>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={() => setLogoutConfirmOpen(true)} className="p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
-                  <LogOut className="h-3.5 w-3.5" />
+                <button
+                  onClick={() => setLogoutConfirmOpen(true)}
+                  className="p-1.5 rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                  aria-label={signOutLabel}
+                >
+                  <LogOut className="h-3.5 w-3.5 rtl:rotate-180" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="ml-1">Sign out</TooltipContent>
+              <TooltipContent side={tooltipSide} className="ms-1">{signOutLabel}</TooltipContent>
             </Tooltip>
           )}
         </div>
+        {isCollapsed && (
+          <div className="flex justify-center mt-1">
+            <LanguageSwitcher
+              variant="compact"
+              className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            />
+          </div>
+        )}
       </SidebarFooter>
 
       <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Log out?</AlertDialogTitle>
+            <AlertDialogTitle>{t('sidebar.logoutDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to log out?
+              {t('sidebar.logoutDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { void signOut(); }}>Log out</AlertDialogAction>
+            <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void signOut(); }}>{t('sidebar.logoutDialog.confirm')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

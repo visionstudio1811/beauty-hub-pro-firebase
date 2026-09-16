@@ -17,6 +17,8 @@ import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface CategoryOption {
   id: string;
@@ -35,7 +37,8 @@ const PRESET_COLORS = [
 ];
 
 // Mon-first ordering (matches the businessHours + scheduling utility convention).
-const SCHED_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const SCHED_DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+const SCHED_DAY_SHORT_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 interface DayRow {
   enabled: boolean;
@@ -73,6 +76,10 @@ const rowsToAvailability = (rows: DayRow[]): TreatmentAvailabilityWindow[] =>
   }));
 
 export const TreatmentManagement: React.FC = () => {
+  const { t } = useTranslation('scheduling');
+  const { locale } = useLanguage();
+  const formatPrice = (n: number) =>
+    new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
   const { treatments, loading, addTreatment, updateTreatment } = useSupabaseTreatments();
   const { currentOrganization } = useOrganization();
   const { profiles } = useSupabaseProfiles();
@@ -168,8 +175,8 @@ export const TreatmentManagement: React.FC = () => {
   const handleSave = async () => {
     if (!formData.name || !formData.duration) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
+        title: t('treatmentManagement.requiredError.title'),
+        description: t('treatmentManagement.requiredError.description'),
         variant: "destructive",
       });
       return;
@@ -231,7 +238,7 @@ export const TreatmentManagement: React.FC = () => {
       <Card className="w-full">
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <div className="text-sm text-gray-500">Loading treatments...</div>
+            <div className="text-sm text-gray-500">{t('treatmentManagement.loading')}</div>
           </div>
         </CardContent>
       </Card>
@@ -242,75 +249,75 @@ export const TreatmentManagement: React.FC = () => {
     <Card className="w-full">
       <CardHeader>
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
-          <div className="flex items-center space-x-2 min-w-0 flex-1">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0 flex-1">
             <Settings className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <CardTitle className="text-lg truncate">Services & Treatments</CardTitle>
+            <CardTitle className="text-lg truncate">{t('treatmentManagement.title')}</CardTitle>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={openAddDialog} className="w-full sm:w-auto shrink-0">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Treatment
+                <Plus className="h-4 w-4 me-2" />
+                {t('treatmentManagement.addTreatment')}
               </Button>
             </DialogTrigger>
             <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-base">
-                  {editingTreatment ? 'Edit Treatment' : 'Add New Treatment'}
+                  {editingTreatment ? t('treatmentManagement.editTreatment') : t('treatmentManagement.addNewTreatment')}
                 </DialogTitle>
                 <DialogDescription className="text-sm">
-                  {editingTreatment 
-                    ? 'Update the treatment details below.'
-                    : 'Create a new treatment with pricing and duration.'
+                  {editingTreatment
+                    ? t('treatmentManagement.updateDescription')
+                    : t('treatmentManagement.createDescription')
                   }
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name" className="text-sm">Treatment Name *</Label>
+                  <Label htmlFor="name" className="text-sm">{t('treatmentManagement.fields.name')}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter treatment name"
+                    placeholder={t('treatmentManagement.fields.namePlaceholder')}
                     className="w-full text-sm"
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="grid gap-2">
-                    <Label htmlFor="price" className="text-sm">Price ($)</Label>
+                    <Label htmlFor="price" className="text-sm">{t('treatmentManagement.fields.price')}</Label>
                     <Input
                       id="price"
                       type="number"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="0"
+                      placeholder={t('treatmentManagement.fields.pricePlaceholder')}
                       className="w-full text-sm"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="duration" className="text-sm">Duration (min) *</Label>
+                    <Label htmlFor="duration" className="text-sm">{t('treatmentManagement.fields.duration')}</Label>
                     <Input
                       id="duration"
                       type="number"
                       value={formData.duration}
                       onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                      placeholder="60"
+                      placeholder={t('treatmentManagement.fields.durationPlaceholder')}
                       className="w-full text-sm"
                     />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="category" className="text-sm">Category</Label>
+                  <Label htmlFor="category" className="text-sm">{t('treatmentManagement.fields.category')}</Label>
                   <Select
                     value={formData.category || '__none__'}
                     onValueChange={(v) => setFormData({ ...formData, category: v === '__none__' ? '' : v })}
                   >
                     <SelectTrigger id="category" className="w-full text-sm">
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t('treatmentManagement.fields.categoryPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
+                      <SelectItem value="__none__">{t('treatmentManagement.fields.categoryNone')}</SelectItem>
                       {categories.map((c) => (
                         <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                       ))}
@@ -318,18 +325,18 @@ export const TreatmentManagement: React.FC = () => {
                   </Select>
                   {categories.length === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Tip: add categories in Settings → Categories (scope: Facials).
+                      {t('treatmentManagement.fields.categoryTip')}
                     </p>
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="color" className="text-sm">Calendar Color</Label>
+                  <Label htmlFor="color" className="text-sm">{t('treatmentManagement.fields.color')}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         id="color"
-                        className="flex items-center gap-3 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-left"
+                        className="flex items-center gap-3 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-start"
                       >
                         <span
                           className="h-6 w-6 rounded border border-border shrink-0"
@@ -341,7 +348,7 @@ export const TreatmentManagement: React.FC = () => {
                           }}
                         />
                         <span className="text-muted-foreground">
-                          {formData.color ? formData.color.toUpperCase() : 'No color'}
+                          {formData.color ? <span dir="ltr">{formData.color.toUpperCase()}</span> : t('treatmentManagement.fields.noColor')}
                         </span>
                         {formData.color && (
                           <span
@@ -357,9 +364,9 @@ export const TreatmentManagement: React.FC = () => {
                                 setFormData({ ...formData, color: '' });
                               }
                             }}
-                            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                            className="ms-auto text-xs text-muted-foreground hover:text-foreground"
                           >
-                            Clear
+                            {t('treatmentManagement.fields.clearColor')}
                           </span>
                         )}
                       </button>
@@ -370,7 +377,7 @@ export const TreatmentManagement: React.FC = () => {
                           <button
                             key={c}
                             type="button"
-                            aria-label={`Pick ${c}`}
+                            aria-label={t('treatmentManagement.fields.pickColor', { color: c })}
                             onClick={() => setFormData({ ...formData, color: c })}
                             className={`h-9 w-full rounded-md border-2 transition-transform hover:scale-105 ${
                               formData.color?.toLowerCase() === c.toLowerCase()
@@ -382,7 +389,7 @@ export const TreatmentManagement: React.FC = () => {
                         ))}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="custom-color" className="text-xs whitespace-nowrap">Custom:</Label>
+                        <Label htmlFor="custom-color" className="text-xs whitespace-nowrap">{t('treatmentManagement.fields.custom')}</Label>
                         <Input
                           id="custom-color"
                           type="color"
@@ -400,20 +407,21 @@ export const TreatmentManagement: React.FC = () => {
                             }
                           }}
                           placeholder="#FFD700"
+                          dir="ltr"
                           className="h-8 text-xs font-mono"
                         />
                       </div>
                     </PopoverContent>
                   </Popover>
                   <p className="text-xs text-muted-foreground">
-                    Used to color appointment blocks on the calendar.
+                    {t('treatmentManagement.fields.colorHelp')}
                   </p>
                 </div>
                 <div className="grid gap-2">
-                  <Label className="text-sm">Staff who can perform this treatment</Label>
+                  <Label className="text-sm">{t('treatmentManagement.fields.staff')}</Label>
                   {eligibleStaff.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No active staff yet. Add staff under Settings → Users first.
+                      {t('treatmentManagement.fields.noStaff')}
                     </p>
                   ) : (
                     <div className="border rounded-md p-2 max-h-40 overflow-y-auto space-y-1">
@@ -436,14 +444,14 @@ export const TreatmentManagement: React.FC = () => {
                               className="h-4 w-4 rounded border-input"
                             />
                             <span className="truncate">{p.full_name || p.email}</span>
-                            <span className="text-xs text-muted-foreground">({p.role})</span>
+                            <span className="text-xs text-muted-foreground">({t(`common:roles.${p.role}`, { defaultValue: p.role })})</span>
                           </label>
                         );
                       })}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Leave empty to let any active staff perform this treatment.
+                    {t('treatmentManagement.fields.staffHelp')}
                   </p>
                 </div>
 
@@ -451,13 +459,13 @@ export const TreatmentManagement: React.FC = () => {
                 <div className="rounded-md border border-dashed bg-muted/20 p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-purple-600" />
-                    <Label className="text-sm font-medium">Scheduling</Label>
+                    <Label className="text-sm font-medium">{t('treatmentManagement.scheduling.title')}</Label>
                   </div>
 
                   {/* Buffers */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Buffer before (min)</Label>
+                      <Label className="text-xs">{t('treatmentManagement.scheduling.bufferBefore')}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -470,7 +478,7 @@ export const TreatmentManagement: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Buffer after (min)</Label>
+                      <Label className="text-xs">{t('treatmentManagement.scheduling.bufferAfter')}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -484,13 +492,13 @@ export const TreatmentManagement: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Padding before and after each appointment for cleanup / prep. Leave blank for none.
+                    {t('treatmentManagement.scheduling.bufferHelp')}
                   </p>
 
                   {/* Advance booking window */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Earliest booking (hours)</Label>
+                      <Label className="text-xs">{t('treatmentManagement.scheduling.earliestBooking')}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -503,7 +511,7 @@ export const TreatmentManagement: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Latest booking (days)</Label>
+                      <Label className="text-xs">{t('treatmentManagement.scheduling.latestBooking')}</Label>
                       <Input
                         type="number"
                         min={1}
@@ -517,8 +525,7 @@ export const TreatmentManagement: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    "Earliest" blocks bookings closer than this many hours from now.
-                    "Latest" blocks bookings further out than this many days.
+                    {t('treatmentManagement.scheduling.advanceHelp')}
                   </p>
 
                   {/* Limit availability toggle */}
@@ -528,27 +535,26 @@ export const TreatmentManagement: React.FC = () => {
                       onCheckedChange={(v) =>
                         setFormData({ ...formData, limit_availability: v })
                       }
-                      aria-label="Limit availability to specific days"
+                      aria-label={t('treatmentManagement.scheduling.limitAria')}
                     />
                     <div className="flex-1">
-                      <Label className="text-sm">Limit to specific days/hours</Label>
+                      <Label className="text-sm">{t('treatmentManagement.scheduling.limitLabel')}</Label>
                       <p className="text-xs text-muted-foreground">
-                        Off: this treatment is bookable whenever staff & business hours are open.
-                        On: only the days/hours you enable below are bookable.
+                        {t('treatmentManagement.scheduling.limitHelp')}
                       </p>
                     </div>
                   </div>
 
                   {formData.limit_availability && (
                     <div className="space-y-2 pt-1">
-                      {SCHED_DAYS.map((dayName, dow) => {
+                      {SCHED_DAY_KEYS.map((dayKey, dow) => {
                         const row = formData.day_rows[dow];
                         return (
                           <div
                             key={dow}
                             className="grid grid-cols-[80px_60px_1fr_1fr] gap-2 items-center"
                           >
-                            <div className="text-xs font-medium">{dayName.slice(0, 3)}</div>
+                            <div className="text-xs font-medium">{t(`common:days.${SCHED_DAY_SHORT_KEYS[dow]}`)}</div>
                             <Switch
                               checked={row.enabled}
                               onCheckedChange={(v) => {
@@ -556,7 +562,7 @@ export const TreatmentManagement: React.FC = () => {
                                 rows[dow] = { ...rows[dow], enabled: v };
                                 setFormData({ ...formData, day_rows: rows });
                               }}
-                              aria-label={`Toggle ${dayName}`}
+                              aria-label={t('treatmentManagement.scheduling.toggleDay', { day: t(`common:days.${dayKey}`) })}
                             />
                             <Input
                               type="time"
@@ -584,19 +590,19 @@ export const TreatmentManagement: React.FC = () => {
                         );
                       })}
                       <p className="text-xs text-muted-foreground">
-                        Days toggled off are closed for this treatment regardless of staff schedule.
+                        {t('treatmentManagement.scheduling.daysOffHelp')}
                       </p>
                     </div>
                   )}
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="description" className="text-sm">Description</Label>
+                  <Label htmlFor="description" className="text-sm">{t('treatmentManagement.fields.description')}</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description of the treatment"
+                    placeholder={t('treatmentManagement.fields.descriptionPlaceholder')}
                     rows={3}
                     className="w-full resize-none text-sm"
                   />
@@ -604,17 +610,17 @@ export const TreatmentManagement: React.FC = () => {
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto text-sm">
-                  Cancel
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button onClick={handleSave} className="w-full sm:w-auto text-sm">
-                  {editingTreatment ? 'Update' : 'Add'} Treatment
+                  {editingTreatment ? t('treatmentManagement.updateTreatment') : t('treatmentManagement.addTreatment')}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
         <CardDescription className="text-sm">
-          Manage your treatment services, pricing, and duration
+          {t('treatmentManagement.subtitle')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -627,15 +633,15 @@ export const TreatmentManagement: React.FC = () => {
                     <span
                       className="h-3 w-3 rounded-full border border-border shrink-0"
                       style={{ backgroundColor: treatment.color }}
-                      aria-label={`Color ${treatment.color}`}
+                      aria-label={t('treatmentManagement.card.colorAria', { color: treatment.color })}
                       title={treatment.color}
                     />
                   )}
                   <h4 className="font-medium text-sm break-words">{treatment.name}</h4>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {treatment.price && <Badge variant="secondary" className="text-xs">${treatment.price}</Badge>}
-                  <Badge variant="outline" className="text-xs">{treatment.duration} min</Badge>
+                  {treatment.price && <Badge variant="secondary" className="text-xs">{formatPrice(treatment.price)}</Badge>}
+                  <Badge variant="outline" className="text-xs">{t('treatmentManagement.card.minutes', { count: treatment.duration })}</Badge>
                   {treatment.category && <Badge variant="outline" className="text-xs">{treatment.category}</Badge>}
                 </div>
                 {treatment.description && (
@@ -650,8 +656,8 @@ export const TreatmentManagement: React.FC = () => {
                     onClick={() => openEditDialog(treatment)}
                     className="flex-1 text-xs h-8"
                   >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                    <Edit className="h-3 w-3 me-1" />
+                    {t('common:actions.edit')}
                   </Button>
                   <Button
                     variant="outline"
@@ -659,8 +665,8 @@ export const TreatmentManagement: React.FC = () => {
                     onClick={() => handleDelete(treatment.id)}
                     className="flex-1 text-red-600 hover:text-red-700 text-xs h-8"
                   >
-                    <Trash className="h-3 w-3 mr-1" />
-                    Delete
+                    <Trash className="h-3 w-3 me-1" />
+                    {t('common:actions.delete')}
                   </Button>
                 </div>
               </div>

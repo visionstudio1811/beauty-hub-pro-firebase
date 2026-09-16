@@ -1,0 +1,316 @@
+{
+  "send": {
+    "template": "Template",
+    "selectTemplate": "Select template",
+    "smsProvider": "SMS Provider",
+    "requireOtp": "Require OTP verification",
+    "sendViaSms": "Send via SMS",
+    "sendViaSmsOtp": "Send via SMS + OTP",
+    "sendViaEmail": "Send via Email",
+    "noPhone": "Client has no phone number",
+    "noEmail": "Client has no email on file",
+    "emailSentTo": "Email sent to {{email}}",
+    "smsSentTo": "SMS sent to {{phone}}",
+    "unknownError": "Unknown error"
+  },
+  "clientWaiversTab": {
+    "kinds": {
+      "waiver": {
+        "singular": "Waiver",
+        "singularLower": "waiver",
+        "sendTitle": "Send New Waiver",
+        "historyTitle": "Waiver History",
+        "empty": "No waivers sent yet.",
+        "settingsLocation": "Waivers"
+      },
+      "intake": {
+        "singular": "Intake Form",
+        "singularLower": "intake form",
+        "sendTitle": "Send New Intake Form",
+        "historyTitle": "Intake Form History",
+        "empty": "No intake forms sent yet.",
+        "settingsLocation": "Intake Forms"
+      },
+      "agreement": {
+        "singular": "Agreement of Purchase",
+        "singularLower": "agreement of purchase",
+        "sendTitle": "Send New Agreement of Purchase",
+        "historyTitle": "Agreement of Purchase History",
+        "empty": "No agreements of purchase sent yet.",
+        "settingsLocation": "Agreements of Purchase"
+      }
+    },
+    "noTemplates": "No {{kind}} templates found. Create one in <b>Settings → {{location}}</b>.",
+    "otpHint": "Client will receive a 6-digit code via SMS and must enter it before viewing the form.",
+    "fillOnDevice": "Fill now on this device",
+    "noContact": "This client has no phone or email — use \"Fill now on this device\".",
+    "sent": "Sent {{date}}",
+    "signed": "Signed {{date}}",
+    "photos_one": "{{count}} photo",
+    "photos_other": "{{count}} photos",
+    "photos_two": "{{count}} photos",
+    "status": {
+      "signed": "Signed",
+      "pending": "Pending"
+    },
+    "pdf": "PDF",
+    "email": "Email",
+    "sending": "Sending…",
+    "emailDocument": "Email document to client",
+    "noEmailForClient": "No email on file for this client",
+    "photosButton": "Photos",
+    "openPhotos_one": "Open {{count}} uploaded photo",
+    "openPhotos_other": "Open {{count}} uploaded photos",
+    "openPhotos_two": "Open {{count}} uploaded photos",
+    "deleteKind": "Delete {{kind}}",
+    "deleteDialog": {
+      "title": "Delete this {{kind}}?",
+      "description": "This permanently removes the {{kind}} record, the signed PDF, any uploaded photos, and the signing link. This cannot be undone."
+    },
+    "emailContent": {
+      "subject": "Your signed {{title}}",
+      "body": "Hi {{name}},\n\nA copy of your signed {{title}} is available below.\n\nView / Download:\n{{url}}\n\nThank you!",
+      "fallbackName": "there"
+    },
+    "toasts": {
+      "readyTitle": "Waiver ready",
+      "readyDescription": "Hand the device to the client to fill out.",
+      "sentTitle": "Waiver sent",
+      "sendFailed": "Failed to send waiver",
+      "noEmailTitle": "No email on file",
+      "noEmailDescription": "This client has no email address.",
+      "pdfNotReadyTitle": "PDF not ready",
+      "pdfNotReadyDescription": "The signed PDF is not available yet.",
+      "documentSent": "Document sent",
+      "emailedTo": "Emailed to {{email}}.",
+      "sendDocFailed": "Failed to send",
+      "sendDocFailedDescription": "Could not send document email.",
+      "deleted": "Deleted",
+      "deletedDescription": "{{kind}} deleted.",
+      "deleteFailed": "Failed to delete",
+      "deleteFailedDescription": "Could not delete."
+    }
+  },
+  "templatePreviewModal": {
+    "dialogTitle": "Form Preview — {{title}}",
+    "defaultTitle": "Form Preview",
+    "defaultSubHeadline": "Please read carefully and complete all required fields.",
+    "previewOnly": "This is a preview only — submissions are disabled.",
+    "submitAndSign": "Submit & Sign",
+    "yourAnswer": "Your answer",
+    "emailPlaceholder": "name@example.com",
+    "phonePlaceholder": "+1 555 123 4567",
+    "defaultLabels": {
+      "email": "Email",
+      "phone": "Phone",
+      "date": "Date",
+      "city": "City",
+      "referralSource": "How did you hear about us?",
+      "time": "Time",
+      "signature": "Signature",
+      "imageUpload": "Upload photo(s)"
+    },
+    "selectCity": "Select City",
+    "selectSource": "Select Source",
+    "otherOption": "+ Other…",
+    "liveOptionsCity": "Pulls live options from your client-card cities when sent.",
+    "liveOptionsSource": "Pulls live options from your client-card referral sources when sent.",
+    "signaturePad": "Signature pad (interactive when sent to client)",
+    "imageUpload": "Image upload (up to {{count}} photos)"
+  },
+  "waiverTemplateEditor": {
+    "blockTypes": {
+      "heading": {
+        "label": "Heading",
+        "description": "A large section title"
+      },
+      "subheading": {
+        "label": "Sub Heading",
+        "description": "A smaller section label below a heading"
+      },
+      "text": {
+        "label": "Text Block",
+        "description": "A paragraph of informational or legal text"
+      },
+      "checkbox": {
+        "label": "Checkbox Agreement",
+        "description": "A statement the client must tick to agree"
+      },
+      "yes_no": {
+        "label": "Yes / No Question",
+        "description": "A binary question (Yes or No)"
+      },
+      "short_answer": {
+        "label": "Short Answer",
+        "description": "A free-text question"
+      },
+      "email": {
+        "label": "Email Address",
+        "description": "Collect an email (e.g. emergency contact)"
+      },
+      "phone": {
+        "label": "Phone Number",
+        "description": "Collect a phone number"
+      },
+      "date": {
+        "label": "Date",
+        "description": "Calendar date picker"
+      },
+      "time": {
+        "label": "Time",
+        "description": "Time-of-day picker"
+      },
+      "city": {
+        "label": "City",
+        "description": "City dropdown sourced from your client-card cities (with \"Other\")"
+      },
+      "referral_source": {
+        "label": "How did you hear?",
+        "description": "Referral-source dropdown sourced from your client-card sources (with \"Other\")"
+      },
+      "signature": {
+        "label": "Signature Pad",
+        "description": "Client draws a signature (e.g. guardian or initial)"
+      },
+      "image_upload": {
+        "label": "Image Upload",
+        "description": "Client uploads photos (e.g. affected area)"
+      },
+      "package_name": {
+        "label": "Package Name",
+        "description": "Auto-filled package name from the linked purchase"
+      },
+      "package_price": {
+        "label": "Package Price",
+        "description": "Auto-filled package price from the linked purchase"
+      },
+      "package_sessions": {
+        "label": "Package Sessions",
+        "description": "Auto-filled total session count from the linked purchase"
+      },
+      "purchase_date": {
+        "label": "Purchase Date",
+        "description": "Auto-filled date the package was purchased"
+      },
+      "expiry_date": {
+        "label": "Package Expiry",
+        "description": "Auto-filled package expiry date"
+      }
+    },
+    "purchaseDefaults": {
+      "package_name": "Package",
+      "package_price": "Price",
+      "package_sessions": "Sessions",
+      "purchase_date": "Purchase date",
+      "expiry_date": "Valid until"
+    },
+    "kinds": {
+      "waiver": {
+        "title": "Waiver",
+        "newLabel": "New Waiver",
+        "placeholder": "e.g. General Consent Waiver"
+      },
+      "intake": {
+        "title": "Intake Form",
+        "newLabel": "New Intake Form",
+        "placeholder": "e.g. New Client Intake Form"
+      },
+      "agreement": {
+        "title": "Agreement of Purchase",
+        "newLabel": "New Agreement of Purchase",
+        "placeholder": "e.g. Agreement of Purchase"
+      }
+    },
+    "block": {
+      "dragToReorder": "Drag to reorder",
+      "requiredTag": "required",
+      "requiredLabel": "Required",
+      "textPlaceholder": "Enter the text content…",
+      "placeholders": {
+        "heading": "e.g. Medical history",
+        "subheading": "e.g. Past treatments",
+        "checkbox": "Agreement statement…",
+        "image_upload": "e.g. Upload photos of affected area",
+        "email": "e.g. Emergency contact email",
+        "phone": "e.g. Emergency contact phone",
+        "signature": "e.g. Parent / guardian signature",
+        "purchase": "Label shown to client (e.g. \"{{label}}\")",
+        "question": "Question text…"
+      },
+      "purchaseHint": "Auto-filled from the purchase. Edit only the label.",
+      "emptyPreview": "Click edit to add content…",
+      "editBlock": "Edit block",
+      "deleteBlock": "Delete block",
+      "purchaseDefaultPreview": "Default label: {{label}} (shown in the client's language)"
+    },
+    "addBlock": "Add Block",
+    "newKind": "New {{kind}}",
+    "applyToAll": "Apply to all",
+    "applyToAllTitle": "Adds Age, Gender, and 'How did you hear about us?' to every template of this kind that doesn't already have them",
+    "noTemplates": "No templates yet.",
+    "selectPrompt": "Select a template from the list or create a new one.",
+    "templateTitle": "Template Title",
+    "templateTitleHint": "Internal name shown in the templates list.",
+    "headline": "Headline",
+    "headlinePlaceholder": "e.g. Consent & Treatment Waiver",
+    "headlinePlaceholderIntake": "e.g. Welcome — let’s get to know you",
+    "subHeadline": "Sub Headline",
+    "subHeadlinePlaceholder": "e.g. Please read carefully and complete all required fields.",
+    "headlineHint": "Shown at the top of the form your clients see. Falls back to the template title if left blank.",
+    "formBlocks": "Form Blocks",
+    "personalInfo": "Age / Gender / Referral",
+    "personalInfoTitle": "Adds Age, Gender, and 'How did you hear about us?' if missing",
+    "noBlocks": "Add your first block using the \"Add Block\" button above.",
+    "deleteTemplate": "Delete Template",
+    "saveTemplate": "Save Template",
+    "confirmDelete": "Delete \"{{title}}\"? This cannot be undone.",
+    "toasts": {
+      "alreadyPresent": "Already present",
+      "alreadyPresentDescription": "Age, gender, and referral fields are already in this template.",
+      "added": "Added",
+      "addedDescription_one": "Added {{count}} block. Don't forget to Save Template.",
+      "addedDescription_other": "Added {{count}} blocks. Don't forget to Save Template.",
+      "addedDescription_two": "Added {{count}} blocks. Don't forget to Save Template.",
+      "titleRequired": "Please enter a title",
+      "saved": "{{kind}} template saved",
+      "saveFailed": "Save failed",
+      "nothingToAdd": "Nothing to add",
+      "updatedCount": "Updated {{updated}} of {{processed}} {{kind}} templates",
+      "allHaveFields": "Every template already has Age, Gender, and the referral question.",
+      "addedAcross_one": "Added {{count}} block across all your {{kind}} templates.",
+      "addedAcross_other": "Added {{count}} blocks across all your {{kind}} templates.",
+      "addedAcross_two": "Added {{count}} blocks across all your {{kind}} templates.",
+      "migrationFailed": "Migration failed",
+      "templateDeleted": "Template deleted",
+      "deleteFailed": "Delete failed"
+    },
+    "personalInfoLabels": {
+      "age": "Age",
+      "gender": "Gender",
+      "referral": "How did you hear about us?"
+    },
+    "dnd": {
+      "instructions": "To pick up a form block, press Space or Enter. While dragging, use the arrow keys to move it. Press Space or Enter again to drop it in its new position, or press Escape to cancel.",
+      "dragStart": "Picked up \"{{item}}\", block {{position}} of {{total}}.",
+      "dragOver": "\"{{item}}\" was moved into position {{position}} of {{total}}.",
+      "dragOverNone": "\"{{item}}\" is no longer over a drop area.",
+      "dragEnd": "\"{{item}}\" was dropped at position {{position}} of {{total}}.",
+      "dragEndNone": "\"{{item}}\" was dropped back in its original position.",
+      "dragCancel": "Dragging was cancelled. \"{{item}}\" was returned to its original position."
+    }
+  },
+  "sendAgreementDialog": {
+    "title": "Send Agreement of Purchase",
+    "descriptionWithPackage": "Send <b>{{name}}</b> a prefilled Agreement of Purchase for <b>{{packageName}}</b>.",
+    "description": "Send <b>{{name}}</b> a prefilled Agreement of Purchase.",
+    "noTemplates": "No Agreement of Purchase templates yet. Create one in <b>Settings → Agreements of Purchase</b>, then come back here.",
+    "skipForNow": "Skip for now",
+    "signOnDevice": "Sign on this device",
+    "toasts": {
+      "readyTitle": "Agreement of Purchase ready",
+      "readyDescription": "Hand the device to the client to sign.",
+      "sentTitle": "Agreement of Purchase sent",
+      "sendFailed": "Failed to send Agreement of Purchase"
+    }
+  }
+}

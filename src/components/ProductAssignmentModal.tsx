@@ -10,6 +10,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Package, DollarSign } from 'lucide-react';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 interface Product {
   id: string;
@@ -41,6 +42,7 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
   onClose,
   onAssign
 }) => {
+  const { t } = useTranslation('clientModals');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -61,15 +63,15 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
   const handleAssign = async () => {
     if (!product || !selectedClientId || !assignedPrice) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
+        title: t('productAssignmentModal.validationError'),
+        description: t('productAssignmentModal.fillRequired'),
         variant: "destructive"
       });
       return;
     }
 
     if (!currentOrganization?.id) {
-      toast({ title: "Error", description: "No organization selected", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('productAssignmentModal.noOrganization'), variant: "destructive" });
       return;
     }
 
@@ -93,8 +95,8 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
 
       const selectedClient = clients.find(c => c.id === selectedClientId);
       toast({
-        title: "Assignment Successful",
-        description: `${product.name} has been assigned to ${selectedClient?.name}`
+        title: t('productAssignmentModal.successTitle'),
+        description: t('productAssignmentModal.successDescription', { product: product.name, client: selectedClient?.name })
       });
 
       onAssign();
@@ -102,8 +104,8 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
     } catch (error) {
       console.error('Error assigning product:', error);
       toast({
-        title: "Error",
-        description: "Failed to assign product",
+        title: t('common:status.error'),
+        description: t('productAssignmentModal.assignFailed'),
         variant: "destructive"
       });
     } finally {
@@ -117,15 +119,15 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Product to Client</DialogTitle>
+          <DialogTitle>{t('productAssignmentModal.title')}</DialogTitle>
           <DialogDescription>
-            Assign "{product.name}" to a client with custom pricing
+            {t('productAssignmentModal.description', { product: product.name })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Product Preview */}
-          <div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+          <div className="flex items-center space-x-3 rtl:space-x-reverse p-3 bg-muted rounded-lg">
             <div className="w-12 h-12 bg-background rounded flex items-center justify-center overflow-hidden">
               {product.image_url ? (
                 <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
@@ -135,23 +137,23 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
             </div>
             <div className="flex-1">
               <h4 className="font-medium">{product.name}</h4>
-              <p className="text-sm text-muted-foreground">Base Price: ${product.price}</p>
+              <p className="text-sm text-muted-foreground">{t('productAssignmentModal.basePrice', { price: product.price })}</p>
             </div>
           </div>
 
           {/* Client Selection */}
           <div>
-            <label className="text-sm font-medium">Select Client *</label>
+            <label className="text-sm font-medium">{t('productAssignmentModal.selectClient')}</label>
             <Select value={selectedClientId} onValueChange={setSelectedClientId}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a client" />
+                <SelectValue placeholder={t('productAssignmentModal.chooseClient')} />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     <div>
                       <div className="font-medium">{client.name}</div>
-                      <div className="text-xs text-muted-foreground">{client.phone}</div>
+                      <div className="text-xs text-muted-foreground ltr-inline">{client.phone}</div>
                     </div>
                   </SelectItem>
                 ))}
@@ -162,23 +164,23 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
           {/* Pricing */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium">Assigned Price *</label>
+              <label className="text-sm font-medium">{t('productAssignmentModal.assignedPrice')}</label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <DollarSign className="absolute start-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="number"
                   step="0.01"
                   value={assignedPrice}
                   onChange={(e) => setAssignedPrice(e.target.value)}
                   placeholder="0.00"
-                  className="pl-9"
+                  className="ps-9"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium">Quantity</label>
+              <label className="text-sm font-medium">{t('common:labels.quantity')}</label>
               <Input
                 type="number"
                 min="1"
@@ -191,11 +193,11 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
 
           {/* Notes */}
           <div>
-            <label className="text-sm font-medium">Notes (Optional)</label>
+            <label className="text-sm font-medium">{t('productAssignmentModal.notesOptional')}</label>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add any notes about this assignment..."
+              placeholder={t('productAssignmentModal.notesPlaceholder')}
               rows={3}
             />
           </div>
@@ -203,10 +205,10 @@ export const ProductAssignmentModal: React.FC<ProductAssignmentModalProps> = ({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleAssign} disabled={loading}>
-            {loading ? 'Assigning...' : 'Assign Product'}
+            {loading ? t('productAssignmentModal.assigning') : t('productAssignmentModal.assignProduct')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,11 +5,13 @@ import {
   getAutomation,
   sendOrgEmail,
   alreadySent,
+  orgEmailLanguage,
 } from './lib/orgEmail';
 import { resolveProvider, sendSms, ensureOptOutSuffix } from './lib/smsProviders';
 import { consumeRateLimit } from './rateLimit';
-import { RECONFIRM_FOOTER } from './lib/appointmentConfirm';
+import { reconfirmFooter } from './lib/appointmentConfirm';
 import { buildAppointmentButtons } from './lib/appointmentEmailButtons';
+import { AppLanguage, DEFAULT_LANGUAGE, defineStrings, localeFor, makeT } from './lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -17,23 +19,69 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Client-facing copy, sent in the org's language (organizations/{orgId}.language).
+// The SMS body is org-editable (cfg.sms_body); only the default is localised here.
+const STRINGS = defineStrings({
+  en: {
+    subject: 'Reminder: Your appointment is coming up',
+    defaultSmsBody: 'Reminder: [NAME], you have [TREATMENT] on [DATE] at [TIME].',
+    fallbackName: 'there',
+    fallbackTreatment: 'your appointment',
+    optOutSuffix: 'Reply STOP to unsubscribe.',
+  },
+  he: {
+    subject: 'תזכורת: התור שלך מתקרב',
+    defaultSmsBody: 'תזכורת: [NAME], יש לך [TREATMENT] בתאריך [DATE] בשעה [TIME].',
+    // Fills the [NAME] slot inside org-authored 'שלום [NAME], …' copy, so it must
+    // read as a name-like noun rather than a greeting.
+    fallbackName: 'לקוח/ה יקר/ה',
+    fallbackTreatment: 'התור שלך',
+    optOutSuffix: 'להסרה השיבו STOP.',
+  },
+});
+
+/**
+ * Carrier opt-out footer in the org's language. English goes through the shared
+ * ensureOptOutSuffix(); Hebrew appends a Hebrew instruction that keeps the
+ * literal STOP keyword, because carriers (and quoWebhook's STOP_WORDS) only
+ * recognise the English keyword for opt-out.
+ */
+function withOptOutSuffix(body: string, lang: AppLanguage): string {
+  if (lang === DEFAULT_LANGUAGE) return ensureOptOutSuffix(body);
+  if (/\bSTOP\b/i.test(body)) return body;
+  return `${body.replace(/\s+$/, '')} ${makeT(STRINGS, lang)('optOutSuffix')}`;
+}
+
 /** Replace [TOKEN] placeholders in a reminder SMS body. */
 function renderTokens(template: string, vars: Record<string, string>): string {
   return template.replace(/\[([A-Z_]+)\]/g, (m, key) => (vars[key] !== undefined ? vars[key] : m));
 }
 
 /**
- * Formats an "HH:mm" 24-hour string as a friendly 12-hour time, e.g.
- * "14:00" → "2:00 PM", "09:30" → "9:30 AM", "00:15" → "12:15 AM".
+ * Formats an "HH:mm" 24-hour string as a friendly wall-clock time in the org's
+ * language: English is 12-hour ("14:00" → "2:00 PM", "00:15" → "12:15 AM"),
+ * Hebrew keeps the 24-hour convention ("14:00" → "14:00").
  */
-function formatTime12h(hhmm: string): string {
+function formatTimeForDisplay(hhmm: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   const parts = hhmm.split(':');
   const h = parseInt(parts[0], 10);
   const m = parts[1] ?? '00';
   if (Number.isNaN(h)) return hhmm;
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${m.padStart(2, '0')} ${period}`;
+  if (lang === DEFAULT_LANGUAGE) {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${m.padStart(2, '0')} ${period}`;
+  }
+  const minutes = parseInt(m, 10);
+  try {
+    return new Intl.DateTimeFormat(localeFor(lang), {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2000, 0, 1, h, Number.isNaN(minutes) ? 0 : minutes)));
+  } catch {
+    return hhmm;
+  }
 }
 
 /**
@@ -66,6 +114,10 @@ export const appointmentReminderEmails = onSchedule(
 
       const cfg = getAutomation(ctx, 'appointment_reminder');
       if (!cfg.is_active) continue;
+
+      // Org language drives subject, date/time formatting, buttons and SMS footer.
+      const lang = orgEmailLanguage(ctx);
+      const t = makeT(STRINGS, lang);
 
       const hoursBefore = cfg.hours_before ?? 24;
       const targetMs = Date.now() + hoursBefore * 3600 * 1000;
@@ -144,11 +196,11 @@ export const appointmentReminderEmails = onSchedule(
 
         if (!toEmail) continue;
 
-        // Pretty date like "Friday, March 15, 2026" in org tz
+        // Pretty date like "Friday, March 15, 2026" (or the Hebrew equivalent) in org tz
         let prettyDate = targetDate;
         try {
           const dateObj = new Date(`${targetDate}T12:00:00Z`);
-          prettyDate = dateObj.toLocaleDateString('en-US', {
+          prettyDate = dateObj.toLocaleDateString(localeFor(lang), {
             timeZone: orgTz,
             weekday: 'long',
             month: 'long',
@@ -159,13 +211,14 @@ export const appointmentReminderEmails = onSchedule(
           // fall back to raw YYYY-MM-DD
         }
 
-        const prettyTime = formatTime12h(apptTime);
+        const prettyTime = formatTimeForDisplay(apptTime, lang);
 
-        const subject = 'Reminder: Your appointment is coming up';
+        const subject = t('subject');
 
         try {
           await sendOrgEmail({
             ctx,
+            lang,
             to: toEmail,
             subject,
             templateType: 'appointment_reminder',
@@ -181,8 +234,8 @@ export const appointmentReminderEmails = onSchedule(
             automationKey: 'appointment_reminder',
             refType: 'appointment',
             refId: appointmentId,
-            // Confirm + Cancel buttons signed with the org's Resend key.
-            appendHtml: buildAppointmentButtons(orgId, appointmentId, ctx.apiKey),
+            // Confirm + Cancel buttons signed with the org's Resend key, in the org's language.
+            appendHtml: buildAppointmentButtons(orgId, appointmentId, ctx.apiKey, lang),
           });
         } catch (err) {
           console.error(
@@ -215,15 +268,16 @@ export const appointmentReminderEmails = onSchedule(
 
             const provider = await resolveProvider(orgId);
             const smsVars: Record<string, string> = {
-              NAME: clientName || 'there',
+              NAME: clientName || t('fallbackName'),
               DATE: prettyDate,
               TIME: prettyTime,
-              TREATMENT: appt.treatment_name ? String(appt.treatment_name) : 'your appointment',
+              TREATMENT: appt.treatment_name ? String(appt.treatment_name) : t('fallbackTreatment'),
               STAFF: appt.staff_name ? String(appt.staff_name) : '',
               ORG: String(orgData.name || ''),
             };
-            const template = cfg.sms_body || 'Reminder: [NAME], you have [TREATMENT] on [DATE] at [TIME].';
-            const body = ensureOptOutSuffix(`${renderTokens(template, smsVars)}\n\n${RECONFIRM_FOOTER}`);
+            const template = cfg.sms_body || t('defaultSmsBody');
+            // "Reply 1/2/3" footer in the org's language; reply keywords stay numeric.
+            const body = withOptOutSuffix(`${renderTokens(template, smsVars)}\n\n${reconfirmFooter(lang)}`, lang);
 
             await consumeRateLimit(orgId, 'appointmentReminderSms', 500);
             await sendSms(orgId, phone, body, provider);

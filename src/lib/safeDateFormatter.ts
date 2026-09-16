@@ -1,5 +1,7 @@
 import { format } from 'date-fns';
-import { formatInBusinessTime, validateDate } from './timeUtils';
+import i18n, { localeFor } from '@/i18n';
+import { getDateFnsLocale } from '@/i18n/dateLocale';
+import { DEFAULT_TIMEZONE, formatInBusinessTime, validateDate } from './timeUtils';
 
 type DateInput = Date | string | number | null | undefined | { toDate?: () => Date; seconds?: number };
 
@@ -7,6 +9,10 @@ type DateInput = Date | string | number | null | undefined | { toDate?: () => Da
  * Safe date formatter. Accepts Date, ISO string, Firestore Timestamp, or null.
  * Returns '' for null/invalid input (callers can provide their own placeholder
  * downstream instead of a jarring "Date Error" string).
+ *
+ * Output follows the active UI language (`localeFor(i18n.language)`), so
+ * shortDate / longDate / monthYear / dayMonth render Hebrew month and weekday
+ * names when the app is in Hebrew.
  */
 export const safeDateFormat = (
   date: DateInput,
@@ -15,16 +21,26 @@ export const safeDateFormat = (
   const validDate = validateDate(date);
   if (!validDate) return '';
 
+  const locale = localeFor(i18n.language);
+
   try {
     if (options?.weekday || options?.month === 'long') {
-      const formatString = buildFormatString(options);
-      const result = formatInBusinessTime(validDate, formatString);
-      if (result) return result;
+      if (locale === 'en-US') {
+        const formatString = buildFormatString(options);
+        const result = formatInBusinessTime(validDate, formatString);
+        if (result) return result;
+      } else {
+        // Non-English: let Intl order the parts natively for the locale
+        // (e.g. "יום שני, 1 בינואר 2024") in the same business timezone the
+        // date-fns path above uses.
+        const result = validDate.toLocaleDateString(locale, { ...options, timeZone: DEFAULT_TIMEZONE });
+        if (result) return result;
+      }
     }
-    return validDate.toLocaleDateString('en-US', options);
+    return validDate.toLocaleDateString(locale, options);
   } catch {
     try {
-      return format(validDate, 'MMM d, yyyy');
+      return format(validDate, 'MMM d, yyyy', { locale: getDateFnsLocale() });
     } catch {
       return '';
     }

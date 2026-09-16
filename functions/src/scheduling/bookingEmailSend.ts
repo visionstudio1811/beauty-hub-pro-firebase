@@ -8,12 +8,35 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from '../rateLimit';
 import { loadSecret } from '../lib/integrationSecrets';
+import {
+  AppLanguage,
+  DEFAULT_LANGUAGE,
+  defineStrings,
+  htmlDirAttrs,
+  localeFor,
+  makeT,
+  orgLanguageFromData,
+} from '../lib/i18n';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
+
+// Copy for the bare-bones fallback wrapper (used when the org has no designed
+// email template). The {{merge_tags}} are resolved later by renderTemplate —
+// never pass vars to t() here.
+const STRINGS = defineStrings({
+  en: {
+    fallbackGreeting: 'Hi {{client_name}},',
+    fallbackSignoff: '— {{organization_name}}',
+  },
+  he: {
+    fallbackGreeting: 'שלום {{client_name}},',
+    fallbackSignoff: '— {{organization_name}}',
+  },
+});
 
 export interface AutomationDoc {
   trigger?: string;
@@ -33,27 +56,44 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const isValidEmail = (e: string | null | undefined): e is string =>
   typeof e === 'string' && EMAIL_RE.test(e);
 
-/** YYYY-MM-DD → "Jan 15, 2026" in the org's timezone. */
-export function formatDateForDisplay(dateStr: string, tz: string): string {
+/**
+ * YYYY-MM-DD → "Jan 15, 2026" (or the Hebrew equivalent) in the org's timezone.
+ * `lang` is optional for backward compatibility and defaults to English.
+ */
+export function formatDateForDisplay(dateStr: string, tz: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T12:00:00`);
   try {
-    return d.toLocaleDateString('en-US', { timeZone: tz, year: 'numeric', month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(localeFor(lang), { timeZone: tz, year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return dateStr;
   }
 }
 
-/** HH:MM → "2:30 PM" (wall-clock, timezone-agnostic). */
-export function formatTimeForDisplay(timeStr: string): string {
+/**
+ * HH:MM → "2:30 PM" in English or "14:30" in Hebrew (wall-clock, timezone-agnostic).
+ * `lang` is optional for backward compatibility and defaults to English.
+ */
+export function formatTimeForDisplay(timeStr: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
   if (!timeStr) return '';
   const [hStr, mStr] = timeStr.split(':');
   const h = Number(hStr);
   const m = Number(mStr);
   if (Number.isNaN(h) || Number.isNaN(m)) return timeStr;
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+  if (lang === DEFAULT_LANGUAGE) {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+  }
+  try {
+    return new Intl.DateTimeFormat(localeFor(lang), {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
+  } catch {
+    return timeStr;
+  }
 }
 
 /** HTML-escapes a value so untrusted text can't inject markup into an email. */
@@ -116,16 +156,26 @@ export function renderTemplate(html: string, variables: Record<string, string>):
   });
 }
 
-/** Bare-bones fallback wrapper when no Layer-2 email template is configured. */
-export const DEFAULT_TEMPLATE_HTML = `
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+/**
+ * Bare-bones fallback wrapper when no Layer-2 email template is configured.
+ * Rendered in the org's language; Hebrew gets dir="rtl" + right alignment.
+ */
+export function defaultTemplateHtml(lang: AppLanguage = DEFAULT_LANGUAGE): string {
+  const t = makeT(STRINGS, lang);
+  const { dir, align } = htmlDirAttrs(lang);
+  return `
+<!DOCTYPE html><html lang="${lang}" dir="${dir}"><head><meta charset="utf-8"></head>
+<body dir="${dir}" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;text-align:${align}">
   <h2 style="color:#1a1a1a">{{subject}}</h2>
-  <p>Hi {{client_name}},</p>
+  <p>${t('fallbackGreeting')}</p>
   <div style="line-height:1.6">{{message}}</div>
   <br>
-  <p style="color:#666;font-size:13px">— {{organization_name}}</p>
+  <p style="color:#666;font-size:13px">${t('fallbackSignoff')}</p>
 </body></html>`;
+}
+
+/** English fallback wrapper, kept as a constant for any existing references. */
+export const DEFAULT_TEMPLATE_HTML = defaultTemplateHtml(DEFAULT_LANGUAGE);
 
 export interface EmailContext {
   orgData: FirebaseFirestore.DocumentData;
@@ -135,6 +185,8 @@ export interface EmailContext {
   templateHtml: string;
   templateSettings: Record<string, string>;
   headerImageUrl: string;
+  /** Org language (organizations/{orgId}.language, default 'en'). Optional for back-compat with hand-built contexts. */
+  lang?: AppLanguage;
 }
 
 /**
@@ -151,6 +203,7 @@ export async function resolveEmailContext(
 ): Promise<EmailContext | null> {
   const orgDoc = await db.collection('organizations').doc(orgId).get();
   const orgData = orgDoc.data() || {};
+  const lang = orgLanguageFromData(orgData);
 
   const integrationSnap = await db
     .collection('organizations')
@@ -210,7 +263,7 @@ export async function resolveEmailContext(
         typeof t?.html === 'string' &&
         t!.html!.length > 0,
     )?.[1];
-  const templateHtml = template?.html || DEFAULT_TEMPLATE_HTML;
+  const templateHtml = template?.html || defaultTemplateHtml(lang);
   const templateSettings = (template?.settings ?? {}) as Record<string, string>;
   const headerImageUrl = String(integrationData.email_header_image_url ?? '');
 
@@ -222,6 +275,7 @@ export async function resolveEmailContext(
     templateHtml,
     templateSettings,
     headerImageUrl,
+    lang,
   };
 }
 

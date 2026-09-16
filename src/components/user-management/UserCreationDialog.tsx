@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface UserCreationDialogProps {
 export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
   onUserCreated
 }) => {
+  const { t } = useTranslation('settings');
   const [isOpen, setIsOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     full_name: '',
@@ -64,13 +66,33 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
     setTempPassword(buildSecurePassword());
   };
 
+  // userCreationSchema (src/lib/validation.ts) carries English messages and is a
+  // Do-Not-Change file, so map each Zod issue to an i18n key by field path + issue
+  // code instead. Falls back to the raw Zod message when no key matches.
+  const flattenIssues = (issues: any[]): any[] =>
+    issues.flatMap((issue: any) =>
+      issue?.code === 'invalid_union' && Array.isArray(issue.unionErrors)
+        ? flattenIssues(issue.unionErrors.flatMap((e: any) => e?.issues ?? []))
+        : [issue],
+    );
+
+  const translateIssue = (issue: any): string => {
+    const field = Array.isArray(issue?.path) ? String(issue.path[0] ?? '') : '';
+    const key = `userCreation.validation.${field}.${issue?.code}`;
+    const fallback = typeof issue?.message === 'string' ? issue.message : t('userCreation.validationFailed');
+    return field && issue?.code ? t(key, { defaultValue: fallback }) : fallback;
+  };
+
   const validateForm = () => {
     try {
       validateAndSanitize(userCreationSchema, newUser);
       setValidationErrors([]);
       return true;
     } catch (error: any) {
-      const errors = error.errors?.map((err: any) => err.message) || ['Validation failed'];
+      const rawIssues: any[] | undefined = error.issues ?? error.errors;
+      const errors = rawIssues?.length
+        ? Array.from(new Set(flattenIssues(rawIssues).map(translateIssue)))
+        : [t('userCreation.validationFailed')];
       setValidationErrors(errors);
       return false;
     }
@@ -79,7 +101,7 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
   const handleAddUser = async () => {
     if (!validateForm()) {
       toast({
-        title: "Validation Error",
+        title: t('userCreation.toasts.validationErrorTitle'),
         description: validationErrors.join(', '),
         variant: "destructive",
       });
@@ -88,8 +110,8 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
 
     if (!currentOrganization?.id) {
       toast({
-        title: "Error",
-        description: "No organization context — refresh the page and try again.",
+        title: t('common:status.error'),
+        description: t('userCreation.toasts.noOrgContext'),
         variant: "destructive",
       });
       return;
@@ -135,8 +157,8 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
       });
 
       toast({
-        title: "User Created",
-        description: `${sanitizedData.full_name} has been added successfully.`,
+        title: t('userCreation.toasts.createdTitle'),
+        description: t('userCreation.toasts.createdDescription', { name: sanitizedData.full_name }),
       });
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -150,8 +172,8 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
       setTempPassword('');
 
       toast({
-        title: "Error",
-        description: error.message || "Failed to create user.",
+        title: t('common:status.error'),
+        description: error.message || t('userCreation.toasts.createFailed'),
         variant: "destructive",
       });
     } finally {
@@ -162,8 +184,8 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
   const copyPassword = () => {
     navigator.clipboard.writeText(tempPassword);
     toast({
-      title: "Copied",
-      description: "Temporary password copied to clipboard.",
+      title: t('userCreation.toasts.copiedTitle'),
+      description: t('userCreation.toasts.copiedDescription'),
     });
   };
 
@@ -179,25 +201,25 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
+          <Plus className="h-4 w-4 me-2" />
+          {t('userCreation.addUser')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
+          <DialogTitle>{t('userCreation.title')}</DialogTitle>
           <DialogDescription>
-            Create a new user account. A secure temporary password will be generated.
+            {t('userCreation.description')}
             <br />
             <span className="text-sm text-orange-600 font-medium">
-              Note: Admin users can only be created directly in the database.
+              {t('userCreation.adminNote')}
             </span>
           </DialogDescription>
         </DialogHeader>
         
         {validationErrors.length > 0 && (
           <div className="space-y-2 p-3 bg-red-50 border border-red-200 rounded-md">
-            <h4 className="text-sm font-medium text-red-800">Validation Errors:</h4>
+            <h4 className="text-sm font-medium text-red-800">{t('userCreation.validationErrors')}</h4>
             <ul className="text-xs text-red-600 list-disc list-inside">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -208,13 +230,14 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
         
         {userCreated ? (
           <div className="space-y-4 p-4 bg-green-50 rounded-lg">
-            <h4 className="font-medium text-green-800">User Created Successfully!</h4>
+            <h4 className="font-medium text-green-800">{t('userCreation.successTitle')}</h4>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-green-700">Temporary Password:</label>
-              <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-green-700">{t('userCreation.temporaryPassword')}</label>
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <Input
                   value={tempPassword}
                   readOnly
+                  dir="ltr"
                   className="bg-white font-mono"
                   type="password"
                 />
@@ -222,77 +245,81 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
                   size="sm"
                   variant="outline"
                   onClick={copyPassword}
+                  aria-label={t('userCreation.copyPassword')}
+                  title={t('userCreation.copyPassword')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
               <p className="text-xs text-green-600">
-                Please share this password securely with the user. They should change it on first login.
+                {t('userCreation.sharePasswordHint')}
               </p>
             </div>
           </div>
         ) : (
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="full_name">Full Name *</Label>
+              <Label htmlFor="full_name">{t('userCreation.fields.fullName')}</Label>
               <Input
                 id="full_name"
                 value={newUser.full_name}
                 onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                placeholder="Enter full name"
+                placeholder={t('userCreation.fields.fullNamePlaceholder')}
                 maxLength={100}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">{t('userCreation.fields.email')}</Label>
               <Input
                 id="email"
                 type="email"
+                dir="ltr"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="Enter email address"
+                placeholder={t('userCreation.fields.emailPlaceholder')}
                 maxLength={255}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('userCreation.fields.phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
+                dir="ltr"
                 value={newUser.phone}
                 onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                placeholder="Enter phone number"
+                placeholder={t('userCreation.fields.phonePlaceholder')}
                 maxLength={20}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="role">Role *</Label>
+              <Label htmlFor="role">{t('userCreation.fields.role')}</Label>
               <Select onValueChange={(value) => setNewUser({ ...newUser, role: value })} value={newUser.role}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder={t('userCreation.fields.rolePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="reception">Reception</SelectItem>
-                  <SelectItem value="beautician">Beautician</SelectItem>
+                  <SelectItem value="staff">{t('common:roles.staff')}</SelectItem>
+                  <SelectItem value="reception">{t('common:roles.reception')}</SelectItem>
+                  <SelectItem value="beautician">{t('common:roles.beautician')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             {!tempPassword && (
-              <div className="flex items-center space-x-2 pt-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={generateSecurePassword}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 rtl:space-x-reverse"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  <span>Generate Secure Password</span>
+                  <span>{t('userCreation.generatePassword')}</span>
                 </Button>
                 {tempPassword && (
-                  <span className="text-xs text-green-600">✓ Secure password ready</span>
+                  <span className="text-xs text-green-600">{t('userCreation.passwordReady')}</span>
                 )}
               </div>
             )}
@@ -301,11 +328,11 @@ export const UserCreationDialog: React.FC<UserCreationDialogProps> = ({
         
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            {userCreated ? 'Close' : 'Cancel'}
+            {userCreated ? t('common:actions.close') : t('common:actions.cancel')}
           </Button>
           {!userCreated && (
             <Button onClick={handleAddUser} disabled={isCreating}>
-              {isCreating ? 'Creating...' : 'Create User'}
+              {isCreating ? t('userCreation.creating') : t('userCreation.createUser')}
             </Button>
           )}
         </DialogFooter>

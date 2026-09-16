@@ -6,6 +6,7 @@ import { Search, Grid, List } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import type { SortField, SortDir } from '@/hooks/useClientFilters';
+import { useTranslation } from 'react-i18next';
 
 type PurchaseFilter = 'all' | 'has_packages' | 'has_products' | 'has_both' | 'none';
 
@@ -53,6 +54,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
   sortDir,
   setSortDir,
 }) => {
+  const { t } = useTranslation('clients');
   const isMobile = useIsMobile();
   const isAdmin = useIsAdmin();
 
@@ -73,15 +75,34 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
           : 'px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm min-w-[180px]'
       }
     >
-      <option value="created_desc">Newest first</option>
-      <option value="created_asc">Oldest first</option>
-      <option value="visits_desc">Most visits</option>
-      <option value="visits_asc">Fewest visits</option>
-      <option value="revenue_desc">Highest revenue</option>
-      <option value="revenue_asc">Lowest revenue</option>
-      <option value="lastVisit_desc">Last visit (recent)</option>
-      <option value="lastVisit_asc">Last visit (oldest)</option>
+      <option value="created_desc">{t('filters.sort.createdDesc')}</option>
+      <option value="created_asc">{t('filters.sort.createdAsc')}</option>
+      <option value="visits_desc">{t('filters.sort.visitsDesc')}</option>
+      <option value="visits_asc">{t('filters.sort.visitsAsc')}</option>
+      <option value="revenue_desc">{t('filters.sort.revenueDesc')}</option>
+      <option value="revenue_asc">{t('filters.sort.revenueAsc')}</option>
+      <option value="lastVisit_desc">{t('filters.sort.lastVisitDesc')}</option>
+      <option value="lastVisit_asc">{t('filters.sort.lastVisitAsc')}</option>
     </select>
+  );
+
+  const statusOptions = (
+    <>
+      <option value="">{t('filters.allStatus')}</option>
+      <option value="Have Membership">{t('status.haveMembership')}</option>
+      <option value="Membership Ended">{t('status.membershipEnded')}</option>
+      <option value="Don't Have Membership">{t('status.noMembership')}</option>
+    </>
+  );
+
+  const purchaseOptions = (
+    <>
+      <option value="all">{t('filters.purchases.all')}</option>
+      <option value="has_packages">{t('filters.purchases.hasPackages')}</option>
+      <option value="has_products">{t('filters.purchases.hasProducts')}</option>
+      <option value="has_both">{t('filters.purchases.hasBoth')}</option>
+      <option value="none">{t('filters.purchases.none')}</option>
+    </>
   );
 
   return (
@@ -91,12 +112,12 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
         <>
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search clients..."
+              placeholder={t('filters.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11"
+              className="ps-10 h-11"
             />
           </div>
 
@@ -108,10 +129,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
               onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm"
             >
-              <option value="">All Status</option>
-              <option value="Have Membership">Have Membership</option>
-              <option value="Membership Ended">Membership Ended</option>
-              <option value="Don't Have Membership">Don't Have Membership</option>
+              {statusOptions}
             </select>
 
             {/* Purchase Filter — admin only */}
@@ -121,11 +139,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 onChange={(e) => setPurchaseFilter(e.target.value as PurchaseFilter)}
                 className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm"
               >
-                <option value="all">All Purchases</option>
-                <option value="has_packages">Bought packages</option>
-                <option value="has_products">Bought products</option>
-                <option value="has_both">Bought both</option>
-                <option value="none">No purchases</option>
+                {purchaseOptions}
               </select>
             )}
 
@@ -140,8 +154,8 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 onClick={() => setViewMode('table')}
                 className="flex-1 rounded-none border-0 h-11"
               >
-                <List className="h-4 w-4 mr-2" />
-                Table
+                <List className="h-4 w-4 me-2" />
+                {t('filters.tableView')}
               </Button>
               <Button
                 size="sm"
@@ -149,8 +163,8 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 onClick={() => setViewMode('grid')}
                 className="flex-1 rounded-none border-0 h-11"
               >
-                <Grid className="h-4 w-4 mr-2" />
-                Grid
+                <Grid className="h-4 w-4 me-2" />
+                {t('filters.gridView')}
               </Button>
             </div>
           </div>
@@ -160,12 +174,12 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search clients..."
+              placeholder={t('filters.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="ps-10"
             />
           </div>
 
@@ -177,10 +191,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
               onChange={(e) => setFilterStatus(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm min-w-[180px]"
             >
-              <option value="">All Status</option>
-              <option value="Have Membership">Have Membership</option>
-              <option value="Membership Ended">Membership Ended</option>
-              <option value="Don't Have Membership">Don't Have Membership</option>
+              {statusOptions}
             </select>
 
             {/* Purchase Filter — admin only */}
@@ -190,11 +201,7 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 onChange={(e) => setPurchaseFilter(e.target.value as PurchaseFilter)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-sm min-w-[180px]"
               >
-                <option value="all">All Purchases</option>
-                <option value="has_packages">Bought packages</option>
-                <option value="has_products">Bought products</option>
-                <option value="has_both">Bought both</option>
-                <option value="none">No purchases</option>
+                {purchaseOptions}
               </select>
             )}
 
@@ -208,6 +215,8 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 variant={viewMode === 'table' ? 'default' : 'ghost'}
                 onClick={() => setViewMode('table')}
                 className="rounded-none border-0 min-w-[44px]"
+                title={t('filters.tableView')}
+                aria-label={t('filters.tableView')}
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -216,6 +225,8 @@ export const ClientsFilters: React.FC<ClientsFiltersProps> = ({
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 onClick={() => setViewMode('grid')}
                 className="rounded-none border-0 min-w-[44px]"
+                title={t('filters.gridView')}
+                aria-label={t('filters.gridView')}
               >
                 <Grid className="h-4 w-4" />
               </Button>

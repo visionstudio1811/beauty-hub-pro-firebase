@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { CookieBanner } from '@/components/public-site/CookieBanner';
 import { ScrollToTopButton } from '@/components/public-site/ScrollToTopButton';
 import { SalonMarquee } from '@/components/public-site/SalonMarquee';
@@ -40,7 +42,6 @@ const PARENT = 'The Golden Circle Consulting';
 const PHONE = '+1 754-232-6590';
 const PHONE_TEL = '+17542326590';
 const WHATSAPP_NUMBER = '17542326590';
-const WHATSAPP_MESSAGE = "Hi! I'd like a quote for Beauty Hub Pro.";
 const EMAIL = 'thegoldencircle.skincare@gmail.com';
 
 // Shared button styles — gold-filled with fixed dark text (legible on both the
@@ -52,142 +53,61 @@ const OUTLINE_ON_DARK =
 // Gold eyebrow pill
 const GOLD_BADGE =
   'inline-block rounded-full border border-[rgb(var(--c-gold)/0.4)] bg-[rgb(var(--c-gold)/0.1)] px-3 py-1 text-xs font-semibold uppercase tracking-widest text-[rgb(var(--c-gold2))]';
+// Forward-pointing CTA arrow — flips in RTL and slides along the reading direction on hover.
+const CTA_ARROW =
+  'ms-2 h-5 w-5 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform';
 
-const features = [
-  {
-    icon: Calendar,
-    title: 'Advanced Scheduling',
-    description: 'Per-staff availability, service durations, conflict prevention, custom-time overrides for walk-ins and VIPs, and weekly + dated overrides.',
-  },
-  {
-    icon: Smartphone,
-    title: 'White-Label Client Portal',
-    description: 'A branded PWA at crm.your-domain.com where clients sign in, book against their package, track sessions, and view their history.',
-  },
-  {
-    icon: LinkIcon,
-    title: 'Public Scheduler Links',
-    description: 'Share a single booking link per treatment, staff member, or campaign. No login, no app. Clients pick a slot and you get the booking.',
-  },
-  {
-    icon: FileSignature,
-    title: 'Digital Waivers & Agreements',
-    description: 'Send waivers and intake forms by SMS or email. Clients sign on their phone with optional OTP verification, photo uploads, and auto-backup to your Drive.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Packages & Memberships',
-    description: 'Multi-treatment packages with per-treatment session counters, expiry tracking, automatic membership status, and bundled retail.',
-  },
-  {
-    icon: Send,
-    title: 'Marketing Automation',
-    description: 'Triggered emails for welcomes, birthdays, inactive clients, package renewals, appointment confirmations, and reminders, all in your brand voice.',
-  },
-  {
-    icon: Receipt,
-    title: 'Invoicing & Sales',
-    description: 'Sequential, audit-grade invoices with frozen snapshots, PDF generation, drafts, and one-tap void. Every transaction reconciles to the cent.',
-  },
-  {
-    icon: Palette,
-    title: 'Brand Email Designer',
-    description: 'Design the wrapper that every transactional email lives inside. Brand colors, logo, header image. Apply once, ship everywhere.',
-  },
-  {
-    icon: Shield,
-    title: 'Secure & Compliant',
-    description: 'Role-based access, encrypted storage, audit logs, OTP-gated waiver signing, and per-tenant data isolation enforced in Firestore rules.',
-  },
-];
+// Copy for each entry lives in publicSite.json under home.features.items.<key>
+const FEATURES = [
+  { icon: Calendar, key: 'scheduling' },
+  { icon: Smartphone, key: 'portal' },
+  { icon: LinkIcon, key: 'schedulerLinks' },
+  { icon: FileSignature, key: 'waivers' },
+  { icon: Sparkles, key: 'packages' },
+  { icon: Send, key: 'marketing' },
+  { icon: Receipt, key: 'invoicing' },
+  { icon: Palette, key: 'emailDesigner' },
+  { icon: Shield, key: 'security' },
+] as const;
 
-const includedFeatures = [
-  // Booking & scheduling
-  'Unlimited appointments and clients',
-  'Per-staff availability, custom-time overrides, conflict prevention',
-  'Public scheduler links (per treatment, per staff, per campaign)',
-  'Acuity Scheduling sync (webhook + manual)',
-  // Client experience
-  'White-label client portal on your own domain',
-  'Installable PWA for clients with Google or phone OTP sign-in',
-  'Multi-treatment packages with per-treatment session counters',
-  'Memberships, loyalty, and 3-state membership tracking',
-  // Forms & compliance
-  'Digital waivers, intakes, and agreements',
-  'OTP-verified SMS waiver signing + photo uploads',
-  'Google Drive auto-backup of every signed form and invoice',
-  // Marketing
-  'SMS + email reminders (Twilio or Infobip)',
-  'Marketing automations: welcome, birthday, win-back, renewals',
-  'Brand email designer with reusable wrapper templates',
-  'Audience builder and campaign analytics',
-  // Money & ops
-  'Sequential, audit-grade invoicing with PDF + drafts',
-  'Revenue, retention, and staff-performance analytics',
-  'Multi-location management with shared client records',
-  // Foundation
-  'Role-based access, audit logs, per-tenant data isolation',
-  'A dedicated Golden Circle consultant, not a chatbot',
-];
+// Copy for each entry lives in publicSite.json under home.how.steps.<key>
+const HOW_IT_WORKS = [
+  { icon: Handshake, step: '01', key: 'tell' },
+  { icon: MessageSquare, step: '02', key: 'call' },
+  { icon: Rocket, step: '03', key: 'live' },
+] as const;
 
-const howItWorks = [
-  {
-    icon: Handshake,
-    step: '01',
-    title: 'Tell us about your business',
-    description: 'Fill in a short quote form. We ask about your size, current software, and what you wish worked better.',
-  },
-  {
-    icon: MessageSquare,
-    step: '02',
-    title: 'Onboarding call',
-    description: 'A Golden Circle consultant scopes your setup, migrates your data from Square, Vagaro, or Acuity, and trains your team.',
-  },
-  {
-    icon: Rocket,
-    step: '03',
-    title: 'Go live with confidence',
-    description: 'Your bookings open, your staff is trained, and your consultant stays in your corner. We answer the phone, not a chatbot.',
-  },
-];
+// Copy for each entry lives in publicSite.json under home.faq.items.<key>
+const FAQ_KEYS = [
+  'contract',
+  'onboarding',
+  'migration',
+  'sms',
+  'support',
+  'portal',
+  'marketing',
+  'cancel',
+] as const;
 
-const faqs = [
-  {
-    q: 'Is there a contract or long-term commitment?',
-    a: 'No long-term contract. Plans are month-to-month. We earn your business every month. If we stop being useful, you stop paying.',
-  },
-  {
-    q: 'How long does onboarding take?',
-    a: 'Most salons are fully live within 2 to 3 weeks. That includes data migration, staff training, and a go-live call. Multi-location setups may take 4 to 6 weeks depending on scope.',
-  },
-  {
-    q: 'Can you migrate my data from another platform?',
-    a: 'Yes. We regularly migrate clients, appointments, waivers, and package balances from Square, Vagaro, MindBody, Acuity, and bespoke spreadsheets. Migration is included in onboarding.',
-  },
-  {
-    q: 'Are SMS reminders included?',
-    a: 'Yes. SMS reminders, OTP-verified waivers, and marketing campaigns are part of the plan. You connect your own Twilio or Infobip account so you pay wholesale carrier rates with no markup from us.',
-  },
-  {
-    q: 'What kind of support do I get?',
-    a: 'Every customer gets human onboarding, data migration, and ongoing email support. Multi-location groups get a dedicated Golden Circle consultant on call. Real humans, not a ticket queue.',
-  },
-  {
-    q: 'Can my clients book and manage appointments themselves?',
-    a: 'Yes. Every customer gets a white-label client portal, an installable PWA that lives at your own crm.your-domain.com. Clients sign in with Google or a phone OTP, view their packages, see history, and request bookings against their remaining sessions. You approve or reschedule from the CRM.',
-  },
-  {
-    q: 'Do marketing emails go out automatically?',
-    a: 'Yes. Marketing automations cover welcomes, birthdays, inactive-client win-backs, package-renewal nudges, appointment confirmations, and reminders. Every email runs through your own branded wrapper that you design once in the email designer.',
-  },
-  {
-    q: 'How do I cancel?',
-    a: 'Email or call us any time. You can export your client, appointment, and package data before you go. We do not hold your data hostage.',
-  },
-];
+// Copy for each entry lives in publicSite.json under home.hero.cards.<key>
+const HERO_CARDS = [
+  { icon: Calendar, key: 'booking' },
+  { icon: Users, key: 'clients' },
+  { icon: BarChart3, key: 'analytics' },
+] as const;
 
 export const PublicHome: React.FC = () => {
   useScrollReveal();
+  const { t } = useTranslation('publicSite');
+
+  /** Read a JSON string array from the namespace (returns [] if the key is missing). */
+  const list = (key: string): string[] => {
+    const value = t(key, { returnObjects: true }) as unknown;
+    return Array.isArray(value) ? (value as string[]) : [];
+  };
+
+  const brandVars = { brand: BRAND, parent: PARENT };
+  const whatsappMessage = t('home.whatsapp.message');
 
   return (
     <div className="gc-site min-h-screen bg-cream text-ink">
@@ -198,18 +118,23 @@ export const PublicHome: React.FC = () => {
             <div className="flex flex-col leading-tight">
               <Wordmark className="text-xl text-ink" />
               <span className="text-[10px] uppercase tracking-widest text-muted-ink">
-                by {PARENT}
+                {t('home.nav.byParent', { parent: PARENT })}
               </span>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-muted-ink hover:text-ink transition-colors">Features</a>
-              <a href="#how" className="text-muted-ink hover:text-ink transition-colors">How it works</a>
-              <a href="#pricing" className="text-muted-ink hover:text-ink transition-colors">Plans</a>
-              <a href="#faq" className="text-muted-ink hover:text-ink transition-colors">FAQ</a>
+            <div className="hidden md:flex items-center space-x-8 rtl:space-x-reverse">
+              <a href="#features" className="text-muted-ink hover:text-ink transition-colors">{t('home.nav.features')}</a>
+              <a href="#how" className="text-muted-ink hover:text-ink transition-colors">{t('home.nav.howItWorks')}</a>
+              <a href="#pricing" className="text-muted-ink hover:text-ink transition-colors">{t('home.nav.plans')}</a>
+              <a href="#faq" className="text-muted-ink hover:text-ink transition-colors">{t('home.nav.faq')}</a>
             </div>
-            <a href="#contact">
-              <Button className={GOLD_BTN}>Get a Quote</Button>
-            </a>
+            <div className="flex items-center gap-2">
+              {/* Full label on tablet/desktop, icon-only on phones so the CTA keeps room */}
+              <LanguageSwitcher variant="full" persist={false} className="hidden sm:inline-flex text-muted-ink hover:text-ink" />
+              <LanguageSwitcher variant="compact" persist={false} className="sm:hidden text-muted-ink hover:text-ink" />
+              <a href="#contact">
+                <Button className={GOLD_BTN}>{t('home.nav.getQuote')}</Button>
+              </a>
+            </div>
           </div>
         </div>
       </nav>
@@ -219,43 +144,38 @@ export const PublicHome: React.FC = () => {
         <div className="grid-bg absolute inset-0 opacity-40 pointer-events-none" aria-hidden="true" />
         <div className="max-w-6xl mx-auto relative z-10">
           <span className={`${GOLD_BADGE} mb-6 gc-reveal in-view`}>
-            Built by consultants who run salons
+            {t('home.hero.badge')}
           </span>
 
           <h1 className="font-display text-5xl md:text-7xl font-extrabold text-ink leading-[1.05] text-balance mt-6 mb-8 gc-reveal in-view">
-            The salon &amp; spa platform <em className="gold-ink">run by operators,</em> not a call center<span className="gold-ink">.</span>
+            {t('home.hero.titleLead')}<em className="gold-ink">{t('home.hero.titleEm')}</em>{t('home.hero.titleTail')}<span className="gold-ink">.</span>
           </h1>
 
           <p className="text-xl md:text-2xl text-muted-ink mb-12 max-w-3xl mx-auto leading-relaxed text-balance gc-reveal gc-reveal-d1 in-view">
-            {BRAND} is the software arm of {PARENT}. We built it after running our own studios,
-            so scheduling, clients, waivers, packages, and marketing finally feel like one tool instead of five.
+            {t('home.hero.subtitle', brandVars)}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 gc-reveal gc-reveal-d2 in-view">
             <a href="#contact">
               <Button size="lg" className={`text-lg px-8 py-6 group ${GOLD_BTN}`}>
-                Get a Quote
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                {t('home.hero.getQuote')}
+                <ArrowRight className={CTA_ARROW} />
               </Button>
             </a>
             <a href="#pricing">
               <Button size="lg" variant="outline" className={`text-lg px-8 py-6 ${OUTLINE_ON_DARK}`}>
-                See Plans
+                {t('home.hero.seePlans')}
               </Button>
             </a>
           </div>
 
           {/* Preview cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20">
-            {[
-              { icon: Calendar, title: 'Smart Booking', body: '24/7 online booking with automated confirmations and reminders.' },
-              { icon: Users, title: 'Client Management', body: 'Complete profiles with history, preferences, photos, and waivers.' },
-              { icon: BarChart3, title: 'Business Analytics', body: 'Track revenue, retention, and staff performance with real insights.' },
-            ].map((card, i) => (
-              <div key={i} className="lift rounded-xl border border-line bg-cream2 p-6 text-center">
+            {HERO_CARDS.map((card) => (
+              <div key={card.key} className="lift rounded-xl border border-line bg-cream2 p-6 text-center">
                 <card.icon className="h-12 w-12 text-[rgb(var(--c-gold))] mb-4 mx-auto" />
-                <h3 className="text-xl text-ink mb-2">{card.title}</h3>
-                <p className="text-muted-ink">{card.body}</p>
+                <h3 className="text-xl text-ink mb-2">{t(`home.hero.cards.${card.key}.title`)}</h3>
+                <p className="text-muted-ink">{t(`home.hero.cards.${card.key}.body`)}</p>
               </div>
             ))}
           </div>
@@ -270,22 +190,22 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 gc-reveal">
             <h2 className="text-4xl md:text-5xl text-ink mb-6">
-              Everything you need to <em className="gold-ink">run a modern spa</em><span className="gold-ink">.</span>
+              {t('home.features.titleLead')}<em className="gold-ink">{t('home.features.titleEm')}</em><span className="gold-ink">.</span>
             </h2>
             <p className="text-xl text-muted-ink max-w-3xl mx-auto">
-              From booking to billing to marketing, {BRAND} handles every side of the business so you can focus on the work.
+              {t('home.features.subtitle', brandVars)}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
+            {FEATURES.map((feature, index) => (
               <div
-                key={index}
+                key={feature.key}
                 className={`lift group rounded-xl border border-line bg-cream2 p-6 gc-reveal gc-reveal-d${(index % 3) + 1}`}
               >
                 <feature.icon className="h-12 w-12 text-[rgb(var(--c-gold))] mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl text-ink mb-3">{feature.title}</h3>
-                <p className="text-muted-ink leading-relaxed">{feature.description}</p>
+                <h3 className="text-xl text-ink mb-3">{t(`home.features.items.${feature.key}.title`)}</h3>
+                <p className="text-muted-ink leading-relaxed">{t(`home.features.items.${feature.key}.description`)}</p>
               </div>
             ))}
           </div>
@@ -298,19 +218,14 @@ export const PublicHome: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="gc-reveal">
               <h2 className="text-4xl md:text-5xl text-ink mb-6">
-                Transform your <em className="gold-ink">beauty business</em><span className="gold-ink">.</span>
+                {t('home.benefits.titleLead')}<em className="gold-ink">{t('home.benefits.titleEm')}</em><span className="gold-ink">.</span>
               </h2>
               <p className="text-xl text-muted-ink mb-8">
-                Join the salon and spa owners who've rebuilt their operations on {BRAND} and got their evenings back.
+                {t('home.benefits.subtitle', brandVars)}
               </p>
               <div className="space-y-4">
-                {[
-                  'Capture more bookings with 24/7 online scheduling',
-                  'Cut no-shows with automated SMS & email reminders',
-                  'Save hours every week on admin, waivers, and reporting',
-                  'Boost retention with memberships, packages, and follow-ups',
-                ].map((benefit, index) => (
-                  <div key={index} className="flex items-center space-x-3">
+                {list('home.benefits.items').map((benefit, index) => (
+                  <div key={index} className="flex items-center space-x-3 rtl:space-x-reverse">
                     <CheckCircle className="h-6 w-6 text-[rgb(var(--c-gold))] flex-shrink-0" />
                     <span className="text-lg text-ink">{benefit}</span>
                   </div>
@@ -318,7 +233,7 @@ export const PublicHome: React.FC = () => {
               </div>
               <a href="#contact" className="inline-block mt-8">
                 <Button size="lg" className={`text-lg px-8 py-6 ${GOLD_BTN}`}>
-                  Request a Quote
+                  {t('home.benefits.cta')}
                 </Button>
               </a>
             </div>
@@ -327,21 +242,17 @@ export const PublicHome: React.FC = () => {
               <div className="rounded-3xl p-8 border border-line bg-cream">
                 <div className="space-y-6">
                   <div className="rounded-xl p-4 border border-line bg-[rgb(var(--c-white))]">
-                    <div className="flex items-center space-x-3 mb-3">
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse mb-3">
                       <div className="w-10 h-10 bg-[rgb(var(--c-gold)/0.15)] rounded-full flex items-center justify-center">
                         <Calendar className="h-5 w-5 text-[rgb(var(--c-gold))]" />
                       </div>
                       <div>
-                        <p className="font-semibold text-ink">Today's Schedule</p>
-                        <p className="text-sm text-muted-ink">12 appointments · 2 from portal</p>
+                        <p className="font-semibold text-ink">{t('home.benefits.mock.todaysSchedule')}</p>
+                        <p className="text-sm text-muted-ink">{t('home.benefits.mock.appointmentsSummary')}</p>
                       </div>
                     </div>
                     <div className="space-y-2">
-                      {[
-                        'Signature Facial · Sarah M.',
-                        'Microneedling · Emma K. · pkg 4/8',
-                        'Hydrafacial · Lisa P. · membership',
-                      ].map((appt, i) => (
+                      {list('home.benefits.mock.appointments').map((appt, i) => (
                         <div key={i} className="text-sm text-ink bg-[rgb(var(--c-gold)/0.1)] rounded-lg p-2">{appt}</div>
                       ))}
                     </div>
@@ -349,29 +260,29 @@ export const PublicHome: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-xl p-4 border border-line bg-[rgb(var(--c-white))]">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-muted-ink uppercase tracking-wide">Revenue</p>
+                        <p className="text-xs font-semibold text-muted-ink uppercase tracking-wide">{t('home.benefits.mock.revenue')}</p>
                         <BarChart3 className="h-4 w-4 text-[rgb(var(--c-gold))]" />
                       </div>
-                      <p className="text-xl font-bold gold-ink">$24,560</p>
-                      <p className="text-xs text-muted-ink">↗ 18% MoM</p>
+                      <p className="text-xl font-bold gold-ink"><span className="ltr-inline">{t('home.benefits.mock.revenueValue')}</span></p>
+                      <p className="text-xs text-muted-ink">{t('home.benefits.mock.revenueDelta')}</p>
                     </div>
                     <div className="rounded-xl p-4 border border-line bg-[rgb(var(--c-white))]">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-muted-ink uppercase tracking-wide">Memberships</p>
+                        <p className="text-xs font-semibold text-muted-ink uppercase tracking-wide">{t('home.benefits.mock.memberships')}</p>
                         <Sparkles className="h-4 w-4 text-[rgb(var(--c-gold))]" />
                       </div>
-                      <p className="text-xl font-bold gold-ink">142</p>
-                      <p className="text-xs text-muted-ink">8 renewing this week</p>
+                      <p className="text-xl font-bold gold-ink">{t('home.benefits.mock.membershipsValue')}</p>
+                      <p className="text-xs text-muted-ink">{t('home.benefits.mock.membershipsNote')}</p>
                     </div>
                   </div>
                   <div className="rounded-xl p-4 border border-line bg-[rgb(var(--c-white))]">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse">
                       <div className="w-10 h-10 bg-[rgb(var(--c-gold)/0.15)] rounded-full flex items-center justify-center">
                         <FileSignature className="h-5 w-5 text-[rgb(var(--c-gold))]" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-sm text-ink">Waivers pending signature</p>
-                        <p className="text-xs text-muted-ink">3 sent today · 1 awaiting OTP</p>
+                        <p className="font-semibold text-sm text-ink">{t('home.benefits.mock.waiversPending')}</p>
+                        <p className="text-xs text-muted-ink">{t('home.benefits.mock.waiversNote')}</p>
                       </div>
                     </div>
                   </div>
@@ -386,7 +297,7 @@ export const PublicHome: React.FC = () => {
       <section className="py-20 px-4 bg-cream">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Phone mockup — left column on desktop */}
+            {/* Phone mockup — first column on desktop */}
             <div className="relative order-2 lg:order-1 gc-reveal">
               <div className="relative mx-auto" style={{ maxWidth: '320px' }}>
                 {/* Phone frame */}
@@ -400,67 +311,60 @@ export const PublicHome: React.FC = () => {
                     <div className="p-5 space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs text-muted-ink uppercase tracking-widest">Welcome back</p>
-                          <p className="font-semibold text-lg text-ink">Hi Emma</p>
+                          <p className="text-xs text-muted-ink uppercase tracking-widest">{t('home.portal.mock.welcomeBack')}</p>
+                          <p className="font-semibold text-lg text-ink">{t('home.portal.mock.greeting')}</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-[rgb(var(--c-gold)/0.15)] flex items-center justify-center">
                           <Users className="h-5 w-5 text-[rgb(var(--c-gold))]" />
                         </div>
                       </div>
                       <div className="rounded-lg p-4 border border-[rgb(var(--c-gold)/0.25)] bg-[rgb(var(--c-gold)/0.08)]">
-                        <p className="text-xs text-muted-ink uppercase tracking-wide mb-1">Active package</p>
-                        <p className="font-semibold text-sm text-ink">Microneedling × 8</p>
+                        <p className="text-xs text-muted-ink uppercase tracking-wide mb-1">{t('home.portal.mock.activePackage')}</p>
+                        <p className="font-semibold text-sm text-ink">{t('home.portal.mock.packageName')}</p>
                         <div className="mt-3 flex items-center justify-between">
-                          <p className="text-xs text-muted-ink">4 of 8 used</p>
-                          <p className="text-xs gold-ink font-semibold">Expires Aug 14</p>
+                          <p className="text-xs text-muted-ink">{t('home.portal.mock.used')}</p>
+                          <p className="text-xs gold-ink font-semibold">{t('home.portal.mock.expires')}</p>
                         </div>
                         <div className="mt-2 h-1.5 bg-[rgb(var(--c-line))] rounded-full overflow-hidden">
                           <div className="h-full bg-[rgb(var(--c-gold))]" style={{ width: '50%' }}></div>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-ink">Upcoming</p>
-                        <div className="bg-cream2 border border-line rounded-lg p-3 flex items-center space-x-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-ink">{t('home.portal.mock.upcoming')}</p>
+                        <div className="bg-cream2 border border-line rounded-lg p-3 flex items-center space-x-3 rtl:space-x-reverse">
                           <Calendar className="h-4 w-4 text-[rgb(var(--c-gold))] flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-ink">Microneedling</p>
-                            <p className="text-xs text-muted-ink">Thu Jun 13 · 2:30 PM</p>
+                            <p className="text-sm font-medium text-ink">{t('home.portal.mock.treatment')}</p>
+                            <p className="text-xs text-muted-ink">{t('home.portal.mock.when')}</p>
                           </div>
                         </div>
                       </div>
                       <Button className={`w-full ${GOLD_BTN}`} size="sm">
-                        Book a session
+                        {t('home.portal.mock.book')}
                       </Button>
                     </div>
                   </div>
                 </div>
                 {/* Floating brand chip */}
-                <div className="absolute -top-3 -right-3 bg-cream border border-line rounded-full px-3 py-1.5 shadow-md flex items-center space-x-1.5">
+                <div className="absolute -top-3 -end-3 bg-cream border border-line rounded-full px-3 py-1.5 shadow-md flex items-center space-x-1.5 rtl:space-x-reverse">
                   <Sparkles className="h-3.5 w-3.5 text-[rgb(var(--c-gold))]" />
-                  <span className="text-xs font-semibold text-ink">crm.your-brand.com</span>
+                  <span className="text-xs font-semibold text-ink ltr-inline">{t('home.portal.chip')}</span>
                 </div>
               </div>
             </div>
 
-            {/* Copy — right column on desktop */}
+            {/* Copy — second column on desktop */}
             <div className="order-1 lg:order-2 gc-reveal gc-reveal-d2">
-              <span className={`${GOLD_BADGE} mb-4`}>Client Portal</span>
+              <span className={`${GOLD_BADGE} mb-4`}>{t('home.portal.badge')}</span>
               <h2 className="text-4xl md:text-5xl text-ink mt-4 mb-6">
-                A booking app <em className="gold-ink">in your brand</em><span className="gold-ink">.</span>
+                {t('home.portal.titleLead')}<em className="gold-ink">{t('home.portal.titleEm')}</em><span className="gold-ink">.</span>
               </h2>
               <p className="text-xl text-muted-ink mb-8 leading-relaxed">
-                Every {BRAND} salon ships with an installable PWA at <span className="font-semibold text-ink">crm.your-domain.com</span>.
-                Clients sign in with Google or phone OTP and see their packages, history, and upcoming visits. They never see a Beauty Hub Pro logo.
+                {t('home.portal.descriptionLead', brandVars)}<span className="font-semibold text-ink ltr-inline">{t('home.portal.domain')}</span>{t('home.portal.descriptionTail')}
               </p>
               <div className="space-y-4 mb-8">
-                {[
-                  'Lives on your own domain, so clients only ever see your brand',
-                  'Installable as an app from any phone, no app store gatekeepers',
-                  'Sessions, expiry, and per-treatment counters auto-tracked',
-                  'Booking requests route through staff approval, not blind double-bookings',
-                  'OTP-verified waivers and agreements signed right on the device',
-                ].map((line, i) => (
-                  <div key={i} className="flex items-start space-x-3">
+                {list('home.portal.items').map((line, i) => (
+                  <div key={i} className="flex items-start space-x-3 rtl:space-x-reverse">
                     <CheckCircle className="h-6 w-6 text-[rgb(var(--c-gold))] flex-shrink-0 mt-0.5" />
                     <span className="text-lg text-ink leading-snug">{line}</span>
                   </div>
@@ -468,7 +372,7 @@ export const PublicHome: React.FC = () => {
               </div>
               <a href="#contact" className="inline-block">
                 <Button size="lg" className={`text-lg px-8 py-6 ${GOLD_BTN}`}>
-                  See it in your brand
+                  {t('home.portal.cta')}
                 </Button>
               </a>
             </div>
@@ -481,19 +385,19 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 gc-reveal">
             <h2 className="text-4xl md:text-5xl text-ink mb-6">
-              How it <em className="gold-ink">works</em><span className="gold-ink">.</span>
+              {t('home.how.titleLead')}<em className="gold-ink">{t('home.how.titleEm')}</em><span className="gold-ink">.</span>
             </h2>
             <p className="text-xl text-muted-ink max-w-3xl mx-auto">
-              {BRAND} is consulting-led, not self-serve. Here's what the first 30 days look like.
+              {t('home.how.subtitle', brandVars)}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {howItWorks.map((step, i) => (
-              <div key={i} className={`lift relative rounded-xl border border-line bg-cream p-8 gc-reveal gc-reveal-d${i + 1}`}>
+            {HOW_IT_WORKS.map((step, i) => (
+              <div key={step.key} className={`lift relative rounded-xl border border-line bg-cream p-8 gc-reveal gc-reveal-d${i + 1}`}>
                 <div className="font-display text-5xl font-extrabold gold-ink mb-2">{step.step}</div>
                 <step.icon className="h-10 w-10 text-[rgb(var(--c-gold))] mb-4" />
-                <h3 className="text-xl text-ink mb-3">{step.title}</h3>
-                <p className="text-muted-ink leading-relaxed">{step.description}</p>
+                <h3 className="text-xl text-ink mb-3">{t(`home.how.steps.${step.key}.title`)}</h3>
+                <p className="text-muted-ink leading-relaxed">{t(`home.how.steps.${step.key}.description`)}</p>
               </div>
             ))}
           </div>
@@ -509,11 +413,10 @@ export const PublicHome: React.FC = () => {
             ))}
           </div>
           <h2 className="text-3xl md:text-4xl text-ink mb-4">
-            Built by operators, <em className="gold-ink">delivered with consulting</em><span className="gold-ink">.</span>
+            {t('home.trusted.titleLead')}<em className="gold-ink">{t('home.trusted.titleEm')}</em><span className="gold-ink">.</span>
           </h2>
           <p className="text-lg text-muted-ink">
-            Salons across the {PARENT} network run their front desk, packages, waivers, and marketing
-            on {BRAND}, backed by people who have actually run a treatment room.
+            {t('home.trusted.subtitle', brandVars)}
           </p>
         </div>
       </section>
@@ -523,37 +426,36 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16 gc-reveal">
             <h2 className="text-4xl md:text-5xl text-ink mb-6">
-              One plan. <em className="gold-ink">Everything inside.</em>
+              {t('home.plan.titleLead')}<em className="gold-ink">{t('home.plan.titleEm')}</em>
             </h2>
             <p className="text-xl text-muted-ink max-w-3xl mx-auto">
-              No starter / pro / enterprise jenga. Every {BRAND} customer gets the whole platform.
-              You pay for the size of your business, not the features you're allowed to touch.
+              {t('home.plan.subtitle', brandVars)}
             </p>
           </div>
 
           <div className="relative rounded-2xl border border-[rgb(var(--c-gold)/0.4)] bg-cream2 shadow-gc-elevated p-8 md:p-12 max-w-4xl mx-auto gc-reveal gc-reveal-d1">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[rgb(var(--c-gold))] text-[#1b1814] px-4 py-1 text-xs font-semibold uppercase tracking-widest">
-              All-Inclusive
+            {/* Horizontally centered pill — left-1/2 + -translate-x-1/2 is symmetric, so it stays physical */}
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[rgb(var(--c-gold))] text-[#1b1814] px-4 py-1 text-xs font-semibold uppercase tracking-widest whitespace-nowrap">
+              {t('home.plan.badge')}
             </span>
 
             <div className="text-center mb-10">
-              <h3 className="text-3xl text-ink mb-3">The {BRAND} Plan</h3>
+              <h3 className="text-3xl text-ink mb-3">{t('home.plan.name', brandVars)}</h3>
               <p className="text-muted-ink max-w-2xl mx-auto mb-5">
-                Built for salons and spas of any size, from a single chair to a multi-location group.
-                Quote scales with your team, locations, and SMS volume.
+                {t('home.plan.description')}
               </p>
               <div className="flex items-baseline justify-center">
-                <span className="font-display text-3xl font-extrabold gold-ink">Custom quote</span>
+                <span className="font-display text-3xl font-extrabold gold-ink">{t('home.plan.price')}</span>
               </div>
             </div>
 
             <div className="border-t border-line pt-8 mb-10">
               <p className="text-center text-sm uppercase tracking-widest text-muted-ink mb-6">
-                What's included
+                {t('home.plan.included')}
               </p>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                {includedFeatures.map((feature, i) => (
-                  <li key={i} className="flex items-start space-x-3">
+                {list('home.plan.items').map((feature, i) => (
+                  <li key={i} className="flex items-start space-x-3 rtl:space-x-reverse">
                     <CheckCircle className="h-5 w-5 text-[rgb(var(--c-gold))] flex-shrink-0 mt-0.5" />
                     <span className="text-ink">{feature}</span>
                   </li>
@@ -563,15 +465,14 @@ export const PublicHome: React.FC = () => {
 
             <a href="#contact" className="block">
               <Button size="lg" className={`w-full text-lg py-6 group ${GOLD_BTN}`}>
-                Get your custom quote
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                {t('home.plan.cta')}
+                <ArrowRight className={CTA_ARROW} />
               </Button>
             </a>
           </div>
 
           <p className="text-center text-sm text-muted-ink mt-8 max-w-2xl mx-auto">
-            Month-to-month. No setup fee. Cancel any time. Quote scales with your team and locations.
-            Request a quote and a Golden Circle consultant will come back within one business day.
+            {t('home.plan.footnote')}
           </p>
         </div>
       </section>
@@ -581,32 +482,21 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="gc-reveal">
-              <span className={`${GOLD_BADGE} mb-4`}>About</span>
+              <span className={`${GOLD_BADGE} mb-4`}>{t('home.about.badge')}</span>
               <h2 className="text-4xl md:text-5xl text-ink mt-4 mb-6">
-                {PARENT}<span className="gold-ink">.</span>
+                <span className="ltr-inline">{PARENT}</span><span className="gold-ink">.</span>
               </h2>
               <p className="text-lg text-muted-ink leading-relaxed mb-4">
-                We're salon and spa operators first, software builders second. After two decades
-                advising skincare studios on how to grow, we kept running into the same problem:
-                the tools our clients used were built by companies that had never swept up a
-                treatment room.
+                {t('home.about.p1')}
               </p>
               <p className="text-lg text-muted-ink leading-relaxed mb-4">
-                So we built {BRAND}. Every subscription includes consulting hours with a real
-                Golden Circle advisor, because software alone doesn't grow a business. The
-                combination of the two does.
+                {t('home.about.p2', brandVars)}
               </p>
             </div>
             <div className="rounded-xl border border-line bg-cream p-8 gc-reveal gc-reveal-d2">
               <ul className="space-y-4">
-                {[
-                  'Over 20 years of salon & spa consulting',
-                  'Built by practitioners, not engineers',
-                  'Every plan includes human onboarding',
-                  'Consulting hours, not a chatbot',
-                  'Your data stays yours, export any time',
-                ].map((line, i) => (
-                  <li key={i} className="flex items-start space-x-3">
+                {list('home.about.items').map((line, i) => (
+                  <li key={i} className="flex items-start space-x-3 rtl:space-x-reverse">
                     <CheckCircle className="h-5 w-5 text-[rgb(var(--c-gold))] flex-shrink-0 mt-0.5" />
                     <span className="text-ink">{line}</span>
                   </li>
@@ -622,21 +512,21 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12 gc-reveal">
             <h2 className="text-4xl md:text-5xl text-ink mb-6">
-              Frequently asked <em className="gold-ink">questions</em><span className="gold-ink">.</span>
+              {t('home.faq.titleLead')}<em className="gold-ink">{t('home.faq.titleEm')}</em><span className="gold-ink">.</span>
             </h2>
             <p className="text-xl text-muted-ink">
-              Still have questions? Call us at{' '}
-              <a href={`tel:${PHONE_TEL}`} className="gold-ink hover:underline">{PHONE}</a>.
+              {t('home.faq.subtitleLead')}
+              <a href={`tel:${PHONE_TEL}`} className="gold-ink hover:underline ltr-inline">{PHONE}</a>.
             </p>
           </div>
           <Accordion type="single" collapsible className="space-y-3">
-            {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="rounded-lg border border-line bg-cream2 px-6">
-                <AccordionTrigger className="text-left text-lg font-semibold text-ink hover:no-underline">
-                  {faq.q}
+            {FAQ_KEYS.map((key, i) => (
+              <AccordionItem key={key} value={`faq-${i}`} className="rounded-lg border border-line bg-cream2 px-6">
+                <AccordionTrigger className="text-start text-lg font-semibold text-ink hover:no-underline">
+                  {t(`home.faq.items.${key}.q`)}
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-ink leading-relaxed">
-                  {faq.a}
+                  {t(`home.faq.items.${key}.a`)}
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -649,28 +539,27 @@ export const PublicHome: React.FC = () => {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="gc-reveal">
-              <span className={`${GOLD_BADGE} mb-4`}>Get started</span>
+              <span className={`${GOLD_BADGE} mb-4`}>{t('home.contact.badge')}</span>
               <h2 className="text-4xl md:text-5xl text-ink mt-4 mb-6">
-                Request your <em className="gold-ink">custom quote</em><span className="gold-ink">.</span>
+                {t('home.contact.titleLead')}<em className="gold-ink">{t('home.contact.titleEm')}</em><span className="gold-ink">.</span>
               </h2>
               <p className="text-lg text-muted-ink mb-8">
-                Tell us about your business. A Golden Circle consultant will reach out within one
-                business day with a plan recommendation and pricing tailored to your setup.
+                {t('home.contact.description')}
               </p>
               <div className="space-y-4">
                 <a
                   href={`tel:${PHONE_TEL}`}
-                  className="flex items-center space-x-3 text-ink hover:text-[rgb(var(--c-gold))] transition-colors"
+                  className="flex items-center space-x-3 rtl:space-x-reverse text-ink hover:text-[rgb(var(--c-gold))] transition-colors"
                 >
                   <Phone className="h-5 w-5 text-[rgb(var(--c-gold))]" />
-                  <span className="text-lg">{PHONE}</span>
+                  <span className="text-lg ltr-inline">{PHONE}</span>
                 </a>
                 <a
                   href={`mailto:${EMAIL}`}
-                  className="flex items-center space-x-3 text-ink hover:text-[rgb(var(--c-gold))] transition-colors break-all"
+                  className="flex items-center space-x-3 rtl:space-x-reverse text-ink hover:text-[rgb(var(--c-gold))] transition-colors break-all"
                 >
                   <Mail className="h-5 w-5 text-[rgb(var(--c-gold))] flex-shrink-0" />
-                  <span className="text-lg">{EMAIL}</span>
+                  <span className="text-lg ltr-inline">{EMAIL}</span>
                 </a>
               </div>
             </div>
@@ -689,66 +578,67 @@ export const PublicHome: React.FC = () => {
               <div className="flex flex-col leading-tight mb-4">
                 <Wordmark className="text-xl text-ink" />
                 <span className="text-[10px] uppercase tracking-widest text-muted-ink">
-                  by {PARENT}
+                  {t('home.footer.byParent', { parent: PARENT })}
                 </span>
               </div>
               <p className="text-muted-ink mb-4 max-w-md">
-                The salon and spa management platform from {PARENT}. Built by operators, delivered with consulting.
+                {t('home.footer.tagline', { parent: PARENT })}
               </p>
               <div className="space-y-2 text-sm text-muted-ink">
                 <p>
-                  <a href={`tel:${PHONE_TEL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">📞 {PHONE}</a>
+                  <a href={`tel:${PHONE_TEL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">📞 <span className="ltr-inline">{PHONE}</span></a>
                 </p>
                 <p>
-                  <a href={`mailto:${EMAIL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors break-all">📧 {EMAIL}</a>
+                  <a href={`mailto:${EMAIL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors break-all">📧 <span className="ltr-inline">{EMAIL}</span></a>
                 </p>
               </div>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">Product</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">{t('home.footer.product')}</h3>
               <ul className="space-y-2 text-sm text-muted-ink">
-                <li><a href="#features" className="hover:text-[rgb(var(--c-gold))] transition-colors">Features</a></li>
-                <li><a href="#how" className="hover:text-[rgb(var(--c-gold))] transition-colors">How it works</a></li>
-                <li><a href="#pricing" className="hover:text-[rgb(var(--c-gold))] transition-colors">Plans</a></li>
-                <li><a href="#faq" className="hover:text-[rgb(var(--c-gold))] transition-colors">FAQ</a></li>
+                <li><a href="#features" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.features')}</a></li>
+                <li><a href="#how" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.howItWorks')}</a></li>
+                <li><a href="#pricing" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.plans')}</a></li>
+                <li><a href="#faq" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.faq')}</a></li>
               </ul>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">Company</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">{t('home.footer.company')}</h3>
               <ul className="space-y-2 text-sm text-muted-ink">
-                <li><a href="#contact" className="hover:text-[rgb(var(--c-gold))] transition-colors">Get a Quote</a></li>
-                <li><a href={`mailto:${EMAIL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">Contact Us</a></li>
-                <li><a href={`tel:${PHONE_TEL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">Call Us</a></li>
+                <li><a href="#contact" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.getQuote')}</a></li>
+                <li><a href={`mailto:${EMAIL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.contactUs')}</a></li>
+                <li><a href={`tel:${PHONE_TEL}`} className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.callUs')}</a></li>
               </ul>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">Legal</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest gold-ink mb-4">{t('home.footer.legal')}</h3>
               <ul className="space-y-2 text-sm text-muted-ink">
-                <li><Link to="/privacy" className="hover:text-[rgb(var(--c-gold))] transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/terms" className="hover:text-[rgb(var(--c-gold))] transition-colors">Terms of Use</Link></li>
-                <li><Link to="/sms-terms" className="hover:text-[rgb(var(--c-gold))] transition-colors">SMS Terms</Link></li>
-                <li><Link to="/acceptable-use" className="hover:text-[rgb(var(--c-gold))] transition-colors">Acceptable Use</Link></li>
-                <li><Link to="/dpa" className="hover:text-[rgb(var(--c-gold))] transition-colors">Data Processing</Link></li>
+                <li><Link to="/privacy" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.privacy')}</Link></li>
+                <li><Link to="/terms" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.terms')}</Link></li>
+                <li><Link to="/sms-terms" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.smsTerms')}</Link></li>
+                <li><Link to="/acceptable-use" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.acceptableUse')}</Link></li>
+                <li><Link to="/dpa" className="hover:text-[rgb(var(--c-gold))] transition-colors">{t('home.footer.dpa')}</Link></li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-line mt-12 pt-8 text-center text-sm text-muted-ink">
-            <p>&copy; 2026 {PARENT}<span className="gold-ink">.</span> All rights reserved.</p>
+          <div className="border-t border-line mt-12 pt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center text-sm text-muted-ink">
+            <p>{t('home.footer.copyright', { parent: PARENT })}<span className="gold-ink">.</span> {t('home.footer.rights')}</p>
+            <LanguageSwitcher variant="full" persist={false} className="text-muted-ink hover:text-ink" />
           </div>
         </div>
       </footer>
 
-      {/* Floating WhatsApp button — circular, fixed bottom-right, opens wa.me with a pre-filled greeting */}
+      {/* Floating WhatsApp button — circular, fixed at the bottom inline-end corner, opens wa.me with a pre-filled greeting */}
       <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`}
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Chat with us on WhatsApp"
-        className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-[#25D366]/30 hover:bg-[#1ebe5a] hover:shadow-xl hover:shadow-[#25D366]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+        aria-label={t('home.whatsapp.aria')}
+        className="group fixed bottom-6 end-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-[#25D366]/30 hover:bg-[#1ebe5a] hover:shadow-xl hover:shadow-[#25D366]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
       >
         <svg
           viewBox="0 0 24 24"

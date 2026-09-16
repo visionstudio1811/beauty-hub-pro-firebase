@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { TreatmentItem, ProductItem } from '@/types/package';
+import i18n from '@/i18n';
 
 export interface Package {
   id: string;
@@ -99,7 +100,7 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
       );
     } catch (err) {
       console.error('Error fetching packages:', err);
-      setError('Failed to fetch packages');
+      setError(i18n.t('contexts:packages.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -140,8 +141,8 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addPackage = async (packageData: Omit<Package, 'id' | 'created_at'>) => {
     if (!currentOrganization?.id) {
-      toast({ title: 'Error', description: 'No organization selected.', variant: 'destructive' });
-      throw new Error('No organization selected');
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:packages.noOrganization'), variant: 'destructive' });
+      throw new Error(i18n.t('contexts:errors.noOrganization'));
     }
     try {
       const derived = deriveLegacyFields(packageData.treatment_items);
@@ -175,17 +176,17 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (!newPkg.is_custom) {
         setPackages(prev => [newPkg, ...prev]);
       }
-      toast({ title: 'Package Created', description: `${packageData.name} has been created successfully.` });
+      toast({ title: i18n.t('contexts:packages.createdTitle'), description: i18n.t('contexts:packages.createdDescription', { name: packageData.name }) });
       return newPkg;
     } catch (err) {
       console.error('Error adding package:', err);
-      toast({ title: 'Error', description: 'Failed to create package. Please try again.', variant: 'destructive' });
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:packages.createFailed'), variant: 'destructive' });
       throw err;
     }
   };
 
   const updatePackage = async (id: string, packageData: Partial<Package>) => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(i18n.t('contexts:errors.noOrganization'));
     try {
       const derived = deriveLegacyFields(packageData.treatment_items);
       const pkgRef = doc(db, 'organizations', currentOrganization.id, 'packages', id);
@@ -195,26 +196,26 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
         updated_at: serverTimestamp(),
       });
       setPackages(prev => prev.map(pkg => (pkg.id === id ? { ...pkg, ...packageData, ...derived } : pkg)));
-      toast({ title: 'Package Updated', description: 'Package has been updated successfully.' });
+      toast({ title: i18n.t('contexts:packages.updatedTitle'), description: i18n.t('contexts:packages.updatedDescription') });
     } catch (err) {
       console.error('Error updating package:', err);
-      toast({ title: 'Error', description: 'Failed to update package. Please try again.', variant: 'destructive' });
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:packages.updateFailed'), variant: 'destructive' });
       throw err;
     }
   };
 
   const deletePackage = async (id: string) => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(i18n.t('contexts:errors.noOrganization'));
     try {
       // Soft-delete: deactivate rather than hard-delete so existing client purchases
       // that reference this package keep their data intact.
       const pkgRef = doc(db, 'organizations', currentOrganization.id, 'packages', id);
       await updateDoc(pkgRef, { is_active: false, updated_at: serverTimestamp() });
       setPackages(prev => prev.map(pkg => (pkg.id === id ? { ...pkg, is_active: false } : pkg)));
-      toast({ title: 'Package Deactivated', description: 'Package has been deactivated successfully.' });
+      toast({ title: i18n.t('contexts:packages.deactivatedTitle'), description: i18n.t('contexts:packages.deactivatedDescription') });
     } catch (err) {
       console.error('Error deactivating package:', err);
-      toast({ title: 'Error', description: 'Failed to deactivate package. Please try again.', variant: 'destructive' });
+      toast({ title: i18n.t('common:status.error'), description: i18n.t('contexts:packages.deactivateFailed'), variant: 'destructive' });
       throw err;
     }
   };

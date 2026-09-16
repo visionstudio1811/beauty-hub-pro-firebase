@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,7 @@ interface ProductBrand {
 }
 
 export const ProductBrandManagement: React.FC = () => {
+  const { t } = useTranslation('products');
   const [brands, setBrands] = useState<ProductBrand[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<ProductBrand | null>(null);
@@ -82,7 +84,7 @@ export const ProductBrandManagement: React.FC = () => {
       }));
     } catch (error) {
       console.error('Error fetching brands:', error);
-      toast({ title: 'Error', description: 'Failed to load brands', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('brandManagement.toasts.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -118,12 +120,12 @@ export const ProductBrandManagement: React.FC = () => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      toast({ title: 'Validation Error', description: 'Please enter a brand name', variant: 'destructive' });
+      toast({ title: t('brandManagement.toasts.validationTitle'), description: t('brandManagement.toasts.enterName'), variant: 'destructive' });
       return;
     }
 
     if (!currentOrganization?.id) {
-      toast({ title: 'Error', description: 'No organization selected', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('brandManagement.toasts.noOrganization'), variant: 'destructive' });
       return;
     }
 
@@ -140,14 +142,14 @@ export const ProductBrandManagement: React.FC = () => {
 
       if (editingBrand) {
         await updateDoc(doc(db, 'organizations', currentOrganization.id, 'productBrands', editingBrand.id), brandData);
-        toast({ title: 'Success', description: 'Brand updated successfully' });
+        toast({ title: t('common:status.success'), description: t('brandManagement.toasts.updated') });
       } else {
         await addDoc(collection(db, 'organizations', currentOrganization.id, 'productBrands'), {
           ...brandData,
           created_at: now,
           created_at_ts: serverTimestamp(),
         });
-        toast({ title: 'Success', description: 'Brand created successfully' });
+        toast({ title: t('common:status.success'), description: t('brandManagement.toasts.created') });
       }
 
       setIsModalOpen(false);
@@ -155,21 +157,21 @@ export const ProductBrandManagement: React.FC = () => {
       fetchBrands();
     } catch (error) {
       console.error('Error saving brand:', error);
-      toast({ title: 'Error', description: 'Failed to save brand', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('brandManagement.toasts.saveFailed'), variant: 'destructive' });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this brand? Products using this brand will keep their value but it will no longer appear in the dropdown.')) return;
+    if (!confirm(t('brandManagement.confirmDelete'))) return;
     if (!currentOrganization?.id) return;
 
     try {
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'productBrands', id));
-      toast({ title: 'Success', description: 'Brand deleted successfully' });
+      toast({ title: t('common:status.success'), description: t('brandManagement.toasts.deleted') });
       fetchBrands();
     } catch (error) {
       console.error('Error deleting brand:', error);
-      toast({ title: 'Error', description: 'Failed to delete brand', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('brandManagement.toasts.deleteFailed'), variant: 'destructive' });
     }
   };
 
@@ -180,16 +182,21 @@ export const ProductBrandManagement: React.FC = () => {
         is_active: !brand.is_active,
         updated_at: new Date().toISOString(),
       });
-      toast({ title: 'Success', description: `Brand ${!brand.is_active ? 'activated' : 'deactivated'}` });
+      toast({
+        title: t('common:status.success'),
+        description: !brand.is_active
+          ? t('brandManagement.toasts.activated')
+          : t('brandManagement.toasts.deactivated'),
+      });
       fetchBrands();
     } catch (error) {
       console.error('Error updating brand status:', error);
-      toast({ title: 'Error', description: 'Failed to update brand status', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('brandManagement.toasts.statusFailed'), variant: 'destructive' });
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center p-8">Loading brands...</div>;
+    return <div className="flex items-center justify-center p-8">{t('brandManagement.loading')}</div>;
   }
 
   return (
@@ -198,11 +205,11 @@ export const ProductBrandManagement: React.FC = () => {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5 text-purple-600" />
-            Product Brands
+            {t('brandManagement.title')}
           </CardTitle>
           <Button onClick={handleAdd} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Brand
+            <Plus className="h-4 w-4 me-2" />
+            {t('brandManagement.addBrand')}
           </Button>
         </div>
       </CardHeader>
@@ -213,13 +220,13 @@ export const ProductBrandManagement: React.FC = () => {
               key={brand.id}
               className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
             >
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 rtl:space-x-reverse">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <span className="font-medium">{brand.name}</span>
                     <Badge variant={brand.is_active ? 'default' : 'secondary'}>
-                      {brand.is_active ? 'Active' : 'Inactive'}
+                      {brand.is_active ? t('common:labels.active') : t('common:labels.inactive')}
                     </Badge>
                   </div>
                   {brand.description && (
@@ -227,7 +234,7 @@ export const ProductBrandManagement: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <Switch
                   checked={brand.is_active}
                   onCheckedChange={() => toggleStatus(brand)}
@@ -245,11 +252,11 @@ export const ProductBrandManagement: React.FC = () => {
           {brands.length === 0 && (
             <div className="text-center py-8">
               <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No brands yet</h3>
-              <p className="text-muted-foreground mb-4">Add the brands you carry — they'll appear as a dropdown when editing products.</p>
+              <h3 className="text-lg font-medium mb-2">{t('brandManagement.emptyTitle')}</h3>
+              <p className="text-muted-foreground mb-4">{t('brandManagement.emptyDescription')}</p>
               <Button onClick={handleAdd}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Brand
+                <Plus className="h-4 w-4 me-2" />
+                {t('brandManagement.addBrand')}
               </Button>
             </div>
           )}
@@ -259,57 +266,57 @@ export const ProductBrandManagement: React.FC = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingBrand ? 'Edit Brand' : 'Add New Brand'}</DialogTitle>
+            <DialogTitle>{editingBrand ? t('brandManagement.editBrand') : t('brandManagement.addNewBrand')}</DialogTitle>
             <DialogDescription>
-              {editingBrand ? 'Update brand information' : 'Create a new product brand'}
+              {editingBrand ? t('brandManagement.updateDescription') : t('brandManagement.createDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Brand Name *</label>
+              <label className="text-sm font-medium">{t('brandManagement.fields.name')}</label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. Napara, Skinceuticals"
+                placeholder={t('brandManagement.fields.namePlaceholder')}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">{t('brandManagement.fields.description')}</label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Optional description"
+                placeholder={t('brandManagement.fields.descriptionPlaceholder')}
                 rows={3}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Sort Order</label>
+              <label className="text-sm font-medium">{t('brandManagement.fields.sortOrder')}</label>
               <Input
                 type="number"
                 value={formData.sort_order}
                 onChange={(e) => setFormData({ ...formData, sort_order: parseInt(e.target.value) || 0 })}
-                placeholder="0"
+                placeholder={t('brandManagement.fields.sortOrderPlaceholder')}
               />
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
-              <label className="text-sm font-medium">Active</label>
+              <label className="text-sm font-medium">{t('brandManagement.fields.active')}</label>
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type="submit">
-                {editingBrand ? 'Update Brand' : 'Add Brand'}
+                {editingBrand ? t('brandManagement.updateBrand') : t('brandManagement.addBrand')}
               </Button>
             </DialogFooter>
           </form>

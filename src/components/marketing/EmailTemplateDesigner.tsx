@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import i18n, { DEFAULT_LANGUAGE, type AppLanguage } from '@/i18n';
 import DOMPurify from 'dompurify';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +19,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Palette, Eye, Save, RotateCcw, Code, Mail, Image as ImageIcon, Upload, X, Loader2, Zap } from 'lucide-react';
-import { getDefaultTemplateHtml, ELEGANT_DEFAULT_SETTINGS, type TemplateType } from './emailTemplates';
+import { getDefaultTemplateHtml, getElegantDefaultSettings, type TemplateType } from './emailTemplates';
 
 interface EmailTemplate {
   name: string;
@@ -117,46 +120,35 @@ const DEFAULT_AUTOMATIONS: Record<AutomationKey, AutomationConfig> = {
   appointment_reminder: { is_active: false, hours_before: 24 },
 };
 
-const AUTOMATION_META: Record<AutomationKey, { title: string; description: string; trigger: string }> = {
-  welcome: {
-    title: 'Welcome / Thank You',
-    description: 'Sent automatically when a client purchases a package.',
-    trigger: 'On package purchase',
-  },
-  birthday: {
-    title: 'Birthday Greeting',
-    description: 'Sent on each client\'s birthday at 9am local time.',
-    trigger: 'Daily at 9am — matches client birthday',
-  },
-  inactive: {
-    title: 'Win-Back / Inactive Client',
-    description: 'Sent when a client hasn\'t visited for the configured number of days.',
-    trigger: 'Daily at 9am — based on last completed visit',
-  },
-  package_renewal: {
-    title: 'Package Renewal Reminder',
-    description: 'Sent before a client\'s active package expires.',
-    trigger: 'Daily — before expiry date',
-  },
-  appointment_reminder: {
-    title: 'Appointment Reminder',
-    description: 'Sent ahead of an upcoming appointment.',
-    trigger: 'Hourly — before appointment time',
-  },
-};
+// Display copy for each automation lives in the `marketing` namespace under
+// emailDesigner.automations.meta.<key>.{title,description,trigger}.
+const AUTOMATION_KEYS: AutomationKey[] = ['welcome', 'birthday', 'inactive', 'package_renewal', 'appointment_reminder'];
 
-const DEFAULT_SETTINGS: EmailTemplate['settings'] = {
-  ...ELEGANT_DEFAULT_SETTINGS,
-};
+// Stored template names are client-facing, so they are generated in the org
+// language (not the UI language) via a fixed-language translator.
+const templateTypeNameFor = (lang: AppLanguage, key: keyof typeof TEMPLATE_TYPES): string =>
+  i18n.getFixedT(lang, 'marketing')(`emailDesigner.templateTypes.${key}`, { defaultValue: TEMPLATE_TYPES[key].name });
 
-const DEFAULT_TEMPLATE: EmailTemplate = {
-  name: "General Template",
-  html: getDefaultTemplateHtml('general'),
+// The org language is only known inside the component, so the defaults are
+// built on demand rather than as module-level constants.
+const makeDefaultSettings = (lang: AppLanguage): EmailTemplate['settings'] => ({
+  ...getElegantDefaultSettings(lang),
+});
+
+const makeDefaultTemplate = (lang: AppLanguage): EmailTemplate => ({
+  name: templateTypeNameFor(lang, 'general'),
+  html: getDefaultTemplateHtml('general', lang),
   variables: [...TEMPLATE_TYPES.general.variables],
-  settings: DEFAULT_SETTINGS,
-};
+  settings: makeDefaultSettings(lang),
+});
 
 export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ onUpdate }) => {
+  const { t } = useTranslation('marketing');
+  const { locale } = useLanguage();
+  // Display name for a template type in the UI language (the stored `name`
+  // field is generated in the org language via templateTypeNameFor).
+  const templateTypeLabel = (key: keyof typeof TEMPLATE_TYPES) =>
+    t(`emailDesigner.templateTypes.${key}`, { defaultValue: TEMPLATE_TYPES[key].name });
   const [selectedTemplateType, setSelectedTemplateType] = useState<keyof typeof TEMPLATE_TYPES>('welcome');
   const [templates, setTemplates] = useState<Record<string, EmailTemplate>>({});
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
@@ -171,41 +163,67 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
   const [automations, setAutomations] = useState<Record<AutomationKey, AutomationConfig>>(DEFAULT_AUTOMATIONS);
   const [savingAutomations, setSavingAutomations] = useState(false);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
-  const [previewVariables, setPreviewVariables] = useState<Record<string, string>>({
-    subject: "A note from us",
-    message: "Thank you for being a part of our community. We're so happy to have you with us.",
-    organization_name: "Your Business",
-    client_name: "Jane",
-    organization_phone: "(555) 123-4567",
-    organization_address: "123 Main St, City, State",
-    organization_email: "hello@yourbusiness.com",
-    sender_name: "The Team",
-    date: new Date().toLocaleDateString(),
+  // Sample values shown in the preview. Built from the active language so the
+  // placeholders (and the sample date's locale) follow a language switch.
+  const buildSampleVariables = useCallback((): Record<string, string> => ({
+    subject: t('emailDesigner.sampleValues.subject'),
+    message: t('emailDesigner.sampleValues.message'),
+    organization_name: t('emailDesigner.sampleValues.organization_name'),
+    client_name: t('emailDesigner.sampleValues.client_name'),
+    organization_phone: t('emailDesigner.sampleValues.organization_phone'),
+    organization_address: t('emailDesigner.sampleValues.organization_address'),
+    organization_email: t('emailDesigner.sampleValues.organization_email'),
+    sender_name: t('emailDesigner.sampleValues.sender_name'),
+    date: new Date().toLocaleDateString(locale),
     cta_url: "",
-    birthday_date: "March 15",
-    special_offer: "20% off your next treatment",
-    discount_code: "BIRTHDAY20",
-    last_visit_date: "6 months ago",
-    months_inactive: "6",
-    comeback_offer: "15% off your next visit",
-    package_name: "Ultimate Spa Package",
-    expiry_date: "March 30",
-    sessions_remaining: "3",
-    renewal_discount: "10% off renewal",
-    appointment_date: "Tomorrow",
-    appointment_time: "2:00 PM",
-    service_name: "Deep Cleansing Facial",
-    staff_name: "Sarah",
-    location: "Room 3"
-  });
+    birthday_date: t('emailDesigner.sampleValues.birthday_date'),
+    special_offer: t('emailDesigner.sampleValues.special_offer'),
+    discount_code: t('emailDesigner.sampleValues.discount_code'),
+    last_visit_date: t('emailDesigner.sampleValues.last_visit_date'),
+    months_inactive: t('emailDesigner.sampleValues.months_inactive'),
+    comeback_offer: t('emailDesigner.sampleValues.comeback_offer'),
+    package_name: t('emailDesigner.sampleValues.package_name'),
+    expiry_date: t('emailDesigner.sampleValues.expiry_date'),
+    sessions_remaining: t('emailDesigner.sampleValues.sessions_remaining'),
+    renewal_discount: t('emailDesigner.sampleValues.renewal_discount'),
+    appointment_date: t('emailDesigner.sampleValues.appointment_date'),
+    appointment_time: t('emailDesigner.sampleValues.appointment_time'),
+    service_name: t('emailDesigner.sampleValues.service_name'),
+    staff_name: t('emailDesigner.sampleValues.staff_name'),
+    location: t('emailDesigner.sampleValues.location')
+  }), [t, locale]);
+  const [previewVariables, setPreviewVariables] = useState<Record<string, string>>(buildSampleVariables);
+  // Defaults the current state was seeded from; lets a language switch replace
+  // only the sample values the user has not edited.
+  const sampleDefaultsRef = useRef<Record<string, string> | null>(null);
+  useEffect(() => {
+    const next = buildSampleVariables();
+    const prev = sampleDefaultsRef.current;
+    sampleDefaultsRef.current = next;
+    if (!prev) return; // first mount: state was initialised from these same defaults
+    setPreviewVariables((current) => {
+      let changed = false;
+      const merged = { ...current };
+      for (const key of Object.keys(next)) {
+        if (current[key] === prev[key] && next[key] !== current[key]) {
+          merged[key] = next[key];
+          changed = true;
+        }
+      }
+      return changed ? merged : current;
+    });
+  }, [buildSampleVariables]);
 
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
+  // New/reset templates are generated in the org's language (emails go to clients).
+  const orgLang: AppLanguage = currentOrganization?.language ?? DEFAULT_LANGUAGE;
 
   const currentTemplate = templates[selectedTemplateType] || {
-    ...DEFAULT_TEMPLATE,
-    name: TEMPLATE_TYPES[selectedTemplateType].name,
-    html: getDefaultTemplateHtml(selectedTemplateType as TemplateType),
+    ...makeDefaultTemplate(orgLang),
+    name: templateTypeNameFor(orgLang, selectedTemplateType),
+    html: getDefaultTemplateHtml(selectedTemplateType as TemplateType, orgLang),
+    settings: getElegantDefaultSettings(orgLang),
     variables: [...TEMPLATE_TYPES[selectedTemplateType].variables],
   };
 
@@ -253,11 +271,11 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
   const handleHeaderUpload = async (file: File) => {
     if (!currentOrganization?.id) return;
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please choose an image (PNG, JPG, WEBP).', variant: 'destructive' });
+      toast({ title: t('emailDesigner.toasts.invalidFile'), description: t('emailDesigner.toasts.invalidFileDescription'), variant: 'destructive' });
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      toast({ title: 'File too large', description: 'Header image must be under 8MB.', variant: 'destructive' });
+      toast({ title: t('emailDesigner.toasts.fileTooLarge'), description: t('emailDesigner.toasts.fileTooLargeDescription'), variant: 'destructive' });
       return;
     }
     setUploadingHeader(true);
@@ -278,10 +296,10 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         contentType: file.type,
       });
       setHeaderImageUrl(res.data.url);
-      toast({ title: 'Header image saved', description: 'The new image will appear on all your email templates.' });
+      toast({ title: t('emailDesigner.toasts.headerSaved'), description: t('emailDesigner.toasts.headerSavedDescription') });
       onUpdate?.();
     } catch (error: any) {
-      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
+      toast({ title: t('emailDesigner.toasts.uploadFailed'), description: error.message, variant: 'destructive' });
     } finally {
       setUploadingHeader(false);
     }
@@ -296,9 +314,9 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         { merge: true }
       );
       setHeaderImageUrl(null);
-      toast({ title: 'Header image removed' });
+      toast({ title: t('emailDesigner.toasts.headerRemoved') });
     } catch (error: any) {
-      toast({ title: 'Failed to remove image', description: error.message, variant: 'destructive' });
+      toast({ title: t('emailDesigner.toasts.removeFailed'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -329,15 +347,15 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
       setTemplates(updatedTemplates);
 
       toast({
-        title: "Template saved",
-        description: `${TEMPLATE_TYPES[selectedTemplateType].name} has been updated successfully.`,
+        title: t('emailDesigner.toasts.templateSaved'),
+        description: t('emailDesigner.toasts.templateSavedDescription', { name: templateTypeLabel(selectedTemplateType) }),
       });
 
       onUpdate?.();
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error saving template",
+        title: t('emailDesigner.toasts.templateSaveError'),
         description: error.message,
       });
     } finally {
@@ -363,10 +381,10 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         },
         { merge: true }
       );
-      toast({ title: 'Automations saved', description: 'Your automation settings have been updated.' });
+      toast({ title: t('emailDesigner.toasts.automationsSaved'), description: t('emailDesigner.toasts.automationsSavedDescription') });
       onUpdate?.();
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error saving automations', description: error.message });
+      toast({ variant: 'destructive', title: t('emailDesigner.toasts.automationsSaveError'), description: error.message });
     } finally {
       setSavingAutomations(false);
     }
@@ -374,9 +392,9 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
 
   const resetTemplate = () => {
     const defaultTemplate = {
-      ...DEFAULT_TEMPLATE,
-      name: TEMPLATE_TYPES[selectedTemplateType].name,
-      html: getDefaultTemplateHtml(selectedTemplateType),
+      ...makeDefaultTemplate(orgLang),
+      name: templateTypeNameFor(orgLang, selectedTemplateType),
+      html: getDefaultTemplateHtml(selectedTemplateType, orgLang),
       variables: [...TEMPLATE_TYPES[selectedTemplateType].variables]
     };
     
@@ -443,26 +461,26 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
   };
 
   if (loading) {
-    return <div className="p-6">Loading templates...</div>;
+    return <div className="p-6">{t('emailDesigner.loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Email Template Designer</h3>
+          <h3 className="text-lg font-semibold">{t('emailDesigner.title')}</h3>
           <p className="text-sm text-muted-foreground">
-            Customize your email templates with your brand colors and styling
+            {t('emailDesigner.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetTemplate}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
+            <RotateCcw className="h-4 w-4 me-2" />
+            {t('common:actions.reset')}
           </Button>
           <Button onClick={saveTemplate} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Template'}
+            <Save className="h-4 w-4 me-2" />
+            {saving ? t('common:actions.saving') : t('emailDesigner.saveTemplate')}
           </Button>
         </div>
       </div>
@@ -474,31 +492,30 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
-                Email Automations
+                {t('emailDesigner.automations.title')}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Activate any of these to send your designed templates automatically. Saved separately from the template content.
+                {t('emailDesigner.automations.description')}
               </p>
             </div>
             <Button onClick={saveAutomations} disabled={savingAutomations} size="sm">
-              <Save className="h-4 w-4 mr-2" />
-              {savingAutomations ? 'Saving...' : 'Save Automations'}
+              <Save className="h-4 w-4 me-2" />
+              {savingAutomations ? t('common:actions.saving') : t('emailDesigner.automations.save')}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(Object.keys(AUTOMATION_META) as AutomationKey[]).map((key) => {
-            const meta = AUTOMATION_META[key];
+          {AUTOMATION_KEYS.map((key) => {
             const cfg = automations[key];
             return (
               <div key={key} className="rounded-lg border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{meta.title}</span>
-                    {cfg.is_active && <Badge variant="default">Active</Badge>}
+                    <span className="font-medium">{t(`emailDesigner.automations.meta.${key}.title`)}</span>
+                    {cfg.is_active && <Badge variant="default">{t('emailDesigner.automations.active')}</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">{meta.description}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Trigger: {meta.trigger}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t(`emailDesigner.automations.meta.${key}.description`)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('emailDesigner.automations.trigger', { trigger: t(`emailDesigner.automations.meta.${key}.trigger`) })}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {key === 'welcome' && cfg.is_active && (
@@ -509,12 +526,12 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                         onChange={(e) => updateAutomation(key, { vip_only: e.target.checked })}
                         className="h-4 w-4"
                       />
-                      VIP only
+                      {t('emailDesigner.automations.vipOnly')}
                     </label>
                   )}
                   {key === 'birthday' && cfg.is_active && (
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Days offset</Label>
+                      <Label className="text-xs whitespace-nowrap">{t('emailDesigner.automations.daysOffset')}</Label>
                       <Input
                         type="number"
                         value={cfg.days_offset ?? 0}
@@ -527,7 +544,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                   )}
                   {key === 'inactive' && cfg.is_active && (
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Days inactive</Label>
+                      <Label className="text-xs whitespace-nowrap">{t('emailDesigner.automations.daysInactive')}</Label>
                       <Input
                         type="number"
                         value={cfg.days_threshold ?? 90}
@@ -540,7 +557,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                   )}
                   {key === 'package_renewal' && cfg.is_active && (
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Days before expiry</Label>
+                      <Label className="text-xs whitespace-nowrap">{t('emailDesigner.automations.daysBeforeExpiry')}</Label>
                       <Input
                         type="number"
                         value={cfg.days_before_expiry ?? 7}
@@ -553,7 +570,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                   )}
                   {key === 'appointment_reminder' && cfg.is_active && (
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs whitespace-nowrap">Hours before</Label>
+                      <Label className="text-xs whitespace-nowrap">{t('emailDesigner.automations.hoursBefore')}</Label>
                       <Input
                         type="number"
                         value={cfg.hours_before ?? 24}
@@ -580,18 +597,18 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Template Type
+            {t('emailDesigner.templateType.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Select value={selectedTemplateType} onValueChange={(value: keyof typeof TEMPLATE_TYPES) => setSelectedTemplateType(value)}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select template type" />
+              <SelectValue placeholder={t('emailDesigner.templateType.placeholder')} />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(TEMPLATE_TYPES).map(([key, type]) => (
+              {(Object.keys(TEMPLATE_TYPES) as (keyof typeof TEMPLATE_TYPES)[]).map((key) => (
                 <SelectItem key={key} value={key}>
-                  {type.name}
+                  {templateTypeLabel(key)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -602,16 +619,16 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
       <Tabs defaultValue="visual" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="visual">
-            <Palette className="h-4 w-4 mr-2" />
-            Visual Editor
+            <Palette className="h-4 w-4 me-2" />
+            {t('emailDesigner.tabs.visual')}
           </TabsTrigger>
           <TabsTrigger value="code">
-            <Code className="h-4 w-4 mr-2" />
-            HTML Editor
+            <Code className="h-4 w-4 me-2" />
+            {t('emailDesigner.tabs.code')}
           </TabsTrigger>
           <TabsTrigger value="preview">
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
+            <Eye className="h-4 w-4 me-2" />
+            {t('emailDesigner.tabs.preview')}
           </TabsTrigger>
         </TabsList>
 
@@ -620,11 +637,10 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
-                Header Image
+                {t('emailDesigner.header.title')}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Shown at the top of every email. Recommended: 1200×400px, JPG or PNG, under 8MB.
-                Used across all template types — change once, update everywhere.
+                {t('emailDesigner.header.description')}
               </p>
             </CardHeader>
             <CardContent>
@@ -642,7 +658,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
               {headerImageUrl ? (
                 <div className="space-y-3">
                   <div className="rounded-lg overflow-hidden border bg-muted/30">
-                    <img src={headerImageUrl} alt="Email header" className="w-full max-h-48 object-cover" />
+                    <img src={headerImageUrl} alt={t('emailDesigner.header.alt')} className="w-full max-h-48 object-cover" />
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -651,8 +667,8 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                       disabled={uploadingHeader}
                       className="flex-1"
                     >
-                      {uploadingHeader ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                      Replace Image
+                      {uploadingHeader ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Upload className="h-4 w-4 me-2" />}
+                      {t('emailDesigner.header.replace')}
                     </Button>
                     <Button
                       variant="outline"
@@ -660,8 +676,8 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                       disabled={uploadingHeader}
                       className="flex-1 text-destructive hover:text-destructive"
                     >
-                      <X className="h-4 w-4 mr-2" />
-                      Remove
+                      <X className="h-4 w-4 me-2" />
+                      {t('common:actions.remove')}
                     </Button>
                   </div>
                 </div>
@@ -675,8 +691,8 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                   ) : (
                     <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   )}
-                  <p className="text-sm font-medium">{uploadingHeader ? 'Uploading…' : 'Click to upload header image'}</p>
-                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP up to 8MB</p>
+                  <p className="text-sm font-medium">{uploadingHeader ? t('emailDesigner.header.uploading') : t('emailDesigner.header.clickToUpload')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('emailDesigner.header.fileHint')}</p>
                 </div>
               )}
             </CardContent>
@@ -685,11 +701,11 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Brand Colors</CardTitle>
+                <CardTitle>{t('emailDesigner.colors.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="primary_color">Primary Color</Label>
+                  <Label htmlFor="primary_color">{t('emailDesigner.colors.primary')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="primary_color"
@@ -707,7 +723,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                 </div>
 
                 <div>
-                  <Label htmlFor="background_color">Background Color</Label>
+                  <Label htmlFor="background_color">{t('emailDesigner.colors.background')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="background_color"
@@ -725,7 +741,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                 </div>
 
                 <div>
-                  <Label htmlFor="text_color">Text Color</Label>
+                  <Label htmlFor="text_color">{t('emailDesigner.colors.text')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="text_color"
@@ -746,23 +762,23 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
 
             <Card>
               <CardHeader>
-                <CardTitle>Signature & Content</CardTitle>
+                <CardTitle>{t('emailDesigner.signature.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="signature">Email Signature</Label>
+                  <Label htmlFor="signature">{t('emailDesigner.signature.label')}</Label>
                   <Input
                     id="signature"
                     value={currentTemplate.settings.signature}
                     onChange={(e) => updateSettings('signature', e.target.value)}
-                    placeholder="Best regards"
+                    placeholder={t('emailDesigner.signature.placeholder')}
                   />
                 </div>
 
                 <Separator />
 
                 <div>
-                  <Label>Available Variables for {TEMPLATE_TYPES[selectedTemplateType].name}</Label>
+                  <Label>{t('emailDesigner.signature.availableVariables', { name: templateTypeLabel(selectedTemplateType) })}</Label>
                   <div className="flex flex-wrap gap-1 mt-2">
                     {currentTemplate.variables.map((variable) => (
                       <Badge key={variable} variant="secondary" className="text-xs">
@@ -779,9 +795,9 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
         <TabsContent value="code">
           <Card>
             <CardHeader>
-              <CardTitle>HTML Template Editor</CardTitle>
+              <CardTitle>{t('emailDesigner.code.title')}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Edit the raw HTML template. Use variables like {'{{variable_name}}'} for dynamic content.
+                {t('emailDesigner.code.description', { example: '{{variable_name}}' })}
               </p>
             </CardHeader>
             <CardContent>
@@ -789,7 +805,7 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
                 value={currentTemplate.html}
                 onChange={(e) => updateTemplate('html', e.target.value)}
                 className="min-h-[400px] font-mono text-sm"
-                placeholder="Enter your HTML template here..."
+                placeholder={t('emailDesigner.code.placeholder')}
               />
             </CardContent>
           </Card>
@@ -799,33 +815,37 @@ export const EmailTemplateDesigner: React.FC<EmailTemplateDesignerProps> = ({ on
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Preview Variables</CardTitle>
+                <CardTitle>{t('emailDesigner.preview.variablesTitle')}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  These are sample values for the preview only. Business name, phone, address,
-                  email, logo, and header image are pulled from your real settings.
+                  {t('emailDesigner.preview.variablesDescription')}
                 </p>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {currentTemplate.variables
                   .filter((v) => !AUTO_FILLED_VARS.has(v))
                   .slice(0, 6)
-                  .map((variable) => (
-                    <div key={variable}>
-                      <Label htmlFor={`preview_${variable}`}>{variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
-                      <Input
-                        id={`preview_${variable}`}
-                        value={previewVariables[variable] || ''}
-                        onChange={(e) => setPreviewVariables(prev => ({ ...prev, [variable]: e.target.value }))}
-                        placeholder={`Enter ${variable}`}
-                      />
-                    </div>
-                  ))}
+                  .map((variable) => {
+                    const variableLabel = t(`emailDesigner.variableLabels.${variable}`, {
+                      defaultValue: variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                    });
+                    return (
+                      <div key={variable}>
+                        <Label htmlFor={`preview_${variable}`}>{variableLabel}</Label>
+                        <Input
+                          id={`preview_${variable}`}
+                          value={previewVariables[variable] || ''}
+                          onChange={(e) => setPreviewVariables(prev => ({ ...prev, [variable]: e.target.value }))}
+                          placeholder={t('emailDesigner.preview.enterVariable', { variable: variableLabel })}
+                        />
+                      </div>
+                    );
+                  })}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Email Preview - {TEMPLATE_TYPES[selectedTemplateType].name}</CardTitle>
+                <CardTitle>{t('emailDesigner.preview.title', { name: templateTypeLabel(selectedTemplateType) })}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div 

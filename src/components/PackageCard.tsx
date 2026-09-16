@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Calendar, DollarSign } from 'lucide-react';
 import { Package, usePackages } from '@/contexts/PackageContext';
+import { useTranslation } from 'react-i18next';
 
 interface PackageCardProps {
   package: Package;
@@ -18,6 +19,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
   onDelete,
   onToggleStatus
 }) => {
+  const { t } = useTranslation('packages');
   const { getTreatmentNamesByIds } = usePackages();
   const [treatmentNames, setTreatmentNames] = useState<string[]>([]);
 
@@ -40,7 +42,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-sm break-words flex-1">{pkg.name}</h3>
               <Badge variant={pkg.is_active ? 'default' : 'secondary'} className="text-xs shrink-0">
-                {pkg.is_active ? 'Active' : 'Inactive'}
+                {pkg.is_active ? t('packageCard.active') : t('packageCard.inactive')}
               </Badge>
             </div>
             {pkg.description && (
@@ -50,20 +52,20 @@ export const PackageCard: React.FC<PackageCardProps> = ({
           
           <div className="space-y-1">
             <div className="flex items-center text-xs">
-              <DollarSign className="h-3 w-3 mr-1 text-green-600 flex-shrink-0" />
+              <DollarSign className="h-3 w-3 me-1 text-green-600 flex-shrink-0" />
               <span>${pkg.price}</span>
             </div>
             <div className="flex items-center text-xs">
-              <Calendar className="h-3 w-3 mr-1 text-blue-600 flex-shrink-0" />
-              <span>{pkg.total_sessions} sessions</span>
+              <Calendar className="h-3 w-3 me-1 text-blue-600 flex-shrink-0" />
+              <span>{t('packageCard.sessions', { count: pkg.total_sessions })}</span>
             </div>
             <div className="text-xs text-gray-500">
-              Valid for {pkg.validity_months} months
+              {t('packageCard.validFor', { count: pkg.validity_months })}
             </div>
           </div>
 
           <div>
-            <p className="text-xs text-gray-500 mb-1">Treatments:</p>
+            <p className="text-xs text-gray-500 mb-1">{t('packageCard.treatments')}</p>
             <div className="flex flex-wrap gap-1">
               {treatmentNames.map((treatmentName, index) => (
                 <Badge key={index} variant="outline" className="text-xs">
@@ -81,8 +83,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({
                 onClick={() => onEdit(pkg)}
                 className="flex-1 text-xs h-8"
               >
-                <Edit className="h-3 w-3 mr-1" />
-                Edit
+                <Edit className="h-3 w-3 me-1" />
+                {t('common:actions.edit')}
               </Button>
               <Button 
                 variant="outline" 
@@ -90,7 +92,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
                 onClick={() => onToggleStatus(pkg.id)}
                 className="flex-1 text-xs h-8"
               >
-                {pkg.is_active ? 'Deactivate' : 'Activate'}
+                {pkg.is_active ? t('packageCard.deactivate') : t('packageCard.activate')}
               </Button>
             </div>
             <Button 
@@ -99,8 +101,8 @@ export const PackageCard: React.FC<PackageCardProps> = ({
               onClick={() => onDelete(pkg)}
               className="text-red-600 hover:text-red-700 w-full text-xs h-8"
             >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Delete
+              <Trash2 className="h-3 w-3 me-1" />
+              {t('common:actions.delete')}
             </Button>
           </div>
         </div>

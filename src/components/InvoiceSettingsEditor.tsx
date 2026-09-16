@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -33,16 +34,7 @@ import { buildInvoicePdf } from '@/lib/invoicePdf';
 import { INVOICE_THEME_LIST } from '@/lib/invoiceThemes';
 import type { Invoice } from '@/types/firestore';
 
-const CURRENCIES = [
-  { value: 'USD', label: 'USD — US Dollar' },
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'GBP', label: 'GBP — British Pound' },
-  { value: 'CAD', label: 'CAD — Canadian Dollar' },
-  { value: 'AUD', label: 'AUD — Australian Dollar' },
-  { value: 'NZD', label: 'NZD — New Zealand Dollar' },
-  { value: 'ILS', label: 'ILS — Israeli Shekel' },
-  { value: 'AED', label: 'AED — UAE Dirham' },
-];
+const CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'ILS', 'AED'] as const;
 
 interface FormState {
   tax_id: string;
@@ -65,8 +57,13 @@ const DEFAULTS: FormState = {
 };
 
 export const InvoiceSettingsEditor: React.FC = () => {
+  const { t } = useTranslation('invoices');
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
+  const CURRENCIES = CURRENCY_CODES.map((value) => ({
+    value,
+    label: t(`settings.currencies.${value}`),
+  }));
   const [form, setForm] = useState<FormState>(DEFAULTS);
   const [initial, setInitial] = useState<FormState>(DEFAULTS);
   const [editing, setEditing] = useState(false);
@@ -156,16 +153,16 @@ export const InvoiceSettingsEditor: React.FC = () => {
     const rate = Number(form.tax_rate);
     if (Number.isNaN(rate) || rate < 0 || rate > 100) {
       toast({
-        title: 'Invalid tax rate',
-        description: 'Enter a number between 0 and 100.',
+        title: t('settings.toasts.invalidTaxRate'),
+        description: t('settings.toasts.invalidTaxRateDesc'),
         variant: 'destructive',
       });
       return;
     }
     if (!form.invoice_prefix.trim()) {
       toast({
-        title: 'Missing prefix',
-        description: 'Invoice prefix cannot be empty.',
+        title: t('settings.toasts.missingPrefix'),
+        description: t('settings.toasts.missingPrefixDesc'),
         variant: 'destructive',
       });
       return;
@@ -196,13 +193,13 @@ export const InvoiceSettingsEditor: React.FC = () => {
       setInitial(form);
       setEditing(false);
       toast({
-        title: 'Saved',
-        description: 'Invoice settings updated.',
+        title: t('settings.toasts.saved'),
+        description: t('settings.toasts.savedDesc'),
       });
     } catch (err: any) {
       toast({
-        title: 'Save failed',
-        description: err?.message ?? 'Unknown error',
+        title: t('settings.toasts.saveFailed'),
+        description: err?.message ?? t('settings.toasts.unknownError'),
         variant: 'destructive',
       });
     } finally {
@@ -232,13 +229,13 @@ export const InvoiceSettingsEditor: React.FC = () => {
         purchase_id: 'sample-purchase',
         client_id: 'sample-client',
         client_snapshot: {
-          name: 'Sample Client',
+          name: t('settings.sampleData.clientName'),
           email: 'sample@example.com',
           phone: '+1 (555) 000-0000',
-          address: '456 Client Ave, Customertown, NY 10002',
+          address: t('settings.sampleData.clientAddress'),
         },
         business_snapshot: {
-          name: businessName || currentOrganization?.name || 'Your Business',
+          name: businessName || currentOrganization?.name || t('settings.sampleData.businessName'),
           address: businessContact.address,
           phone: businessContact.phone,
           email: businessContact.email,
@@ -253,12 +250,12 @@ export const InvoiceSettingsEditor: React.FC = () => {
         line_items: [
           {
             type: 'package',
-            name: 'Sample Wellness Package',
-            description: '5-session package combining facials and massages.',
+            name: t('settings.sampleData.packageName'),
+            description: t('settings.sampleData.packageDescription'),
             package_id: null,
             treatments: [
-              { treatment_id: 'sample-t1', name: 'Signature Facial', quantity: 3, unit_price_cents: 10000 },
-              { treatment_id: 'sample-t2', name: 'Swedish Massage', quantity: 2, unit_price_cents: 15000 },
+              { treatment_id: 'sample-t1', name: t('settings.sampleData.treatment1'), quantity: 3, unit_price_cents: 10000 },
+              { treatment_id: 'sample-t2', name: t('settings.sampleData.treatment2'), quantity: 2, unit_price_cents: 15000 },
             ],
             quantity: 1,
             unit_price_cents: unit,
@@ -283,8 +280,8 @@ export const InvoiceSettingsEditor: React.FC = () => {
       setPreviewUrl(url);
     } catch (err: any) {
       toast({
-        title: 'Preview failed',
-        description: err?.message ?? 'Could not render preview.',
+        title: t('settings.toasts.previewFailed'),
+        description: err?.message ?? t('settings.toasts.previewFailedDesc'),
         variant: 'destructive',
       });
     } finally {
@@ -301,7 +298,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-sm text-gray-500">Loading invoice settings…</div>
+          <div className="text-sm text-gray-500">{t('settings.loading')}</div>
         </CardContent>
       </Card>
     );
@@ -315,9 +312,9 @@ export const InvoiceSettingsEditor: React.FC = () => {
     <Card className="w-full overflow-hidden">
       <CardHeader>
         <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-          <div className="flex items-center space-x-2 min-w-0">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
             <Receipt className="h-5 w-5 text-purple-600 flex-shrink-0" />
-            <CardTitle className="truncate">Invoice Settings</CardTitle>
+            <CardTitle className="truncate">{t('settings.title')}</CardTitle>
           </div>
           <div className="flex gap-2 self-start sm:self-center">
             <Button
@@ -326,8 +323,8 @@ export const InvoiceSettingsEditor: React.FC = () => {
               variant="outline"
               disabled={previewing}
             >
-              <Eye className="h-4 w-4 mr-2" />
-              {previewing ? 'Rendering…' : 'Preview PDF'}
+              <Eye className="h-4 w-4 me-2" />
+              {previewing ? t('settings.rendering') : t('settings.previewPdf')}
             </Button>
             {!editing && (
               <Button
@@ -335,31 +332,31 @@ export const InvoiceSettingsEditor: React.FC = () => {
                 size="sm"
                 variant="ghost"
               >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
+                <Pencil className="h-4 w-4 me-2" />
+                {t('common:actions.edit')}
               </Button>
             )}
           </div>
         </div>
         <CardDescription>
-          Branding and tax info that appear on every invoice PDF.
+          {t('settings.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="invoice-tax-id">Tax ID / VAT</Label>
+            <Label htmlFor="invoice-tax-id">{t('settings.fields.taxId')}</Label>
             <Input
               id="invoice-tax-id"
               value={form.tax_id}
               onChange={(e) => handleField('tax_id', e.target.value)}
               readOnly={!editing}
               className={!editing ? 'bg-gray-50 dark:bg-gray-800' : ''}
-              placeholder="optional"
+              placeholder={t('settings.fields.taxIdPlaceholder')}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="invoice-tax-rate">Tax rate (%)</Label>
+            <Label htmlFor="invoice-tax-rate">{t('settings.fields.taxRate')}</Label>
             <Input
               id="invoice-tax-rate"
               type="number"
@@ -376,7 +373,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="invoice-currency">Currency</Label>
+            <Label htmlFor="invoice-currency">{t('settings.fields.currency')}</Label>
             {editing ? (
               <Select
                 value={form.currency}
@@ -405,7 +402,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="invoice-prefix">Invoice number prefix</Label>
+            <Label htmlFor="invoice-prefix">{t('settings.fields.prefix')}</Label>
             <Input
               id="invoice-prefix"
               value={form.invoice_prefix}
@@ -418,22 +415,22 @@ export const InvoiceSettingsEditor: React.FC = () => {
         </div>
 
         <div className="grid gap-2">
-          <Label>Next invoice number (preview)</Label>
+          <Label>{t('settings.fields.nextNumber')}</Label>
           <Input
             value={nextInvoicePreview}
             readOnly
-            className="bg-gray-50 dark:bg-gray-800 font-mono"
+            dir="ltr"
+            className="bg-gray-50 dark:bg-gray-800 font-mono text-start"
           />
           <p className="text-xs text-muted-foreground">
-            Sequential per organization. Voided invoices never reuse numbers.
+            {t('settings.fields.nextNumberHelp')}
           </p>
         </div>
 
         <div className="grid gap-2">
-          <Label>Design template</Label>
+          <Label>{t('settings.fields.template')}</Label>
           <p className="text-xs text-muted-foreground">
-            Pick a look for your PDFs. Applied to every invoice issued after
-            saving — existing invoices keep the template they were issued with.
+            {t('settings.fields.templateHelp')}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {INVOICE_THEME_LIST.map((theme) => {
@@ -445,7 +442,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
                   disabled={!editing}
                   onClick={() => handleField('invoice_template', theme.id)}
                   className={[
-                    'text-left rounded-lg border-2 p-2 transition-colors',
+                    'text-start rounded-lg border-2 p-2 transition-colors',
                     active
                       ? 'border-purple-600 ring-2 ring-purple-200'
                       : 'border-border hover:border-purple-300',
@@ -457,19 +454,21 @@ export const InvoiceSettingsEditor: React.FC = () => {
                     style={{ backgroundColor: theme.swatch.bg }}
                   >
                     <div
-                      className="absolute inset-y-0 left-0 w-1"
+                      className="absolute inset-y-0 start-0 w-1"
                       style={{ backgroundColor: theme.swatch.accent }}
                     />
                     <span
                       className="text-[10px] font-semibold uppercase tracking-wider"
                       style={{ color: theme.swatch.ink }}
                     >
-                      Sample
+                      {t('settings.sample')}
                     </span>
                   </div>
-                  <div className="text-sm font-medium">{theme.label}</div>
+                  <div className="text-sm font-medium">
+                    {t(`themes.${theme.id}.label`, { defaultValue: theme.label })}
+                  </div>
                   <div className="text-[11px] text-muted-foreground leading-tight">
-                    {theme.tagline}
+                    {t(`themes.${theme.id}.tagline`, { defaultValue: theme.tagline })}
                   </div>
                 </button>
               );
@@ -478,7 +477,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="invoice-terms">Payment terms</Label>
+          <Label htmlFor="invoice-terms">{t('settings.fields.paymentTerms')}</Label>
           <Textarea
             id="invoice-terms"
             value={form.invoice_payment_terms}
@@ -486,12 +485,12 @@ export const InvoiceSettingsEditor: React.FC = () => {
             readOnly={!editing}
             className={!editing ? 'bg-gray-50 dark:bg-gray-800' : ''}
             rows={2}
-            placeholder="e.g. Net 30 — due within 30 days of issue"
+            placeholder={t('settings.fields.paymentTermsPlaceholder')}
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="invoice-notes">Footer notes</Label>
+          <Label htmlFor="invoice-notes">{t('settings.fields.footerNotes')}</Label>
           <Textarea
             id="invoice-notes"
             value={form.invoice_notes}
@@ -499,18 +498,18 @@ export const InvoiceSettingsEditor: React.FC = () => {
             readOnly={!editing}
             className={!editing ? 'bg-gray-50 dark:bg-gray-800' : ''}
             rows={2}
-            placeholder="e.g. Thank you for your business!"
+            placeholder={t('settings.fields.footerNotesPlaceholder')}
           />
         </div>
 
         {editing && (
-          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 pt-2">
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 sm:rtl:space-x-reverse pt-2">
             <Button
               onClick={handleSave}
               disabled={saving}
               className="w-full sm:flex-1"
             >
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? t('common:actions.saving') : t('settings.saveChanges')}
             </Button>
             <Button
               onClick={handleCancel}
@@ -518,7 +517,7 @@ export const InvoiceSettingsEditor: React.FC = () => {
               disabled={saving}
               className="w-full sm:flex-1"
             >
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
           </div>
         )}
@@ -529,18 +528,17 @@ export const InvoiceSettingsEditor: React.FC = () => {
           <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              Invoice preview
+              {t('settings.preview.title')}
             </DialogTitle>
             <DialogDescription>
-              Sample invoice rendered with your current settings and sample data.
-              Actual client invoices use real client + purchase info.
+              {t('settings.preview.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 bg-muted/30 border-t">
             {previewUrl && (
               <iframe
                 src={previewUrl}
-                title="Invoice preview"
+                title={t('settings.preview.iframeTitle')}
                 className="w-full h-full"
                 style={{ border: 'none' }}
               />

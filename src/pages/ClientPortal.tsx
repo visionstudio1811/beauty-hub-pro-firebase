@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import i18n, { isAppLanguage, localeFor } from '@/i18n';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -77,6 +81,9 @@ type PortalOrg = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  language?: string | null;
+  /** ISO currency code from the org's config/businessInfo (defaults to 'USD' server-side). */
+  currency?: string | null;
 };
 
 type PortalAccess = {
@@ -201,15 +208,33 @@ const emptyData: PortalData = {
 };
 
 function formatMoney(cents?: number, currency = 'USD') {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(localeFor(i18n.language), {
     style: 'currency',
     currency,
   }).format((cents ?? 0) / 100);
 }
 
+/** Whole-currency amounts (add-on / treatment prices are stored in dollars, not cents). */
+function formatPrice(amount: number, currency = 'USD') {
+  return new Intl.NumberFormat(localeFor(i18n.language), {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 function formatDate(value?: string) {
-  if (!value) return 'Not scheduled';
-  return new Date(`${value}T00:00:00`).toLocaleDateString();
+  if (!value) return i18n.t('portal:notScheduled');
+  return new Date(`${value}T00:00:00`).toLocaleDateString(localeFor(i18n.language));
+}
+
+// Firestore status values stay as-is; map only for display.
+const STATUS_KEY_OVERRIDES: Record<string, string> = { no_show: 'noShow', in_progress: 'inProgress' };
+function statusLabel(status?: string) {
+  if (!status) return '';
+  const key = STATUS_KEY_OVERRIDES[status] ?? status;
+  return i18n.t(`portal:status.${key}`, { defaultValue: status });
 }
 
 function statusVariant(status?: string) {
@@ -222,20 +247,71 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-/** Accepts E.164 or 10-digit US numbers (implies +1). */
-function normalizePhoneE164(input: string): string {
+/**
+ * Countries offered by the phone sign-in selector. Keep in sync with
+ * `toE164` in functions/src/clientPortal.ts — the server applies the same
+ * rules when matching the OTP-verified phone against client cards.
+ */
+type PhoneCountry = 'IL' | 'US' | 'CA' | 'GB';
+
+const PHONE_COUNTRIES: ReadonlyArray<{ code: PhoneCountry; dial: string; flag: string }> = [
+  { code: 'IL', dial: '972', flag: '🇮🇱' },
+  { code: 'US', dial: '1', flag: '🇺🇸' },
+  { code: 'CA', dial: '1', flag: '🇨🇦' },
+  { code: 'GB', dial: '44', flag: '🇬🇧' },
+];
+
+const E164_PATTERN = /^\+[1-9]\d{6,14}$/;
+
+function dialCodeFor(country: PhoneCountry): string {
+  return PHONE_COUNTRIES.find((c) => c.code === country)?.dial ?? '1';
+}
+
+/**
+ * Convert what the user typed into E.164 for the selected country.
+ *  - A leading '+' is honoured as-is (formatting stripped, no re-prefixing).
+ *  - IL: local 05X XXXXXXX / 0X XXXXXXX (9–10 digits, leading 0) -> +972 + digits without the 0.
+ *  - US/CA: 10 digits -> +1 + digits; 11 digits starting with 1 -> + digits.
+ *  - Digits already starting with the country's dial code -> + digits.
+ *  - Anything else -> + dial code + digits with any leading 0 stripped.
+ */
+function normalizePhoneE164(input: string, country: PhoneCountry): string {
   const trimmed = input.trim();
   if (trimmed.startsWith('+')) {
-    return trimmed.replace(/\s/g, '');
+    return `+${trimmed.slice(1).replace(/\D/g, '')}`;
   }
   const digits = trimmed.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return `+1${digits}`;
+  if (!digits) return trimmed;
+
+  if (country === 'IL' && (digits.length === 9 || digits.length === 10) && digits.startsWith('0')) {
+    return `+972${digits.slice(1)}`;
   }
-  if (digits.length === 11 && digits.startsWith('1')) {
+  if (country === 'US' || country === 'CA') {
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  }
+
+  const dial = dialCodeFor(country);
+  if (digits.startsWith(dial) && digits.length > dial.length + 6) {
     return `+${digits}`;
   }
-  return trimmed;
+  return `+${dial}${digits.replace(/^0+/, '')}`;
+}
+
+/** Recognise the country from a stored phone that already carries a '+' country code. */
+function detectPhoneCountry(phone: string | null | undefined): PhoneCountry | null {
+  const trimmed = phone?.trim();
+  if (!trimmed || !trimmed.startsWith('+')) return null;
+  const digits = trimmed.slice(1).replace(/\D/g, '');
+  if (digits.startsWith('972')) return 'IL';
+  if (digits.startsWith('44')) return 'GB';
+  if (digits.startsWith('1')) return 'US';
+  return null;
+}
+
+/** Org phone country code wins; otherwise Hebrew orgs default to Israel, everyone else to the US. */
+function defaultPhoneCountry(org: PortalOrg | null | undefined): PhoneCountry {
+  return detectPhoneCountry(org?.phone) ?? (org?.language === 'he' ? 'IL' : 'US');
 }
 
 function GoogleIcon() {
@@ -265,6 +341,8 @@ function ClientPortalSignInLayout({
   org,
   phone,
   setPhone,
+  phoneCountry,
+  setPhoneCountry,
   otp,
   setOtp,
   confirmation,
@@ -278,6 +356,8 @@ function ClientPortalSignInLayout({
   org: PortalOrg;
   phone: string;
   setPhone: (value: string) => void;
+  phoneCountry: PhoneCountry;
+  setPhoneCountry: (value: PhoneCountry) => void;
   otp: string;
   setOtp: (value: string) => void;
   confirmation: ConfirmationResult | null;
@@ -288,19 +368,19 @@ function ClientPortalSignInLayout({
   onSendOtp: () => void | Promise<void>;
   onVerifyOtp: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation('portal');
   const addressLine = org.address?.trim();
   const phoneDisplay = org.phone?.trim();
 
+  // Never assume +1 for the org's own phone: a stored '+…' number is used as-is
+  // (formatting stripped); a local number is normalised for the org's country.
   const contactHref = org.email?.trim()
     ? `mailto:${org.email.trim()}`
     : phoneDisplay
-      ? (() => {
-          const d = phoneDisplay.replace(/\D/g, '');
-          if (d.length === 10) return `tel:+1${d}`;
-          if (d.length === 11 && d.startsWith('1')) return `tel:+${d}`;
-          return `tel:${phoneDisplay.replace(/\s/g, '')}`;
-        })()
+      ? `tel:${normalizePhoneE164(phoneDisplay, defaultPhoneCountry(org))}`
       : null;
+
+  const selectedCountry = PHONE_COUNTRIES.find((c) => c.code === phoneCountry) ?? PHONE_COUNTRIES[1];
 
   const heroStyle = {
     backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.28) 40%, rgba(0,0,0,0.55) 100%), url(${LOGIN_HERO_URL})`,
@@ -316,13 +396,13 @@ function ClientPortalSignInLayout({
       >
         {/* Brand / hero */}
         <div
-          className="relative flex min-h-[42vh] flex-1 flex-col justify-between bg-neutral-900 bg-cover bg-center px-8 py-10 text-white lg:min-h-0 lg:w-1/2 lg:rounded-l-2xl lg:py-12"
+          className="relative flex min-h-[42vh] flex-1 flex-col justify-between bg-neutral-900 bg-cover bg-center px-8 py-10 text-white lg:min-h-0 lg:w-1/2 lg:rounded-s-2xl lg:py-12"
           style={heroStyle}
         >
-          <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-l-2xl" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-s-2xl" aria-hidden />
           <div className="relative z-10 flex flex-col gap-6">
             {org.logo_url ? (
-              <img src={org.logo_url} alt={org.name} className="h-14 w-auto max-w-[200px] object-contain object-left drop-shadow-lg" />
+              <img src={org.logo_url} alt={org.name} className="h-14 w-auto max-w-[200px] object-contain object-left rtl:object-right drop-shadow-lg" />
             ) : (
               <h1 className="font-display text-4xl font-semibold tracking-tight drop-shadow-md">{org.name}</h1>
             )}
@@ -332,10 +412,10 @@ function ClientPortalSignInLayout({
           </div>
 
           <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
-            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">Client portal</p>
-            <h2 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Welcome back</h2>
+            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">{t('signIn.eyebrow')}</p>
+            <h2 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{t('signIn.welcomeBack')}</h2>
             <p className="font-sans text-sm leading-relaxed text-white/85">
-              Sign in to your account to view your appointments, manage your bookings, and more.
+              {t('signIn.heroText')}
             </p>
           </div>
 
@@ -349,21 +429,24 @@ function ClientPortalSignInLayout({
             {phoneDisplay && (
               <div className="flex gap-3">
                 <Phone className="mt-0.5 h-4 w-4 shrink-0 text-white/70" aria-hidden />
-                <span>{phoneDisplay}</span>
+                <span className="ltr-inline">{phoneDisplay}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Form */}
-        <div className="relative flex flex-1 flex-col justify-center bg-[#f7f4f0] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-r-2xl lg:px-12 lg:py-14">
-          <LoginFloralCorner className="absolute right-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 sm:h-64 sm:w-64" />
+        <div className="relative flex flex-1 flex-col justify-center bg-[#f7f4f0] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-e-2xl lg:px-12 lg:py-14">
+          <LoginFloralCorner className="absolute end-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 rtl:-translate-x-4 sm:h-64 sm:w-64" />
 
           <div className="relative z-10 mx-auto w-full max-w-md space-y-8">
+            <div className="flex justify-end">
+              <LanguageSwitcher variant="full" persist={false} />
+            </div>
             <div className="space-y-2">
-              <h2 className="font-display text-3xl font-semibold text-foreground">Sign in</h2>
+              <h2 className="font-display text-3xl font-semibold text-foreground">{t('signIn.title')}</h2>
               <p className="font-sans text-sm text-muted-foreground">
-                Use the same Google account or phone number your spa has on file.
+                {t('signIn.subtitle')}
               </p>
             </div>
 
@@ -375,7 +458,7 @@ function ClientPortalSignInLayout({
                 onClick={() => void onGoogle()}
               >
                 <GoogleIcon />
-                Continue with Google
+                {t('signIn.continueWithGoogle')}
               </Button>
 
               <div className="relative py-1">
@@ -383,34 +466,57 @@ function ClientPortalSignInLayout({
                   <span className="w-full border-t border-border/70" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-[#f7f4f0] px-3 font-medium uppercase tracking-wide text-muted-foreground">or</span>
+                  <span className="bg-[#f7f4f0] px-3 font-medium uppercase tracking-wide text-muted-foreground">{t('signIn.or')}</span>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="client-phone" className="text-foreground">
-                    Phone number
+                    {t('signIn.phoneLabel')}
                   </Label>
-                  <div className="relative flex min-w-0">
-                    <div className="pointer-events-none absolute left-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 text-sm text-muted-foreground">
-                      <span aria-hidden>🇺🇸</span>
-                      <span className="font-medium tabular-nums">+1</span>
-                    </div>
+                  {/* Phone entry is always LTR (country prefix + digits), so this row is pinned to dir="ltr". */}
+                  <div className="flex min-w-0 gap-2" dir="ltr">
+                    <Select value={phoneCountry} onValueChange={(value) => setPhoneCountry(value as PhoneCountry)}>
+                      <SelectTrigger
+                        aria-label={t('signIn.countryLabel')}
+                        className="h-12 w-[6.75rem] shrink-0 gap-1 rounded-lg border-border/80 bg-white px-3 text-sm shadow-sm"
+                      >
+                        <SelectValue>
+                          <span className="flex items-center gap-1.5">
+                            <span aria-hidden>{selectedCountry.flag}</span>
+                            <span className="font-medium tabular-nums">+{selectedCountry.dial}</span>
+                          </span>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PHONE_COUNTRIES.map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            <span className="flex items-center gap-2">
+                              <span aria-hidden>{country.flag}</span>
+                              <span>{t(`signIn.countries.${country.code}`)}</span>
+                              <span className="ltr-inline tabular-nums text-muted-foreground">+{country.dial}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input
                       id="client-phone"
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
-                      placeholder="Enter your phone number"
-                      className="h-12 rounded-lg border-border/80 bg-white pl-[4.25rem] text-base shadow-sm"
+                      placeholder={t(`signIn.phoneExamples.${phoneCountry}`)}
+                      className="h-12 min-w-0 flex-1 rounded-lg border-border/80 bg-white text-base shadow-sm"
                       autoComplete="tel-national"
+                      inputMode="tel"
+                      dir="ltr"
                     />
                   </div>
                 </div>
 
                 <label className="flex cursor-pointer items-center gap-3 font-sans text-sm text-foreground">
                   <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} />
-                  Remember me on this device
+                  {t('signIn.rememberMe')}
                 </label>
 
                 <Button
@@ -421,17 +527,17 @@ function ClientPortalSignInLayout({
                 >
                   {sendingOtp ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending…
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                      {t('signIn.sending')}
                     </>
                   ) : (
-                    'Send verification code'
+                    t('signIn.sendCode')
                   )}
                 </Button>
 
                 {confirmation && (
                   <div className="space-y-2 pt-2">
-                    <Label htmlFor="client-otp">Verification code</Label>
+                    <Label htmlFor="client-otp">{t('signIn.codeLabel')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="client-otp"
@@ -446,7 +552,7 @@ function ClientPortalSignInLayout({
                         className="h-12 shrink-0 rounded-lg bg-foreground px-6 text-background hover:bg-foreground/90"
                         onClick={() => void onVerifyOtp()}
                       >
-                        Verify
+                        {t('signIn.verify')}
                       </Button>
                     </div>
                   </div>
@@ -459,7 +565,7 @@ function ClientPortalSignInLayout({
             {contactHref && (
               <p className="text-center font-sans text-sm text-muted-foreground">
                 <a href={contactHref} className="underline decoration-muted-foreground/50 underline-offset-4 hover:text-foreground">
-                  Having trouble signing in? Contact us
+                  {t('signIn.trouble')}
                 </a>
               </p>
             )}
@@ -472,8 +578,11 @@ function ClientPortalSignInLayout({
 
 export default function ClientPortal() {
   const { orgSlug = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation('portal');
+  const { setLanguage } = useLanguage();
   const [org, setOrg] = useState<PortalOrg | null>(null);
   const [access, setAccess] = useState<PortalAccess | null>(null);
   const [data, setData] = useState<PortalData>(emptyData);
@@ -482,6 +591,7 @@ export default function ClientPortal() {
   const [loadingData, setLoadingData] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [phone, setPhone] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<PhoneCountry>('US');
   const [otp, setOtp] = useState('');
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [sendingOtp, setSendingOtp] = useState(false);
@@ -516,7 +626,7 @@ export default function ClientPortal() {
         setOrg((result.data as { organization: PortalOrg }).organization);
       } catch (error) {
         console.error(error);
-        toast({ title: 'Portal not found', description: 'Check the spa link and try again.', variant: 'destructive' });
+        toast({ title: i18n.t('portal:toasts.portalNotFound'), description: i18n.t('portal:toasts.portalNotFoundText'), variant: 'destructive' });
       } finally {
         setLoadingOrg(false);
       }
@@ -524,6 +634,23 @@ export default function ClientPortal() {
 
     loadOrg();
   }, [orgSlug, toast]);
+
+  // Client-facing page, never persisted to users/{uid}. An explicit ?lang= on the
+  // link (e.g. a Hebrew org sending an English-speaking client a link) wins over
+  // the org default language; without it the org default applies. The on-page
+  // LanguageSwitcher still overrides both for the current visit.
+  const langParam = searchParams.get('lang');
+  const orgLanguage = org?.language ?? null;
+  useEffect(() => {
+    if (loadingOrg) return;
+    const candidate = isAppLanguage(langParam) ? langParam : isAppLanguage(orgLanguage) ? orgLanguage : null;
+    if (candidate) void setLanguage(candidate, { persist: false });
+  }, [loadingOrg, orgLanguage, langParam, setLanguage]);
+
+  // Phone sign-in defaults to the org's country (from its stored phone, else 'IL' for Hebrew orgs).
+  useEffect(() => {
+    if (org) setPhoneCountry(defaultPhoneCountry(org));
+  }, [org]);
 
   useEffect(() => {
     const link = async () => {
@@ -537,8 +664,8 @@ export default function ClientPortal() {
         console.error(error);
         setAccess(null);
         toast({
-          title: 'No matching client card',
-          description: getErrorMessage(error, 'Use the phone or email saved by the spa.'),
+          title: i18n.t('portal:toasts.noMatchTitle'),
+          description: getErrorMessage(error, i18n.t('portal:toasts.noMatchText')),
           variant: 'destructive',
         });
       } finally {
@@ -619,7 +746,7 @@ export default function ClientPortal() {
         });
       } catch (error) {
         console.error(error);
-        toast({ title: 'Could not load portal', description: 'Please refresh and try again.', variant: 'destructive' });
+        toast({ title: i18n.t('portal:toasts.loadFailedTitle'), description: i18n.t('portal:toasts.loadFailedText'), variant: 'destructive' });
       } finally {
         setLoadingData(false);
       }
@@ -652,7 +779,11 @@ export default function ClientPortal() {
 
   const handleSendOtp = async () => {
     if (!phone.trim()) return;
-    const e164 = normalizePhoneE164(phone);
+    const e164 = normalizePhoneE164(phone, phoneCountry);
+    if (!E164_PATTERN.test(e164)) {
+      toast({ title: t('toasts.invalidPhoneTitle'), description: t('toasts.invalidPhoneText'), variant: 'destructive' });
+      return;
+    }
     setSendingOtp(true);
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
@@ -661,10 +792,10 @@ export default function ClientPortal() {
       }
       const result = await signInWithPhoneNumber(auth, e164, recaptchaRef.current);
       setConfirmation(result);
-      toast({ title: 'Code sent', description: 'Enter the SMS code to continue.' });
+      toast({ title: t('toasts.codeSentTitle'), description: t('toasts.codeSentText') });
     } catch (error) {
       console.error(error);
-      toast({ title: 'Could not send code', description: 'Check the phone number format and try again.', variant: 'destructive' });
+      toast({ title: t('toasts.codeFailedTitle'), description: t('toasts.codeFailedText'), variant: 'destructive' });
     } finally {
       setSendingOtp(false);
     }
@@ -727,14 +858,14 @@ export default function ClientPortal() {
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!org?.id || !requestForm.purchaseId || !requestForm.treatmentId || !requestForm.date || !requestForm.time) {
-      toast({ title: 'Missing request details', description: 'Choose a package, treatment, date, and time.', variant: 'destructive' });
+      toast({ title: t('toasts.missingDetailsTitle'), description: t('toasts.missingDetailsText'), variant: 'destructive' });
       return;
     }
 
     if (requestForm.addonIds.length > 1) {
       toast({
-        title: 'Too many add-ons',
-        description: 'Package sessions are limited to one add-on. Remove the extras to continue.',
+        title: t('toasts.tooManyAddonsTitle'),
+        description: t('toasts.tooManyAddonsText'),
         variant: 'destructive',
       });
       return;
@@ -757,23 +888,23 @@ export default function ClientPortal() {
         addons: requestForm.addonIds.map((id) => ({ addon_id: id })),
       });
 
-      toast({ title: 'Request sent', description: 'The spa will confirm before it becomes an appointment.' });
+      toast({ title: t('toasts.requestSentTitle'), description: t('toasts.requestSentText') });
       setRequestForm({ purchaseId: '', treatmentId: '', date: '', time: '', altDate: '', altTime: '', notes: '', addonIds: [] });
       setRefreshKey((value) => value + 1);
     } catch (error) {
       console.error(error);
-      toast({ title: 'Request failed', description: getErrorMessage(error, 'Please try another slot.'), variant: 'destructive' });
+      toast({ title: t('toasts.requestFailedTitle'), description: getErrorMessage(error, t('toasts.requestFailedText')), variant: 'destructive' });
     } finally {
       setSubmittingRequest(false);
     }
   };
 
   if (loadingOrg) {
-    return <PortalShell org={org}><LoadingState label="Loading portal..." /></PortalShell>;
+    return <PortalShell org={org}><LoadingState label={t('loading.portal')} /></PortalShell>;
   }
 
   if (!org) {
-    return <PortalShell org={null}><EmptyState title="Portal not found" text="Use the link provided by your spa." /></PortalShell>;
+    return <PortalShell org={null}><EmptyState title={t('notFound.title')} text={t('notFound.text')} /></PortalShell>;
   }
 
   if (!user) {
@@ -782,6 +913,8 @@ export default function ClientPortal() {
         org={org}
         phone={phone}
         setPhone={setPhone}
+        phoneCountry={phoneCountry}
+        setPhoneCountry={setPhoneCountry}
         otp={otp}
         setOtp={setOtp}
         confirmation={confirmation}
@@ -796,18 +929,18 @@ export default function ClientPortal() {
   }
 
   if (linking || loadingData) {
-    return <PortalShell org={org}><LoadingState label="Opening your client portal..." /></PortalShell>;
+    return <PortalShell org={org}><LoadingState label={t('loading.opening')} /></PortalShell>;
   }
 
   if (!access) {
     return (
       <PortalShell org={org}>
         <EmptyState
-          title="No matching client card"
-          text="Sign in with the phone number or Google email saved on your client card."
+          title={t('noMatch.title')}
+          text={t('noMatch.text')}
         />
         <div className="mt-4 text-center">
-          <Button variant="outline" onClick={() => signOut(auth)}>Try another sign in</Button>
+          <Button variant="outline" onClick={() => signOut(auth)}>{t('noMatch.tryAnother')}</Button>
         </div>
       </PortalShell>
     );
@@ -817,24 +950,24 @@ export default function ClientPortal() {
     <PortalShell org={org}>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Welcome</p>
-          <h2 className="text-2xl font-semibold">{data.client?.name || 'Client'}</h2>
+          <p className="text-sm text-muted-foreground">{t('header.welcome')}</p>
+          <h2 className="text-2xl font-semibold">{data.client?.name || t('header.clientFallback')}</h2>
         </div>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              <LogOut className="me-2 h-4 w-4" />
+              {t('header.signOut')}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Log out?</AlertDialogTitle>
-              <AlertDialogDescription>Are you sure you want to log out?</AlertDialogDescription>
+              <AlertDialogTitle>{t('header.logoutTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('header.logoutDescription')}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => signOut(auth)}>Log out</AlertDialogAction>
+              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => signOut(auth)}>{t('header.logoutConfirm')}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -842,10 +975,10 @@ export default function ClientPortal() {
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Plan</TabsTrigger>
-          <TabsTrigger value="book">Book</TabsTrigger>
-          <TabsTrigger value="history">Visits</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="overview">{t('tabs.plan')}</TabsTrigger>
+          <TabsTrigger value="book">{t('tabs.book')}</TabsTrigger>
+          <TabsTrigger value="history">{t('tabs.visits')}</TabsTrigger>
+          <TabsTrigger value="billing">{t('tabs.billing')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -857,18 +990,18 @@ export default function ClientPortal() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
-                      {pkg?.name || 'Package'}
+                      {pkg?.name || t('plan.packageFallback')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground">{pkg?.description || 'Active package'}</p>
+                    <p className="text-sm text-muted-foreground">{pkg?.description || t('plan.activePackage')}</p>
                     <div className="flex items-center justify-between text-sm">
-                      <span>Sessions remaining</span>
+                      <span>{t('plan.sessionsRemaining')}</span>
                       <Badge>{purchase.sessions_remaining ?? 0}</Badge>
                     </div>
                     {purchase.expiry_date && (
                       <div className="flex items-center justify-between text-sm">
-                        <span>Expires</span>
+                        <span>{t('plan.expires')}</span>
                         <span>{formatDate(purchase.expiry_date)}</span>
                       </div>
                     )}
@@ -876,14 +1009,14 @@ export default function ClientPortal() {
                 </Card>
               );
             })}
-            {data.purchases.length === 0 && <EmptyState title="No active packages" text="Active spa packages will appear here." />}
+            {data.purchases.length === 0 && <EmptyState title={t('plan.emptyTitle')} text={t('plan.emptyText')} />}
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5" />
-                Products
+                {t('products.title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2">
@@ -891,12 +1024,12 @@ export default function ClientPortal() {
                 const product = assignment.product_id ? data.productCatalog[assignment.product_id] : null;
                 return (
                   <div key={assignment.id} className="rounded-md border p-3">
-                    <div className="font-medium">{product?.name || 'Product'}</div>
-                    <div className="text-sm text-muted-foreground">Quantity {assignment.quantity ?? 1}</div>
+                    <div className="font-medium">{product?.name || t('products.fallback')}</div>
+                    <div className="text-sm text-muted-foreground">{t('products.quantity', { count: assignment.quantity ?? 1 })}</div>
                   </div>
                 );
               })}
-              {data.products.length === 0 && <p className="text-sm text-muted-foreground">No assigned products yet.</p>}
+              {data.products.length === 0 && <p className="text-sm text-muted-foreground">{t('products.empty')}</p>}
             </CardContent>
           </Card>
         </TabsContent>
@@ -906,32 +1039,32 @@ export default function ClientPortal() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                Request a treatment
+                {t('book.title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateRequest} className="grid gap-4 md:grid-cols-2">
-                <Field label="Package">
+                <Field label={t('book.package')}>
                   <Select
                     value={requestForm.purchaseId}
                     onValueChange={(value) => setRequestForm((prev) => ({ ...prev, purchaseId: value, treatmentId: '' }))}
                   >
-                    <SelectTrigger><SelectValue placeholder="Choose package" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('book.choosePackage')} /></SelectTrigger>
                     <SelectContent>
                       {data.purchases.map((purchase) => (
                         <SelectItem key={purchase.id} value={purchase.id}>
-                          {purchase.package_id ? data.packages[purchase.package_id]?.name : 'Package'} ({purchase.sessions_remaining ?? 0} left)
+                          {purchase.package_id ? data.packages[purchase.package_id]?.name : t('plan.packageFallback')} {t('book.sessionsLeft', { count: purchase.sessions_remaining ?? 0 })}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Treatment">
+                <Field label={t('book.treatment')}>
                   <Select
                     value={requestForm.treatmentId}
                     onValueChange={(value) => setRequestForm((prev) => ({ ...prev, treatmentId: value }))}
                   >
-                    <SelectTrigger><SelectValue placeholder="Choose treatment" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('book.chooseTreatment')} /></SelectTrigger>
                     <SelectContent>
                       {availableTreatments.map((treatment) => (
                         <SelectItem key={treatment.id} value={treatment.id}>
@@ -944,8 +1077,8 @@ export default function ClientPortal() {
                 {Object.values(data.addons).length > 0 && (
                   <div className="md:col-span-2">
                     <div className="flex items-center justify-between mb-1">
-                      <Label>Add-ons (optional)</Label>
-                      <span className="text-xs text-muted-foreground">One add-on max with a package session</span>
+                      <Label>{t('book.addons')}</Label>
+                      <span className="text-xs text-muted-foreground">{t('book.addonsHint')}</span>
                     </div>
                     <div className="space-y-1 border rounded-md p-2 max-h-44 overflow-y-auto">
                       {Object.values(data.addons).map((addon) => {
@@ -975,9 +1108,9 @@ export default function ClientPortal() {
                               <span className="truncate">{addon.name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
-                              <span>+${addon.price}</span>
+                              <span className="ltr-inline">+{formatPrice(addon.price, org.currency || 'USD')}</span>
                               {addon.duration_minutes && addon.duration_minutes > 0 && (
-                                <span>· +{addon.duration_minutes}m</span>
+                                <span>· {t('book.addonDuration', { minutes: addon.duration_minutes })}</span>
                               )}
                             </div>
                           </label>
@@ -988,9 +1121,9 @@ export default function ClientPortal() {
                 )}
                 {/* Preferred slot — date strip + time grid (replaces HTML date/time inputs) */}
                 <div className="md:col-span-2 space-y-3">
-                  <Label className="text-sm">Pick a date</Label>
+                  <Label className="text-sm">{t('book.pickDate')}</Label>
                   {!requestForm.treatmentId ? (
-                    <p className="text-sm text-muted-foreground">Choose a treatment first to see available times.</p>
+                    <p className="text-sm text-muted-foreground">{t('book.chooseTreatmentFirst')}</p>
                   ) : (
                     <DateStrip
                       dates={dateWindow}
@@ -1002,7 +1135,7 @@ export default function ClientPortal() {
                   )}
                   {requestForm.date && (
                     <>
-                      <Label className="text-sm">Pick a time</Label>
+                      <Label className="text-sm">{t('book.pickTime')}</Label>
                       <TimeGrid
                         slots={slotsByDate[requestForm.date] ?? []}
                         selectedTime={requestForm.time || null}
@@ -1023,9 +1156,9 @@ export default function ClientPortal() {
                           setRequestForm((prev) => ({ ...prev, altDate: '', altTime: '' }));
                         }
                       }}
-                      aria-label="Add a backup slot"
+                      aria-label={t('book.backupAria')}
                     />
-                    <Label className="text-sm m-0">Add a backup slot (optional)</Label>
+                    <Label className="text-sm m-0">{t('book.backupLabel')}</Label>
                   </div>
                   {showBackup && requestForm.treatmentId && (
                     <>
@@ -1047,12 +1180,12 @@ export default function ClientPortal() {
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="request-notes">Notes</Label>
+                  <Label htmlFor="request-notes">{t('book.notes')}</Label>
                   <Textarea id="request-notes" value={requestForm.notes} onChange={(event) => setRequestForm((prev) => ({ ...prev, notes: event.target.value }))} />
                 </div>
                 <Button className="md:col-span-2" disabled={submittingRequest}>
-                  {submittingRequest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send request
+                  {submittingRequest && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                  {t('book.sendRequest')}
                 </Button>
               </form>
             </CardContent>
@@ -1063,13 +1196,13 @@ export default function ClientPortal() {
               <Card key={request.id}>
                 <CardContent className="flex items-center justify-between gap-3 p-4">
                   <div>
-                    <div className="font-medium">{request.treatment_name || 'Treatment request'}</div>
+                    <div className="font-medium">{request.treatment_name || t('requests.fallback')}</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatDate(request.preferred_slot?.date)} at {request.preferred_slot?.time}
+                      {t('requests.dateAt', { date: formatDate(request.preferred_slot?.date), time: request.preferred_slot?.time ?? '' })}
                     </div>
                     {request.staff_response && <div className="text-sm text-muted-foreground">{request.staff_response}</div>}
                   </div>
-                  <Badge variant={statusVariant(request.status)}>{request.status}</Badge>
+                  <Badge variant={statusVariant(request.status)}>{statusLabel(request.status)}</Badge>
                 </CardContent>
               </Card>
             ))}
@@ -1082,16 +1215,16 @@ export default function ClientPortal() {
               <Card key={appointment.id}>
                 <CardContent className="flex items-center justify-between gap-3 p-4">
                   <div>
-                    <div className="font-medium">{appointment.treatment_name || 'Treatment'}</div>
+                    <div className="font-medium">{appointment.treatment_name || t('visits.fallback')}</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatDate(appointment.appointment_date)} at {appointment.appointment_time}
+                      {t('requests.dateAt', { date: formatDate(appointment.appointment_date), time: appointment.appointment_time ?? '' })}
                     </div>
                   </div>
-                  <Badge variant={statusVariant(appointment.status)}>{appointment.status}</Badge>
+                  <Badge variant={statusVariant(appointment.status)}>{statusLabel(appointment.status)}</Badge>
                 </CardContent>
               </Card>
             ))}
-            {data.appointments.length === 0 && <EmptyState title="No visits yet" text="Approved appointments will appear here." />}
+            {data.appointments.length === 0 && <EmptyState title={t('visits.emptyTitle')} text={t('visits.emptyText')} />}
           </div>
         </TabsContent>
 
@@ -1101,23 +1234,23 @@ export default function ClientPortal() {
               <Card key={invoice.id}>
                 <CardContent className="flex items-center justify-between gap-3 p-4">
                   <div>
-                    <div className="font-medium">{invoice.invoice_number || 'Invoice'}</div>
+                    <div className="font-medium ltr-inline">{invoice.invoice_number || t('billing.fallback')}</div>
                     <div className="text-sm text-muted-foreground">{formatMoney(invoice.total_cents, invoice.currency)}</div>
                   </div>
                   {invoice.pdf_url ? (
                     <Button asChild variant="outline">
                       <a href={invoice.pdf_url} target="_blank" rel="noreferrer">
-                        <FileText className="mr-2 h-4 w-4" />
-                        PDF
+                        <FileText className="me-2 h-4 w-4" />
+                        {t('billing.pdf')}
                       </a>
                     </Button>
                   ) : (
-                    <Badge variant="secondary">Issued</Badge>
+                    <Badge variant="secondary">{t('billing.issued')}</Badge>
                   )}
                 </CardContent>
               </Card>
             ))}
-            {data.invoices.length === 0 && <EmptyState title="No invoices" text="Issued invoices for active purchases will appear here." />}
+            {data.invoices.length === 0 && <EmptyState title={t('billing.emptyTitle')} text={t('billing.emptyText')} />}
           </div>
         </TabsContent>
       </Tabs>
@@ -1126,6 +1259,7 @@ export default function ClientPortal() {
 }
 
 function PortalShell({ org, children }: { org: PortalOrg | null; children: React.ReactNode }) {
+  const { t } = useTranslation('portal');
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -1134,8 +1268,11 @@ function PortalShell({ org, children }: { org: PortalOrg | null; children: React
             {org?.logo_url ? <img src={org.logo_url} alt="" className="h-10 w-10 rounded-md object-cover" /> : <CalendarCheck className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold">{org?.name || 'Client Portal'}</h1>
-            <p className="truncate text-sm text-muted-foreground">{org?.address || 'Packages, visits, and requests'}</p>
+            <h1 className="truncate text-lg font-semibold">{org?.name || t('shell.title')}</h1>
+            <p className="truncate text-sm text-muted-foreground">{org?.address || t('shell.subtitle')}</p>
+          </div>
+          <div className="ms-auto shrink-0">
+            <LanguageSwitcher variant="full" persist={false} />
           </div>
         </div>
       </header>

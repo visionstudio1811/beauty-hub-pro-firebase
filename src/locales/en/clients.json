@@ -1,0 +1,240 @@
+{
+  "status": {
+    "haveMembership": "Have Membership",
+    "membershipEnded": "Membership Ended",
+    "noMembership": "Don't Have Membership"
+  },
+  "page": {
+    "subtitle": "Manage your client database",
+    "trash": "Trash ({{count}})",
+    "addClient": "Add Client",
+    "newAppointment": "New Appointment",
+    "loading": "Loading clients…",
+    "showing_one": "Showing {{from}}–{{to}} of {{count}} client",
+    "showing_two": "Showing {{from}}–{{to}} of {{count}} clients",
+    "showing_many": "Showing {{from}}–{{to}} of {{count}} clients",
+    "showing_other": "Showing {{from}}–{{to}} of {{count}} clients",
+    "inTrash_one": "{{count}} in trash",
+    "inTrash_two": "{{count}} in trash",
+    "inTrash_many": "{{count}} in trash",
+    "inTrash_other": "{{count}} in trash",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "deletedPage": {
+    "loading": "Loading deleted clients...",
+    "back": "Back to clients",
+    "title": "Deleted Clients",
+    "subtitle": "Manage clients in trash (auto-deleted after 30 days)",
+    "clientsInTrash": "Clients in Trash",
+    "emptyTitle": "No deleted clients",
+    "emptyDescription": "Clients moved to trash will appear here",
+    "instructionsTitle": "Restore or Delete",
+    "instructionsBody": "Use the restore button to bring clients back, or permanently delete them. Clients in trash are automatically deleted after 30 days."
+  },
+  "header": {
+    "title": "Clients",
+    "subtitle": "Manage your client database",
+    "addNewClient": "Add New Client"
+  },
+  "stats": {
+    "totalClients": "Total Clients",
+    "newClients": "New Clients",
+    "vipClients": "VIP Clients",
+    "totalRevenue": "Total Revenue"
+  },
+  "filters": {
+    "searchPlaceholder": "Search clients...",
+    "allStatus": "All Status",
+    "purchases": {
+      "all": "All Purchases",
+      "hasPackages": "Bought packages",
+      "hasProducts": "Bought products",
+      "hasBoth": "Bought both",
+      "none": "No purchases"
+    },
+    "sort": {
+      "createdDesc": "Newest first",
+      "createdAsc": "Oldest first",
+      "visitsDesc": "Most visits",
+      "visitsAsc": "Fewest visits",
+      "revenueDesc": "Highest revenue",
+      "revenueAsc": "Lowest revenue",
+      "lastVisitDesc": "Last visit (recent)",
+      "lastVisitAsc": "Last visit (oldest)"
+    },
+    "tableView": "Table",
+    "gridView": "Grid"
+  },
+  "columns": {
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "status": "Status",
+    "lastVisit": "Last Visit",
+    "visits": "Visits",
+    "revenue": "Revenue",
+    "actions": "Actions",
+    "deletedDate": "Deleted Date"
+  },
+  "actions": {
+    "menu": "Actions",
+    "viewDetails": "View Details",
+    "view": "View",
+    "editClient": "Edit Client",
+    "sendMessage": "Send Message",
+    "message": "Message",
+    "bookAppointment": "Book Appointment",
+    "book": "Book",
+    "assignPackage": "Assign Package",
+    "package": "Package",
+    "sendWaiver": "Send Waiver",
+    "waiver": "Waiver",
+    "deleteClient": "Delete Client",
+    "delete": "Delete"
+  },
+  "table": {
+    "notAvailable": "N/A"
+  },
+  "cards": {
+    "statusLabel": "Status:",
+    "visits": "Visits: {{count}}",
+    "lastVisit": "Last: {{date}}"
+  },
+  "deleteDialog": {
+    "title": "Are you sure?",
+    "description": "This will move {{name}} to trash for 30 days. You can restore them during this period. After 30 days, the client data will be permanently deleted.",
+    "fallbackName": "the client",
+    "confirm": "Move to Trash"
+  },
+  "deletedTable": {
+    "restoreClient": "Restore Client",
+    "permanentlyDeleteClient": "Permanently Delete Client",
+    "dialogTitle": "Permanently Delete Client?",
+    "dialogDescription": "This will permanently delete {{name}} from the database. This action cannot be undone.",
+    "confirm": "Permanently Delete"
+  },
+  "communication": {
+    "title": "Communication - {{name}}",
+    "tabs": {
+      "sms": "SMS",
+      "email": "Email",
+      "call": "Call Log",
+      "history": "History"
+    },
+    "sms": {
+      "heading": "Send SMS",
+      "to": "To: {{value}}",
+      "noPhone": "No phone number",
+      "template": "Template",
+      "templatePlaceholder": "Load a saved template (optional)",
+      "untitled": "Untitled",
+      "message": "Message",
+      "messagePlaceholder": "Type your SMS message...",
+      "segments_one": "{{chars}} chars · {{count}} segment",
+      "segments_two": "{{chars}} chars · {{count}} segments",
+      "segments_many": "{{chars}} chars · {{count}} segments",
+      "segments_other": "{{chars}} chars · {{count}} segments",
+      "send": "Send SMS"
+    },
+    "email": {
+      "heading": "Send Email",
+      "to": "To: {{value}}",
+      "noEmail": "No email address",
+      "subject": "Subject",
+      "subjectPlaceholder": "Email subject...",
+      "message": "Message",
+      "messagePlaceholder": "Type your email message...",
+      "send": "Send Email"
+    },
+    "call": {
+      "heading": "Log Phone Call",
+      "phone": "Phone: {{value}}",
+      "notes": "Call Notes",
+      "notesPlaceholder": "What was discussed during the call...",
+      "save": "Log Call"
+    },
+    "history": {
+      "heading": "Communication History",
+      "empty": "No communication history yet"
+    },
+    "types": {
+      "sms": "SMS",
+      "email": "Email",
+      "call": "Call",
+      "note": "Note"
+    },
+    "statuses": {
+      "delivered": "Delivered",
+      "sent": "Sent",
+      "pending": "Pending",
+      "failed": "Failed"
+    },
+    "toast": {
+      "success": {
+        "sms": "SMS sent successfully",
+        "email": "Email sent successfully",
+        "call": "Call logged successfully",
+        "note": "Note added successfully"
+      },
+      "error": {
+        "sms": "Failed to send SMS",
+        "email": "Failed to send email",
+        "call": "Failed to log call",
+        "note": "Failed to add note"
+      }
+    }
+  },
+  "details": {
+    "description": "Client details and information",
+    "basicInfo": "Basic Information",
+    "email": "Email:",
+    "phone": "Phone:",
+    "dob": "Date of Birth:",
+    "dobWithAge": "{{date}} (Age {{age}})",
+    "notProvided": "Not provided",
+    "address": "Address:",
+    "referralSource": "Referral Source:",
+    "healthInfo": "Health Information",
+    "allergies": "Allergies:",
+    "notes": "Notes",
+    "clientSince": "Client since: {{date}}",
+    "lastUpdated": "Last updated: {{date}}"
+  },
+  "membershipHistory": {
+    "events": {
+      "package_assigned": "Package Assigned",
+      "membership_activated": "Membership Activated",
+      "membership_deactivated": "Membership Deactivated",
+      "sessions_edited": "Sessions Edited",
+      "package_removed": "Package Removed",
+      "package_expired": "Package Expired",
+      "expiry_reminder": "Expiry Reminder Sent",
+      "default": "Event"
+    },
+    "summary": {
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "activePackages": "Active Packages",
+      "totalEvents": "Total Events"
+    },
+    "emptyTitle": "No membership history yet",
+    "emptyDescription": "Events will appear here when packages are assigned, edited, or expire.",
+    "package": "Package:",
+    "sessions": "Sessions: {{count}}",
+    "price": "Price: ${{price}}",
+    "expires": "Expires: {{date}}",
+    "newSessionsRemaining": "New sessions remaining: {{count}}",
+    "newExpiry": "New expiry: {{date}}",
+    "daysUntilExpiry_one": "{{count}} day until expiry",
+    "daysUntilExpiry_two": "{{count}} days until expiry",
+    "daysUntilExpiry_many": "{{count}} days until expiry",
+    "daysUntilExpiry_other": "{{count}} days until expiry",
+    "reason": "Reason: {{reason}}",
+    "reasons": {
+      "allSessionsUsed": "All sessions used",
+      "expiryDatePassed": "Expiry date passed"
+    }
+  }
+}

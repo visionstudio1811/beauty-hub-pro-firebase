@@ -13,6 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface Staff {
   id: string;
@@ -48,6 +49,7 @@ export const useSupabaseStaff = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchStaff = async () => {
@@ -65,7 +67,7 @@ export const useSupabaseStaff = () => {
       setStaff(snapshot.docs.map(d => docToStaff(d.id, d.data())));
     } catch (error) {
       console.error('Error fetching staff:', error);
-      toast({ title: 'Error', description: 'Failed to load staff', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('staff.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -76,7 +78,7 @@ export const useSupabaseStaff = () => {
   }, [currentOrganization?.id]);
 
   const addStaff = async (staffData: Omit<Staff, 'id' | 'created_at' | 'updated_at'>): Promise<Staff> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const docRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'staff'),
@@ -88,27 +90,27 @@ export const useSupabaseStaff = () => {
         updated_at: { toDate: () => new Date() },
       });
       setStaff(prev => [...prev, newMember]);
-      toast({ title: 'Success', description: 'Staff member added successfully' });
+      toast({ title: t('common:status.success'), description: t('staff.added') });
       return newMember;
     } catch (error) {
       console.error('Error adding staff:', error);
-      toast({ title: 'Error', description: 'Failed to add staff member', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('staff.addFailed'), variant: 'destructive' });
       throw error;
     }
   };
 
   const updateStaff = async (id: string, updates: Partial<Staff>): Promise<Staff> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const staffRef = doc(db, 'organizations', currentOrganization.id, 'staff', id);
       await updateDoc(staffRef, { ...updates, updated_at: serverTimestamp() });
       const updatedMember = { ...staff.find(s => s.id === id)!, ...updates };
       setStaff(prev => prev.map(member => (member.id === id ? updatedMember : member)));
-      toast({ title: 'Success', description: 'Staff member updated successfully' });
+      toast({ title: t('common:status.success'), description: t('staff.updated') });
       return updatedMember;
     } catch (error) {
       console.error('Error updating staff:', error);
-      toast({ title: 'Error', description: 'Failed to update staff member', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('staff.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };

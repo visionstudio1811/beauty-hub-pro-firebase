@@ -1,7 +1,10 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// getDay() order (Sun-first) — keys into common:days.*
+const DAY_SHORT_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 const isoDay = (d: Date) => {
   const y = d.getFullYear();
@@ -21,7 +24,10 @@ interface DateStripProps {
 
 export const DateStrip: React.FC<DateStripProps> = ({
   dates, selectedDate, onSelect, isDayEnabled, loading,
-}) => (
+}) => {
+  const { t } = useTranslation('scheduling');
+  const { locale } = useLanguage();
+  return (
   <>
     <div className="flex gap-2 overflow-x-auto pb-2 mt-1 -mx-1 px-1">
       {dates.map((d) => {
@@ -44,11 +50,11 @@ export const DateStrip: React.FC<DateStripProps> = ({
             }
           >
             <div className="text-[10px] uppercase text-muted-foreground">
-              {DAY_SHORT[d.getDay()]}
+              {t(`common:days.${DAY_SHORT_KEYS[d.getDay()]}`)}
             </div>
             <div className="text-base font-semibold">{d.getDate()}</div>
             <div className="text-[10px] text-muted-foreground">
-              {d.toLocaleString(undefined, { month: 'short' })}
+              {d.toLocaleString(locale, { month: 'short' })}
             </div>
           </button>
         );
@@ -57,11 +63,12 @@ export const DateStrip: React.FC<DateStripProps> = ({
     {loading && (
       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Loading times…
+        {t('dateStrip.loadingTimes')}
       </p>
     )}
   </>
-);
+  );
+};
 
 /** Build the N-day window starting today (00:00 local) — re-exported for callers. */
 export const buildDateWindow = (lengthDays = 14): Date[] => {

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Package } from '@/contexts/PackageContext';
 import { PackageFormData, TreatmentItem, ProductItem } from '@/types/package';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 const initialState = (): PackageFormData => ({
   name: '',
@@ -15,6 +16,7 @@ const initialState = (): PackageFormData => ({
 
 export const usePackageForm = () => {
   const { toast } = useToast();
+  const { t } = useTranslation('packages');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<PackageFormData>(initialState());
 
@@ -125,29 +127,29 @@ export const usePackageForm = () => {
 
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
-      toast({ title: 'Validation Error', description: 'Package name is required.', variant: 'destructive' });
+      toast({ title: t('form.validation.title'), description: t('form.validation.nameRequired'), variant: 'destructive' });
       return false;
     }
     if (formData.treatment_items.length === 0) {
-      toast({ title: 'Validation Error', description: 'Please select at least one treatment.', variant: 'destructive' });
+      toast({ title: t('form.validation.title'), description: t('form.validation.selectTreatment'), variant: 'destructive' });
       return false;
     }
     if (formData.treatment_items.some(i => !Number.isFinite(i.quantity) || i.quantity < 1)) {
       toast({
-        title: 'Validation Error',
-        description: 'Each selected treatment must have a quantity of at least 1.',
+        title: t('form.validation.title'),
+        description: t('form.validation.quantityMin'),
         variant: 'destructive',
       });
       return false;
     }
     if (formData.price <= 0) {
-      toast({ title: 'Validation Error', description: 'Price must be greater than 0.', variant: 'destructive' });
+      toast({ title: t('form.validation.title'), description: t('form.validation.priceMin'), variant: 'destructive' });
       return false;
     }
     if (formData.validity_months <= 0) {
       toast({
-        title: 'Validation Error',
-        description: 'Validity period must be greater than 0.',
+        title: t('form.validation.title'),
+        description: t('form.validation.validityMin'),
         variant: 'destructive',
       });
       return false;

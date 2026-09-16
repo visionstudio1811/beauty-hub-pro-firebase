@@ -6,6 +6,7 @@ import { Calendar, Package, Clock } from 'lucide-react';
 import { ClientPackage } from '@/hooks/useClientPackages';
 import { safeFormatters } from '@/lib/safeDateFormatter';
 import { validateDate } from '@/lib/timeUtils';
+import { useTranslation } from 'react-i18next';
 
 interface ClientPackageSelectorProps {
   packages: ClientPackage[];
@@ -20,6 +21,7 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
   onSelectPackage,
   loading
 }) => {
+  const { t } = useTranslation('clientModals');
   if (loading) {
     return (
       <div className="space-y-2">
@@ -33,14 +35,14 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
     return (
       <div className="text-center py-4 text-gray-500">
         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No active packages found for this client</p>
+        <p className="text-sm">{t('clientPackageSelector.noActivePackages')}</p>
       </div>
     );
   }
 
   const formatExpiryDate = (dateString: any) => {
     const formatted = safeFormatters.shortDate(dateString);
-    return formatted || 'No expiry';
+    return formatted || t('clientPackageSelector.noExpiry');
   };
 
   const isExpiringSoon = (dateString: any) => {
@@ -53,7 +55,7 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
 
   return (
     <div className="space-y-3">
-      <h4 className="font-medium text-gray-900">Available Packages</h4>
+      <h4 className="font-medium text-gray-900">{t('clientPackageSelector.availablePackages')}</h4>
 
       <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto">
         {/* Always-visible "No Package" option */}
@@ -68,11 +70,11 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
           <CardContent className="p-3 flex items-center gap-3">
             <Package className="h-5 w-5 text-gray-400" />
             <div>
-              <p className="font-medium text-gray-700 text-sm">No Package — charge separately</p>
-              <p className="text-xs text-gray-500">Book this treatment outside of any package</p>
+              <p className="font-medium text-gray-700 text-sm">{t('clientPackageSelector.noPackageTitle')}</p>
+              <p className="text-xs text-gray-500">{t('clientPackageSelector.noPackageDescription')}</p>
             </div>
             {selectedPackage === null && (
-              <Badge variant="secondary" className="ml-auto">Selected</Badge>
+              <Badge variant="secondary" className="ms-auto">{t('clientPackageSelector.selected')}</Badge>
             )}
           </CardContent>
         </Card>
@@ -94,26 +96,26 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
                     <h5 className="font-medium text-gray-900">{packageItem.package_name}</h5>
                     {selectedPackage?.id === packageItem.id && (
                       <Badge variant="default" className="bg-purple-100 text-purple-800">
-                        Selected
+                        {t('clientPackageSelector.selected')}
                       </Badge>
                     )}
                     <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50">
-                      Active
+                      {t('common:labels.active')}
                     </Badge>
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      <span>{packageItem.sessions_remaining} of {packageItem.total_sessions} sessions</span>
+                      <span>{t('clientPackageSelector.sessionsOf', { remaining: packageItem.sessions_remaining, total: packageItem.total_sessions })}</span>
                     </div>
                     
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       <span>{formatExpiryDate(packageItem.expiry_date)}</span>
                       {isExpiringSoon(packageItem.expiry_date) && (
-                        <Badge variant="destructive" className="ml-1 text-xs">
-                          Expiring Soon
+                        <Badge variant="destructive" className="ms-1 text-xs">
+                          {t('clientPackageSelector.expiringSoon')}
                         </Badge>
                       )}
                     </div>
@@ -124,9 +126,9 @@ export const ClientPackageSelector: React.FC<ClientPackageSelectorProps> = ({
                   )}
                   
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold text-green-600">FREE</span>
+                    <span className="text-lg font-semibold text-green-600">{t('clientPackageSelector.free')}</span>
                     <span className="text-sm text-gray-500 line-through">
-                      ${(packageItem.price / packageItem.total_sessions).toFixed(2)} per session
+                      {t('clientPackageSelector.perSession', { price: (packageItem.price / packageItem.total_sessions).toFixed(2) })}
                     </span>
                   </div>
                 </div>

@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n, { DEFAULT_LANGUAGE, isAppLanguage, localeFor } from '@/i18n';
+import { useLanguage } from '@/i18n/LanguageProvider';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/lib/firebase';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -49,18 +52,18 @@ import type { Invoice } from '@/types/firestore';
 type DatePreset = 'this-month' | 'last-30' | 'last-90' | 'this-year' | 'all';
 type StatusFilter = 'all' | 'issued' | 'void';
 
-const DATE_PRESETS: { value: DatePreset; label: string }[] = [
-  { value: 'this-month', label: 'This month' },
-  { value: 'last-30', label: 'Last 30 days' },
-  { value: 'last-90', label: 'Last 90 days' },
-  { value: 'this-year', label: 'This year' },
-  { value: 'all', label: 'All time' },
+const DATE_PRESETS: { value: DatePreset; labelKey: string }[] = [
+  { value: 'this-month', labelKey: 'history.datePresets.thisMonth' },
+  { value: 'last-30', labelKey: 'history.datePresets.last30' },
+  { value: 'last-90', labelKey: 'history.datePresets.last90' },
+  { value: 'this-year', labelKey: 'history.datePresets.thisYear' },
+  { value: 'all', labelKey: 'history.datePresets.all' },
 ];
 
-const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'issued', label: 'Issued only' },
-  { value: 'void', label: 'Voided only' },
+const STATUS_OPTIONS: { value: StatusFilter; labelKey: string }[] = [
+  { value: 'all', labelKey: 'history.statusOptions.all' },
+  { value: 'issued', labelKey: 'history.statusOptions.issued' },
+  { value: 'void', labelKey: 'history.statusOptions.void' },
 ];
 
 function toDate(ts: any): Date | null {
@@ -106,7 +109,7 @@ function formatDate(ts: any, locale: string): string {
   try {
     return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(d);
   } catch {
-    return d.toLocaleDateString();
+    return d.toLocaleDateString(locale);
   }
 }
 
@@ -115,17 +118,19 @@ function relativeTime(ts: any): string {
   if (!d) return '';
   const diffMs = Date.now() - d.getTime();
   const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return i18n.t('invoices:history.relative.justNow');
+  if (mins < 60) return i18n.t('invoices:history.relative.minutes', { count: mins });
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return i18n.t('invoices:history.relative.hours', { count: hrs });
   const days = Math.round(hrs / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return i18n.t('invoices:history.relative.days', { count: days });
   const months = Math.round(days / 30);
-  return `${months}mo ago`;
+  return i18n.t('invoices:history.relative.months', { count: months });
 }
 
 export const InvoiceHistoryViewer: React.FC = () => {
+  const { t } = useTranslation('invoices');
+  const { locale } = useLanguage();
   const { profile } = useAuth();
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
@@ -138,8 +143,6 @@ export const InvoiceHistoryViewer: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [emailingId, setEmailingId] = useState<string | null>(null);
-
-  const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -189,9 +192,9 @@ export const InvoiceHistoryViewer: React.FC = () => {
       <Card>
         <CardContent className="p-8 text-center">
           <ShieldAlert className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-          <h3 className="font-medium">Admins only</h3>
+          <h3 className="font-medium">{t('history.adminsOnly')}</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            You need admin access to view org-wide invoice history.
+            {t('history.adminsOnlyDesc')}
           </p>
         </CardContent>
       </Card>
@@ -208,17 +211,17 @@ export const InvoiceHistoryViewer: React.FC = () => {
       >(functions, 'voidInvoice');
       await call({ organizationId: currentOrganization.id, invoiceId: inv.id });
       toast({
-        title: 'Invoice voided',
-        description: `${inv.invoice_number} is now marked as void.`,
+        title: t('history.toasts.voided'),
+        description: t('history.toasts.voidedDesc', { number: inv.invoice_number }),
       });
     } catch (err: any) {
       const message =
         err?.message?.includes('already voided')
-          ? 'This invoice is already voided.'
+          ? t('history.toasts.alreadyVoided')
           : err?.message?.includes('resource-exhausted')
-            ? 'Daily void limit reached for this organization.'
-            : err?.message ?? 'Failed to void invoice';
-      toast({ title: 'Void failed', description: message, variant: 'destructive' });
+            ? t('history.toasts.voidLimit')
+            : err?.message ?? t('history.toasts.voidFailedDesc');
+      toast({ title: t('history.toasts.voidFailed'), description: message, variant: 'destructive' });
     } finally {
       setVoidingId(null);
     }
@@ -228,8 +231,8 @@ export const InvoiceHistoryViewer: React.FC = () => {
     if (inv.pdf_url) window.open(inv.pdf_url, '_blank');
     else
       toast({
-        title: 'PDF not ready',
-        description: 'This invoice has no PDF on file.',
+        title: t('history.toasts.pdfNotReady'),
+        description: t('history.toasts.pdfNotReadyDesc'),
         variant: 'destructive',
       });
   };
@@ -237,28 +240,40 @@ export const InvoiceHistoryViewer: React.FC = () => {
   const handleEmailInvoice = async (inv: Invoice) => {
     const recipientEmail = inv.client_snapshot?.email;
     if (!recipientEmail) {
-      toast({ title: 'No email on file', description: 'This client has no email address.', variant: 'destructive' });
+      toast({ title: t('history.toasts.noEmail'), description: t('history.toasts.noEmailDesc'), variant: 'destructive' });
       return;
     }
     if (!inv.pdf_url) {
-      toast({ title: 'PDF not ready', description: 'Generate the invoice PDF first.', variant: 'destructive' });
+      toast({ title: t('history.toasts.pdfNotReady'), description: t('history.toasts.generatePdfFirst'), variant: 'destructive' });
       return;
     }
     if (!currentOrganization?.id) return;
     setEmailingId(inv.id);
     try {
       const sendEmail = httpsCallable(functions, 'sendClientEmail');
-      const clientName = inv.client_snapshot?.name || 'there';
+      // Client-facing mail follows the org's language setting, not the
+      // signed-in staff member's UI language.
+      const clientLang = isAppLanguage(currentOrganization.language)
+        ? currentOrganization.language
+        : DEFAULT_LANGUAGE;
+      const tc = i18n.getFixedT(clientLang, 'invoices');
+      const clientLocale = localeFor(clientLang);
+      const clientName = inv.client_snapshot?.name || tc('history.email.greetingFallback');
       await sendEmail({
         to: recipientEmail,
-        subject: `Your Invoice ${inv.invoice_number}`,
-        message: `Hi ${clientName},\n\nPlease find your invoice below.\n\nInvoice #: ${inv.invoice_number}\nTotal: ${formatCents(inv.total_cents, inv.currency, locale)}\n\nView / Download your invoice:\n${inv.pdf_url}\n\nThank you!`,
+        subject: tc('history.email.subject', { number: inv.invoice_number }),
+        message: tc('history.email.body', {
+          name: clientName,
+          number: inv.invoice_number,
+          total: formatCents(inv.total_cents, inv.currency, clientLocale),
+          url: inv.pdf_url,
+        }),
         clientId: inv.client_id,
         organizationId: currentOrganization.id,
       });
-      toast({ title: 'Invoice sent', description: `Emailed to ${recipientEmail}.` });
+      toast({ title: t('history.toasts.sent'), description: t('history.toasts.sentDesc', { email: recipientEmail }) });
     } catch (err: any) {
-      toast({ title: 'Failed to send', description: err?.message ?? 'Could not send invoice email.', variant: 'destructive' });
+      toast({ title: t('history.toasts.sendFailed'), description: err?.message ?? t('history.toasts.sendFailedDesc'), variant: 'destructive' });
     } finally {
       setEmailingId(null);
     }
@@ -274,12 +289,12 @@ export const InvoiceHistoryViewer: React.FC = () => {
   return (
     <Card className="w-full overflow-hidden">
       <CardHeader>
-        <div className="flex items-center space-x-2 min-w-0">
+        <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
           <FileText className="h-5 w-5 text-purple-600 flex-shrink-0" />
-          <CardTitle className="truncate">Invoice History</CardTitle>
+          <CardTitle className="truncate">{t('history.title')}</CardTitle>
         </div>
         <CardDescription>
-          All invoices issued across the organization. Search, filter, or void.
+          {t('history.description')}
         </CardDescription>
       </CardHeader>
 
@@ -287,17 +302,17 @@ export const InvoiceHistoryViewer: React.FC = () => {
         {/* Summary strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatTile
-            label="Revenue"
+            label={t('history.stats.revenue')}
             value={formatCents(stats.revenueCents, stats.currency, locale)}
           />
-          <StatTile label="Invoices" value={String(stats.issuedCount)} />
+          <StatTile label={t('history.stats.invoices')} value={String(stats.issuedCount)} />
           <StatTile
-            label="Voided"
+            label={t('history.stats.voided')}
             value={String(stats.voidedCount)}
             muted
           />
           <StatTile
-            label="Average"
+            label={t('history.stats.average')}
             value={formatCents(stats.avgCents, stats.currency, locale)}
           />
         </div>
@@ -305,25 +320,25 @@ export const InvoiceHistoryViewer: React.FC = () => {
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="grid gap-1.5">
-            <Label className="text-xs">Search</Label>
+            <Label className="text-xs">{t('history.filters.search')}</Label>
             <div className="relative">
-              <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search className="h-4 w-4 absolute start-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Invoice # or client"
-                className="pl-8"
+                placeholder={t('history.filters.searchPlaceholder')}
+                className="ps-8"
               />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">Client</Label>
+            <Label className="text-xs">{t('history.filters.client')}</Label>
             <Select value={clientFilter} onValueChange={setClientFilter}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All clients</SelectItem>
+                <SelectItem value="all">{t('history.filters.allClients')}</SelectItem>
                 {clientOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -333,7 +348,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">Date range</Label>
+            <Label className="text-xs">{t('history.filters.dateRange')}</Label>
             <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DatePreset)}>
               <SelectTrigger>
                 <SelectValue />
@@ -341,14 +356,14 @@ export const InvoiceHistoryViewer: React.FC = () => {
               <SelectContent>
                 {DATE_PRESETS.map((p) => (
                   <SelectItem key={p.value} value={p.value}>
-                    {p.label}
+                    {t(p.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label className="text-xs">Status</Label>
+            <Label className="text-xs">{t('history.filters.status')}</Label>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger>
                 <SelectValue />
@@ -356,7 +371,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -367,26 +382,26 @@ export const InvoiceHistoryViewer: React.FC = () => {
         {/* List */}
         {loading ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            Loading invoices…
+            {t('history.loading')}
           </div>
         ) : invoices.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
             <Receipt className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No invoices issued yet.</p>
+            <p className="text-sm">{t('history.empty')}</p>
             <p className="text-xs mt-1">
-              Generate an invoice from a client's package row to get started.
+              {t('history.emptyHint')}
             </p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
-            <p className="text-sm">No invoices match these filters.</p>
+            <p className="text-sm">{t('history.noMatch')}</p>
             <Button
               variant="link"
               size="sm"
               className="mt-2"
               onClick={clearFilters}
             >
-              Clear filters
+              {t('history.filters.clear')}
             </Button>
           </div>
         ) : (
@@ -408,23 +423,23 @@ export const InvoiceHistoryViewer: React.FC = () => {
                         inv.status === 'void' ? 'text-muted-foreground line-through' : ''
                       }`}
                     >
-                      {inv.invoice_number}
+                      <span dir="ltr" className="ltr-inline">{inv.invoice_number}</span>
                     </div>
                     <div className="text-sm truncate">
-                      {inv.client_snapshot?.name ?? 'Unknown client'}
+                      {inv.client_snapshot?.name ?? t('history.unknownClient')}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {formatDate(inv.issued_at, locale)} ·{' '}
-                      {inv.line_items[0]?.name ?? 'Package'}
+                      {inv.line_items[0]?.name ?? t('history.packageFallback')}
                       {inv.status === 'void' && inv.voided_at && (
-                        <span className="ml-1">· voided {relativeTime(inv.voided_at)}</span>
+                        <span className="ms-1">{t('history.voidedAgo', { when: relativeTime(inv.voided_at) })}</span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 sm:flex-shrink-0">
-                  <div className="text-right">
+                  <div className="text-end">
                     <div
                       className={`font-medium ${
                         inv.status === 'void' ? 'text-muted-foreground' : ''
@@ -436,7 +451,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
                       variant={inv.status === 'void' ? 'destructive' : 'default'}
                       className="mt-0.5"
                     >
-                      {inv.status}
+                      {t(`history.statusBadge.${inv.status}`, { defaultValue: inv.status })}
                     </Badge>
                   </div>
                   <div className="flex gap-1">
@@ -445,7 +460,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
                       variant="outline"
                       onClick={() => handleOpenPdf(inv)}
                       disabled={!inv.pdf_url}
-                      title={inv.pdf_url ? 'Download PDF' : 'No PDF on file'}
+                      title={inv.pdf_url ? t('history.actions.downloadPdf') : t('history.actions.noPdf')}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
@@ -454,7 +469,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
                       variant="outline"
                       onClick={() => handleEmailInvoice(inv)}
                       disabled={!inv.pdf_url || !inv.client_snapshot?.email || emailingId === inv.id}
-                      title={!inv.client_snapshot?.email ? 'No email on file' : 'Email invoice to client'}
+                      title={!inv.client_snapshot?.email ? t('history.actions.noEmail') : t('history.actions.emailInvoice')}
                     >
                       <Mail className="h-4 w-4" />
                     </Button>
@@ -466,7 +481,7 @@ export const InvoiceHistoryViewer: React.FC = () => {
                             variant="outline"
                             className="text-destructive hover:text-destructive"
                             disabled={voidingId === inv.id}
-                            title="Void invoice"
+                            title={t('history.actions.voidInvoice')}
                           >
                             <Ban className="h-4 w-4" />
                           </Button>
@@ -474,21 +489,19 @@ export const InvoiceHistoryViewer: React.FC = () => {
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>
-                              Void invoice {inv.invoice_number}?
+                              {t('history.voidDialog.title', { number: inv.invoice_number })}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Voiding marks the invoice as cancelled — it stays on the record
-                              for audit and the number ({inv.invoice_number}) is never reused.
-                              This can't be undone.
+                              {t('history.voidDialog.description', { number: inv.invoice_number })}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Keep</AlertDialogCancel>
+                            <AlertDialogCancel>{t('history.actions.keep')}</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive hover:bg-destructive/90"
                               onClick={() => handleVoid(inv)}
                             >
-                              Void invoice
+                              {t('history.actions.voidInvoice')}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

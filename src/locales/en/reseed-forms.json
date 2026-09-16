@@ -1,0 +1,16 @@
+{
+  "businessInfoEditor": {
+    "loadDefaults": {
+      "button": "Load default forms & automations in {{language}}",
+      "loading": "Loading defaults...",
+      "help": "Adds any missing default waiver, intake and agreement forms and marketing automations in the selected language. Untouched defaults are switched to that language; anything your team has edited is left as is. This also happens automatically when you change the default language above — use the button if something did not load.",
+      "autoReseedNotice": "Default forms & automations are being switched to {{language}} automatically. If anything is still missing in a moment, use this button.",
+      "successTitle": "Default forms & automations loaded",
+      "successDescription": "{{created}} created, {{replaced}} switched to {{language}}, {{customized}} skipped because they were customized.",
+      "nothingToDoTitle": "Nothing to update",
+      "nothingToDoDescription": "Your forms and automations are already in {{language}}, or have been customized by your team.",
+      "errorTitle": "Could not load defaults",
+      "errorDescription": "Something went wrong while loading the default forms. Please try again."
+    }
+  }
+}

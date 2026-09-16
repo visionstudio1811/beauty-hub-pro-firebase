@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ClientSelector } from '@/components/ClientSelector';
@@ -24,33 +25,37 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   onClientSelect,
   onCreateNewClient
 }) => {
+  const { t } = useTranslation('appointments');
+
   return (
     <>
       <div>
-        <Label htmlFor="client">Client</Label>
+        <Label htmlFor="client">{t('form.client.label')}</Label>
         <ClientSelector
           value={formData.clientName}
           onSelect={onClientSelect}
           onCreateNew={onCreateNewClient}
-          placeholder="Search and select client..."
+          placeholder={t('form.client.placeholder')}
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="clientPhone">Phone</Label>
+          <Label htmlFor="clientPhone">{t('form.client.phone')}</Label>
           <Input
             id="clientPhone"
+            dir="ltr"
             value={formData.clientPhone}
             onChange={(e) => onFormDataChange({ clientPhone: e.target.value })}
             required
           />
         </div>
         <div>
-          <Label htmlFor="clientEmail">Email</Label>
+          <Label htmlFor="clientEmail">{t('form.client.email')}</Label>
           <Input
             id="clientEmail"
             type="email"
+            dir="ltr"
             value={formData.clientEmail}
             onChange={(e) => onFormDataChange({ clientEmail: e.target.value })}
             required

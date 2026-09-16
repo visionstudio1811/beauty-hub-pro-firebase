@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { ClientPackageSelector } from '@/components/ClientPackageSelector';
 import { Package } from 'lucide-react';
@@ -21,13 +22,15 @@ export const PackageSection: React.FC<PackageSectionProps> = ({
   onSelectPackage,
   loading
 }) => {
+  const { t } = useTranslation('appointments');
+
   if (!selectedClient) return null;
 
   return (
     <div className="border rounded-lg p-4 bg-gray-50">
       <div className="flex items-center gap-2 mb-3">
         <Package className="h-4 w-4" />
-        <Label>Client Packages</Label>
+        <Label>{t('form.package.label')}</Label>
       </div>
       <ClientPackageSelector
         packages={clientPackages}

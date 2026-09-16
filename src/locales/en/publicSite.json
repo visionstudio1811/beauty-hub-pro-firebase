@@ -1,0 +1,323 @@
+{
+  "home": {
+    "nav": {
+      "byParent": "by {{parent}}",
+      "features": "Features",
+      "howItWorks": "How it works",
+      "plans": "Plans",
+      "faq": "FAQ",
+      "getQuote": "Get a Quote"
+    },
+    "hero": {
+      "badge": "Built by consultants who run salons",
+      "titleLead": "The salon & spa platform ",
+      "titleEm": "run by operators,",
+      "titleTail": " not a call center",
+      "subtitle": "{{brand}} is the software arm of {{parent}}. We built it after running our own studios, so scheduling, clients, waivers, packages, and marketing finally feel like one tool instead of five.",
+      "getQuote": "Get a Quote",
+      "seePlans": "See Plans",
+      "cards": {
+        "booking": {
+          "title": "Smart Booking",
+          "body": "24/7 online booking with automated confirmations and reminders."
+        },
+        "clients": {
+          "title": "Client Management",
+          "body": "Complete profiles with history, preferences, photos, and waivers."
+        },
+        "analytics": {
+          "title": "Business Analytics",
+          "body": "Track revenue, retention, and staff performance with real insights."
+        }
+      }
+    },
+    "features": {
+      "titleLead": "Everything you need to ",
+      "titleEm": "run a modern spa",
+      "subtitle": "From booking to billing to marketing, {{brand}} handles every side of the business so you can focus on the work.",
+      "items": {
+        "scheduling": {
+          "title": "Advanced Scheduling",
+          "description": "Per-staff availability, service durations, conflict prevention, custom-time overrides for walk-ins and VIPs, and weekly + dated overrides."
+        },
+        "portal": {
+          "title": "White-Label Client Portal",
+          "description": "A branded PWA at crm.your-domain.com where clients sign in, book against their package, track sessions, and view their history."
+        },
+        "schedulerLinks": {
+          "title": "Public Scheduler Links",
+          "description": "Share a single booking link per treatment, staff member, or campaign. No login, no app. Clients pick a slot and you get the booking."
+        },
+        "waivers": {
+          "title": "Digital Waivers & Agreements",
+          "description": "Send waivers and intake forms by SMS or email. Clients sign on their phone with optional OTP verification, photo uploads, and auto-backup to your Drive."
+        },
+        "packages": {
+          "title": "Packages & Memberships",
+          "description": "Multi-treatment packages with per-treatment session counters, expiry tracking, automatic membership status, and bundled retail."
+        },
+        "marketing": {
+          "title": "Marketing Automation",
+          "description": "Triggered emails for welcomes, birthdays, inactive clients, package renewals, appointment confirmations, and reminders, all in your brand voice."
+        },
+        "invoicing": {
+          "title": "Invoicing & Sales",
+          "description": "Sequential, audit-grade invoices with frozen snapshots, PDF generation, drafts, and one-tap void. Every transaction reconciles to the cent."
+        },
+        "emailDesigner": {
+          "title": "Brand Email Designer",
+          "description": "Design the wrapper that every transactional email lives inside. Brand colors, logo, header image. Apply once, ship everywhere."
+        },
+        "security": {
+          "title": "Secure & Compliant",
+          "description": "Role-based access, encrypted storage, audit logs, OTP-gated waiver signing, and per-tenant data isolation enforced in Firestore rules."
+        }
+      }
+    },
+    "benefits": {
+      "titleLead": "Transform your ",
+      "titleEm": "beauty business",
+      "subtitle": "Join the salon and spa owners who've rebuilt their operations on {{brand}} and got their evenings back.",
+      "items": [
+        "Capture more bookings with 24/7 online scheduling",
+        "Cut no-shows with automated SMS & email reminders",
+        "Save hours every week on admin, waivers, and reporting",
+        "Boost retention with memberships, packages, and follow-ups"
+      ],
+      "cta": "Request a Quote",
+      "mock": {
+        "todaysSchedule": "Today's Schedule",
+        "appointmentsSummary": "12 appointments · 2 from portal",
+        "appointments": [
+          "Signature Facial · Sarah M.",
+          "Microneedling · Emma K. · pkg 4/8",
+          "Hydrafacial · Lisa P. · membership"
+        ],
+        "revenue": "Revenue",
+        "revenueValue": "$24,560",
+        "revenueDelta": "↗ 18% MoM",
+        "memberships": "Memberships",
+        "membershipsValue": "142",
+        "membershipsNote": "8 renewing this week",
+        "waiversPending": "Waivers pending signature",
+        "waiversNote": "3 sent today · 1 awaiting OTP"
+      }
+    },
+    "portal": {
+      "badge": "Client Portal",
+      "titleLead": "A booking app ",
+      "titleEm": "in your brand",
+      "descriptionLead": "Every {{brand}} salon ships with an installable PWA at ",
+      "domain": "crm.your-domain.com",
+      "descriptionTail": ". Clients sign in with Google or phone OTP and see their packages, history, and upcoming visits. They never see a Beauty Hub Pro logo.",
+      "items": [
+        "Lives on your own domain, so clients only ever see your brand",
+        "Installable as an app from any phone, no app store gatekeepers",
+        "Sessions, expiry, and per-treatment counters auto-tracked",
+        "Booking requests route through staff approval, not blind double-bookings",
+        "OTP-verified waivers and agreements signed right on the device"
+      ],
+      "cta": "See it in your brand",
+      "chip": "crm.your-brand.com",
+      "mock": {
+        "welcomeBack": "Welcome back",
+        "greeting": "Hi Emma",
+        "activePackage": "Active package",
+        "packageName": "Microneedling × 8",
+        "used": "4 of 8 used",
+        "expires": "Expires Aug 14",
+        "upcoming": "Upcoming",
+        "treatment": "Microneedling",
+        "when": "Thu Jun 13 · 2:30 PM",
+        "book": "Book a session"
+      }
+    },
+    "how": {
+      "titleLead": "How it ",
+      "titleEm": "works",
+      "subtitle": "{{brand}} is consulting-led, not self-serve. Here's what the first 30 days look like.",
+      "steps": {
+        "tell": {
+          "title": "Tell us about your business",
+          "description": "Fill in a short quote form. We ask about your size, current software, and what you wish worked better."
+        },
+        "call": {
+          "title": "Onboarding call",
+          "description": "A Golden Circle consultant scopes your setup, migrates your data from Square, Vagaro, or Acuity, and trains your team."
+        },
+        "live": {
+          "title": "Go live with confidence",
+          "description": "Your bookings open, your staff is trained, and your consultant stays in your corner. We answer the phone, not a chatbot."
+        }
+      }
+    },
+    "trusted": {
+      "titleLead": "Built by operators, ",
+      "titleEm": "delivered with consulting",
+      "subtitle": "Salons across the {{parent}} network run their front desk, packages, waivers, and marketing on {{brand}}, backed by people who have actually run a treatment room."
+    },
+    "plan": {
+      "titleLead": "One plan. ",
+      "titleEm": "Everything inside.",
+      "subtitle": "No starter / pro / enterprise jenga. Every {{brand}} customer gets the whole platform. You pay for the size of your business, not the features you're allowed to touch.",
+      "badge": "All-Inclusive",
+      "name": "The {{brand}} Plan",
+      "description": "Built for salons and spas of any size, from a single chair to a multi-location group. Quote scales with your team, locations, and SMS volume.",
+      "price": "Custom quote",
+      "included": "What's included",
+      "items": [
+        "Unlimited appointments and clients",
+        "Per-staff availability, custom-time overrides, conflict prevention",
+        "Public scheduler links (per treatment, per staff, per campaign)",
+        "Acuity Scheduling sync (webhook + manual)",
+        "White-label client portal on your own domain",
+        "Installable PWA for clients with Google or phone OTP sign-in",
+        "Multi-treatment packages with per-treatment session counters",
+        "Memberships, loyalty, and 3-state membership tracking",
+        "Digital waivers, intakes, and agreements",
+        "OTP-verified SMS waiver signing + photo uploads",
+        "Google Drive auto-backup of every signed form and invoice",
+        "SMS + email reminders (Twilio or Infobip)",
+        "Marketing automations: welcome, birthday, win-back, renewals",
+        "Brand email designer with reusable wrapper templates",
+        "Audience builder and campaign analytics",
+        "Sequential, audit-grade invoicing with PDF + drafts",
+        "Revenue, retention, and staff-performance analytics",
+        "Multi-location management with shared client records",
+        "Role-based access, audit logs, per-tenant data isolation",
+        "A dedicated Golden Circle consultant, not a chatbot"
+      ],
+      "cta": "Get your custom quote",
+      "footnote": "Month-to-month. No setup fee. Cancel any time. Quote scales with your team and locations. Request a quote and a Golden Circle consultant will come back within one business day."
+    },
+    "about": {
+      "badge": "About",
+      "p1": "We're salon and spa operators first, software builders second. After two decades advising skincare studios on how to grow, we kept running into the same problem: the tools our clients used were built by companies that had never swept up a treatment room.",
+      "p2": "So we built {{brand}}. Every subscription includes consulting hours with a real Golden Circle advisor, because software alone doesn't grow a business. The combination of the two does.",
+      "items": [
+        "Over 20 years of salon & spa consulting",
+        "Built by practitioners, not engineers",
+        "Every plan includes human onboarding",
+        "Consulting hours, not a chatbot",
+        "Your data stays yours, export any time"
+      ]
+    },
+    "faq": {
+      "titleLead": "Frequently asked ",
+      "titleEm": "questions",
+      "subtitleLead": "Still have questions? Call us at ",
+      "items": {
+        "contract": {
+          "q": "Is there a contract or long-term commitment?",
+          "a": "No long-term contract. Plans are month-to-month. We earn your business every month. If we stop being useful, you stop paying."
+        },
+        "onboarding": {
+          "q": "How long does onboarding take?",
+          "a": "Most salons are fully live within 2 to 3 weeks. That includes data migration, staff training, and a go-live call. Multi-location setups may take 4 to 6 weeks depending on scope."
+        },
+        "migration": {
+          "q": "Can you migrate my data from another platform?",
+          "a": "Yes. We regularly migrate clients, appointments, waivers, and package balances from Square, Vagaro, MindBody, Acuity, and bespoke spreadsheets. Migration is included in onboarding."
+        },
+        "sms": {
+          "q": "Are SMS reminders included?",
+          "a": "Yes. SMS reminders, OTP-verified waivers, and marketing campaigns are part of the plan. You connect your own Twilio or Infobip account so you pay wholesale carrier rates with no markup from us."
+        },
+        "support": {
+          "q": "What kind of support do I get?",
+          "a": "Every customer gets human onboarding, data migration, and ongoing email support. Multi-location groups get a dedicated Golden Circle consultant on call. Real humans, not a ticket queue."
+        },
+        "portal": {
+          "q": "Can my clients book and manage appointments themselves?",
+          "a": "Yes. Every customer gets a white-label client portal, an installable PWA that lives at your own crm.your-domain.com. Clients sign in with Google or a phone OTP, view their packages, see history, and request bookings against their remaining sessions. You approve or reschedule from the CRM."
+        },
+        "marketing": {
+          "q": "Do marketing emails go out automatically?",
+          "a": "Yes. Marketing automations cover welcomes, birthdays, inactive-client win-backs, package-renewal nudges, appointment confirmations, and reminders. Every email runs through your own branded wrapper that you design once in the email designer."
+        },
+        "cancel": {
+          "q": "How do I cancel?",
+          "a": "Email or call us any time. You can export your client, appointment, and package data before you go. We do not hold your data hostage."
+        }
+      }
+    },
+    "contact": {
+      "badge": "Get started",
+      "titleLead": "Request your ",
+      "titleEm": "custom quote",
+      "description": "Tell us about your business. A Golden Circle consultant will reach out within one business day with a plan recommendation and pricing tailored to your setup."
+    },
+    "footer": {
+      "byParent": "by {{parent}}",
+      "tagline": "The salon and spa management platform from {{parent}}. Built by operators, delivered with consulting.",
+      "product": "Product",
+      "company": "Company",
+      "legal": "Legal",
+      "features": "Features",
+      "howItWorks": "How it works",
+      "plans": "Plans",
+      "faq": "FAQ",
+      "getQuote": "Get a Quote",
+      "contactUs": "Contact Us",
+      "callUs": "Call Us",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Use",
+      "smsTerms": "SMS Terms",
+      "acceptableUse": "Acceptable Use",
+      "dpa": "Data Processing",
+      "copyright": "© 2026 {{parent}}",
+      "rights": "All rights reserved."
+    },
+    "whatsapp": {
+      "aria": "Chat with us on WhatsApp",
+      "message": "Hi! I'd like a quote for Beauty Hub Pro."
+    }
+  },
+  "cookieBanner": {
+    "aria": "Cookie consent",
+    "title": "Cookies on beautyhubpro.com",
+    "body": "We use cookies that are strictly necessary to operate the site and, with your permission, optional cookies to understand how visitors use it. You can change your mind any time by clearing site data.",
+    "closeAria": "Close cookie banner, declines optional cookies",
+    "acceptAll": "Accept all",
+    "rejectOptional": "Reject optional",
+    "privacyPolicy": "Privacy policy"
+  },
+  "quoteForm": {
+    "validation": {
+      "name": "Please enter your name.",
+      "business": "Please enter your business name.",
+      "email": "Please enter a valid email.",
+      "phone": "Please enter a phone number.",
+      "message": "Tell us a little about what you need."
+    },
+    "toasts": {
+      "checkForm": "Please check the form",
+      "received": "Request received",
+      "receivedDescription": "A Golden Circle consultant will reach out within one business day.",
+      "sendFailed": "Couldn't send your request",
+      "tryAgain": "Please try again in a moment."
+    },
+    "fields": {
+      "name": "Your name",
+      "namePlaceholder": "Jane Doe",
+      "business": "Business name",
+      "businessPlaceholder": "The Golden Spa",
+      "email": "Email",
+      "emailPlaceholder": "you@yourbusiness.com",
+      "phone": "Phone",
+      "phonePlaceholder": "(555) 123-4567",
+      "message": "What should we know about your business?",
+      "messagePlaceholder": "Team size, current software, biggest pain point, timeline…",
+      "website": "Website"
+    },
+    "submit": "Request My Quote",
+    "sending": "Sending…",
+    "disclaimer": "By submitting you agree to be contacted by The Golden Circle Consulting. We never share your information."
+  },
+  "salonMarquee": {
+    "aria": "Salons on the Beauty Hub Pro network"
+  },
+  "scrollToTop": {
+    "aria": "Back to top"
+  }
+}

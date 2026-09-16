@@ -1,11 +1,22 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
+import i18n, { DEFAULT_LANGUAGE, isAppLanguage, localeFor, type AppLanguage } from '@/i18n';
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import {
+  applyPdfDirection,
+  containsHebrew,
+  PDF_FONT_FAMILY,
+  pdfAlignFor,
+  registerPdfFonts,
+} from '@/lib/pdfFonts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -85,18 +96,30 @@ interface WaiverData {
   package_sessions: number | null;
   purchase_date: string;
   expiry_date: string;
+  /** Language the form should be presented in (from the clientWaivers doc, then ?lang=, then 'en'). */
+  language: AppLanguage;
 }
 
 const OTHER_VALUE = '__other__';
 
-function formatPrice(n: number): string {
-  return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+/**
+ * Resolve the signing language: the optional `language` field on the loaded
+ * clientWaivers doc wins, then the ?lang= query param, then English.
+ */
+function resolveWaiverLanguage(docLang: unknown, queryLang: string | null): AppLanguage {
+  if (isAppLanguage(docLang)) return docLang;
+  if (isAppLanguage(queryLang)) return queryLang;
+  return DEFAULT_LANGUAGE;
+}
+
+function formatPrice(n: number, lang: AppLanguage): string {
+  return n.toLocaleString(localeFor(lang), { style: 'currency', currency: 'USD' });
 }
 
 function purchaseBlockValue(block: WaiverBlock, waiver: WaiverData): string {
   switch (block.type) {
     case 'package_name':     return waiver.package_name || '—';
-    case 'package_price':    return waiver.package_price != null ? formatPrice(waiver.package_price) : '—';
+    case 'package_price':    return waiver.package_price != null ? formatPrice(waiver.package_price, waiver.language) : '—';
     case 'package_sessions': return waiver.package_sessions != null ? String(waiver.package_sessions) : '—';
     case 'purchase_date':    return waiver.purchase_date || '—';
     case 'expiry_date':      return waiver.expiry_date || '—';
@@ -104,13 +127,9 @@ function purchaseBlockValue(block: WaiverBlock, waiver: WaiverData): string {
   }
 }
 
-const PURCHASE_BLOCK_LABELS: Record<string, string> = {
-  package_name: 'Package',
-  package_price: 'Price',
-  package_sessions: 'Sessions',
-  purchase_date: 'Purchase date',
-  expiry_date: 'Valid until',
-};
+function purchaseBlockLabel(type: BlockType, lang?: AppLanguage): string {
+  return i18n.t(`waiverForm:purchaseLabels.${type}`, lang ? { lng: lang } : undefined);
+}
 
 function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<string, string | boolean | string[]> {
   const firstName = waiver.client_name.split(' ')[0] ?? '';
@@ -127,25 +146,67 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
     const lbl = (block.label ?? '').toLowerCase();
 
     // Label matchers — defined once per block so the if/else chain stays readable.
+    // Each one accepts the English wording AND the Hebrew wording used by the
+    // Hebrew master templates ('שם פרטי', 'שם משפחה', 'כתובת', 'עיר',
+    // 'תאריך לידה', 'מגדר' / 'מין', 'גיל', 'איך שמעת עלינו?', 'אימייל' /
+    // 'דוא"ל', 'טלפון'). Short Hebrew words are anchored as whole words so
+    // e.g. 'גילוי' (disclosure) is not treated as an age field.
     const isBirthdayLabel =
       lbl.includes('birthday') ||
       lbl.includes('date of birth') ||
       lbl.includes('dob') ||
       lbl.includes('birth date') ||
-      lbl.includes('born');
+      lbl.includes('born') ||
+      lbl.includes('תאריך לידה') ||
+      lbl.includes('יום הולדת') ||
+      lbl.includes('תאריך הלידה');
+    // 'מין' only on its own (it also means "type/kind", e.g. 'מין הטיפול'),
+    // matching backfillClient.ts + addStandardFieldsToTemplates.ts.
     const isGenderLabel =
-      lbl.includes('gender') || /\bsex\b/.test(lbl);
+      lbl.includes('gender') || /\bsex\b/.test(lbl) ||
+      lbl.includes('מגדר') || /^מין[:?*.]?$/.test(lbl);
     const isCityLabel =
       lbl === 'city' ||
       lbl.startsWith('city ') ||
       lbl.includes('what city') ||
-      lbl.includes('your city');
+      lbl.includes('your city') ||
+      /(^|\s)ה?עיר(?=$|\s|[:?*.])/.test(lbl) ||
+      lbl.includes('עיר מגורים');
     const isReferralLabel =
       lbl.includes('referral') ||
       lbl.includes('hear about') ||
       lbl.includes('how did you find') ||
       lbl.includes('find us') ||
-      lbl.includes('refer you');
+      lbl.includes('refer you') ||
+      lbl.includes('איך שמעת') ||
+      lbl.includes('שמעת עלינו') ||
+      lbl.includes('הגעת אלינו') ||
+      lbl.includes('מקור ההפניה') ||
+      lbl.includes('מקור הפניה');
+    const isEmailLabel =
+      lbl.includes('email') ||
+      lbl.includes('אימייל') ||
+      lbl.includes('דוא"ל') ||
+      lbl.includes('דוא״ל') ||
+      lbl.includes('דואר אלקטרוני') ||
+      /(^|\s)ה?מייל(?=$|\s|[:?*.])/.test(lbl);
+    const isPhoneLabel =
+      lbl.includes('phone') || lbl.includes('mobile') || lbl.includes('cell') ||
+      lbl.includes('טלפון') || lbl.includes('נייד') || lbl.includes('פלאפון');
+    const isFirstNameLabel =
+      lbl.includes('first name') || lbl.includes('שם פרטי');
+    const isLastNameLabel =
+      lbl.includes('last name') || lbl.includes('surname') || lbl.includes('family name') ||
+      lbl.includes('שם משפחה');
+    const isFullNameLabel =
+      lbl.includes('full name') || lbl === 'name' || lbl === 'your name' ||
+      lbl.includes('שם מלא') || /^ה?שם(ך|כם|כן)?[:?*.]?$/.test(lbl);
+    const isAgeLabel =
+      lbl.includes('age') ||
+      /(^|\s)ה?גיל(ך|כם|כן)?(?=$|\s|[:?*.])/.test(lbl);
+    const isAddressLabel =
+      lbl.includes('address') || lbl.includes('street') ||
+      lbl.includes('כתובת') || lbl.includes('רחוב');
 
     // Dedicated block types — these match even without a label, and the
     // type-match is the canonical signal. Label matches below act as fallbacks
@@ -163,35 +224,46 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
     // because the block type alone is enough).
     if (!block.label && block.type !== 'email' && block.type !== 'phone') continue;
 
-    if (block.type === 'email' || lbl.includes('email')) {
+    if (block.type === 'email' || isEmailLabel) {
       if (waiver.client_email) prefill[block.id] = waiver.client_email;
-    } else if (block.type === 'phone' || lbl.includes('phone') || lbl.includes('mobile') || lbl.includes('cell')) {
+    } else if (block.type === 'phone' || isPhoneLabel) {
       if (waiver.client_phone) prefill[block.id] = waiver.client_phone;
-    } else if (lbl.includes('first name')) {
+    } else if (isFirstNameLabel) {
       if (firstName) prefill[block.id] = firstName;
-    } else if (lbl.includes('last name') || lbl.includes('surname') || lbl.includes('family name')) {
+    } else if (isLastNameLabel) {
       if (lastName) prefill[block.id] = lastName;
-    } else if (lbl.includes('full name') || lbl === 'name' || lbl === 'your name') {
+    } else if (isFullNameLabel) {
       if (waiver.client_name) prefill[block.id] = waiver.client_name;
     } else if (isBirthdayLabel) {
       if (waiver.client_birthday) prefill[block.id] = waiver.client_birthday;
     } else if (isGenderLabel) {
       if (waiver.client_gender) prefill[block.id] = waiver.client_gender;
-    } else if (lbl.includes('age')) {
+    } else if (isAgeLabel) {
       if (waiver.client_age != null) prefill[block.id] = String(waiver.client_age);
-    } else if (lbl.includes('address') || lbl.includes('street')) {
+    } else if (isAddressLabel) {
       if (waiver.client_address) prefill[block.id] = waiver.client_address;
     } else if (
       lbl.includes('name of program') ||
       lbl.includes('program name') ||
       lbl.includes('package name') ||
       lbl === 'program' ||
-      lbl === 'package'
+      lbl === 'package' ||
+      lbl.includes('שם התוכנית') ||
+      lbl.includes('שם התכנית') ||
+      lbl.includes('שם החבילה') ||
+      lbl === 'תוכנית' ||
+      lbl === 'חבילה'
     ) {
       if (waiver.package_name) prefill[block.id] = waiver.package_name;
-    } else if (lbl.includes('price') || lbl.includes('cost') || lbl.includes('amount')) {
-      if (waiver.package_price != null) prefill[block.id] = formatPrice(waiver.package_price);
-    } else if (lbl.includes('expiry') || lbl.includes('expires') || lbl.includes('valid until')) {
+    } else if (
+      lbl.includes('price') || lbl.includes('cost') || lbl.includes('amount') ||
+      lbl.includes('מחיר') || lbl.includes('עלות') || lbl.includes('סכום')
+    ) {
+      if (waiver.package_price != null) prefill[block.id] = formatPrice(waiver.package_price, waiver.language);
+    } else if (
+      lbl.includes('expiry') || lbl.includes('expires') || lbl.includes('valid until') ||
+      lbl.includes('תוקף') || lbl.includes('בתוקף עד') || lbl.includes('תאריך סיום')
+    ) {
       if (waiver.expiry_date) prefill[block.id] = waiver.expiry_date;
     } else if (block.type === 'date' && !isBirthdayLabel) {
       // Generic date blocks on agreements default to the purchase date,
@@ -203,15 +275,33 @@ function buildPrefillAnswers(blocks: WaiverBlock[], waiver: WaiverData): Record<
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+// uploadWaiverFile now returns errors in the requested `lang`, but older
+// deployments (or a missing lang) still send English. Map those to translated
+// copy so the Hebrew UI never shows raw English; anything unknown falls through.
+const SERVER_ERROR_KEYS: Record<string, string> = {
+  'Invalid token': 'invalidToken',
+  'Form already submitted': 'alreadySubmitted',
+  'Link expired': 'linkExpired',
+  'Upload limit reached for this form': 'uploadLimit',
+  'PDF too large': 'pdfTooLarge',
+  'Image too large': 'imageTooLarge',
+  'Unsupported image type': 'unsupportedImage',
+};
+
+function translateServerMessage(message: string): string {
+  const key = SERVER_ERROR_KEYS[message.trim()];
+  return key ? i18n.t(`waiverForm:errors.server.${key}`) : message;
+}
+
 function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === 'string') return err;
+  if (err instanceof Error && err.message) return translateServerMessage(err.message);
+  if (typeof err === 'string') return translateServerMessage(err);
   if (err && typeof err === 'object') {
     const e = err as { message?: unknown; code?: unknown };
-    if (typeof e.message === 'string' && e.message) return e.message;
+    if (typeof e.message === 'string' && e.message) return translateServerMessage(e.message);
     if (typeof e.code === 'string' && e.code) return e.code;
   }
-  return 'Submission failed. Please try again.';
+  return i18n.t('waiverForm:errors.submissionFailed');
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -222,7 +312,7 @@ function blobToBase64(blob: Blob): Promise<string> {
       const comma = result.indexOf(',');
       resolve(comma >= 0 ? result.slice(comma + 1) : result);
     };
-    reader.onerror = () => reject(new Error(reader.error?.message || 'Failed to read file'));
+    reader.onerror = () => reject(new Error(reader.error?.message || i18n.t('waiverForm:errors.readFile')));
     reader.readAsDataURL(blob);
   });
 }
@@ -230,10 +320,10 @@ function blobToBase64(blob: Blob): Promise<string> {
 async function uploadPdf(blob: Blob, token: string): Promise<string> {
   const fileBase64 = await blobToBase64(blob);
   const upload = httpsCallable<
-    { token: string; fileBase64: string; contentType: string; kind: 'pdf' },
+    { token: string; fileBase64: string; contentType: string; kind: 'pdf'; lang: string },
     { url: string }
   >(functions, 'uploadWaiverFile');
-  const res = await upload({ token, fileBase64, contentType: 'application/pdf', kind: 'pdf' });
+  const res = await upload({ token, fileBase64, contentType: 'application/pdf', kind: 'pdf', lang: i18n.language });
   return res.data.url;
 }
 
@@ -241,7 +331,7 @@ async function uploadWaiverImage(image: StagedImage, token: string, blockId: str
   const fileBase64 = await blobToBase64(image.blob);
   const safeName = image.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const upload = httpsCallable<
-    { token: string; fileBase64: string; contentType: string; kind: 'photo'; filename: string },
+    { token: string; fileBase64: string; contentType: string; kind: 'photo'; filename: string; lang: string },
     { url: string }
   >(functions, 'uploadWaiverFile');
   const res = await upload({
@@ -250,6 +340,7 @@ async function uploadWaiverImage(image: StagedImage, token: string, blockId: str
     contentType: image.type,
     kind: 'photo',
     filename: `${blockId}-${index}-${safeName}`,
+    lang: i18n.language,
   });
   return res.data.url;
 }
@@ -280,7 +371,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error(reader.error?.message || 'Failed to read image'));
+    reader.onerror = () => reject(new Error(reader.error?.message || i18n.t('waiverForm:errors.readImage')));
     reader.readAsDataURL(blob);
   });
 }
@@ -335,12 +426,21 @@ async function buildPdf(
   answers: Record<string, string | boolean | string[]>,
   sigDataUrl: string,
   imageDataUrls: Record<string, string[]>,
+  language: AppLanguage,
 ): Promise<Blob> {
+  const tp = (key: string, opts?: Record<string, unknown>) =>
+    i18n.t(`waiverForm:${key}`, { ...(opts ?? {}), lng: language }) as string;
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+  // Helvetica has no Hebrew glyphs — register Rubik (Latin + Hebrew) before any text draw.
+  await registerPdfFonts(doc);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
   const contentW = pageW - margin * 2;
+  const align = pdfAlignFor(language);
+  // x origin for body text / images: right margin in Hebrew, left margin otherwise
+  const originX = align === 'right' ? pageW - margin : margin;
   let y = margin;
 
   const ensureSpace = (h: number) => {
@@ -350,25 +450,86 @@ async function buildPdf(
     }
   };
 
+  // Hebrew runs vs. Latin/number runs, split according to the paragraph
+  // direction (a simplified bidi resolution):
+  //  - RTL (Hebrew form): neutral punctuation/whitespace next to a Hebrew
+  //    letter — leading or trailing — belongs to the Hebrew run, so "שם: "
+  //    keeps its colon and "  (לא נחתם)" keeps both parentheses in the RTL
+  //    run. Latin runs stop before neutrals that lead into Hebrew; neutrals
+  //    at the very end of the line form their own run and take the paragraph
+  //    (RTL) direction.
+  //  - LTR (English form): a Hebrew run only absorbs neutrals *between* two
+  //    Hebrew letters; neutrals bordering Latin text or the line ends stay
+  //    LTR, so "Answer: (שלום)" keeps its parentheses in place.
+  const NEUTRAL = `\\s.,:;!?'"()\\[\\]{}\\-–—/`;
+  const HEB = '֐-׿';
+  const RUN_RE_RTL = new RegExp(
+    `[${NEUTRAL}]*[${HEB}][${HEB}${NEUTRAL}]*|[^${HEB}]+?(?=[${NEUTRAL}]*(?:[${HEB}]|$))|[^${HEB}]+`,
+    'g',
+  );
+  const RUN_RE_LTR = new RegExp(`[${HEB}](?:[${NEUTRAL}]*[${HEB}])*|[^${HEB}]+`, 'g');
+  const RUN_RE = align === 'right' ? RUN_RE_RTL : RUN_RE_LTR;
+  const STRONG_RE = /[A-Za-z0-9À-ɏ֐-׿]/;
+
+  // jsPDF's R2L mode reverses glyph order but does not mirror brackets, so a
+  // "(" inside a reversed run ends up facing the wrong way. Swap paired
+  // brackets before the reversal so they render mirrored, as a bidi-aware
+  // renderer would.
+  const MIRROR: Record<string, string> = {
+    '(': ')', ')': '(', '[': ']', ']': '[', '{': '}', '}': '{', '<': '>', '>': '<',
+  };
+  const mirrorBrackets = (s: string) => s.replace(/[()[\]{}<>]/g, (c) => MIRROR[c] ?? c);
+
+  // Draw one already-wrapped line. Pure Latin lines are drawn as-is with the
+  // language's alignment. Lines containing Hebrew are split into directional
+  // runs laid out in the paragraph direction (right-to-left for Hebrew forms,
+  // left-to-right for English ones), so embedded emails, phone numbers, dates,
+  // prices and Hebrew names keep their natural order instead of being mirrored
+  // by R2L mode.
+  const drawLine = (line: string) => {
+    if (!containsHebrew(line)) {
+      applyPdfDirection(doc, line);
+      doc.text(line, originX, y, { align });
+      return;
+    }
+    const rtl = align === 'right';
+    const runs = line.match(RUN_RE) ?? [line];
+    const widths = runs.map((run) => doc.getTextWidth(run));
+    let x = rtl ? pageW - margin : margin;
+    runs.forEach((run, i) => {
+      // Hebrew runs are always RTL; in an RTL paragraph, runs made purely of
+      // neutrals (e.g. a trailing ")") take the paragraph direction too.
+      const runRtl = containsHebrew(run) || (rtl && !STRONG_RE.test(run));
+      if (rtl) x -= widths[i];
+      doc.setR2L(runRtl);
+      doc.text(runRtl ? mirrorBrackets(run) : run, x, y);
+      if (!rtl) x += widths[i];
+    });
+    doc.setR2L(false);
+  };
+
   const addText = (text: string, size: number, bold = false, color = '#111111') => {
     doc.setFontSize(size);
-    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFont(PDF_FONT_FAMILY, bold ? 'bold' : 'normal');
     doc.setTextColor(color);
     const lines = doc.splitTextToSize(text, contentW);
     lines.forEach((line: string) => {
       ensureSpace(size * 1.4);
-      doc.text(line, margin, y);
+      drawLine(line);
       y += size * 1.4;
     });
     y += 4;
   };
 
+  // Images (signature / uploads) sit against the same margin as the text.
+  const imageX = (w: number) => (align === 'right' ? pageW - margin - w : margin);
+
   // Title
   addText(title, 20, true);
-  addText(`Signed by: ${signerName}`, 11, false, '#555555');
-  if (signerEmail) addText(`Email: ${signerEmail}`, 11, false, '#555555');
-  if (signerPhone) addText(`Phone: ${signerPhone}`, 11, false, '#555555');
-  addText(`Date: ${new Date().toLocaleString()}`, 11, false, '#555555');
+  addText(tp('pdf.signedBy', { name: signerName }), 11, false, '#555555');
+  if (signerEmail) addText(tp('pdf.email', { email: signerEmail }), 11, false, '#555555');
+  if (signerPhone) addText(tp('pdf.phone', { phone: signerPhone }), 11, false, '#555555');
+  addText(tp('pdf.date', { date: new Date().toLocaleString(localeFor(language)) }), 11, false, '#555555');
   y += 12;
 
   // Blocks
@@ -385,24 +546,24 @@ async function buildPdf(
       addText(block.value, 12, true, '#333333');
       y += 2;
     } else if (block.type === 'signature') {
-      addText(block.label || 'Signature', 11, true);
+      addText(block.label || tp('defaults.signature'), 11, true);
       const dataUrl = typeof answers[block.id] === 'string' ? (answers[block.id] as string) : '';
       if (dataUrl) {
-        addText('Signer agreed to use electronic records and signatures.', 9, false, '#666666');
+        addText(tp('pdf.esignConsent'), 9, false, '#666666');
         const sigH = 80;
         const sigW = 240;
         ensureSpace(sigH);
-        doc.addImage(dataUrl, 'PNG', margin, y, sigW, sigH);
+        doc.addImage(dataUrl, 'PNG', imageX(sigW), y, sigW, sigH);
         y += sigH + 6;
       } else {
-        addText('  (not signed)', 10, false, '#888888');
+        addText(`  ${tp('pdf.notSigned')}`, 10, false, '#888888');
       }
       y += 4;
     } else if (block.type === 'image_upload') {
       if (block.label) addText(block.label, 11, true);
       const dataUrls = imageDataUrls[block.id] ?? [];
       if (dataUrls.length === 0) {
-        addText('  (no images uploaded)', 10, false, '#888888');
+        addText(`  ${tp('pdf.noImages')}`, 10, false, '#888888');
       } else {
         const maxW = contentW;
         const maxH = 220;
@@ -412,13 +573,13 @@ async function buildPdf(
           const drawW = w * ratio;
           const drawH = h * ratio;
           ensureSpace(drawH + 8);
-          doc.addImage(dataUrl, 'JPEG', margin, y, drawW, drawH, undefined, 'FAST');
+          doc.addImage(dataUrl, 'JPEG', imageX(drawW), y, drawW, drawH, undefined, 'FAST');
           y += drawH + 8;
         }
       }
       y += 4;
     } else if (block.type === 'city' || block.type === 'referral_source') {
-      const defaultLabel = block.type === 'city' ? 'City' : 'How did you hear about us?';
+      const defaultLabel = block.type === 'city' ? tp('defaults.city') : tp('defaults.referralSource');
       const lbl = block.label?.trim() || defaultLabel;
       const value = typeof answers[block.id] === 'string' && (answers[block.id] as string).trim()
         ? (answers[block.id] as string)
@@ -432,31 +593,36 @@ async function buildPdf(
       block.type === 'purchase_date' ||
       block.type === 'expiry_date'
     ) {
-      const lbl = block.label?.trim() || PURCHASE_BLOCK_LABELS[block.type];
+      const lbl = block.label?.trim() || purchaseBlockLabel(block.type, language);
       const value = typeof answers[block.id] === 'string' ? (answers[block.id] as string) : '—';
       addText(`${lbl}: ${value}`, 11, false, '#1f2937');
       y += 4;
     } else if (block.label) {
       addText(block.label, 11, true);
       const answer = answers[block.id];
+      // yes_no answers are stored as the literal strings 'Yes' / 'No' — map them for display only.
       const answerText =
         typeof answer === 'boolean'
-          ? answer ? 'Yes / Agreed' : 'No'
+          ? answer ? tp('pdf.yesAgreed') : tp('pdf.no')
           : Array.isArray(answer)
-          ? answer.length === 0 ? '—' : `${answer.length} file(s)`
+          ? answer.length === 0 ? '—' : tp('pdf.files', { count: answer.length })
+          : answer === 'Yes'
+          ? tp('pdf.yes')
+          : answer === 'No'
+          ? tp('pdf.no')
           : String(answer ?? '—');
-      addText(`  Answer: ${answerText}`, 10, false, '#444444');
+      addText(`  ${tp('pdf.answer', { answer: answerText })}`, 10, false, '#444444');
       y += 6;
     }
   }
 
   // Signature
   y += 16;
-  addText('Signature:', 11, true);
+  addText(tp('pdf.signatureHeading'), 11, true);
   const imgH = 80;
   const imgW = 240;
   ensureSpace(imgH);
-  doc.addImage(sigDataUrl, 'PNG', margin, y, imgW, imgH);
+  doc.addImage(sigDataUrl, 'PNG', imageX(imgW), y, imgW, imgH);
 
   return doc.output('blob');
 }
@@ -464,6 +630,10 @@ async function buildPdf(
 // ── Component ─────────────────────────────────────────────────
 export default function WaiverForm() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const queryLang = searchParams.get('lang');
+  const { t } = useTranslation('waiverForm');
+  const { language, setLanguage } = useLanguage();
   const sigRef = useRef<SignatureCanvas>(null);
   const sigDataUrlRef = useRef<string | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -495,6 +665,46 @@ export default function WaiverForm() {
   const [capturedSig, setCapturedSig] = useState<string | null>(null);
   const [cityOptions, setCityOptions] = useState<string[]>([]);
   const [referralOptions, setReferralOptions] = useState<string[]>([]);
+
+  // Language: before the waiver loads (OTP / error screens) honour ?lang=;
+  // once it loads, the clientWaivers doc's `language` wins — unless the signer
+  // has already switched language themselves via the LanguageSwitcher, in
+  // which case their choice sticks. Not persisted — this is a public page, the
+  // signer is not a staff user.
+  const waiverLanguage = waiver?.language ?? null;
+  // Last language this effect applied. When the live `language` differs from
+  // it, the signer switched manually and we must not override them.
+  const appliedLanguageRef = useRef<AppLanguage | null>(null);
+  useEffect(() => {
+    if (appliedLanguageRef.current !== null && language !== appliedLanguageRef.current) return;
+    const resolved = waiverLanguage ?? resolveWaiverLanguage(undefined, queryLang);
+    appliedLanguageRef.current = resolved;
+    if (resolved !== language) void setLanguage(resolved, { persist: false });
+  }, [waiverLanguage, queryLang, language, setLanguage]);
+
+  // Prefilled package prices are formatted with the language the waiver was
+  // loaded in. Keep them in step with the live language (the rest of the UI
+  // and the PDF follow `language`) by re-formatting untouched price answers
+  // whenever the signer switches; anything the signer edited is left alone.
+  const priceStateRef = useRef<{ waiver: WaiverData; lang: AppLanguage } | null>(null);
+  useEffect(() => {
+    if (!waiver) return;
+    // A freshly loaded waiver has its answers formatted in waiver.language.
+    const from = priceStateRef.current?.waiver === waiver ? priceStateRef.current.lang : waiver.language;
+    priceStateRef.current = { waiver, lang: language };
+    if (from === language || waiver.package_price == null) return;
+    const before = formatPrice(waiver.package_price, from);
+    const after = formatPrice(waiver.package_price, language);
+    if (before === after) return;
+    setAnswers((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [id, value] of Object.entries(prev)) {
+        if (value === before) { next[id] = after; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [waiver, language]);
 
   // Pulls active city + referral-source options from the org's dropdownData
   // so the public form can render the same dropdowns staff see on the client card.
@@ -559,11 +769,12 @@ export default function WaiverForm() {
         // Fetch the template to get blocks & title
         const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
         const tpl = tplSnap.exists() ? tplSnap.data() : null;
+        const lang = resolveWaiverLanguage(wd.language, queryLang);
 
         const waiverData: WaiverData = {
           waiver_id: waiverId,
           organization_id: orgId,
-          template_title: tpl?.title ?? 'Waiver',
+          template_title: tpl?.title ?? i18n.t('waiverForm:defaults.waiver', { lng: lang }),
           template_headline: tpl?.headline ?? '',
           template_sub_headline: tpl?.sub_headline ?? '',
           template_blocks: tpl?.content ?? [],
@@ -581,6 +792,7 @@ export default function WaiverForm() {
           package_sessions: wd.packageSessions ?? null,
           purchase_date: wd.purchaseDate ?? '',
           expiry_date: wd.expiryDate ?? '',
+          language: lang,
         };
         setWaiver(waiverData);
         setSignerName(wd.clientName ?? '');
@@ -607,14 +819,14 @@ export default function WaiverForm() {
 
   const handleVerifyOtp = async () => {
     if (!token || otpValue.length !== 6) {
-      setOtpError('Please enter the 6-digit code from your SMS.');
+      setOtpError(t('otp.invalidLength'));
       return;
     }
     setOtpLoading(true);
     setOtpError('');
     try {
       const verifyFn = httpsCallable(functions, 'verifyFormOtp');
-      await verifyFn({ token, otp: otpValue });
+      await verifyFn({ token, otp: otpValue, lang: language });
       setOtpVerified(true);
       setNeedsOtp(false);
       // Now load the full form
@@ -629,10 +841,11 @@ export default function WaiverForm() {
       const wd = waiverSnap.data();
       const tplSnap = await getDoc(doc(db, 'organizations', orgId, 'waiverTemplates', wd.templateId));
       const tpl = tplSnap.exists() ? tplSnap.data() : null;
+      const lang = resolveWaiverLanguage(wd.language, queryLang);
       const waiverDataOtp: WaiverData = {
         waiver_id: waiverId,
         organization_id: orgId,
-        template_title: tpl?.title ?? 'Form',
+        template_title: tpl?.title ?? i18n.t('waiverForm:defaults.form', { lng: lang }),
         template_headline: tpl?.headline ?? '',
         template_sub_headline: tpl?.sub_headline ?? '',
         template_blocks: tpl?.content ?? [],
@@ -650,6 +863,7 @@ export default function WaiverForm() {
         package_sessions: wd.packageSessions ?? null,
         purchase_date: wd.purchaseDate ?? '',
         expiry_date: wd.expiryDate ?? '',
+        language: lang,
       };
       setWaiver(waiverDataOtp);
       setSignerName(wd.clientName ?? '');
@@ -659,7 +873,7 @@ export default function WaiverForm() {
       fetchDropdownOptions(orgId);
       setLoading(false);
     } catch (err: unknown) {
-      setOtpError(err instanceof Error ? err.message : 'Invalid code. Please try again.');
+      setOtpError(err instanceof Error ? err.message : t('otp.invalidCode'));
     } finally {
       setOtpLoading(false);
     }
@@ -677,11 +891,11 @@ export default function WaiverForm() {
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!signerName.trim()) newErrors['__name'] = 'Please enter your full name.';
-    if (!signerEmail.trim()) newErrors['__email'] = 'Please enter your email.';
-    else if (!EMAIL_RE.test(signerEmail.trim())) newErrors['__email'] = 'Please enter a valid email address.';
-    if (!signerPhone.trim()) newErrors['__phone'] = 'Please enter your phone number.';
-    else if (!PHONE_RE.test(signerPhone.trim())) newErrors['__phone'] = 'Please enter a valid phone number.';
+    if (!signerName.trim()) newErrors['__name'] = t('validation.name');
+    if (!signerEmail.trim()) newErrors['__email'] = t('validation.email');
+    else if (!EMAIL_RE.test(signerEmail.trim())) newErrors['__email'] = t('validation.emailInvalid');
+    if (!signerPhone.trim()) newErrors['__phone'] = t('validation.phone');
+    else if (!PHONE_RE.test(signerPhone.trim())) newErrors['__phone'] = t('validation.phoneInvalid');
     if (!waiver) return newErrors;
     waiver.template_blocks.forEach((block) => {
       if (block.type === 'text' || block.type === 'heading' || block.type === 'subheading') return;
@@ -689,34 +903,34 @@ export default function WaiverForm() {
       if (block.type === 'image_upload') {
         if (!block.required) return;
         const files = imageFiles[block.id] ?? [];
-        if (files.length === 0) newErrors[block.id] = 'Please upload at least one image.';
+        if (files.length === 0) newErrors[block.id] = t('validation.image');
         return;
       }
       if (block.type === 'signature') {
         // Signatures are always required
         const ans = answers[block.id];
         if (typeof ans !== 'string' || !ans) {
-          newErrors[block.id] = 'Please draw your signature.';
+          newErrors[block.id] = t('validation.signature');
         }
         return;
       }
       if (!block.required) return;
       const ans = answers[block.id];
       if (ans === undefined || ans === '' || ans === null) {
-        newErrors[block.id] = 'This field is required.';
+        newErrors[block.id] = t('validation.required');
         return;
       }
       if (block.type === 'email' && typeof ans === 'string' && !EMAIL_RE.test(ans.trim())) {
-        newErrors[block.id] = 'Please enter a valid email address.';
+        newErrors[block.id] = t('validation.emailInvalid');
       }
       if (block.type === 'phone' && typeof ans === 'string' && !PHONE_RE.test(ans.trim())) {
-        newErrors[block.id] = 'Please enter a valid phone number.';
+        newErrors[block.id] = t('validation.phoneInvalid');
       }
     });
     if (!mainConsent) {
-      newErrors['__sig'] = 'Please agree to use electronic records and signatures.';
+      newErrors['__sig'] = t('validation.consent');
     } else if (!capturedSig && (!sigRef.current || sigRef.current.isEmpty())) {
-      newErrors['__sig'] = 'Please draw your signature.';
+      newErrors['__sig'] = t('validation.signature');
     }
     return newErrors;
   };
@@ -746,12 +960,12 @@ export default function WaiverForm() {
 
       const sigDataUrl = capturedSig ?? sigRef.current!.getTrimmedCanvas().toDataURL('image/png');
       const pdfTitle = waiver.template_headline || waiver.template_title;
-      const pdfBlob = await buildPdf(pdfTitle, signerName, signerEmail, signerPhone, waiver.template_blocks, finalAnswers, sigDataUrl, imageDataUrls);
+      const pdfBlob = await buildPdf(pdfTitle, signerName, signerEmail, signerPhone, waiver.template_blocks, finalAnswers, sigDataUrl, imageDataUrls, language);
       const pdfUrl  = await uploadPdf(pdfBlob, token!);
 
       // Re-read token doc by ID to get orgId and waiverId
       const tokenSnap = await getDoc(doc(db, 'waiverTokens', token!));
-      if (!tokenSnap.exists()) throw new Error('Token not found');
+      if (!tokenSnap.exists()) throw new Error(t('errors.tokenNotFound'));
       const { organizationId: orgId, waiverId } = tokenSnap.data();
 
       // Commit the waiver sign + token-flip atomically so a partial failure
@@ -787,48 +1001,51 @@ export default function WaiverForm() {
   if (loadError) return (
     <Screen>
       <AlertCircle className="h-10 w-10 text-amber-500 mb-3" />
-      <h2 className="text-lg font-semibold">Connection error</h2>
-      <p className="text-sm text-gray-700 mt-1 text-center max-w-xs">Could not load the form. Check your connection and try again.</p>
+      <h2 className="text-lg font-semibold">{t('states.connectionError.title')}</h2>
+      <p className="text-sm text-gray-700 mt-1 text-center max-w-xs">{t('states.connectionError.description')}</p>
       <p className="text-xs text-gray-600 mt-2 text-center max-w-xs">{loadError}</p>
       <button
         onClick={() => loadWaiver()}
         className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
       >
-        Try Again
+        {t('states.connectionError.retry')}
       </button>
     </Screen>
   );
   if (notFound) return (
     <Screen>
       <AlertCircle className="h-10 w-10 text-destructive mb-3" />
-      <h2 className="text-lg font-semibold">Link not found</h2>
-      <p className="text-sm text-gray-700 mt-1">This waiver link is invalid or has expired.</p>
+      <h2 className="text-lg font-semibold">{t('states.notFound.title')}</h2>
+      <p className="text-sm text-gray-700 mt-1">{t('states.notFound.description')}</p>
     </Screen>
   );
   if (alreadySigned) return (
     <Screen>
       <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
-      <h2 className="text-lg font-semibold">Already submitted</h2>
-      <p className="text-sm text-gray-700 mt-1">This waiver has already been signed. Thank you!</p>
+      <h2 className="text-lg font-semibold">{t('states.alreadySigned.title')}</h2>
+      <p className="text-sm text-gray-700 mt-1">{t('states.alreadySigned.description')}</p>
     </Screen>
   );
   if (expired) return (
     <Screen>
       <AlertCircle className="h-10 w-10 text-destructive mb-3" />
-      <h2 className="text-lg font-semibold">Link expired</h2>
-      <p className="text-sm text-gray-700 mt-1">This waiver link has expired. Please contact the business for a new link.</p>
+      <h2 className="text-lg font-semibold">{t('states.expired.title')}</h2>
+      <p className="text-sm text-gray-700 mt-1">{t('states.expired.description')}</p>
     </Screen>
   );
   if (needsOtp && !otpVerified) return (
     <div className="min-h-screen bg-white flex items-center justify-center py-8 px-4">
       <div className="max-w-sm w-full bg-white rounded-2xl shadow-md border border-border overflow-hidden">
         <div className="bg-primary px-6 py-5">
-          <h1 className="text-white text-xl font-bold">Verify your identity</h1>
-          <p className="text-primary-foreground/80 text-sm mt-1">Enter the 6-digit code sent to your phone.</p>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-white text-xl font-bold">{t('otp.title')}</h1>
+            <LanguageSwitcher variant="full" persist={false} className="shrink-0 text-white hover:bg-white/15 hover:text-white" />
+          </div>
+          <p className="text-primary-foreground/80 text-sm mt-1">{t('otp.subtitle')}</p>
         </div>
         <div className="p-6 space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="otp-input" className="font-medium">Verification Code</Label>
+            <Label htmlFor="otp-input" className="font-medium">{t('otp.label')}</Label>
             <Input
               id="otp-input"
               type="tel"
@@ -836,17 +1053,17 @@ export default function WaiverForm() {
               maxLength={6}
               value={otpValue}
               onChange={(e) => { setOtpValue(e.target.value.replace(/\D/g, '')); setOtpError(''); }}
-              placeholder="123456"
+              placeholder={t('otp.placeholder')}
               className={`text-center text-2xl tracking-[0.5em] font-bold ${otpError ? 'border-destructive' : ''}`}
               onKeyDown={(e) => { if (e.key === 'Enter') handleVerifyOtp(); }}
             />
             {otpError && <p className="text-xs text-destructive">{otpError}</p>}
           </div>
           <Button className="w-full" onClick={handleVerifyOtp} disabled={otpLoading || otpValue.length !== 6}>
-            {otpLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Verifying…</> : 'Verify & Open Form'}
+            {otpLoading ? <><Loader2 className="h-4 w-4 me-2 animate-spin" />{t('otp.verifying')}</> : t('otp.verify')}
           </Button>
           <p className="text-xs text-gray-700 text-center">
-            Didn't receive a code? Contact the salon to resend the form.
+            {t('otp.noCode')}
           </p>
         </div>
       </div>
@@ -856,8 +1073,8 @@ export default function WaiverForm() {
   if (done) return (
     <Screen>
       <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
-      <h2 className="text-xl font-semibold">Thank you, {signerName.split(' ')[0]}!</h2>
-      <p className="text-sm text-gray-700 mt-2">Your waiver has been signed and saved. You may close this page.</p>
+      <h2 className="text-xl font-semibold">{t('states.done.title', { name: signerName.split(' ')[0] })}</h2>
+      <p className="text-sm text-gray-700 mt-2">{t('states.done.description')}</p>
     </Screen>
   );
 
@@ -868,11 +1085,14 @@ export default function WaiverForm() {
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md border border-border overflow-hidden">
         {/* Header */}
         <div className="bg-primary px-6 py-5">
-          <h1 className="text-white text-xl font-bold">
-            {waiver.template_headline || waiver.template_title}
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-white text-xl font-bold">
+              {waiver.template_headline || waiver.template_title}
+            </h1>
+            <LanguageSwitcher variant="full" persist={false} className="shrink-0 text-white hover:bg-white/15 hover:text-white" />
+          </div>
           <p className="text-primary-foreground/80 text-sm mt-1 whitespace-pre-wrap">
-            {waiver.template_sub_headline || 'Please read carefully and complete all required fields.'}
+            {waiver.template_sub_headline || t('defaults.subHeadline')}
           </p>
         </div>
 
@@ -895,13 +1115,13 @@ export default function WaiverForm() {
           {/* Full name */}
           <div className="space-y-1.5">
             <Label htmlFor="signer-name" className="font-medium">
-              Full Name <span className="text-destructive">*</span>
+              {t('signer.fullName')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="signer-name"
               value={signerName}
               onChange={(e) => { setSignerName(e.target.value); setErrors((p) => { const n = { ...p }; delete n['__name']; return n; }); }}
-              placeholder="Your full name"
+              placeholder={t('signer.fullNamePlaceholder')}
               className={errors['__name'] ? 'border-destructive' : ''}
             />
             {errors['__name'] && <p className="text-xs text-destructive">{errors['__name']}</p>}
@@ -910,7 +1130,7 @@ export default function WaiverForm() {
           {/* Email */}
           <div className="space-y-1.5">
             <Label htmlFor="signer-email" className="font-medium">
-              Email <span className="text-destructive">*</span>
+              {t('signer.email')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="signer-email"
@@ -919,7 +1139,7 @@ export default function WaiverForm() {
               inputMode="email"
               value={signerEmail}
               onChange={(e) => { setSignerEmail(e.target.value); setErrors((p) => { const n = { ...p }; delete n['__email']; return n; }); }}
-              placeholder="you@example.com"
+              placeholder={t('signer.emailPlaceholder')}
               className={errors['__email'] ? 'border-destructive' : ''}
             />
             {errors['__email'] && <p className="text-xs text-destructive">{errors['__email']}</p>}
@@ -928,7 +1148,7 @@ export default function WaiverForm() {
           {/* Phone */}
           <div className="space-y-1.5">
             <Label htmlFor="signer-phone" className="font-medium">
-              Phone <span className="text-destructive">*</span>
+              {t('signer.phone')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="signer-phone"
@@ -937,7 +1157,7 @@ export default function WaiverForm() {
               inputMode="tel"
               value={signerPhone}
               onChange={(e) => { setSignerPhone(e.target.value); setErrors((p) => { const n = { ...p }; delete n['__phone']; return n; }); }}
-              placeholder="+1 555 123 4567"
+              placeholder={t('signer.phonePlaceholder')}
               className={errors['__phone'] ? 'border-destructive' : ''}
             />
             {errors['__phone'] && <p className="text-xs text-destructive">{errors['__phone']}</p>}
@@ -946,7 +1166,7 @@ export default function WaiverForm() {
           {/* Signature pad */}
           <div className="space-y-2">
             <Label className="font-medium">
-              Signature <span className="text-destructive">*</span>
+              {t('signature.label')} <span className="text-destructive">*</span>
             </Label>
 
             {/* Electronic records consent */}
@@ -962,23 +1182,23 @@ export default function WaiverForm() {
                 className="mt-0.5"
               />
               <span className="text-sm leading-relaxed">
-                I agree to use{' '}
+                {t('signature.consentPrefix')}
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); setShowMainDisclosure(true); }}
                   className="text-primary hover:underline font-medium"
                 >
-                  electronic records and signatures
+                  {t('signature.consentLink')}
                 </button>
-                .
+                {t('signature.consentSuffix')}
               </span>
             </label>
 
             {capturedSig ? (
               <div className={`relative border-2 rounded-lg overflow-hidden ${errors['__sig'] ? 'border-destructive' : 'border-green-400'}`}>
-                <img src={capturedSig} alt="Your signature" className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
+                <img src={capturedSig} alt={t('signature.alt')} className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
                 <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
-                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">Signature saved</span>
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">{t('signature.saved')}</span>
                 </div>
               </div>
             ) : (
@@ -1005,7 +1225,7 @@ export default function WaiverForm() {
                 {!mainConsent && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-100/70">
                     <span className="text-sm font-medium text-gray-800 bg-white px-3 py-1.5 rounded-full border border-gray-300 shadow-sm">
-                      Check the box above to enable signing
+                      {t('signature.enableHint')}
                     </span>
                   </div>
                 )}
@@ -1016,7 +1236,7 @@ export default function WaiverForm() {
                 <p className="text-xs text-destructive">{errors['__sig']}</p>
               ) : (
                 <p className="text-xs text-gray-700">
-                  {capturedSig ? 'Signature captured — scroll freely' : mainConsent ? 'Draw your signature above' : 'Consent required before signing'}
+                  {capturedSig ? t('signature.captured') : mainConsent ? t('signature.draw') : t('signature.consentRequired')}
                 </p>
               )}
               <button
@@ -1025,7 +1245,7 @@ export default function WaiverForm() {
                 className="flex items-center gap-1 text-xs text-gray-700 hover:text-foreground transition-colors"
                 disabled={!mainConsent && !capturedSig}
               >
-                <RotateCcw className="h-3 w-3" /> Re-sign
+                <RotateCcw className="h-3 w-3" /> {t('signature.resign')}
               </button>
             </div>
 
@@ -1039,7 +1259,7 @@ export default function WaiverForm() {
           )}
 
           <Button className="w-full" size="lg" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting…</> : 'Submit & Sign'}
+            {submitting ? <><Loader2 className="h-4 w-4 me-2 animate-spin" />{t('submit.submitting')}</> : t('submit.button')}
           </Button>
         </div>
       </div>
@@ -1060,6 +1280,8 @@ function BlockRenderer({
   cityOptions: string[];
   referralOptions: string[];
 }) {
+  const { t } = useTranslation('waiverForm');
+
   if (block.type === 'text') {
     return (
       <div className="prose prose-sm max-w-none bg-white border border-border rounded-lg px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
@@ -1096,7 +1318,7 @@ function BlockRenderer({
           />
           <label htmlFor={block.id} className="text-sm cursor-pointer leading-relaxed">
             {block.label}
-            {block.required && <span className="text-destructive ml-1">*</span>}
+            {block.required && <span className="text-destructive ms-1">*</span>}
           </label>
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -1109,21 +1331,25 @@ function BlockRenderer({
       <div className="space-y-1.5">
         <Label className="font-medium">
           {block.label}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <div className="flex gap-3">
-          {(['Yes', 'No'] as const).map((opt) => (
+          {/* Stored values stay 'Yes' / 'No' (Firestore data); only the label is localized. */}
+          {([
+            { value: 'Yes', label: t('common:actions.yes') },
+            { value: 'No', label: t('common:actions.no') },
+          ] as const).map((opt) => (
             <button
-              key={opt}
+              key={opt.value}
               type="button"
-              onClick={() => onAnswer(opt)}
+              onClick={() => onAnswer(opt.value)}
               className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                answer === opt
+                answer === opt.value
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border hover:border-primary/50 hover:bg-muted/30'
               }`}
             >
-              {opt}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -1137,13 +1363,13 @@ function BlockRenderer({
       <div className="space-y-1.5">
         <Label htmlFor={block.id} className="font-medium">
           {block.label}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           id={block.id}
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="Your answer"
+          placeholder={t('blocks.yourAnswer')}
           className={error ? 'border-destructive' : ''}
         />
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -1155,8 +1381,8 @@ function BlockRenderer({
     return (
       <div className="space-y-1.5">
         <Label htmlFor={block.id} className="font-medium">
-          {block.label || 'Email'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('defaults.email')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           id={block.id}
@@ -1165,7 +1391,7 @@ function BlockRenderer({
           autoComplete="email"
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="name@example.com"
+          placeholder={t('blocks.emailPlaceholder')}
           className={error ? 'border-destructive' : ''}
         />
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -1177,8 +1403,8 @@ function BlockRenderer({
     return (
       <div className="space-y-1.5">
         <Label htmlFor={block.id} className="font-medium">
-          {block.label || 'Phone'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('defaults.phone')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           id={block.id}
@@ -1187,7 +1413,7 @@ function BlockRenderer({
           autoComplete="tel"
           value={typeof answer === 'string' ? answer : ''}
           onChange={(e) => onAnswer(e.target.value)}
-          placeholder="+1 555 123 4567"
+          placeholder={t('blocks.phonePlaceholder')}
           className={error ? 'border-destructive' : ''}
         />
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -1199,8 +1425,8 @@ function BlockRenderer({
     return (
       <div className="space-y-1.5">
         <Label htmlFor={block.id} className="font-medium">
-          {block.label || 'Date'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('defaults.date')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           id={block.id}
@@ -1222,10 +1448,10 @@ function BlockRenderer({
         answer={typeof answer === 'string' ? answer : ''}
         onAnswer={onAnswer}
         options={options}
-        defaultLabel={block.type === 'city' ? 'City' : 'How did you hear about us?'}
-        placeholder={block.type === 'city' ? 'Select City' : 'Select Source'}
-        otherLabel={block.type === 'city' ? '+ Other city…' : '+ Other source…'}
-        otherPlaceholder={block.type === 'city' ? 'Enter your city' : 'Enter source'}
+        defaultLabel={block.type === 'city' ? t('defaults.city') : t('defaults.referralSource')}
+        placeholder={block.type === 'city' ? t('blocks.selectCity') : t('blocks.selectSource')}
+        otherLabel={block.type === 'city' ? t('blocks.otherCity') : t('blocks.otherSource')}
+        otherPlaceholder={block.type === 'city' ? t('blocks.enterCity') : t('blocks.enterSource')}
         error={error}
       />
     );
@@ -1238,12 +1464,12 @@ function BlockRenderer({
     block.type === 'purchase_date' ||
     block.type === 'expiry_date'
   ) {
-    const lbl = block.label?.trim() || PURCHASE_BLOCK_LABELS[block.type];
+    const lbl = block.label?.trim() || purchaseBlockLabel(block.type);
     const value = typeof answer === 'string' ? answer : '—';
     return (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-white px-4 py-3">
         <span className="text-sm text-gray-700">{lbl}</span>
-        <span className="text-sm font-medium text-foreground">{value}</span>
+        <span className="text-sm font-medium text-foreground ltr-inline">{value}</span>
       </div>
     );
   }
@@ -1252,8 +1478,8 @@ function BlockRenderer({
     return (
       <div className="space-y-1.5">
         <Label htmlFor={block.id} className="font-medium">
-          {block.label || 'Time'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('defaults.time')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
         <Input
           id={block.id}
@@ -1306,10 +1532,10 @@ function BlockRenderer({
       }
       if (staged.length > 0) onImagesChange([...images, ...staged]);
       if (tooBig.length > 0) {
-        alert(`Skipped (over 10 MB): ${tooBig.join(', ')}`);
+        alert(t('blocks.skippedTooBig', { names: tooBig.join(', ') }));
       }
       if (failed.length > 0) {
-        alert(`Could not read: ${failed.join(', ')}. Try again from your camera or gallery.`);
+        alert(t('blocks.couldNotRead', { names: failed.join(', ') }));
       }
     };
 
@@ -1321,8 +1547,8 @@ function BlockRenderer({
     return (
       <div className="space-y-2">
         <Label className="font-medium">
-          {block.label || 'Upload photo(s)'}
-          {block.required && <span className="text-destructive ml-1">*</span>}
+          {block.label || t('defaults.uploadPhotos')}
+          {block.required && <span className="text-destructive ms-1">*</span>}
         </Label>
 
         {images.length > 0 && (
@@ -1331,14 +1557,14 @@ function BlockRenderer({
               <div key={idx} className="relative group rounded-lg overflow-hidden border border-border bg-white aspect-square">
                 <img
                   src={URL.createObjectURL(file.blob)}
-                  alt={`Upload ${idx + 1}`}
+                  alt={t('blocks.uploadAlt', { index: idx + 1 })}
                   className="w-full h-full object-cover"
                 />
                 <button
                   type="button"
                   onClick={() => removeAt(idx)}
-                  className="absolute top-1 right-1 bg-black/70 hover:bg-black text-white rounded-full p-1 transition-colors"
-                  aria-label="Remove image"
+                  className="absolute top-1 end-1 bg-black/70 hover:bg-black text-white rounded-full p-1 transition-colors"
+                  aria-label={t('blocks.removeImage')}
                 >
                   <XIcon className="h-3.5 w-3.5" />
                 </button>
@@ -1355,9 +1581,11 @@ function BlockRenderer({
           >
             <Upload className="h-5 w-5 text-gray-700" />
             <span className="text-sm text-gray-700">
-              Tap to add {images.length === 0 ? 'photo' : 'another photo'} ({remaining} left)
+              {images.length === 0
+                ? t('blocks.tapToAddPhoto', { remaining })
+                : t('blocks.tapToAddAnother', { remaining })}
             </span>
-            <span className="text-xs text-gray-600">JPG, PNG — up to 10 MB each</span>
+            <span className="text-xs text-gray-600">{t('blocks.formats')}</span>
             <input
               type="file"
               accept="image/*"
@@ -1370,7 +1598,7 @@ function BlockRenderer({
 
         {remaining === 0 && (
           <p className="text-xs text-gray-700 flex items-center gap-1">
-            <ImageIcon className="h-3.5 w-3.5" /> Maximum of {max} image{max > 1 ? 's' : ''} reached
+            <ImageIcon className="h-3.5 w-3.5" /> {t('blocks.maxReached', { count: max })}
           </p>
         )}
 
@@ -1391,6 +1619,7 @@ function SignatureBlock({
   onAnswer: (dataUrl: string) => void;
   error?: string;
 }) {
+  const { t } = useTranslation('waiverForm');
   const ref = useRef<SignatureCanvas>(null);
   const [consented, setConsented] = useState(false);
   const [showDisclosure, setShowDisclosure] = useState(false);
@@ -1421,8 +1650,8 @@ function SignatureBlock({
   return (
     <div className="space-y-2">
       <Label className="font-medium">
-        {block.label || 'Signature'}
-        <span className="text-destructive ml-1">*</span>
+        {block.label || t('defaults.signature')}
+        <span className="text-destructive ms-1">*</span>
       </Label>
 
       {/* Electronic records consent */}
@@ -1433,23 +1662,23 @@ function SignatureBlock({
           className="mt-0.5"
         />
         <span className="text-sm leading-relaxed">
-          I agree to use{' '}
+          {t('signature.consentPrefix')}
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); setShowDisclosure(true); }}
             className="text-primary hover:underline font-medium"
           >
-            electronic records and signatures
+            {t('signature.consentLink')}
           </button>
-          .
+          {t('signature.consentSuffix')}
         </span>
       </label>
 
       {captured ? (
         <div className={`relative border-2 rounded-lg overflow-hidden ${error ? 'border-destructive' : 'border-green-400'}`}>
-          <img src={captured} alt="Your signature" className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
+          <img src={captured} alt={t('signature.alt')} className="w-full" style={{ height: 140, objectFit: 'contain', background: '#fafafa' }} />
           <div className="absolute inset-0 flex items-end justify-end p-2 pointer-events-none">
-            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">Signature saved</span>
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">{t('signature.saved')}</span>
           </div>
         </div>
       ) : (
@@ -1471,7 +1700,7 @@ function SignatureBlock({
           {!consented && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-100/70">
               <span className="text-sm font-medium text-gray-800 bg-white px-3 py-1.5 rounded-full border border-gray-300 shadow-sm">
-                Check the box above to enable signing
+                {t('signature.enableHint')}
               </span>
             </div>
           )}
@@ -1483,7 +1712,7 @@ function SignatureBlock({
           <p className="text-xs text-destructive">{error}</p>
         ) : (
           <p className="text-xs text-gray-700">
-            {captured ? 'Signature captured — scroll freely' : consented ? 'Draw your signature above' : 'Consent required before signing'}
+            {captured ? t('signature.captured') : consented ? t('signature.draw') : t('signature.consentRequired')}
           </p>
         )}
         <button
@@ -1492,7 +1721,7 @@ function SignatureBlock({
           className="flex items-center gap-1 text-xs text-gray-700 hover:text-foreground transition-colors"
           disabled={!consented && !captured}
         >
-          <RotateCcw className="h-3 w-3" /> Re-sign
+          <RotateCcw className="h-3 w-3" /> {t('signature.resign')}
         </button>
       </div>
 
@@ -1525,7 +1754,7 @@ function DropdownWithOtherBlock({
     <div className="space-y-1.5">
       <Label htmlFor={block.id} className="font-medium">
         {block.label || defaultLabel}
-        {block.required && <span className="text-destructive ml-1">*</span>}
+        {block.required && <span className="text-destructive ms-1">*</span>}
       </Label>
       <select
         id={block.id}
@@ -1563,56 +1792,37 @@ function DropdownWithOtherBlock({
 
 // ── E-signature disclosure modal ──────────────────────────────
 function EsignDisclosureModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation('waiverForm');
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Electronic records & signatures — consumer disclosure</DialogTitle>
+          <DialogTitle>{t('disclosure.title')}</DialogTitle>
           <DialogDescription className="sr-only">
-            Terms for signing this document electronically.
+            {t('disclosure.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm text-foreground">
-          <p>
-            By ticking the agreement box, you consent to use electronic records and
-            electronic signatures for this document, and to conduct business with us
-            through our online signing system instead of on paper. Your electronic
-            signature has the same legal effect as a handwritten one.
-          </p>
+          <p>{t('disclosure.intro')}</p>
 
           <div>
-            <p className="font-semibold">Getting paper copies</p>
-            <p>
-              You may request a paper copy of any record we send you electronically,
-              at no charge, by contacting the business. You may also print or save
-              this document from your device after signing.
-            </p>
+            <p className="font-semibold">{t('disclosure.paperCopiesTitle')}</p>
+            <p>{t('disclosure.paperCopies')}</p>
           </div>
 
           <div>
-            <p className="font-semibold">Withdrawing consent</p>
-            <p>
-              You may withdraw your consent to receive electronic records at any time
-              by contacting us. Withdrawal of consent does not affect the validity of
-              documents already signed electronically.
-            </p>
+            <p className="font-semibold">{t('disclosure.withdrawTitle')}</p>
+            <p>{t('disclosure.withdraw')}</p>
           </div>
 
           <div>
-            <p className="font-semibold">System requirements</p>
-            <p>
-              To sign electronically you need an internet-connected device with a
-              modern web browser, a valid email address on file, and the ability to
-              view and download PDF documents.
-            </p>
+            <p className="font-semibold">{t('disclosure.systemTitle')}</p>
+            <p>{t('disclosure.system')}</p>
           </div>
 
           <div>
-            <p className="font-semibold">How to contact us</p>
-            <p>
-              Contact the business directly (by phone, email, or in person) to request
-              paper copies, update your contact details, or withdraw consent.
-            </p>
+            <p className="font-semibold">{t('disclosure.contactTitle')}</p>
+            <p>{t('disclosure.contact')}</p>
           </div>
         </div>
       </DialogContent>
@@ -1623,7 +1833,10 @@ function EsignDisclosureModal({ open, onClose }: { open: boolean; onClose: () =>
 // ── Centered screen wrapper ───────────────────────────────────
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-white">
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-8 bg-white">
+      <div className="absolute top-4 end-4">
+        <LanguageSwitcher variant="full" persist={false} />
+      </div>
       <div className="flex flex-col items-center text-center max-w-sm">{children}</div>
     </div>
   );

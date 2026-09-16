@@ -1,4 +1,6 @@
+
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -32,6 +34,16 @@ interface AppointmentFiltersProps {
   treatments: string[];
 }
 
+// Firestore status enum -> translation key under appointments:status.*
+const STATUS_KEYS: Record<string, string> = {
+  scheduled: 'scheduled',
+  confirmed: 'confirmed',
+  'in-progress': 'inProgress',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  'no-show': 'noShow',
+};
+
 const AppointmentFilters = ({
   dateFilter,
   staffFilter,
@@ -51,6 +63,8 @@ const AppointmentFilters = ({
   staff,
   treatments
 }: AppointmentFiltersProps) => {
+  const { t } = useTranslation('appointments');
+
   console.log('🎛️ AppointmentFilters render with sanitized values:', {
     dateFilter: sanitizeString(dateFilter, ''),
     staffFilter: sanitizeString(staffFilter, 'all'),
@@ -64,6 +78,13 @@ const AppointmentFilters = ({
   });
 
   const statuses = ['all', 'scheduled', 'confirmed', 'in-progress', 'completed', 'cancelled', 'no-show'];
+
+  const statusLabel = (status: string) =>
+    status === 'all'
+      ? t('filters.allStatus')
+      : STATUS_KEYS[status]
+        ? t(`status.${STATUS_KEYS[status]}`)
+        : status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ');
 
   const hasActiveFilters = staffFilter !== 'all' || statusFilter !== 'all' ||
     treatmentFilter !== 'all' || searchQuery !== '';
@@ -105,7 +126,7 @@ const AppointmentFilters = ({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Layout</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filters.layout')}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {(['list', 'grid', 'calendar'] as const).map((mode) => (
@@ -116,7 +137,7 @@ const AppointmentFilters = ({
                 size="sm"
                 className="text-xs px-3 py-2 h-9 capitalize"
               >
-                {mode}
+                {t(`filters.layoutModes.${mode}`)}
               </Button>
             ))}
           </div>
@@ -133,11 +154,11 @@ const AppointmentFilters = ({
               className="flex-1 text-sm min-w-0"
             />
           </div>
-          
+
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
             <Input
-              placeholder="Search appointments..."
+              placeholder={t('filters.searchPlaceholder')}
               value={sanitizeString(searchQuery, '')}
               onChange={(e) => handleSearchQueryChange(e.target.value)}
               className="flex-1 text-sm min-w-0"
@@ -149,19 +170,19 @@ const AppointmentFilters = ({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filters.filters')}</span>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <Select value={sanitizeString(staffFilter, 'all')} onValueChange={handleStaffFilterChange}>
               <SelectTrigger className="w-full text-sm h-10">
-                <SelectValue placeholder="All Staff" />
+                <SelectValue placeholder={t('filters.allStaff')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Staff</SelectItem>
+                <SelectItem value="all">{t('filters.allStaff')}</SelectItem>
                 {(staff || []).map(member => (
                   <SelectItem key={member} value={sanitizeString(member, 'Unknown')}>
-                    {sanitizeString(member, 'Unknown Staff')}
+                    {sanitizeString(member, t('filters.unknownStaff'))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -169,12 +190,12 @@ const AppointmentFilters = ({
 
             <Select value={sanitizeString(statusFilter, 'all')} onValueChange={handleStatusFilterChange}>
               <SelectTrigger className="w-full text-sm h-10">
-                <SelectValue placeholder="All Status" />
+                <SelectValue placeholder={t('filters.allStatus')} />
               </SelectTrigger>
               <SelectContent>
                 {statuses.map(status => (
                   <SelectItem key={status} value={status}>
-                    {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+                    {statusLabel(status)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -182,13 +203,13 @@ const AppointmentFilters = ({
 
             <Select value={sanitizeString(treatmentFilter, 'all')} onValueChange={handleTreatmentFilterChange}>
               <SelectTrigger className="w-full text-sm h-10">
-                <SelectValue placeholder="All Treatments" />
+                <SelectValue placeholder={t('filters.allTreatments')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Treatments</SelectItem>
+                <SelectItem value="all">{t('filters.allTreatments')}</SelectItem>
                 {(treatments || []).map(treatment => (
                   <SelectItem key={treatment} value={sanitizeString(treatment, 'Unknown')}>
-                    {sanitizeString(treatment, 'Unknown Treatment')}
+                    {sanitizeString(treatment, t('filters.unknownTreatment'))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -201,7 +222,7 @@ const AppointmentFilters = ({
           <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <Filter className="h-4 w-4 flex-shrink-0" />
-              <span>Active filters applied</span>
+              <span>{t('filters.activeFilters')}</span>
             </div>
             <Button
               variant="outline"
@@ -210,7 +231,7 @@ const AppointmentFilters = ({
               className="flex items-center gap-2 text-sm h-9"
             >
               <X className="h-4 w-4" />
-              Clear Filters
+              {t('filters.clearFilters')}
             </Button>
           </div>
         )}

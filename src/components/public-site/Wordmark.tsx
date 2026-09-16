@@ -9,10 +9,13 @@ interface WordmarkProps {
  * Render inside a `.gc-site` page so `.font-display` resolves to Bricolage
  * Grotesque and `.gold-ink` resolves to the brand gold (auto-shifts brighter
  * inside `.is-dark` surfaces). Set the text color on the parent/usage site
- * (e.g. `text-ink` on cream, `text-cream` on dark).
+ * (e.g. `text-ink` on cream, `text-cream` on dark). The brand name stays Latin
+ * in every language, so the span is pinned to `dir="ltr"` to keep the gold
+ * period after the word inside RTL layouts.
  */
 export const Wordmark = ({ className }: WordmarkProps) => (
   <span
+    dir="ltr"
     className={cn(
       "font-display font-extrabold tracking-tight whitespace-nowrap",
       className,

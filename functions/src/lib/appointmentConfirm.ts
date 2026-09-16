@@ -1,11 +1,31 @@
 import * as admin from 'firebase-admin';
 import { todayInTimezone } from './orgEmail';
+import { AppLanguage, DEFAULT_LANGUAGE, defineStrings, localeFor, makeT } from './i18n';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-/** Footer appended to confirmation/reminder SMS so clients know how to respond. */
-export const RECONFIRM_FOOTER = 'Reply 1 to confirm, 2 to cancel, 3 to reschedule.';
+const STRINGS = defineStrings({
+  en: {
+    reconfirmFooter: 'Reply 1 to confirm, 2 to cancel, 3 to reschedule.',
+    dateAtTime: '{{date}} at {{time}}',
+  },
+  he: {
+    reconfirmFooter: 'השיבו 1 לאישור, 2 לביטול, 3 לשינוי מועד.',
+    dateAtTime: '{{date}} בשעה {{time}}',
+  },
+});
+
+/**
+ * Footer appended to confirmation/reminder SMS so clients know how to respond.
+ * English constant kept for backward compatibility — prefer `reconfirmFooter(lang)`.
+ */
+export const RECONFIRM_FOOTER = STRINGS.en.reconfirmFooter;
+
+/** Language-aware "Reply 1/2/3" SMS footer. Reply keywords stay numeric in every language. */
+export function reconfirmFooter(lang: AppLanguage = DEFAULT_LANGUAGE): string {
+  return makeT(STRINGS, lang)('reconfirmFooter');
+}
 
 export type ConfirmVia = 'sms' | 'email' | 'staff';
 
@@ -114,13 +134,49 @@ export async function alertStaff(
   });
 }
 
-/** "Fri, Mar 15 at 2:30 PM" style label from an appointment doc, for ack copy. */
-export function describeAppointment(data: admin.firestore.DocumentData, tz: string): string {
+/**
+ * Formats a wall-clock "HH:MM" string in the language's conventional style
+ * ("2:30 PM" for English, "14:30" for Hebrew). Timezone-agnostic.
+ */
+export function formatWallClockTime(timeStr: string, lang: AppLanguage = DEFAULT_LANGUAGE): string {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10));
+  if (Number.isNaN(h)) return timeStr;
+  const minutes = Number.isNaN(m) ? 0 : m;
+  if (lang === DEFAULT_LANGUAGE) {
+    // Hand-rolled so English stays a plain U+0020 before AM/PM regardless of the
+    // runtime ICU build (ICU 72+ emits U+202F, which would push an otherwise
+    // GSM-7 SMS into UCS-2 segments). Mirrors the sibling formatTimeForDisplay().
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }
+  try {
+    return new Intl.DateTimeFormat(localeFor(lang), {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2000, 0, 1, h, minutes)));
+  } catch {
+    return timeStr;
+  }
+}
+
+/**
+ * "Fri, Mar 15 at 2:30 PM" style label from an appointment doc, for ack copy.
+ * `lang` (optional, defaults to English) localises the date and the "at" joiner.
+ */
+export function describeAppointment(
+  data: admin.firestore.DocumentData,
+  tz: string,
+  lang: AppLanguage = DEFAULT_LANGUAGE,
+): string {
+  const t = makeT(STRINGS, lang);
   const dateStr = String(data.appointment_date || '');
   const timeStr = String(data.appointment_time || '');
   let datePart = dateStr;
   try {
-    datePart = new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', {
+    datePart = new Date(`${dateStr}T12:00:00`).toLocaleDateString(localeFor(lang), {
       timeZone: tz,
       weekday: 'short',
       month: 'short',
@@ -129,12 +185,6 @@ export function describeAppointment(data: admin.firestore.DocumentData, tz: stri
   } catch {
     /* keep raw */
   }
-  let timePart = timeStr;
-  const [h, m] = timeStr.split(':').map((x) => parseInt(x, 10));
-  if (!Number.isNaN(h)) {
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h % 12 === 0 ? 12 : h % 12;
-    timePart = `${hour12}:${String(Number.isNaN(m) ? 0 : m).padStart(2, '0')} ${period}`;
-  }
-  return timePart ? `${datePart} at ${timePart}` : datePart;
+  const timePart = formatWallClockTime(timeStr, lang);
+  return timePart ? t('dateAtTime', { date: datePart, time: timePart }) : datePart;
 }

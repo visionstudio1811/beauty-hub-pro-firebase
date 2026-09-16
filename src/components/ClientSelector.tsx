@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useClients, Client } from '@/hooks/useClients';
+import { useTranslation } from 'react-i18next';
 
 interface ClientSelectorProps {
   value?: string;
@@ -29,8 +30,10 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   value,
   onSelect,
   onCreateNew,
-  placeholder = "Select client..."
+  placeholder
 }) => {
+  const { t } = useTranslation('clientModals');
+  const resolvedPlaceholder = placeholder ?? t('clientSelector.placeholder');
   const [open, setOpen] = useState(false);
   const { clients } = useClients();
 
@@ -45,17 +48,17 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value || placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {value || resolvedPlaceholder}
+          <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          <CommandInput placeholder="Search clients..." />
+          <CommandInput placeholder={t('clientSelector.searchPlaceholder')} />
           <CommandList>
             <CommandEmpty>
               <div className="p-2 text-center">
-                <p className="text-sm text-muted-foreground mb-2">No client found.</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('clientSelector.noClientFound')}</p>
                 {onCreateNew && (
                   <Button
                     variant="outline"
@@ -65,8 +68,8 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                       setOpen(false);
                     }}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Client
+                    <Plus className="h-4 w-4 me-2" />
+                    {t('clientSelector.createNewClient')}
                   </Button>
                 )}
               </div>
@@ -83,13 +86,13 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "me-2 h-4 w-4",
                       value === client.name ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex-1">
                     <div className="font-medium">{client.name}</div>
-                    <div className="text-sm text-muted-foreground">{client.phone}</div>
+                    <div className="text-sm text-muted-foreground ltr-inline">{client.phone}</div>
                   </div>
                 </CommandItem>
               ))}

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +44,7 @@ interface Product {
 }
 
 const ProductManagement = () => {
+  const { t } = useTranslation('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -85,7 +87,7 @@ const ProductManagement = () => {
       }));
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({ title: "Error", description: "Failed to load products", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('productManagement.toasts.loadFailed'), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -121,11 +123,11 @@ const ProductManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.price) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in name and price",
+        title: t('productManagement.toasts.validationTitle'),
+        description: t('productManagement.toasts.fillNameAndPrice'),
         variant: "destructive"
       });
       return;
@@ -145,14 +147,14 @@ const ProductManagement = () => {
 
       if (editingProduct) {
         await updateDoc(doc(db, 'organizations', currentOrganization.id, 'products', editingProduct.id), productData);
-        toast({ title: "Success", description: "Product updated successfully" });
+        toast({ title: t('common:status.success'), description: t('productManagement.toasts.updated') });
       } else {
         await addDoc(collection(db, 'organizations', currentOrganization.id, 'products'), {
           ...productData,
           created_at: now,
           created_at_ts: serverTimestamp(),
         });
-        toast({ title: "Success", description: "Product created successfully" });
+        toast({ title: t('common:status.success'), description: t('productManagement.toasts.created') });
       }
 
       setIsModalOpen(false);
@@ -161,23 +163,23 @@ const ProductManagement = () => {
     } catch (error) {
       console.error('Error saving product:', error);
       toast({
-        title: "Error",
-        description: "Failed to save product",
+        title: t('common:status.error'),
+        description: t('productManagement.toasts.saveFailed'),
         variant: "destructive"
       });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?') || !currentOrganization?.id) return;
+    if (!confirm(t('productManagement.confirmDelete')) || !currentOrganization?.id) return;
 
     try {
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'products', id));
-      toast({ title: "Success", description: "Product deleted successfully" });
+      toast({ title: t('common:status.success'), description: t('productManagement.toasts.deleted') });
       fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
-      toast({ title: "Error", description: "Failed to delete product", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('productManagement.toasts.deleteFailed'), variant: "destructive" });
     }
   };
 
@@ -185,28 +187,33 @@ const ProductManagement = () => {
     if (!currentOrganization?.id) return;
     try {
       await updateDoc(doc(db, 'organizations', currentOrganization.id, 'products', product.id), { is_active: !product.is_active });
-      toast({ title: "Success", description: `Product ${!product.is_active ? 'activated' : 'deactivated'}` });
+      toast({
+        title: t('common:status.success'),
+        description: !product.is_active
+          ? t('productManagement.toasts.activated')
+          : t('productManagement.toasts.deactivated'),
+      });
       fetchProducts();
     } catch (error) {
       console.error('Error updating product status:', error);
-      toast({ title: "Error", description: "Failed to update product status", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('productManagement.toasts.statusFailed'), variant: "destructive" });
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center p-8">Loading products...</div>;
+    return <div className="flex items-center justify-center p-8">{t('productManagement.loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
-          <p className="text-muted-foreground">Manage your products and inventory</p>
+          <h2 className="text-2xl font-bold">{t('productManagement.title')}</h2>
+          <p className="text-muted-foreground">{t('productManagement.subtitle')}</p>
         </div>
         <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
+          <Plus className="h-4 w-4 me-2" />
+          {t('productManagement.addProduct')}
         </Button>
       </div>
 
@@ -240,22 +247,22 @@ const ProductManagement = () => {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Price:</span>
-                  <div className="flex items-center">
+                  <span className="text-sm text-muted-foreground">{t('productManagement.card.price')}</span>
+                  <div className="flex items-center" dir="ltr">
                     <DollarSign className="h-4 w-4" />
                     <span className="font-medium">{product.price}</span>
                   </div>
                 </div>
-                
+
                 {product.category && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Category:</span>
+                    <span className="text-sm text-muted-foreground">{t('productManagement.card.category')}</span>
                     <Badge variant="outline">{product.category}</Badge>
                   </div>
                 )}
-                
+
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Status:</span>
+                  <span className="text-sm text-muted-foreground">{t('productManagement.card.status')}</span>
                   <Switch
                     checked={product.is_active}
                     onCheckedChange={() => toggleStatus(product)}
@@ -271,11 +278,11 @@ const ProductManagement = () => {
         <Card>
           <CardContent className="text-center py-8">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No products yet</h3>
-            <p className="text-muted-foreground mb-4">Get started by adding your first product.</p>
+            <h3 className="text-lg font-medium mb-2">{t('productManagement.emptyTitle')}</h3>
+            <p className="text-muted-foreground mb-4">{t('productManagement.emptyDescription')}</p>
             <Button onClick={handleAdd}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
+              <Plus className="h-4 w-4 me-2" />
+              {t('productManagement.addProduct')}
             </Button>
           </CardContent>
         </Card>
@@ -285,68 +292,68 @@ const ProductManagement = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
+              {editingProduct ? t('productManagement.editProduct') : t('productManagement.addNewProduct')}
             </DialogTitle>
             <DialogDescription>
-              {editingProduct ? 'Update product information' : 'Enter product details'}
+              {editingProduct ? t('productManagement.updateDescription') : t('productManagement.createDescription')}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Product Name *</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.name')}</label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="Enter product name"
+                placeholder={t('productManagement.fields.namePlaceholder')}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.description')}</label>
               <Input
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Enter product description"
+                placeholder={t('productManagement.fields.descriptionPlaceholder')}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Price *</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.price')}</label>
               <Input
                 type="number"
                 step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
-                placeholder="0.00"
+                placeholder={t('productManagement.fields.pricePlaceholder')}
                 required
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium">Category</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.category')}</label>
               <Input
                 value={formData.category}
                 onChange={(e) => setFormData({...formData, category: e.target.value})}
-                placeholder="Enter category"
+                placeholder={t('productManagement.fields.categoryPlaceholder')}
               />
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
               />
-              <label className="text-sm font-medium">Active</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.active')}</label>
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type="submit">
-                {editingProduct ? 'Update Product' : 'Add Product'}
+                {editingProduct ? t('productManagement.updateProduct') : t('productManagement.addProduct')}
               </Button>
             </DialogFooter>
           </form>

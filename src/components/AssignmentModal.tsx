@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Client } from '@/hooks/useClients';
 import { ProductAssignmentModal } from '@/components/ProductAssignmentModal';
+import { useTranslation } from 'react-i18next';
 
 interface Product {
   id: string;
@@ -35,6 +36,7 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
   onClose,
   onAssign
 }) => {
+  const { t } = useTranslation('clientModals');
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const [isProductAssignModalOpen, setIsProductAssignModalOpen] = React.useState(false);
@@ -69,25 +71,25 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assign Product</DialogTitle>
+            <DialogTitle>{t('assignmentModal.title')}</DialogTitle>
             <DialogDescription>
-              Assign a product to {client.name}
+              {t('assignmentModal.description', { name: client.name })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {isLoading ? (
               <div className="flex justify-center py-8">
-                <div className="text-muted-foreground">Loading products...</div>
+                <div className="text-muted-foreground">{t('assignmentModal.loadingProducts')}</div>
               </div>
             ) : products.length === 0 ? (
               <div className="flex justify-center py-8">
-                <div className="text-muted-foreground">No active products found</div>
+                <div className="text-muted-foreground">{t('assignmentModal.noActiveProducts')}</div>
               </div>
             ) : (
               products.map((product) => (
                 <div key={product.id} className="border rounded-lg p-4 flex justify-between items-center">
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 rtl:space-x-reverse">
                     <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
                       {product.image_url ? (
                         <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
@@ -98,7 +100,7 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
                     <div>
                       <h4 className="font-medium">{product.name}</h4>
                       <p className="text-sm text-gray-600">{product.description}</p>
-                      <div className="flex space-x-2 text-sm text-gray-500 mt-1">
+                      <div className="flex space-x-2 rtl:space-x-reverse text-sm text-gray-500 mt-1">
                         <span>${product.price}</span>
                         {product.brand && (
                           <>
@@ -119,8 +121,8 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
                     onClick={() => handleProductAssign(product)}
                     className="bg-purple-600 hover:bg-purple-700"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Assign
+                    <Plus className="h-4 w-4 me-2" />
+                    {t('assignmentModal.assign')}
                   </Button>
                 </div>
               ))
@@ -144,8 +146,8 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
             setSelectedProduct(null);
             onClose();
             toast({
-              title: "Product Assigned",
-              description: `${selectedProduct?.name} has been assigned to ${client.name}`
+              title: t('assignmentModal.toastTitle'),
+              description: t('assignmentModal.toastDescription', { product: selectedProduct?.name, client: client.name })
             });
           }}
         />

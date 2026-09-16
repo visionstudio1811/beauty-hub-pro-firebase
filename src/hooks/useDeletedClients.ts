@@ -14,11 +14,13 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Client } from '@/contexts/ClientsContext';
+import { useTranslation } from 'react-i18next';
 
 export const useDeletedClients = () => {
   const [deletedClients, setDeletedClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchDeletedClients = async () => {
@@ -69,7 +71,7 @@ export const useDeletedClients = () => {
       setDeletedClients(transformedClients);
     } catch (error) {
       console.error('Error fetching deleted clients:', error);
-      toast({ title: 'Error', description: 'Failed to load deleted clients', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('deletedClients.loadFailed'), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -89,10 +91,10 @@ export const useDeletedClients = () => {
         updated_at: serverTimestamp(),
       });
       setDeletedClients(prev => prev.filter(client => client.id !== clientId));
-      toast({ title: 'Success', description: 'Client restored successfully' });
+      toast({ title: t('common:status.success'), description: t('deletedClients.restored') });
     } catch (error) {
       console.error('Error restoring client:', error);
-      toast({ title: 'Error', description: 'Failed to restore client', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('deletedClients.restoreFailed'), variant: 'destructive' });
       throw error;
     }
   };
@@ -103,10 +105,10 @@ export const useDeletedClients = () => {
       const clientRef = doc(db, 'organizations', currentOrganization.id, 'clients', clientId);
       await deleteDoc(clientRef);
       setDeletedClients(prev => prev.filter(client => client.id !== clientId));
-      toast({ title: 'Success', description: 'Client permanently deleted' });
+      toast({ title: t('common:status.success'), description: t('deletedClients.permanentlyDeleted') });
     } catch (error) {
       console.error('Error permanently deleting client:', error);
-      toast({ title: 'Error', description: 'Failed to permanently delete client', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('deletedClients.permanentDeleteFailed'), variant: 'destructive' });
       throw error;
     }
   };

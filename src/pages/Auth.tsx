@@ -14,6 +14,8 @@ import { auth } from '@/lib/firebase';
 import { LOGIN_HERO_URL } from '@/lib/loginBranding';
 import { Wordmark } from '@/components/public-site/Wordmark';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const GoogleIcon = () => (
   <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -37,6 +39,7 @@ const GoogleIcon = () => (
 );
 
 export default function Auth() {
+  const { t } = useTranslation('shell');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -68,8 +71,8 @@ export default function Auth() {
         return;
       }
       toast({
-        title: 'Sign in failed',
-        description: 'Unable to sign in with Google. Please try again.',
+        title: t('auth.toasts.signInFailed'),
+        description: t('auth.toasts.googleFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -81,8 +84,8 @@ export default function Auth() {
     e.preventDefault();
     if (!email || !password) {
       toast({
-        title: 'Missing information',
-        description: 'Please enter your email and password',
+        title: t('auth.toasts.missingInfo'),
+        description: t('auth.toasts.missingInfoDescription'),
         variant: 'destructive',
       });
       return;
@@ -96,9 +99,9 @@ export default function Auth() {
       const code = error instanceof FirebaseError ? error.code : '';
       const description =
         code === 'auth/too-many-requests'
-          ? 'Too many attempts. Please try again later.'
-          : 'Invalid email or password.';
-      toast({ title: 'Sign in failed', description, variant: 'destructive' });
+          ? t('auth.toasts.tooManyAttempts')
+          : t('auth.toasts.invalidCredentials');
+      toast({ title: t('auth.toasts.signInFailed'), description, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -117,36 +120,40 @@ export default function Auth() {
         )}
       >
         <div
-          className="relative flex min-h-[42vh] flex-1 flex-col justify-between bg-neutral-900 bg-cover bg-center px-8 py-10 text-white lg:min-h-0 lg:w-1/2 lg:rounded-l-2xl lg:py-12"
+          className="relative flex min-h-[42vh] flex-1 flex-col justify-between bg-neutral-900 bg-cover bg-center px-8 py-10 text-white lg:min-h-0 lg:w-1/2 lg:rounded-s-2xl lg:py-12"
           style={heroStyle}
         >
-          <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-l-2xl" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-s-2xl" aria-hidden />
           <div className="relative z-10">
             <Wordmark className="text-4xl text-white drop-shadow-md" />
-            <p className="mt-2 font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/85">Staff workspace</p>
+            <p className="mt-2 font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/85">{t('auth.staffWorkspace')}</p>
           </div>
 
           <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
-            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">CRM sign in</p>
-            <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Welcome back</h1>
+            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">{t('auth.crmSignIn')}</p>
+            <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{t('auth.welcomeBack')}</h1>
             <p className="font-sans text-sm leading-relaxed text-white/85">
-              Manage appointments, clients, and your spa operations from one elegant dashboard.
+              {t('auth.tagline')}
             </p>
           </div>
 
           <p className="relative z-10 mt-10 font-sans text-sm text-white/75 lg:mt-12">
-            Secure access for authorized team members only.
+            {t('auth.secureAccess')}
           </p>
         </div>
 
-        <div className="relative flex flex-1 flex-col justify-center bg-[rgb(var(--c-cream2))] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-r-2xl lg:px-12 lg:py-14">
-          <LoginFloralCorner className="absolute right-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 sm:h-64 sm:w-64" />
+        <div className="relative flex flex-1 flex-col justify-center bg-[rgb(var(--c-cream2))] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-e-2xl lg:px-12 lg:py-14">
+          <LoginFloralCorner className="absolute end-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 rtl:-translate-x-4 sm:h-64 sm:w-64" />
+
+          <div className="absolute start-4 top-4 z-20 sm:start-6 sm:top-6">
+            <LanguageSwitcher variant="full" persist />
+          </div>
 
           <div className="relative z-10 mx-auto w-full max-w-md space-y-8">
             <div className="space-y-2">
-              <h2 className="font-display text-3xl font-semibold text-foreground">Sign in</h2>
+              <h2 className="font-display text-3xl font-semibold text-foreground">{t('auth.signIn')}</h2>
               <p className="font-sans text-sm text-muted-foreground">
-                Use the email and password issued by your administrator, or Google if enabled for your account.
+                {t('auth.instructions')}
               </p>
             </div>
 
@@ -159,7 +166,7 @@ export default function Auth() {
                 disabled={googleLoading || isLoading}
               >
                 <GoogleIcon />
-                {googleLoading ? 'Signing in…' : 'Continue with Google'}
+                {googleLoading ? t('auth.signingIn') : t('auth.continueWithGoogle')}
               </Button>
 
               <div className="relative py-1">
@@ -167,22 +174,23 @@ export default function Auth() {
                   <span className="w-full border-t border-border/70" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-[rgb(var(--c-cream2))] px-3 font-medium uppercase tracking-wide text-muted-foreground">or</span>
+                  <span className="bg-[rgb(var(--c-cream2))] px-3 font-medium uppercase tracking-wide text-muted-foreground">{t('auth.or')}</span>
                 </div>
               </div>
 
               <form onSubmit={handleEmailSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="staff-email">Email</Label>
+                  <Label htmlFor="staff-email">{t('common:labels.email')}</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Mail className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="staff-email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder={t('auth.emailPlaceholder')}
+                      dir="ltr"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-12 rounded-lg border-border/80 bg-white pl-10 text-base shadow-sm"
+                      className="h-12 rounded-lg border-border/80 bg-white ps-10 text-base shadow-sm"
                       autoComplete="email"
                       required
                     />
@@ -190,16 +198,17 @@ export default function Auth() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="staff-password">Password</Label>
+                  <Label htmlFor="staff-password">{t('auth.password')}</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Lock className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="staff-password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
+                      placeholder={t('auth.passwordPlaceholder')}
+                      dir="ltr"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-12 rounded-lg border-border/80 bg-white pl-10 pr-12 text-base shadow-sm"
+                      className="h-12 rounded-lg border-border/80 bg-white ps-10 pe-12 text-base shadow-sm"
                       autoComplete="current-password"
                       required
                     />
@@ -207,8 +216,9 @@ export default function Auth() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-1 top-1/2 h-9 -translate-y-1/2 px-2 hover:bg-transparent"
+                      className="absolute end-1 top-1/2 h-9 -translate-y-1/2 px-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -221,7 +231,7 @@ export default function Auth() {
 
                 <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
                   <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} />
-                  Remember me on this device
+                  {t('auth.rememberMe')}
                 </label>
 
                 <Button
@@ -229,13 +239,13 @@ export default function Auth() {
                   className="h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90"
                   disabled={isLoading || googleLoading}
                 >
-                  {isLoading ? 'Signing in…' : 'Sign in'}
+                  {isLoading ? t('auth.signingIn') : t('auth.signIn')}
                 </Button>
               </form>
             </div>
 
             <p className="text-center font-sans text-xs text-muted-foreground">
-              Accounts are created by your administrator. Contact them if you need access.
+              {t('auth.accountsNote')}
             </p>
           </div>
         </div>

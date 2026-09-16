@@ -13,6 +13,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
 
 export interface Addon {
   id: string;
@@ -49,6 +50,7 @@ export const useSupabaseAddons = () => {
   const [addons, setAddons] = useState<Addon[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { t } = useTranslation('hooks');
   const { currentOrganization } = useOrganization();
 
   const fetchAddons = async () => {
@@ -76,11 +78,11 @@ export const useSupabaseAddons = () => {
       // snapshot. Only show toast for real failures and include the code
       // so the user can act on it.
       toast({
-        title: 'Failed to load add-ons',
+        title: t('addons.loadFailed'),
         description: code === 'failed-precondition'
-          ? 'Index is still building. Wait 1–2 min and refresh.'
+          ? t('addons.indexBuilding')
           : code === 'permission-denied'
-          ? 'Firestore rules not deployed. Run firebase deploy --only firestore.'
+          ? t('addons.rulesNotDeployed')
           : `${code}: ${message}`,
         variant: 'destructive',
       });
@@ -104,7 +106,7 @@ export const useSupabaseAddons = () => {
   const addAddon = async (
     addonData: Omit<Addon, 'id' | 'created_at' | 'updated_at'>
   ): Promise<Addon> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const docRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'addons'),
@@ -116,27 +118,27 @@ export const useSupabaseAddons = () => {
         updated_at: { toDate: () => new Date() },
       });
       setAddons(prev => [...prev, newAddon]);
-      toast({ title: 'Success', description: 'Add-on added successfully' });
+      toast({ title: t('common:status.success'), description: t('addons.added') });
       return newAddon;
     } catch (error) {
       console.error('Error adding addon:', error);
-      toast({ title: 'Error', description: 'Failed to add add-on', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('addons.addFailed'), variant: 'destructive' });
       throw error;
     }
   };
 
   const updateAddon = async (id: string, updates: Partial<Addon>): Promise<Addon> => {
-    if (!currentOrganization?.id) throw new Error('No organization selected');
+    if (!currentOrganization?.id) throw new Error(t('common.noOrganization'));
     try {
       const addonRef = doc(db, 'organizations', currentOrganization.id, 'addons', id);
       await updateDoc(addonRef, { ...stripUndefined(updates), updated_at: serverTimestamp() });
       const updatedAddon = { ...addons.find(a => a.id === id)!, ...updates };
       setAddons(prev => prev.map(a => (a.id === id ? updatedAddon : a)));
-      toast({ title: 'Success', description: 'Add-on updated successfully' });
+      toast({ title: t('common:status.success'), description: t('addons.updated') });
       return updatedAddon;
     } catch (error) {
       console.error('Error updating addon:', error);
-      toast({ title: 'Error', description: 'Failed to update add-on', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('addons.updateFailed'), variant: 'destructive' });
       throw error;
     }
   };

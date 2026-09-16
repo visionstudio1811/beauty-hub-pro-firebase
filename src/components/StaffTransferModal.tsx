@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Appointment } from './AppointmentModal';
 import { User, ArrowRight } from 'lucide-react';
 import { formatTimeDisplay } from '@/lib/timeUtils';
+import { useTranslation } from 'react-i18next';
 
 interface StaffTransferModalProps {
   appointment: Appointment | null;
@@ -36,6 +37,7 @@ const StaffTransferModal = ({
   onTransfer,
   staff
 }: StaffTransferModalProps) => {
+  const { t } = useTranslation('clientModals');
   const { toast } = useToast();
   const [selectedStaff, setSelectedStaff] = useState('');
   const [reason, setReason] = useState('');
@@ -45,8 +47,8 @@ const StaffTransferModal = ({
 
     onTransfer(appointment.id, selectedStaff, reason);
     toast({
-      title: "Appointment Transferred",
-      description: `Appointment transferred from ${appointment.staff} to ${selectedStaff}`
+      title: t('staffTransferModal.toastTitle'),
+      description: t('staffTransferModal.toastDescription', { from: appointment.staff, to: selectedStaff })
     });
     setSelectedStaff('');
     setReason('');
@@ -61,13 +63,13 @@ const StaffTransferModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Transfer Appointment</DialogTitle>
+          <DialogTitle>{t('staffTransferModal.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Current Assignment */}
           <div className="p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Current Assignment</h4>
+            <h4 className="font-medium text-gray-900 mb-2">{t('staffTransferModal.currentAssignment')}</h4>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-gray-500" />
               <span className="font-medium">{appointment.staff}</span>
@@ -79,14 +81,14 @@ const StaffTransferModal = ({
 
           {/* Transfer To */}
           <div className="flex items-center justify-center">
-            <ArrowRight className="h-6 w-6 text-gray-400" />
+            <ArrowRight className="h-6 w-6 text-gray-400 rtl:rotate-180" />
           </div>
 
           <div>
-            <Label htmlFor="newStaff">Transfer to Staff Member</Label>
+            <Label htmlFor="newStaff">{t('staffTransferModal.transferTo')}</Label>
             <Select value={selectedStaff} onValueChange={setSelectedStaff}>
               <SelectTrigger>
-                <SelectValue placeholder="Select staff member" />
+                <SelectValue placeholder={t('staffTransferModal.selectStaff')} />
               </SelectTrigger>
               <SelectContent>
                 {availableStaff.map((member) => (
@@ -99,12 +101,12 @@ const StaffTransferModal = ({
           </div>
 
           <div>
-            <Label htmlFor="reason">Transfer Reason (Optional)</Label>
+            <Label htmlFor="reason">{t('staffTransferModal.reason')}</Label>
             <Textarea
               id="reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason for transfer..."
+              placeholder={t('staffTransferModal.reasonPlaceholder')}
               rows={3}
             />
           </div>
@@ -112,14 +114,14 @@ const StaffTransferModal = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           <Button 
             onClick={handleTransfer}
             disabled={!selectedStaff}
             className="bg-purple-600 hover:bg-purple-700"
           >
-            Transfer Appointment
+            {t('staffTransferModal.transfer')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -22,6 +22,8 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface AcuityConfig {
   id?: string;
@@ -47,6 +49,8 @@ interface SyncStats {
 export const AcuityIntegration: React.FC = () => {
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
+  const { t } = useTranslation('integrations');
+  const { locale } = useLanguage();
   const [config, setConfig] = useState<AcuityConfig>({
     acuity_user_id: '',
     api_key_encrypted: '',
@@ -100,8 +104,8 @@ export const AcuityIntegration: React.FC = () => {
     } catch (error) {
       console.error('Error loading Acuity config:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load Acuity configuration',
+        title: t('common:status.error'),
+        description: t('acuity.loadFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -159,8 +163,8 @@ export const AcuityIntegration: React.FC = () => {
         clientPortalAcuityMappings = JSON.parse(mappingJson || '{}') as Record<string, unknown>;
       } catch {
         toast({
-          title: 'Invalid mapping JSON',
-          description: 'Check the client portal Acuity mapping before saving.',
+          title: t('acuity.invalidMappingJson'),
+          description: t('acuity.invalidMappingJsonDescription'),
           variant: 'destructive',
         });
         return;
@@ -192,16 +196,16 @@ export const AcuityIntegration: React.FC = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Acuity configuration saved successfully'
+        title: t('common:status.success'),
+        description: t('acuity.savedDescription')
       });
 
       loadSyncStats();
     } catch (error) {
       console.error('Error saving Acuity config:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to save Acuity configuration',
+        title: t('common:status.error'),
+        description: t('acuity.saveFailed'),
         variant: 'destructive'
       });
     } finally {
@@ -226,7 +230,7 @@ export const AcuityIntegration: React.FC = () => {
         while (true) {
           const result = await acuitySync({ action: 'sync_clients', organization_id: orgId, cursor, batch_size: batchSize });
           const data = result.data as any;
-          if (!data?.success) throw new Error(data?.error || 'Client sync failed');
+          if (!data?.success) throw new Error(data?.error || t('acuity.clientSyncFailed'));
 
           total += data.data?.count || 0;
           const next = data.data?.next_cursor;
@@ -239,7 +243,7 @@ export const AcuityIntegration: React.FC = () => {
       let message = '';
       if (syncType === 'sync_clients') {
         const total = await runClientSyncPaged();
-        message = `Synced ${total} clients`;
+        message = t('acuity.syncedClients', { count: total });
       } else if (syncType === 'full_sync') {
         let cursor = 0;
         const batchSize = 100;
@@ -250,7 +254,7 @@ export const AcuityIntegration: React.FC = () => {
         while (true) {
           const result = await acuitySync({ action: 'full_sync', organization_id: orgId, cursor, batch_size: batchSize });
           const data = result.data as any;
-          if (!data?.success) throw new Error(data?.error || 'Full sync failed');
+          if (!data?.success) throw new Error(data?.error || t('acuity.fullSyncFailed'));
 
           totalClients += data.data?.clients || 0;
           totalAppointments += data.data?.appointments || 0;
@@ -259,21 +263,21 @@ export const AcuityIntegration: React.FC = () => {
           cursor = data.data.next_cursor;
         }
 
-        message = `Full sync completed: ${totalClients} clients, ${totalAppointments} appointments`;
+        message = t('acuity.fullSyncCompleted', { clients: totalClients, appointments: totalAppointments });
       } else {
         const result = await acuitySync({ action: 'sync_appointments', organization_id: orgId });
         const data = result.data as any;
-        if (!data?.success) throw new Error(data?.error || 'Appointments sync failed');
+        if (!data?.success) throw new Error(data?.error || t('acuity.appointmentsSyncFailed'));
         message = data.message;
       }
 
-      toast({ title: 'Sync Complete', description: message });
+      toast({ title: t('acuity.syncComplete'), description: message });
       loadSyncStats();
     } catch (error: any) {
       console.error('Error performing sync:', error);
       toast({
-        title: 'Sync Failed',
-        description: error.message || 'Failed to sync with Acuity',
+        title: t('acuity.syncFailed'),
+        description: error.message || t('acuity.syncFailedDescription'),
         variant: 'destructive'
       });
     } finally {
@@ -294,79 +298,80 @@ export const AcuityIntegration: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Acuity Scheduling Integration</h2>
+        <h2 className="text-2xl font-bold">{t('acuity.title')}</h2>
         <p className="text-muted-foreground">
-          Connect your Beauty Hub Pro system with Acuity Scheduling for seamless appointment and client management.
+          {t('acuity.subtitle')}
         </p>
       </div>
 
       {/* Configuration Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Configuration</CardTitle>
+          <CardTitle>{t('acuity.configuration.title')}</CardTitle>
           <CardDescription>
-            Set up your Acuity Scheduling API credentials and sync preferences.
+            {t('acuity.configuration.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="acuity_user_id">Acuity User ID</Label>
+              <Label htmlFor="acuity_user_id">{t('acuity.configuration.userIdLabel')}</Label>
               <Input
                 id="acuity_user_id"
                 value={config.acuity_user_id}
                 onChange={(e) => setConfig(prev => ({ ...prev, acuity_user_id: e.target.value }))}
-                placeholder="Enter your Acuity User ID"
+                placeholder={t('acuity.configuration.userIdPlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="api_key">API Key</Label>
+              <Label htmlFor="api_key">{t('shared.apiKey')}</Label>
               <Input
                 id="api_key"
                 type="password"
                 value={config.api_key_encrypted}
                 onChange={(e) => setConfig(prev => ({ ...prev, api_key_encrypted: e.target.value }))}
-                placeholder="Enter your Acuity API Key"
+                placeholder={t('acuity.configuration.apiKeyPlaceholder')}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="webhook_secret">Webhook Secret (Optional)</Label>
+            <Label htmlFor="webhook_secret">{t('acuity.configuration.webhookSecretLabel')}</Label>
             <Input
               id="webhook_secret"
               value={config.webhook_secret}
               onChange={(e) => setConfig(prev => ({ ...prev, webhook_secret: e.target.value }))}
-              placeholder="Enter webhook secret for security"
+              placeholder={t('acuity.configuration.webhookSecretPlaceholder')}
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="sync_enabled"
               checked={config.sync_enabled}
               onCheckedChange={(checked) => setConfig(prev => ({ ...prev, sync_enabled: checked }))}
             />
-            <Label htmlFor="sync_enabled">Enable Acuity Sync</Label>
+            <Label htmlFor="sync_enabled">{t('acuity.configuration.enableSync')}</Label>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="client_portal_acuity_mappings">Client Portal Booking Mapping</Label>
+            <Label htmlFor="client_portal_acuity_mappings">{t('acuity.configuration.mappingLabel')}</Label>
             <Textarea
               id="client_portal_acuity_mappings"
               value={mappingJson}
               onChange={(e) => setMappingJson(e.target.value)}
               className="min-h-40 font-mono text-xs"
-              placeholder='{"treatments":{"crmTreatmentId":{"appointmentTypeID":123}},"staff_calendars":{"crmStaffId":456}}'
+              dir="ltr"
+              placeholder={t('acuity.configuration.mappingPlaceholder')}
             />
             <p className="text-xs text-muted-foreground">
-              Map CRM treatment IDs to Acuity appointment type IDs and CRM staff IDs to Acuity calendar IDs for approved client requests.
+              {t('acuity.configuration.mappingHelp')}
             </p>
           </div>
 
           <Button onClick={saveConfig} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Configuration
+            {saving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            {t('shared.saveConfiguration')}
           </Button>
         </CardContent>
       </Card>
@@ -374,17 +379,17 @@ export const AcuityIntegration: React.FC = () => {
       {/* Webhook Setup Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Webhook Configuration</CardTitle>
+          <CardTitle>{t('acuity.webhook.title')}</CardTitle>
           <CardDescription>
-            Set up webhooks in your Acuity account to receive real-time updates.
+            {t('acuity.webhook.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Add this webhook URL to your Acuity Scheduling account:
-              <div className="mt-2 p-2 bg-muted rounded font-mono text-sm">
+              {t('acuity.webhook.addUrl')}
+              <div className="mt-2 p-2 bg-muted rounded font-mono text-sm ltr-inline" dir="ltr">
                 {webhookUrl}
               </div>
               <div className="mt-2">
@@ -394,7 +399,7 @@ export const AcuityIntegration: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Open Acuity Webhooks Settings <ExternalLink className="ml-1 h-3 w-3" />
+                    {t('acuity.webhook.openSettings')} <ExternalLink className="ms-1 h-3 w-3" />
                   </a>
                 </Button>
               </div>
@@ -406,39 +411,39 @@ export const AcuityIntegration: React.FC = () => {
       {/* Sync Status and Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Sync Status</CardTitle>
+          <CardTitle>{t('acuity.sync.title')}</CardTitle>
           <CardDescription>
-            Monitor and control your Acuity synchronization.
+            {t('acuity.sync.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{syncStats.clients}</div>
-              <div className="text-sm text-muted-foreground">Synced Clients</div>
+              <div className="text-sm text-muted-foreground">{t('acuity.sync.syncedClients')}</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{syncStats.appointments}</div>
-              <div className="text-sm text-muted-foreground">Synced Appointments</div>
+              <div className="text-sm text-muted-foreground">{t('acuity.sync.syncedAppointments')}</div>
             </div>
             <div className="text-center">
               <div className="text-sm font-medium">
                 {config.sync_enabled ? (
                   <Badge variant="default" className="gap-1">
                     <CheckCircle className="h-3 w-3" />
-                    Active
+                    {t('common:labels.active')}
                   </Badge>
                 ) : (
-                  <Badge variant="secondary">Disabled</Badge>
+                  <Badge variant="secondary">{t('common:labels.disabled')}</Badge>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground">Status</div>
+              <div className="text-sm text-muted-foreground">{t('common:labels.status')}</div>
             </div>
           </div>
 
           {syncStats.last_sync && (
             <div className="text-sm text-muted-foreground">
-              Last sync: {new Date(syncStats.last_sync).toLocaleString()}
+              {t('acuity.sync.lastSync', { date: new Date(syncStats.last_sync).toLocaleString(locale) })}
             </div>
           )}
 
@@ -448,23 +453,23 @@ export const AcuityIntegration: React.FC = () => {
               disabled={!config.sync_enabled || syncing}
               variant="default"
             >
-              {syncing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Full Sync
+              {syncing && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              <RefreshCw className="me-2 h-4 w-4" />
+              {t('acuity.sync.fullSync')}
             </Button>
             <Button
               onClick={() => performSync('sync_clients')}
               disabled={!config.sync_enabled || syncing}
               variant="outline"
             >
-              Sync Clients
+              {t('acuity.sync.syncClients')}
             </Button>
             <Button
               onClick={() => performSync('sync_appointments')}
               disabled={!config.sync_enabled || syncing}
               variant="outline"
             >
-              Sync Appointments
+              {t('acuity.sync.syncAppointments')}
             </Button>
           </div>
         </CardContent>

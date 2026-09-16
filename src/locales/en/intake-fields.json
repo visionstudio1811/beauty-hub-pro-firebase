@@ -1,0 +1,7 @@
+{
+  "standardFields": {
+    "age": "Age",
+    "gender": "Gender",
+    "referral": "How did you hear about us?"
+  }
+}

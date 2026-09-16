@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +71,7 @@ interface Client {
 }
 
 const EnhancedProductManagement = () => {
+  const { t } = useTranslation('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<ProductBrand[]>([]);
@@ -108,11 +110,11 @@ const EnhancedProductManagement = () => {
     if (!currentOrganization?.id) return;
     const name = newCategoryName.trim();
     if (!name) {
-      toast({ title: 'Name required', description: 'Enter a category name.', variant: 'destructive' });
+      toast({ title: t('enhancedProductManagement.toasts.nameRequiredTitle'), description: t('enhancedProductManagement.toasts.enterCategoryName'), variant: 'destructive' });
       return;
     }
     if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: 'Already exists', description: `"${name}" is already a category.`, variant: 'destructive' });
+      toast({ title: t('enhancedProductManagement.toasts.alreadyExistsTitle'), description: t('enhancedProductManagement.toasts.categoryExists', { name }), variant: 'destructive' });
       return;
     }
     setSavingCategory(true);
@@ -142,10 +144,10 @@ const EnhancedProductManagement = () => {
       setFormData(prev => ({ ...prev, category: name }));
       setNewCategoryName('');
       setAddingCategory(false);
-      toast({ title: 'Category added', description: `"${name}" is now selected.` });
+      toast({ title: t('enhancedProductManagement.toasts.categoryAddedTitle'), description: t('enhancedProductManagement.toasts.categoryNowSelected', { name }) });
     } catch (err) {
       console.error('Failed to add category', err);
-      toast({ title: 'Error', description: 'Failed to add category', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('enhancedProductManagement.toasts.addCategoryFailed'), variant: 'destructive' });
     } finally {
       setSavingCategory(false);
     }
@@ -155,11 +157,11 @@ const EnhancedProductManagement = () => {
     if (!currentOrganization?.id) return;
     const name = newBrandName.trim();
     if (!name) {
-      toast({ title: 'Name required', description: 'Enter a brand name.', variant: 'destructive' });
+      toast({ title: t('enhancedProductManagement.toasts.nameRequiredTitle'), description: t('enhancedProductManagement.toasts.enterBrandName'), variant: 'destructive' });
       return;
     }
     if (brands.some(b => b.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: 'Already exists', description: `"${name}" is already a brand.`, variant: 'destructive' });
+      toast({ title: t('enhancedProductManagement.toasts.alreadyExistsTitle'), description: t('enhancedProductManagement.toasts.brandExists', { name }), variant: 'destructive' });
       return;
     }
     setSavingBrand(true);
@@ -183,10 +185,10 @@ const EnhancedProductManagement = () => {
       setFormData(prev => ({ ...prev, brand: name }));
       setNewBrandName('');
       setAddingBrand(false);
-      toast({ title: 'Brand added', description: `"${name}" is now selected.` });
+      toast({ title: t('enhancedProductManagement.toasts.brandAddedTitle'), description: t('enhancedProductManagement.toasts.brandNowSelected', { name }) });
     } catch (err) {
       console.error('Failed to add brand', err);
-      toast({ title: 'Error', description: 'Failed to add brand', variant: 'destructive' });
+      toast({ title: t('common:status.error'), description: t('enhancedProductManagement.toasts.addBrandFailed'), variant: 'destructive' });
     } finally {
       setSavingBrand(false);
     }
@@ -285,8 +287,8 @@ const EnhancedProductManagement = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
-        title: "Error",
-        description: "Failed to load data",
+        title: t('common:status.error'),
+        description: t('enhancedProductManagement.toasts.loadFailed'),
         variant: "destructive"
       });
     } finally {
@@ -308,14 +310,14 @@ const EnhancedProductManagement = () => {
       setFormData(prev => ({ ...prev, image_url: publicUrl }));
 
       toast({
-        title: "Success",
-        description: "Image uploaded successfully"
+        title: t('common:status.success'),
+        description: t('enhancedProductManagement.toasts.imageUploaded')
       });
     } catch (error) {
       console.error('Error uploading image:', error);
       toast({
-        title: "Error",
-        description: "Failed to upload image",
+        title: t('common:status.error'),
+        description: t('enhancedProductManagement.toasts.imageUploadFailed'),
         variant: "destructive"
       });
     } finally {
@@ -365,15 +367,15 @@ const EnhancedProductManagement = () => {
     
     if (!formData.name.trim() || !formData.price) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in name and price",
+        title: t('productManagement.toasts.validationTitle'),
+        description: t('productManagement.toasts.fillNameAndPrice'),
         variant: "destructive"
       });
       return;
     }
 
     if (!currentOrganization?.id) {
-      toast({ title: "Error", description: "No organization selected", variant: "destructive" });
+      toast({ title: t('common:status.error'), description: t('enhancedProductManagement.toasts.noOrganization'), variant: "destructive" });
       return;
     }
 
@@ -395,8 +397,8 @@ const EnhancedProductManagement = () => {
       if (editingProduct) {
         await updateDoc(doc(db, 'organizations', orgId, 'products', editingProduct.id), productData);
         toast({
-          title: "Success",
-          description: "Product updated successfully"
+          title: t('common:status.success'),
+          description: t('productManagement.toasts.updated')
         });
       } else {
         await addDoc(collection(db, 'organizations', orgId, 'products'), {
@@ -405,8 +407,8 @@ const EnhancedProductManagement = () => {
           created_at_ts: serverTimestamp(),
         });
         toast({
-          title: "Success",
-          description: "Product created successfully"
+          title: t('common:status.success'),
+          description: t('productManagement.toasts.created')
         });
       }
 
@@ -416,29 +418,29 @@ const EnhancedProductManagement = () => {
     } catch (error) {
       console.error('Error saving product:', error);
       toast({
-        title: "Error",
-        description: "Failed to save product",
+        title: t('common:status.error'),
+        description: t('productManagement.toasts.saveFailed'),
         variant: "destructive"
       });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm(t('productManagement.confirmDelete'))) return;
     if (!currentOrganization?.id) return;
 
     try {
       await deleteDoc(doc(db, 'organizations', currentOrganization.id, 'products', id));
       toast({
-        title: "Success",
-        description: "Product deleted successfully"
+        title: t('common:status.success'),
+        description: t('productManagement.toasts.deleted')
       });
       fetchData();
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete product",
+        title: t('common:status.error'),
+        description: t('productManagement.toasts.deleteFailed'),
         variant: "destructive"
       });
     }
@@ -452,15 +454,17 @@ const EnhancedProductManagement = () => {
         updated_at: new Date().toISOString(),
       });
       toast({
-        title: "Success",
-        description: `Product ${!product.is_active ? 'activated' : 'deactivated'}`
+        title: t('common:status.success'),
+        description: !product.is_active
+          ? t('productManagement.toasts.activated')
+          : t('productManagement.toasts.deactivated'),
       });
       fetchData();
     } catch (error) {
       console.error('Error updating product status:', error);
       toast({
-        title: "Error",
-        description: "Failed to update product status",
+        title: t('common:status.error'),
+        description: t('productManagement.toasts.statusFailed'),
         variant: "destructive"
       });
     }
@@ -483,7 +487,7 @@ const EnhancedProductManagement = () => {
   });
 
   if (loading) {
-    return <div className="flex items-center justify-center p-8">Loading products...</div>;
+    return <div className="flex items-center justify-center p-8">{t('productManagement.loading')}</div>;
   }
 
   return (
@@ -491,12 +495,12 @@ const EnhancedProductManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Product Management</h2>
-          <p className="text-muted-foreground">Manage your products and inventory</p>
+          <h2 className="text-2xl font-bold">{t('productManagement.title')}</h2>
+          <p className="text-muted-foreground">{t('productManagement.subtitle')}</p>
         </div>
         <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
+          <Plus className="h-4 w-4 me-2" />
+          {t('productManagement.addProduct')}
         </Button>
       </div>
 
@@ -504,21 +508,21 @@ const EnhancedProductManagement = () => {
       <div className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/50 rounded-lg">
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder={t('enhancedProductManagement.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="ps-10"
             />
           </div>
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder={t('enhancedProductManagement.filters.category')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">{t('enhancedProductManagement.filters.allCategories')}</SelectItem>
             {categories
               .filter(c => !c.applies_to || c.applies_to.includes('product'))
               .map((category) => (
@@ -530,10 +534,10 @@ const EnhancedProductManagement = () => {
         </Select>
         <Select value={brandFilter} onValueChange={setBrandFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Brand" />
+            <SelectValue placeholder={t('enhancedProductManagement.filters.brand')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Brands</SelectItem>
+            <SelectItem value="all">{t('enhancedProductManagement.filters.allBrands')}</SelectItem>
             {brands.map((brand) => (
               <SelectItem key={brand.id} value={brand.name}>
                 {brand.name}
@@ -543,12 +547,12 @@ const EnhancedProductManagement = () => {
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t('enhancedProductManagement.filters.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('enhancedProductManagement.filters.allStatus')}</SelectItem>
+            <SelectItem value="active">{t('common:labels.active')}</SelectItem>
+            <SelectItem value="inactive">{t('common:labels.inactive')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -572,7 +576,7 @@ const EnhancedProductManagement = () => {
               )}
               {!product.is_active && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <Badge variant="secondary">Inactive</Badge>
+                  <Badge variant="secondary">{t('common:labels.inactive')}</Badge>
                 </div>
               )}
             </div>
@@ -604,7 +608,7 @@ const EnhancedProductManagement = () => {
 
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">${product.price}</span>
+                <span className="text-2xl font-bold" dir="ltr">${product.price}</span>
                 <div className="flex flex-wrap gap-1 justify-end">
                   {product.brand && (
                     <Badge variant="secondary">{product.brand}</Badge>
@@ -625,8 +629,8 @@ const EnhancedProductManagement = () => {
                   onClick={() => handleAssign(product)}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
-                  <Users className="h-4 w-4 mr-1" />
-                  Assign
+                  <Users className="h-4 w-4 me-1" />
+                  {t('enhancedProductManagement.assign')}
                 </Button>
               </div>
             </CardContent>
@@ -639,18 +643,18 @@ const EnhancedProductManagement = () => {
           <CardContent className="text-center py-8">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-medium mb-2">
-              {products.length === 0 ? 'No products yet' : 'No products match your filters'}
+              {products.length === 0 ? t('productManagement.emptyTitle') : t('enhancedProductManagement.noMatchTitle')}
             </h3>
             <p className="text-muted-foreground mb-4">
-              {products.length === 0 
-                ? 'Get started by adding your first product.' 
-                : 'Try adjusting your search or filter criteria.'
+              {products.length === 0
+                ? t('productManagement.emptyDescription')
+                : t('enhancedProductManagement.noMatchDescription')
               }
             </p>
             {products.length === 0 && (
               <Button onClick={handleAdd}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
+                <Plus className="h-4 w-4 me-2" />
+                {t('productManagement.addProduct')}
               </Button>
             )}
           </CardContent>
@@ -662,30 +666,30 @@ const EnhancedProductManagement = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
+              {editingProduct ? t('productManagement.editProduct') : t('productManagement.addNewProduct')}
             </DialogTitle>
             <DialogDescription>
-              {editingProduct ? 'Update product information' : 'Enter product details'}
+              {editingProduct ? t('productManagement.updateDescription') : t('productManagement.createDescription')}
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Image Upload */}
             <div>
-              <label className="text-sm font-medium">Product Image</label>
+              <label className="text-sm font-medium">{t('enhancedProductManagement.image.label')}</label>
               <div className="mt-2">
                 {formData.image_url ? (
                   <div className="relative w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                     <img
                       src={formData.image_url}
-                      alt="Product preview"
+                      alt={t('enhancedProductManagement.image.previewAlt')}
                       className="w-full h-full object-cover"
                     />
                     <Button
                       type="button"
                       variant="destructive"
                       size="sm"
-                      className="absolute top-1 right-1"
+                      className="absolute top-1 end-1"
                       onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
                     >
                       <X className="h-3 w-3" />
@@ -710,7 +714,7 @@ const EnhancedProductManagement = () => {
                         htmlFor="image-upload"
                         className="text-sm text-gray-500 cursor-pointer hover:text-gray-700"
                       >
-                        {uploading ? 'Uploading...' : 'Upload Image'}
+                        {uploading ? t('enhancedProductManagement.image.uploading') : t('enhancedProductManagement.image.upload')}
                       </label>
                     </div>
                   </div>
@@ -720,34 +724,34 @@ const EnhancedProductManagement = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Product Name *</label>
+                <label className="text-sm font-medium">{t('productManagement.fields.name')}</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="Enter product name"
+                  placeholder={t('productManagement.fields.namePlaceholder')}
                   required
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium">Price *</label>
+                <label className="text-sm font-medium">{t('productManagement.fields.price')}</label>
                 <Input
                   type="number"
                   step="0.01"
                   value={formData.price}
                   onChange={(e) => setFormData({...formData, price: e.target.value})}
-                  placeholder="0.00"
+                  placeholder={t('productManagement.fields.pricePlaceholder')}
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium">Description</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.description')}</label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Enter product description"
+                placeholder={t('productManagement.fields.descriptionPlaceholder')}
                 rows={3}
               />
             </div>
@@ -755,7 +759,7 @@ const EnhancedProductManagement = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Category</label>
+                  <label className="text-sm font-medium">{t('productManagement.fields.category')}</label>
                   <Button
                     type="button"
                     size="sm"
@@ -766,8 +770,8 @@ const EnhancedProductManagement = () => {
                       setNewCategoryName('');
                     }}
                   >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {addingCategory ? 'Cancel' : 'New'}
+                    <Plus className="h-3 w-3 me-1" />
+                    {addingCategory ? t('common:actions.cancel') : t('enhancedProductManagement.fields.new')}
                   </Button>
                 </div>
                 {addingCategory ? (
@@ -782,7 +786,7 @@ const EnhancedProductManagement = () => {
                           handleQuickAddCategory();
                         }
                       }}
-                      placeholder="New category name"
+                      placeholder={t('enhancedProductManagement.fields.newCategoryPlaceholder')}
                       disabled={savingCategory}
                     />
                     <Button
@@ -791,7 +795,7 @@ const EnhancedProductManagement = () => {
                       onClick={handleQuickAddCategory}
                       disabled={savingCategory || !newCategoryName.trim()}
                     >
-                      {savingCategory ? 'Saving…' : 'Save'}
+                      {savingCategory ? t('enhancedProductManagement.fields.saving') : t('common:actions.save')}
                     </Button>
                   </div>
                 ) : (
@@ -800,10 +804,10 @@ const EnhancedProductManagement = () => {
                     onValueChange={(v) => setFormData({...formData, category: v === '__none__' ? '' : v})}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t('enhancedProductManagement.fields.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
+                      <SelectItem value="__none__">{t('enhancedProductManagement.fields.none')}</SelectItem>
                       {categories
                         .filter(c => !c.applies_to || c.applies_to.includes('product'))
                         .map((category) => (
@@ -815,7 +819,7 @@ const EnhancedProductManagement = () => {
               </div>
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Brand</label>
+                  <label className="text-sm font-medium">{t('enhancedProductManagement.fields.brand')}</label>
                   <Button
                     type="button"
                     size="sm"
@@ -826,8 +830,8 @@ const EnhancedProductManagement = () => {
                       setNewBrandName('');
                     }}
                   >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {addingBrand ? 'Cancel' : 'New'}
+                    <Plus className="h-3 w-3 me-1" />
+                    {addingBrand ? t('common:actions.cancel') : t('enhancedProductManagement.fields.new')}
                   </Button>
                 </div>
                 {addingBrand ? (
@@ -842,7 +846,7 @@ const EnhancedProductManagement = () => {
                           handleQuickAddBrand();
                         }
                       }}
-                      placeholder="New brand name"
+                      placeholder={t('enhancedProductManagement.fields.newBrandPlaceholder')}
                       disabled={savingBrand}
                     />
                     <Button
@@ -851,7 +855,7 @@ const EnhancedProductManagement = () => {
                       onClick={handleQuickAddBrand}
                       disabled={savingBrand || !newBrandName.trim()}
                     >
-                      {savingBrand ? 'Saving…' : 'Save'}
+                      {savingBrand ? t('enhancedProductManagement.fields.saving') : t('common:actions.save')}
                     </Button>
                   </div>
                 ) : (
@@ -860,10 +864,10 @@ const EnhancedProductManagement = () => {
                     onValueChange={(v) => setFormData({...formData, brand: v === '__none__' ? '' : v})}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a brand" />
+                      <SelectValue placeholder={t('enhancedProductManagement.fields.selectBrand')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
+                      <SelectItem value="__none__">{t('enhancedProductManagement.fields.none')}</SelectItem>
                       {brands.map((brand) => (
                         <SelectItem key={brand.id} value={brand.name}>{brand.name}</SelectItem>
                       ))}
@@ -873,20 +877,20 @@ const EnhancedProductManagement = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({...formData, is_active: checked})}
               />
-              <label className="text-sm font-medium">Active</label>
+              <label className="text-sm font-medium">{t('productManagement.fields.active')}</label>
             </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
               <Button type="submit" disabled={uploading}>
-                {editingProduct ? 'Update Product' : 'Add Product'}
+                {editingProduct ? t('productManagement.updateProduct') : t('productManagement.addProduct')}
               </Button>
             </DialogFooter>
           </form>

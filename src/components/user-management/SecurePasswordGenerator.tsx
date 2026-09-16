@@ -1,4 +1,5 @@
 
+import { useTranslation } from 'react-i18next';
 import { generateSecurePassword } from '@/lib/passwordUtils';
 
 export interface SecurePasswordOptions {
@@ -11,6 +12,7 @@ export interface SecurePasswordOptions {
 }
 
 export const useSecurePasswordGenerator = () => {
+  const { t } = useTranslation('settings');
   const generatePassword = (options: SecurePasswordOptions = {}) => {
     const defaultOptions = {
       length: 16,
@@ -35,22 +37,22 @@ export const useSecurePasswordGenerator = () => {
 
     if (password.length >= 12) score += 2;
     else if (password.length >= 8) score += 1;
-    else feedback.push('Password should be at least 8 characters long');
+    else feedback.push(t('passwordStrength.minLength'));
 
     if (/[A-Z]/.test(password)) score += 1;
-    else feedback.push('Include uppercase letters');
+    else feedback.push(t('passwordStrength.uppercase'));
 
     if (/[a-z]/.test(password)) score += 1;
-    else feedback.push('Include lowercase letters');
+    else feedback.push(t('passwordStrength.lowercase'));
 
     if (/\d/.test(password)) score += 1;
-    else feedback.push('Include numbers');
+    else feedback.push(t('passwordStrength.numbers'));
 
     if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1;
-    else feedback.push('Include special characters');
+    else feedback.push(t('passwordStrength.symbols'));
 
     if (!/(.)\1{2,}/.test(password)) score += 1;
-    else feedback.push('Avoid repeated characters');
+    else feedback.push(t('passwordStrength.repeated'));
 
     return {
       score,

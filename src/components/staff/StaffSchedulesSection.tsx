@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { CalendarDays } from 'lucide-react';
 import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { StaffScheduleEditor } from './StaffScheduleEditor';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Top-level Settings section for managing per-staff weekly schedules + date overrides.
@@ -12,6 +13,7 @@ import { StaffScheduleEditor } from './StaffScheduleEditor';
  * the selected staff member inline.
  */
 export const StaffSchedulesSection: React.FC = () => {
+  const { t } = useTranslation('scheduling');
   const { profiles, loading } = useSupabaseProfiles();
   const [selectedId, setSelectedId] = useState<string>('');
 
@@ -27,17 +29,15 @@ export const StaffSchedulesSection: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Staff Schedules
+            {t('staffSchedulesSection.title')}
           </CardTitle>
           <CardDescription>
-            Set each staff member's working days and hours, plus dated overrides for vacation
-            or one-off custom hours. These override the org's business hours for the selected
-            staff. Used by the booking flow to compute available slots.
+            {t('staffSchedulesSection.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="staff-picker">Choose a staff member</Label>
+            <Label htmlFor="staff-picker">{t('staffSchedulesSection.chooseStaff')}</Label>
             <Select
               value={selectedId}
               onValueChange={setSelectedId}
@@ -45,16 +45,16 @@ export const StaffSchedulesSection: React.FC = () => {
             >
               <SelectTrigger>
                 <SelectValue placeholder={
-                  loading ? 'Loading staff…' :
-                  schedulableStaff.length === 0 ? 'No active staff yet' :
-                  'Select staff'
+                  loading ? t('staffSchedulesSection.loadingStaff') :
+                  schedulableStaff.length === 0 ? t('staffSchedulesSection.noStaff') :
+                  t('staffSchedulesSection.selectStaff')
                 } />
               </SelectTrigger>
               <SelectContent>
                 {schedulableStaff.map(p => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.full_name || p.email}
-                    <span className="text-xs text-muted-foreground ml-2">({p.role})</span>
+                    <span className="text-xs text-muted-foreground ms-2">({t(`common:roles.${p.role}`, { defaultValue: p.role })})</span>
                   </SelectItem>
                 ))}
               </SelectContent>

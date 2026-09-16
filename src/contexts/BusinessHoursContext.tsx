@@ -1,6 +1,13 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { safeToLocaleDateString } from '@/lib/safeDateFormatter';
+import { enUS } from 'date-fns/locale';
+import { DEFAULT_TIMEZONE, formatInBusinessTime } from '@/lib/timeUtils';
+
+// The `businessHours` lookup is keyed by English weekday names, so the weekday
+// is computed in the business timezone with an explicit English locale —
+// never through the UI-language-aware formatters.
+const businessWeekday = (date: string): string =>
+  formatInBusinessTime(new Date(date), 'EEEE', DEFAULT_TIMEZONE, enUS);
 
 export interface DayHours {
   day: string;
@@ -41,7 +48,7 @@ export const BusinessHoursProvider: React.FC<{ children: ReactNode }> = ({ child
   };
 
   const isBusinessOpen = (date: string, time: string) => {
-    const dayOfWeek = safeToLocaleDateString(new Date(date), 'en-US', { weekday: 'long' });
+    const dayOfWeek = businessWeekday(date);
     const dayHours = businessHours.find(h => h.day === dayOfWeek);
     
     if (!dayHours || !dayHours.enabled) return false;
@@ -50,7 +57,7 @@ export const BusinessHoursProvider: React.FC<{ children: ReactNode }> = ({ child
   };
 
   const generateTimeSlots = (date: string, staffId?: string, treatmentDuration: number = 30) => {
-    const dayOfWeek = safeToLocaleDateString(new Date(date), 'en-US', { weekday: 'long' });
+    const dayOfWeek = businessWeekday(date);
     const dayHours = businessHours.find(h => h.day === dayOfWeek);
     
     if (!dayHours || !dayHours.enabled) return [];

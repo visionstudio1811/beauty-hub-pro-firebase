@@ -9,13 +9,13 @@ import { Calendar, Sparkles } from 'lucide-react';
 import { useSupabaseBusinessHours, DayHours } from '@/hooks/useSupabaseBusinessHours';
 import { useSupabaseBusinessInfo } from '@/hooks/useSupabaseBusinessInfo';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 // Mon-first ordering matches the businessHours data
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 interface SchedulingTemplate {
-  label: string;
-  description: string;
+  key: 'weekdays' | 'sixDays' | 'allWeek';
   enabledDays: number[];        // 0=Mon..6=Sun
   openTime: string;
   closeTime: string;
@@ -24,24 +24,21 @@ interface SchedulingTemplate {
 
 const TEMPLATES: SchedulingTemplate[] = [
   {
-    label: 'Mon–Fri 10–6 · 30 min',
-    description: 'Weekdays, half-hour slots',
+    key: 'weekdays',
     enabledDays: [0, 1, 2, 3, 4],
     openTime: '10:00',
     closeTime: '18:00',
     slotIntervalMinutes: 30,
   },
   {
-    label: 'Mon–Sat 10–6 · 30 min',
-    description: 'Six days, half-hour slots',
+    key: 'sixDays',
     enabledDays: [0, 1, 2, 3, 4, 5],
     openTime: '10:00',
     closeTime: '18:00',
     slotIntervalMinutes: 30,
   },
   {
-    label: 'All Week 10–6 · 1 hour',
-    description: 'Every day, hourly slots',
+    key: 'allWeek',
     enabledDays: [0, 1, 2, 3, 4, 5, 6],
     openTime: '10:00',
     closeTime: '18:00',
@@ -53,6 +50,7 @@ export const BusinessHours: React.FC = () => {
   const { businessHours, loading, updateBusinessHours } = useSupabaseBusinessHours();
   const { businessInfo, updateBusinessInfo, loading: infoLoading } = useSupabaseBusinessInfo();
   const { toast } = useToast();
+  const { t } = useTranslation('scheduling');
 
   const timeOptions = Array.from({ length: 24 }, (_, i) => {
     const hour = i.toString().padStart(2, '0');
@@ -82,7 +80,7 @@ export const BusinessHours: React.FC = () => {
       website: businessInfo?.website ?? null,
       slot_interval_minutes: tpl.slotIntervalMinutes,
     });
-    toast({ title: 'Template applied', description: tpl.label });
+    toast({ title: t('businessHours.templateApplied'), description: t(`businessHours.templates.${tpl.key}.label`) });
   };
 
   const updateInterval = async (next: number | null) => {
@@ -101,7 +99,7 @@ export const BusinessHours: React.FC = () => {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
-            <div className="text-sm text-gray-500">Loading business hours...</div>
+            <div className="text-sm text-gray-500">{t('businessHours.loading')}</div>
           </div>
         </CardContent>
       </Card>
@@ -111,12 +109,12 @@ export const BusinessHours: React.FC = () => {
   return (
     <Card className="w-full overflow-hidden">
       <CardHeader>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 rtl:space-x-reverse">
           <Calendar className="h-5 w-5 text-purple-600" />
-          <CardTitle>Business Hours</CardTitle>
+          <CardTitle>{t('businessHours.title')}</CardTitle>
         </div>
         <CardDescription>
-          Set your operating hours - these will control available time slots across all booking systems
+          {t('businessHours.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-hidden">
@@ -124,23 +122,23 @@ export const BusinessHours: React.FC = () => {
         <div className="mb-4 rounded-lg border border-dashed border-purple-200 bg-purple-50/40 p-3">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium">Quick Templates</span>
+            <span className="text-sm font-medium">{t('businessHours.quickTemplates')}</span>
           </div>
           <p className="text-xs text-muted-foreground mb-2">
-            One click sets hours + booking slot interval. You can fine-tune anything afterwards.
+            {t('businessHours.quickTemplatesHelp')}
           </p>
           <div className="flex flex-wrap gap-2">
             {TEMPLATES.map((tpl) => (
               <Button
-                key={tpl.label}
+                key={tpl.key}
                 size="sm"
                 variant="outline"
                 onClick={() => applyTemplate(tpl)}
                 disabled={infoLoading}
                 className="bg-white"
-                title={tpl.description}
+                title={t(`businessHours.templates.${tpl.key}.description`)}
               >
-                {tpl.label}
+                {t(`businessHours.templates.${tpl.key}.label`)}
               </Button>
             ))}
           </div>
@@ -148,7 +146,7 @@ export const BusinessHours: React.FC = () => {
 
         {/* Slot interval selector */}
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
-          <Label className="text-sm font-medium sm:w-48 shrink-0">Booking Slot Interval</Label>
+          <Label className="text-sm font-medium sm:w-48 shrink-0">{t('businessHours.slotInterval')}</Label>
           <Select
             value={businessInfo?.slot_interval_minutes?.toString() ?? 'auto'}
             onValueChange={(v) => updateInterval(v === 'auto' ? null : parseInt(v, 10))}
@@ -158,14 +156,14 @@ export const BusinessHours: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">Auto (treatment-based)</SelectItem>
-              <SelectItem value="15">Every 15 minutes</SelectItem>
-              <SelectItem value="30">Every 30 minutes</SelectItem>
-              <SelectItem value="60">Every hour</SelectItem>
+              <SelectItem value="auto">{t('businessHours.intervalOptions.auto')}</SelectItem>
+              <SelectItem value="15">{t('businessHours.intervalOptions.15')}</SelectItem>
+              <SelectItem value="30">{t('businessHours.intervalOptions.30')}</SelectItem>
+              <SelectItem value="60">{t('businessHours.intervalOptions.60')}</SelectItem>
             </SelectContent>
           </Select>
           <span className="text-xs text-muted-foreground">
-            How often a bookable time appears on the picker
+            {t('businessHours.slotIntervalHelp')}
           </span>
         </div>
 
@@ -173,21 +171,21 @@ export const BusinessHours: React.FC = () => {
           {businessHours.map((dayHour, index) => (
             <div key={dayHour.day} className="flex flex-col space-y-3 p-3 border rounded-lg">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 rtl:space-x-reverse">
                   <Switch
                     checked={dayHour.enabled}
                     onCheckedChange={(checked) => updateDay(index, 'enabled', checked)}
                   />
-                  <Label className="font-medium text-sm sm:text-base">{dayHour.day}</Label>
+                  <Label className="font-medium text-sm sm:text-base">{t(`common:days.${dayHour.day.toLowerCase()}`, { defaultValue: dayHour.day })}</Label>
                 </div>
                 
                 {!dayHour.enabled && (
-                  <span className="text-muted-foreground text-sm">Closed</span>
+                  <span className="text-muted-foreground text-sm">{t('businessHours.closed')}</span>
                 )}
               </div>
               
               {dayHour.enabled && (
-                <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 sm:justify-end">
+                <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2 rtl:space-x-reverse sm:justify-end">
                   <Select
                     value={dayHour.openTime}
                     onValueChange={(value) => updateDay(index, 'openTime', value)}
@@ -204,7 +202,7 @@ export const BusinessHours: React.FC = () => {
                     </SelectContent>
                   </Select>
                   
-                  <span className="text-muted-foreground text-center text-sm">to</span>
+                  <span className="text-muted-foreground text-center text-sm">{t('businessHours.to')}</span>
                   
                   <Select
                     value={dayHour.closeTime}

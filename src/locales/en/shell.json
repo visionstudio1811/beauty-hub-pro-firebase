@@ -1,0 +1,120 @@
+{
+  "sidebar": {
+    "workspace": "Workspace",
+    "logoAlt": "Logo",
+    "defaultOrgName": "Beauty Hub",
+    "defaultUserName": "User",
+    "settingsSections": {
+      "general": "General",
+      "users": "Users",
+      "packages": "Packages",
+      "treatments": "Treatments",
+      "addons": "Add-ons",
+      "products": "Products",
+      "categories": "Categories",
+      "brands": "Brands",
+      "scheduling": "Scheduling",
+      "staffSchedules": "Staff Schedules",
+      "schedulerLinks": "Scheduler Links",
+      "waivers": "Waivers",
+      "intake": "Intake Forms",
+      "agreements": "Agreements of Purchase",
+      "invoiceSettings": "Invoice Settings",
+      "invoiceHistory": "Invoice History",
+      "acuity": "Acuity"
+    },
+    "marketingSections": {
+      "overview": "Overview",
+      "campaigns": "Campaigns",
+      "integrations": "Integrations"
+    },
+    "logoutDialog": {
+      "title": "Log out?",
+      "description": "Are you sure you want to log out?",
+      "confirm": "Log out"
+    }
+  },
+  "layout": {
+    "appTitle": "App",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "sidebarSearch": {
+    "placeholder": "Search clients, appointments...",
+    "placeholderShort": "Search...",
+    "noResults": "No results found.",
+    "appointmentSubtitle": "{{date}} at {{time}}",
+    "treatmentSubtitle": "{{price}} - {{duration}}min"
+  },
+  "themeToggle": {
+    "toggle": "Toggle theme"
+  },
+  "roleProtected": {
+    "accessDenied": "Access Denied",
+    "noPermission": "You don't have permission to access this page.",
+    "returnToDashboard": "Return to Dashboard"
+  },
+  "orgProtected": {
+    "takingLonger": "This is taking longer than expected. Try signing out and back in.",
+    "profileNotFound": "Account profile not found",
+    "profileNotFoundDescription": "You're signed in as <em>{{email}}</em>, but no profile exists for this account. Ask your administrator to create your user profile, or sign out and try a different account.",
+    "orgUnavailable": "Organization unavailable",
+    "orgUnavailableDescription": "Your account is linked to an organization that can't be loaded. It may have been deleted or moved. Sign out and try again, or contact your administrator."
+  },
+  "orgSetup": {
+    "welcomeToast": {
+      "title": "Welcome!",
+      "description": "Your organization has been set up successfully."
+    },
+    "title": "Welcome to Beauty CRM",
+    "description": "Let's set up your salon organization to get started",
+    "fields": {
+      "name": "Salon Name *",
+      "namePlaceholder": "Beautiful Salon & Spa",
+      "slug": "URL Slug *",
+      "slugPlaceholder": "beautiful-salon-spa",
+      "slugHelp": "This will be used in your custom URL",
+      "emailPlaceholder": "contact@beautifulsalon.com",
+      "phonePlaceholder": "+1 (555) 123-4567",
+      "addressPlaceholder": "123 Beauty Street, City, State 12345"
+    },
+    "creating": "Creating...",
+    "create": "Create Organization"
+  },
+  "notFound": {
+    "message": "Oops! Page not found",
+    "returnHome": "Return to Home"
+  },
+  "auth": {
+    "staffWorkspace": "Staff workspace",
+    "crmSignIn": "CRM sign in",
+    "welcomeBack": "Welcome back",
+    "tagline": "Manage appointments, clients, and your spa operations from one elegant dashboard.",
+    "secureAccess": "Secure access for authorized team members only.",
+    "signIn": "Sign in",
+    "instructions": "Use the email and password issued by your administrator, or Google if enabled for your account.",
+    "continueWithGoogle": "Continue with Google",
+    "signingIn": "Signing in…",
+    "or": "or",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "rememberMe": "Remember me on this device",
+    "accountsNote": "Accounts are created by your administrator. Contact them if you need access.",
+    "toasts": {
+      "signInFailed": "Sign in failed",
+      "googleFailed": "Unable to sign in with Google. Please try again.",
+      "missingInfo": "Missing information",
+      "missingInfoDescription": "Please enter your email and password",
+      "tooManyAttempts": "Too many attempts. Please try again later.",
+      "invalidCredentials": "Invalid email or password."
+    }
+  },
+  "idle": {
+    "title": "Still there?",
+    "description": "You'll be signed out in {{time}} for security. Stay signed in, or log out now.",
+    "logOut": "Log out",
+    "staySignedIn": "Stay signed in"
+  }
+}

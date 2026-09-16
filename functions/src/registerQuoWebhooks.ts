@@ -8,8 +8,31 @@ import {
   integrationSecretRef,
   deleteQuoWebhookSecrets,
 } from './lib/integrationSecrets';
+import { defineStrings, makeT, getCallerLanguage } from './lib/i18n';
 
 if (!admin.apps.length) admin.initializeApp();
+
+// Staff-facing copy: HttpsError messages and the `warnings` array returned to
+// the Quo integration UI. Follows the caller's language (users/{uid}.language,
+// then the org default). Auth/role errors come from requireQuoAdmin (lib/quo.ts).
+const STRINGS = defineStrings({
+  en: {
+    resolve_failed: "Could not resolve this organization's Quo phone number ({{number}}) to scope the webhooks: {{msg}}. Refusing to register workspace-wide webhooks. Verify the number is provisioned in Quo and the API key has access.",
+    number_not_found: "This organization's Quo number ({{number}}) was not found in the Quo workspace, so webhooks cannot be scoped to it. Refusing to register workspace-wide webhooks. Provision the number in Quo, then retry.",
+    channel_quo_error: '{{key}}: Quo error ({{status}}): {{body}}',
+    channel_no_secret: '{{key}}: no signing secret returned — inbound events from this webhook cannot be verified.',
+    channel_error: '{{key}}: {{msg}}',
+    no_secrets: 'Quo did not return any webhook signing secrets, so inbound events could not be secured. Check your Quo API permissions and try again.',
+  },
+  he: {
+    resolve_failed: 'לא ניתן היה לזהות את מספר ה-Quo של הארגון ({{number}}) כדי להגביל את ה-webhooks אליו: {{msg}}. הרישום של webhooks ברמת סביבת העבודה כולה נדחה. יש לוודא שהמספר מוגדר ב-Quo ושלמפתח ה-API יש גישה אליו.',
+    number_not_found: 'מספר ה-Quo של הארגון ({{number}}) לא נמצא בסביבת העבודה של Quo, ולכן לא ניתן להגביל אליו את ה-webhooks. הרישום של webhooks ברמת סביבת העבודה כולה נדחה. יש להגדיר את המספר ב-Quo ולנסות שוב.',
+    channel_quo_error: '{{key}}: שגיאת Quo ({{status}}): {{body}}',
+    channel_no_secret: '{{key}}: לא הוחזר מפתח חתימה — לא ניתן לאמת אירועים נכנסים מ-webhook זה.',
+    channel_error: '{{key}}: {{msg}}',
+    no_secrets: 'Quo לא החזיר מפתחות חתימה עבור ה-webhooks, ולכן לא ניתן היה לאבטח את האירועים הנכנסים. יש לבדוק את הרשאות ה-API של Quo ולנסות שוב.',
+  },
+});
 
 /**
  * Webhook endpoints we register with Quo. Each is a separate Quo webhook with
@@ -41,6 +64,7 @@ function extractId(body: any): string | undefined {
 export const registerQuoWebhooks = onCall(async (request) => {
   const { orgId, ref, data, cfg } = await requireQuoAdmin(request);
   await consumeRateLimit(orgId, 'quoWebhookRegister', 20);
+  const t = makeT(STRINGS, await getCallerLanguage(request.auth?.uid, orgId));
 
   // Existing webhook secrets/token now live in the write-only secret subdoc.
   const existing = await loadQuoWebhookSecrets(orgId, data);
@@ -58,15 +82,16 @@ export const registerQuoWebhooks = onCall(async (request) => {
   } catch (err) {
     throw new HttpsError(
       'failed-precondition',
-      `Could not resolve this organization's Quo phone number (${cfg.fromNumber}) to scope the webhooks: ${
-        err instanceof Error ? err.message : String(err)
-      }. Refusing to register workspace-wide webhooks. Verify the number is provisioned in Quo and the API key has access.`,
+      t('resolve_failed', {
+        number: cfg.fromNumber,
+        msg: err instanceof Error ? err.message : String(err),
+      }),
     );
   }
   if (!phoneNumberId) {
     throw new HttpsError(
       'failed-precondition',
-      `This organization's Quo number (${cfg.fromNumber}) was not found in the Quo workspace, so webhooks cannot be scoped to it. Refusing to register workspace-wide webhooks. Provision the number in Quo, then retry.`,
+      t('number_not_found', { number: cfg.fromNumber }),
     );
   }
   const resourceIds: string[] = [phoneNumberId];
@@ -88,7 +113,7 @@ export const registerQuoWebhooks = onCall(async (request) => {
         }),
       });
       if (!res.ok) {
-        const msg = `${ch.key}: Quo error (${res.status}): ${await res.text()}`;
+        const msg = t('channel_quo_error', { key: ch.key, status: res.status, body: await res.text() });
         if (ch.essential) throw new HttpsError('internal', msg);
         warnings.push(msg);
         continue;
@@ -98,10 +123,10 @@ export const registerQuoWebhooks = onCall(async (request) => {
       const secret = extractSecret(body);
       if (id) webhookIds[ch.key] = id;
       if (secret) webhookSecrets[ch.key] = secret;
-      else warnings.push(`${ch.key}: no signing secret returned — inbound events from this webhook cannot be verified.`);
+      else warnings.push(t('channel_no_secret', { key: ch.key }));
     } catch (err) {
       if (err instanceof HttpsError) throw err;
-      const msg = `${ch.key}: ${err instanceof Error ? err.message : String(err)}`;
+      const msg = t('channel_error', { key: ch.key, msg: err instanceof Error ? err.message : String(err) });
       if (ch.essential) throw new HttpsError('internal', msg);
       warnings.push(msg);
     }
@@ -110,7 +135,7 @@ export const registerQuoWebhooks = onCall(async (request) => {
   if (Object.keys(webhookSecrets).length === 0) {
     throw new HttpsError(
       'internal',
-      'Quo did not return any webhook signing secrets, so inbound events could not be secured. Check your Quo API permissions and try again.',
+      t('no_secrets'),
     );
   }
 

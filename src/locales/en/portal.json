@@ -1,0 +1,182 @@
+{
+  "shell": {
+    "title": "Client Portal",
+    "subtitle": "Packages, visits, and requests"
+  },
+  "loading": {
+    "portal": "Loading portal...",
+    "opening": "Opening your client portal..."
+  },
+  "notFound": {
+    "title": "Portal not found",
+    "text": "Use the link provided by your spa."
+  },
+  "noMatch": {
+    "title": "No matching client card",
+    "text": "Sign in with the phone number or Google email saved on your client card.",
+    "tryAnother": "Try another sign in"
+  },
+  "toasts": {
+    "portalNotFound": "Portal not found",
+    "portalNotFoundText": "Check the spa link and try again.",
+    "noMatchTitle": "No matching client card",
+    "noMatchText": "Use the phone or email saved by the spa.",
+    "loadFailedTitle": "Could not load portal",
+    "loadFailedText": "Please refresh and try again.",
+    "codeSentTitle": "Code sent",
+    "codeSentText": "Enter the SMS code to continue.",
+    "codeFailedTitle": "Could not send code",
+    "codeFailedText": "Check the phone number format and try again.",
+    "missingDetailsTitle": "Missing request details",
+    "missingDetailsText": "Choose a package, treatment, date, and time.",
+    "tooManyAddonsTitle": "Too many add-ons",
+    "tooManyAddonsText": "Package sessions are limited to one add-on. Remove the extras to continue.",
+    "requestSentTitle": "Request sent",
+    "requestSentText": "The spa will confirm before it becomes an appointment.",
+    "requestFailedTitle": "Request failed",
+    "requestFailedText": "Please try another slot.",
+    "invalidPhoneTitle": "Invalid phone number",
+    "invalidPhoneText": "Check the country and phone number and try again."
+  },
+  "signIn": {
+    "eyebrow": "Client portal",
+    "welcomeBack": "Welcome back",
+    "heroText": "Sign in to your account to view your appointments, manage your bookings, and more.",
+    "title": "Sign in",
+    "subtitle": "Use the same Google account or phone number your spa has on file.",
+    "continueWithGoogle": "Continue with Google",
+    "or": "or",
+    "phoneLabel": "Phone number",
+    "rememberMe": "Remember me on this device",
+    "sending": "Sending…",
+    "sendCode": "Send verification code",
+    "codeLabel": "Verification code",
+    "verify": "Verify",
+    "trouble": "Having trouble signing in? Contact us",
+    "countryLabel": "Country",
+    "countries": {
+      "IL": "Israel",
+      "US": "United States",
+      "CA": "Canada",
+      "GB": "United Kingdom"
+    },
+    "phoneExamples": {
+      "IL": "050-123-4567",
+      "US": "(555) 123-4567",
+      "CA": "(555) 123-4567",
+      "GB": "07911 123456"
+    }
+  },
+  "header": {
+    "welcome": "Welcome",
+    "clientFallback": "Client",
+    "signOut": "Sign out",
+    "logoutTitle": "Log out?",
+    "logoutDescription": "Are you sure you want to log out?",
+    "logoutConfirm": "Log out"
+  },
+  "tabs": {
+    "plan": "Plan",
+    "book": "Book",
+    "visits": "Visits",
+    "billing": "Billing"
+  },
+  "plan": {
+    "packageFallback": "Package",
+    "activePackage": "Active package",
+    "sessionsRemaining": "Sessions remaining",
+    "expires": "Expires",
+    "emptyTitle": "No active packages",
+    "emptyText": "Active spa packages will appear here."
+  },
+  "products": {
+    "title": "Products",
+    "fallback": "Product",
+    "quantity": "Quantity {{count}}",
+    "empty": "No assigned products yet."
+  },
+  "book": {
+    "title": "Request a treatment",
+    "package": "Package",
+    "choosePackage": "Choose package",
+    "sessionsLeft": "({{count}} left)",
+    "treatment": "Treatment",
+    "chooseTreatment": "Choose treatment",
+    "addons": "Add-ons (optional)",
+    "addonsHint": "One add-on max with a package session",
+    "addonDuration": "+{{minutes}}m",
+    "pickDate": "Pick a date",
+    "chooseTreatmentFirst": "Choose a treatment first to see available times.",
+    "pickTime": "Pick a time",
+    "backupAria": "Add a backup slot",
+    "backupLabel": "Add a backup slot (optional)",
+    "notes": "Notes",
+    "sendRequest": "Send request"
+  },
+  "requests": {
+    "fallback": "Treatment request",
+    "dateAt": "{{date}} at {{time}}"
+  },
+  "visits": {
+    "fallback": "Treatment",
+    "emptyTitle": "No visits yet",
+    "emptyText": "Approved appointments will appear here."
+  },
+  "billing": {
+    "fallback": "Invoice",
+    "pdf": "PDF",
+    "issued": "Issued",
+    "emptyTitle": "No invoices",
+    "emptyText": "Issued invoices for active purchases will appear here."
+  },
+  "status": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "scheduled": "Scheduled",
+    "cancelled": "Cancelled",
+    "noShow": "No-show",
+    "inProgress": "In progress"
+  },
+  "notScheduled": "Not scheduled",
+  "publicBooking": {
+    "linkLoadError": "Link could not be loaded.",
+    "missingDetailsTitle": "Missing details",
+    "missingDetailsText": "Pick a time and enter your name.",
+    "missingContactTitle": "Missing contact",
+    "missingContactText": "Email or phone required.",
+    "submitFailedTitle": "Submit failed",
+    "submitFailedText": "Could not submit the request.",
+    "invalidLinkTitle": "Invalid link",
+    "invalidLinkText": "No token in the URL.",
+    "loadingTitle": "Loading…",
+    "loadingText": "One moment while we set up the booking page.",
+    "linkUnavailable": "Link unavailable",
+    "receivedTitle": "Request received",
+    "receivedText": "Thanks, {{firstName}}! {{business}} will confirm your booking by {{channel}} shortly.",
+    "channels": {
+      "email": "email",
+      "phone": "phone",
+      "emailOrPhone": "email or phone"
+    },
+    "subtitle": "Book an appointment",
+    "pickTime": "Pick a time",
+    "treatment": "Treatment",
+    "durationMin": "{{count}} min",
+    "pickDate": "Pick a date",
+    "yourDetails": "Your details",
+    "nameRequired": "Name *",
+    "fullName": "Full name",
+    "email": "Email",
+    "emailPlaceholder": "you@example.com",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 555 123 4567",
+    "notesOptional": "Notes (optional)",
+    "notesPlaceholder": "Anything we should know?",
+    "sending": "Sending…",
+    "requestBooking": "Request booking",
+    "confirmBy": "We'll confirm your booking by {{channel}}."
+  }
+}

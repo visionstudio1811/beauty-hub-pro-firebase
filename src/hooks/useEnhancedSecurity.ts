@@ -16,6 +16,7 @@
  *    once an admin path calls it.
  */
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   collection,
@@ -47,6 +48,7 @@ interface SecurityAlert {
 }
 
 export const useEnhancedSecurity = () => {
+  const { t } = useTranslation('security');
   const { user } = useAuth();
   const { currentOrganization } = useOrganization();
   const { toast } = useToast();
@@ -140,17 +142,23 @@ export const useEnhancedSecurity = () => {
 
     switch (cleanAction) {
       case 'SUSPICIOUS_LOGIN_ATTEMPTS':
-        return `Multiple failed login attempts detected (${details?.attempts || 'unknown'} attempts)`;
+        return t('enhancedSecurity.messages.suspiciousLoginAttempts', {
+          attempts: details?.attempts || t('enhancedSecurity.messages.unknown'),
+        });
       case 'MULTIPLE_IP_LOGINS':
-        return `User logged in from multiple IP addresses (${details?.distinct_ips || 'unknown'} different IPs)`;
+        return details?.distinct_ips
+          ? t('enhancedSecurity.messages.multipleIpLogins', { n: details.distinct_ips })
+          : t('enhancedSecurity.messages.multipleIpLoginsUnknown');
       case 'ROLE_CHANGE':
-        return `User role changed from ${details?.old_role} to ${details?.new_role}`;
+        return t('enhancedSecurity.messages.roleChange', { from: details?.old_role, to: details?.new_role });
       case 'SESSION_CLEANUP':
-        return `${details?.cleaned_sessions || 0} expired sessions cleaned up`;
+        return t('enhancedSecurity.messages.sessionCleanup', { n: details?.cleaned_sessions || 0 });
       case 'PERMISSION_CHECK_FAILED':
-        return `Permission check failed for ${details?.resource || 'unknown resource'}`;
+        return t('enhancedSecurity.messages.permissionCheckFailed', {
+          resource: details?.resource || t('enhancedSecurity.messages.unknownResource'),
+        });
       default:
-        return `Security event: ${cleanAction}`;
+        return t('enhancedSecurity.messages.default', { action: cleanAction });
     }
   };
 
@@ -168,14 +176,14 @@ export const useEnhancedSecurity = () => {
       setAlerts(prev => prev.filter(alert => alert.id !== alertId));
 
       toast({
-        title: "Alert Acknowledged",
-        description: "The security alert has been acknowledged."
+        title: t('enhancedSecurity.toasts.alertAcknowledged.title'),
+        description: t('enhancedSecurity.toasts.alertAcknowledged.description')
       });
     } catch (error) {
       console.error('Error acknowledging alert:', error);
       toast({
-        title: "Error",
-        description: "Failed to acknowledge alert",
+        title: t('common:status.error'),
+        description: t('enhancedSecurity.toasts.acknowledgeFailed'),
         variant: "destructive"
       });
     }
@@ -194,14 +202,14 @@ export const useEnhancedSecurity = () => {
       });
 
       toast({
-        title: "Password Reset Initiated",
-        description: "A password reset has been forced for the user."
+        title: t('enhancedSecurity.toasts.passwordResetInitiated.title'),
+        description: t('enhancedSecurity.toasts.passwordResetInitiated.description')
       });
     } catch (error) {
       console.error('Error forcing password reset:', error);
       toast({
-        title: "Error",
-        description: "Failed to force password reset",
+        title: t('common:status.error'),
+        description: t('enhancedSecurity.toasts.passwordResetFailed'),
         variant: "destructive"
       });
     }
@@ -224,14 +232,14 @@ export const useEnhancedSecurity = () => {
       });
 
       toast({
-        title: "Account Locked",
-        description: "The user account has been locked for security."
+        title: t('enhancedSecurity.toasts.accountLocked.title'),
+        description: t('enhancedSecurity.toasts.accountLocked.description')
       });
     } catch (error) {
       console.error('Error locking user account:', error);
       toast({
-        title: "Error",
-        description: "Failed to lock user account",
+        title: t('common:status.error'),
+        description: t('enhancedSecurity.toasts.lockFailed'),
         variant: "destructive"
       });
     }

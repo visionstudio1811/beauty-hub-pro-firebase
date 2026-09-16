@@ -14,8 +14,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const Clients = () => {
+  const { t } = useTranslation('clients');
   const isMobile = useIsMobile();
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
@@ -174,7 +176,7 @@ const Clients = () => {
         {/* Header */}
         <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-start border-b border-border pb-4 gap-3 sm:gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-muted-foreground mt-1">Manage your client database</p>
+            <p className="text-sm text-muted-foreground mt-1">{t('page.subtitle')}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto flex-shrink-0">
             {deletedCount > 0 && (
@@ -183,24 +185,24 @@ const Clients = () => {
                 className="w-full sm:w-auto order-3 sm:order-1"
                 onClick={() => navigate('/admin/clients/trash')}
               >
-                <Trash2 className="mr-2 h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Trash ({deletedCount})</span>
+                <Trash2 className="me-2 h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{t('page.trash', { count: deletedCount })}</span>
               </Button>
             )}
             <Button
               className="w-full sm:w-auto order-2 sm:order-2"
               onClick={() => setIsAddModalOpen(true)}
             >
-              <User className="mr-2 h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Add Client</span>
+              <User className="me-2 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{t('page.addClient')}</span>
             </Button>
             <Button
               variant="outline"
               onClick={() => setIsNewAppointmentModalOpen(true)}
               className="w-full sm:w-auto order-1 sm:order-3"
             >
-              <Plus className="mr-2 h-4 w-4 flex-shrink-0" />
-              <span className="truncate">New Appointment</span>
+              <Plus className="me-2 h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{t('page.newAppointment')}</span>
             </Button>
           </div>
         </div>
@@ -238,7 +240,7 @@ const Clients = () => {
         <div className="w-full overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-              Loading clients…
+              {t('page.loading')}
             </div>
           ) : (
             <ClientsView
@@ -259,14 +261,14 @@ const Clients = () => {
         {totalCount > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
             <p className="text-sm text-muted-foreground">
-              Showing {from}–{to} of {totalCount} client{totalCount !== 1 ? 's' : ''}
+              {t('page.showing', { from, to, count: totalCount })}
               {deletedCount > 0 && (
                 <> •{' '}
                   <button
                     onClick={() => navigate('/admin/clients/trash')}
                     className="text-destructive hover:underline"
                   >
-                    {deletedCount} in trash
+                    {t('page.inTrash', { count: deletedCount })}
                   </button>
                 </>
               )}
@@ -280,8 +282,9 @@ const Clients = () => {
                   onClick={() => setPage(p => p - 1)}
                   disabled={!canPrev}
                   className="h-8 w-8 p-0"
+                  aria-label={t('page.previousPage')}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                 </Button>
 
                 {renderPaginationNumbers()}
@@ -292,8 +295,9 @@ const Clients = () => {
                   onClick={() => setPage(p => p + 1)}
                   disabled={!canNext}
                   className="h-8 w-8 p-0"
+                  aria-label={t('page.nextPage')}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                 </Button>
               </div>
             )}

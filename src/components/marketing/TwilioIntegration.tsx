@@ -14,6 +14,7 @@ import { db, functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { toast } from '@/hooks/use-toast';
+import { Trans, useTranslation } from 'react-i18next';
 import { Loader2, MessageSquare, TestTube, ExternalLink } from 'lucide-react';
 
 interface TwilioIntegrationProps {
@@ -25,7 +26,8 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const { currentOrganization } = useOrganization();
-  
+  const { t } = useTranslation('integrations');
+
   const [config, setConfig] = useState({
     accountSid: '', // write-only — never prefilled
     authToken: '',  // write-only — never prefilled
@@ -68,14 +70,14 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
       }
 
       toast({
-        title: "Twilio configuration saved",
-        description: "Your Twilio settings have been saved successfully."
+        title: t('twilio.savedToast'),
+        description: t('twilio.savedToastDescription')
       });
 
       onUpdate();
     } catch (error: any) {
       toast({
-        title: "Error saving configuration",
+        title: t('shared.errorSavingConfiguration'),
         description: error.message,
         variant: "destructive"
       });
@@ -87,8 +89,8 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
   const handleTest = async () => {
     if (!integration) {
       toast({
-        title: "Save configuration first",
-        description: "Please save your Twilio configuration before testing.",
+        title: t('shared.saveConfigurationFirst'),
+        description: t('twilio.saveFirstDescription'),
         variant: "destructive"
       });
       return;
@@ -102,16 +104,16 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
 
       if (data.success) {
         toast({
-          title: "Test successful",
-          description: "Twilio connection is working properly."
+          title: t('shared.testSuccessful'),
+          description: t('twilio.testSuccessDescription')
         });
         onUpdate();
       } else {
-        throw new Error(data.error || 'Test failed');
+        throw new Error(data.error || t('shared.testFailedGeneric'));
       }
     } catch (error: any) {
       toast({
-        title: "Test failed",
+        title: t('shared.testFailed'),
         description: error.message,
         variant: "destructive"
       });
@@ -125,75 +127,76 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
-            <MessageSquare className="h-5 w-5 mr-2" />
-            Twilio SMS Configuration
+            <MessageSquare className="h-5 w-5 me-2" />
+            {t('twilio.title')}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Button
               variant="outline"
               size="sm"
               onClick={() => window.open('https://console.twilio.com/', '_blank')}
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Twilio Console
+              <ExternalLink className="h-4 w-4 me-2" />
+              {t('twilio.consoleButton')}
             </Button>
             {integration?.status && (
               <Badge variant={integration.status === 'connected' ? 'default' : 'secondary'}>
-                {integration.status}
+                {t(`shared.status.${integration.status}`, { defaultValue: integration.status })}
               </Badge>
             )}
           </div>
         </CardTitle>
         <CardDescription>
-          Configure your Twilio account to send SMS campaigns. You'll need your Account SID, Auth Token, and a Twilio phone number.
+          {t('twilio.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="accountSid">Account SID</Label>
+            <Label htmlFor="accountSid">{t('twilio.accountSidLabel')}</Label>
             <Input
               id="accountSid"
               value={config.accountSid}
               onChange={(e) => setConfig({ ...config, accountSid: e.target.value })}
-              placeholder={hasSecret ? '•••• (saved)' : 'Enter your Twilio Account SID'}
+              placeholder={hasSecret ? t('shared.savedPlaceholder') : t('twilio.accountSidPlaceholder')}
               type="password"
             />
           </div>
 
           <div>
-            <Label htmlFor="authToken">Auth Token</Label>
+            <Label htmlFor="authToken">{t('twilio.authTokenLabel')}</Label>
             <Input
               id="authToken"
               value={config.authToken}
               onChange={(e) => setConfig({ ...config, authToken: e.target.value })}
-              placeholder={hasSecret ? `••••${secretLast4 ?? ''} (saved)` : 'Enter your Twilio Auth Token'}
+              placeholder={hasSecret ? t('shared.savedKeyPlaceholder', { last4: secretLast4 ?? '' }) : t('twilio.authTokenPlaceholder')}
               type="password"
             />
             {hasSecret && (
               <p className="text-xs text-muted-foreground mt-1">
-                Leave both blank to keep your saved credentials; re-enter both to rotate.
+                {t('twilio.leaveBlankToKeepCredentials')}
               </p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="phoneNumber">Twilio Phone Number</Label>
+            <Label htmlFor="phoneNumber">{t('twilio.phoneNumberLabel')}</Label>
             <Input
               id="phoneNumber"
               value={config.phoneNumber}
               onChange={(e) => setConfig({ ...config, phoneNumber: e.target.value })}
-              placeholder="+1234567890"
+              placeholder={t('twilio.phoneNumberPlaceholder')}
+              dir="ltr"
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="enabled"
               checked={config.isEnabled}
               onCheckedChange={(checked) => setConfig({ ...config, isEnabled: checked })}
             />
-            <Label htmlFor="enabled">Enable Twilio SMS</Label>
+            <Label htmlFor="enabled">{t('twilio.enableLabel')}</Label>
           </div>
         </div>
 
@@ -203,31 +206,37 @@ export const TwilioIntegration: React.FC<TwilioIntegrationProps> = ({ integratio
           </div>
         )}
 
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 rtl:space-x-reverse">
           <Button onClick={handleSave} disabled={loading}>
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Save Configuration
+            {loading && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+            {t('shared.saveConfiguration')}
           </Button>
           
           {integration && (
             <Button variant="outline" onClick={handleTest} disabled={testing}>
               {testing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
               ) : (
-                <TestTube className="h-4 w-4 mr-2" />
+                <TestTube className="h-4 w-4 me-2" />
               )}
-              Test Connection
+              {t('shared.testConnection')}
             </Button>
           )}
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p className="font-medium mb-2">Setup Instructions:</p>
+          <p className="font-medium mb-2">{t('shared.setupInstructions')}</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Create a Twilio account at <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.twilio.com</a></li>
-            <li>Find your Account SID and Auth Token in the dashboard</li>
-            <li>Purchase or set up a phone number in Twilio</li>
-            <li>Enter the credentials above and test the connection</li>
+            <li>
+              <Trans
+                t={t}
+                i18nKey="twilio.steps.createAccount"
+                components={{ a: <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" /> }}
+              />
+            </li>
+            <li>{t('twilio.steps.findCredentials')}</li>
+            <li>{t('twilio.steps.setupNumber')}</li>
+            <li>{t('twilio.steps.enterAndTest')}</li>
           </ol>
         </div>
       </CardContent>

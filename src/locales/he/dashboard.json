@@ -1,0 +1,78 @@
+{
+  "page": {
+    "subtitle": "הנה מה שקורה היום.",
+    "newAppointment": "תור חדש",
+    "todaysSchedule": "לוח הזמנים להיום"
+  },
+  "stats": {
+    "todaysAppointments": "תורים להיום",
+    "todaysRevenue": "הכנסות היום",
+    "newClients": "לקוחות חדשים",
+    "activeMembers": "מנויים פעילים",
+    "confirmedToday": "אושרו היום"
+  },
+  "appointmentSection": {
+    "noAppointmentsToday": "אין תורים להיום",
+    "noAppointmentsForDate": "אין תורים לתאריך {{date}}",
+    "emptyTodayHint": "אין תורים מתוכננים להיום. כדי להתחיל, יש ליצור תור חדש.",
+    "emptyDateHint": "אין תורים מתוכננים לתאריך זה. אפשר לבחור תאריך אחר או ליצור תור חדש.",
+    "invalidDate": "תאריך לא תקין",
+    "todaysAppointments": "התורים להיום",
+    "appointmentsForDate": "תורים - {{date}}",
+    "scheduledCount_one": "תור אחד מתוכנן",
+    "scheduledCount_two": "שני תורים מתוכננים",
+    "scheduledCount_other": "{{count}} תורים מתוכננים",
+    "tapToAdd": "יש להקיש על + להוספת תור",
+    "clickToAdd": "יש ללחוץ על + להוספת תור",
+    "listView": "תצוגת רשימה",
+    "gridView": "תצוגת רשת",
+    "calendarView": "תצוגת לוח שנה"
+  },
+  "appointmentViews": {
+    "minutes": "{{count}} דק׳",
+    "appointmentsFor": "תורים לתאריך {{date}}",
+    "noAppointmentsForDate": "אין תורים לתאריך זה"
+  },
+  "purchases": {
+    "title": "רכישות",
+    "description": "הכנסות מחבילות, מכירת מוצרים וטיפולי פנים.",
+    "descriptionOnDate": "הכנסות מחבילות, מכירת מוצרים וטיפולי פנים בתאריך {{date}}.",
+    "totalRevenue": "סה״כ הכנסות",
+    "packagesSold": "חבילות שנמכרו",
+    "productsSold": "מוצרים שנמכרו",
+    "facialsSold": "טיפולי פנים שנמכרו",
+    "filters": {
+      "type": "סוג",
+      "search": "חיפוש",
+      "quick": "פעולה מהירה",
+      "all": "הכל",
+      "packagesOnly": "חבילות בלבד",
+      "productsOnly": "מוצרים בלבד",
+      "facialsOnly": "טיפולי פנים בלבד",
+      "searchPlaceholder": "לקוח/ה או פריט",
+      "clearFilters": "ניקוי מסננים"
+    },
+    "loading": "טוען רכישות…",
+    "noMatches": "אין רכישות התואמות למסננים אלה.",
+    "showingMatches": "מוצגות {{shown}} מתוך {{total}} תוצאות.",
+    "types": {
+      "package": "חבילה",
+      "product": "מוצר",
+      "facial": "טיפול פנים"
+    }
+  },
+  "sales": {
+    "title": "מכירות",
+    "subtitle": "כל ההכנסות מחבילות, מכירת מוצרים וטיפולי פנים.",
+    "date": "תאריך",
+    "showAll": "הצגת הכל",
+    "revenueDetail": "פירוט הכנסות",
+    "showingOnDate": "מוצגות רכישות מתאריך {{date}}.",
+    "showingAll": "מוצגות כל הרכישות מכל הזמנים. אפשר לבחור תאריך כדי לצמצם."
+  },
+  "invoices": {
+    "title": "חשבוניות",
+    "subtitle": "הפקת חשבוניות למוצרים, ביטול חשבוניות וצפייה בהיסטוריה המלאה של העסק.",
+    "newInvoice": "חשבונית חדשה"
+  }
+}

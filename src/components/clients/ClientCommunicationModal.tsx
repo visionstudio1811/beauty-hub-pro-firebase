@@ -32,6 +32,8 @@ import { db, functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Phone, Mail, MessageSquare, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 interface Communication {
   id: string;
@@ -59,6 +61,8 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
   isOpen,
   onClose
 }) => {
+  const { t } = useTranslation('clients');
+  const { locale } = useLanguage();
   const { toast } = useToast();
   const { currentOrganization } = useOrganization();
   const [communications, setCommunications] = useState<Communication[]>([]);
@@ -145,7 +149,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
           ...prev,
         ]);
         setFormData({ subject: '', message: '' });
-        toast({ title: 'Success', description: 'SMS sent successfully' });
+        toast({ title: t('common:status.success'), description: t('communication.toast.success.sms') });
         setLoading(false);
         return;
       }
@@ -170,6 +174,8 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
           const sendEmailFn = httpsCallable(functions, 'sendClientEmail');
           await sendEmailFn({
             to: client.email,
+            // Outbound content delivered to the client, not staff UI copy: keep the
+            // fixed fallback rather than following the staff member's UI language.
             subject: formData.subject || 'Message from your business',
             message: formData.message,
             clientId: client.id,
@@ -195,14 +201,14 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
       setFormData({ subject: '', message: '' });
       
       toast({
-        title: "Success",
-        description: `${type.toUpperCase()} ${type === 'note' ? 'added' : 'sent'} successfully`
+        title: t('common:status.success'),
+        description: t(`communication.toast.success.${type}`)
       });
     } catch (error) {
       console.error('Error sending communication:', error);
       toast({
-        title: "Error",
-        description: `Failed to send ${type}`,
+        title: t('common:status.error'),
+        description: t(`communication.toast.error.${type}`),
         variant: "destructive"
       });
     } finally {
@@ -220,34 +226,41 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
     }
   };
 
+  const typeLabel = (type: string) => t(`communication.types.${type}`, { defaultValue: type });
+  const statusLabel = (status: string) => t(`communication.statuses.${status}`, { defaultValue: status });
+
   if (!client) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex items-center space-x-2 rtl:space-x-reverse">
             <MessageSquare className="h-5 w-5" />
-            <span>Communication - {client.name}</span>
+            <span>{t('communication.title', { name: client.name })}</span>
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="sms">SMS</TabsTrigger>
-            <TabsTrigger value="email">Email</TabsTrigger>
-            <TabsTrigger value="call">Call Log</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="sms">{t('communication.tabs.sms')}</TabsTrigger>
+            <TabsTrigger value="email">{t('communication.tabs.email')}</TabsTrigger>
+            <TabsTrigger value="call">{t('communication.tabs.call')}</TabsTrigger>
+            <TabsTrigger value="history">{t('communication.tabs.history')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sms" className="space-y-4">
             <div className="p-4 border rounded-lg bg-gray-50">
-              <h4 className="font-medium mb-2">Send SMS</h4>
-              <p className="text-sm text-gray-600 mb-3">To: {client.phone || 'No phone number'}</p>
+              <h4 className="font-medium mb-2">{t('communication.sms.heading')}</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                {client.phone
+                  ? <>{t('communication.sms.to', { value: '' })}<span className="ltr-inline">{client.phone}</span></>
+                  : t('communication.sms.to', { value: t('communication.sms.noPhone') })}
+              </p>
               <div className="space-y-3">
                 {smsTemplates.length > 0 && (
                   <div>
-                    <Label>Template</Label>
+                    <Label>{t('communication.sms.template')}</Label>
                     <Select
                       onValueChange={(id) => {
                         const tpl = smsTemplates.find((t) => t.id === id);
@@ -255,29 +268,31 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Load a saved template (optional)" />
+                        <SelectValue placeholder={t('communication.sms.templatePlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {smsTemplates.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name || 'Untitled'}</SelectItem>
+                        {smsTemplates.map((tpl) => (
+                          <SelectItem key={tpl.id} value={tpl.id}>{tpl.name || t('communication.sms.untitled')}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 )}
                 <div>
-                  <Label htmlFor="sms-message">Message</Label>
+                  <Label htmlFor="sms-message">{t('communication.sms.message')}</Label>
                   <Textarea
                     id="sms-message"
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="Type your SMS message..."
+                    placeholder={t('communication.sms.messagePlaceholder')}
                     rows={4}
                   />
                   {formData.message && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      {smsSegments(formData.message).chars} chars · {smsSegments(formData.message).segments} segment
-                      {smsSegments(formData.message).segments === 1 ? '' : 's'}
+                      {t('communication.sms.segments', {
+                        chars: smsSegments(formData.message).chars,
+                        count: smsSegments(formData.message).segments,
+                      })}
                     </p>
                   )}
                 </div>
@@ -286,7 +301,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
                   disabled={loading || !formData.message.trim() || !client.phone}
                   className="w-full"
                 >
-                  {loading ? 'Sending...' : 'Send SMS'}
+                  {loading ? t('common:status.sending') : t('communication.sms.send')}
                 </Button>
               </div>
             </div>
@@ -294,25 +309,29 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
 
           <TabsContent value="email" className="space-y-4">
             <div className="p-4 border rounded-lg bg-gray-50">
-              <h4 className="font-medium mb-2">Send Email</h4>
-              <p className="text-sm text-gray-600 mb-3">To: {client.email || 'No email address'}</p>
+              <h4 className="font-medium mb-2">{t('communication.email.heading')}</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                {client.email
+                  ? <>{t('communication.email.to', { value: '' })}<span className="ltr-inline">{client.email}</span></>
+                  : t('communication.email.to', { value: t('communication.email.noEmail') })}
+              </p>
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="email-subject">Subject</Label>
+                  <Label htmlFor="email-subject">{t('communication.email.subject')}</Label>
                   <Input
                     id="email-subject"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    placeholder="Email subject..."
+                    placeholder={t('communication.email.subjectPlaceholder')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email-message">Message</Label>
+                  <Label htmlFor="email-message">{t('communication.email.message')}</Label>
                   <Textarea
                     id="email-message"
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="Type your email message..."
+                    placeholder={t('communication.email.messagePlaceholder')}
                     rows={6}
                   />
                 </div>
@@ -321,7 +340,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
                   disabled={loading || !formData.message.trim() || !client.email}
                   className="w-full"
                 >
-                  {loading ? 'Sending...' : 'Send Email'}
+                  {loading ? t('common:status.sending') : t('communication.email.send')}
                 </Button>
               </div>
             </div>
@@ -329,16 +348,18 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
 
           <TabsContent value="call" className="space-y-4">
             <div className="p-4 border rounded-lg bg-gray-50">
-              <h4 className="font-medium mb-2">Log Phone Call</h4>
-              <p className="text-sm text-gray-600 mb-3">Phone: {client.phone}</p>
+              <h4 className="font-medium mb-2">{t('communication.call.heading')}</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                {t('communication.call.phone', { value: '' })}<span className="ltr-inline">{client.phone}</span>
+              </p>
               <div className="space-y-3">
                 <div>
-                  <Label htmlFor="call-notes">Call Notes</Label>
+                  <Label htmlFor="call-notes">{t('communication.call.notes')}</Label>
                   <Textarea
                     id="call-notes"
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="What was discussed during the call..."
+                    placeholder={t('communication.call.notesPlaceholder')}
                     rows={4}
                   />
                 </div>
@@ -347,7 +368,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
                   disabled={loading || !formData.message.trim()}
                   className="w-full"
                 >
-                  {loading ? 'Saving...' : 'Log Call'}
+                  {loading ? t('common:status.saving') : t('communication.call.save')}
                 </Button>
               </div>
             </div>
@@ -355,25 +376,25 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
 
           <TabsContent value="history" className="space-y-4">
             <div className="space-y-4">
-              <h4 className="font-medium">Communication History</h4>
+              <h4 className="font-medium">{t('communication.history.heading')}</h4>
               {communications.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No communication history yet</p>
+                  <p>{t('communication.history.empty')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {communications.map((comm) => (
                     <div key={comm.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
                           {getIconForType(comm.type)}
-                          <span className="font-medium capitalize">{comm.type}</span>
-                          <Badge variant="outline">{comm.status}</Badge>
+                          <span className="font-medium">{typeLabel(comm.type)}</span>
+                          <Badge variant="outline">{statusLabel(comm.status)}</Badge>
                         </div>
                         <div className="flex items-center text-sm text-gray-500">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {new Date(comm.sent_at).toLocaleString()}
+                          <Clock className="h-4 w-4 me-1" />
+                          {new Date(comm.sent_at).toLocaleString(locale)}
                         </div>
                       </div>
                       {comm.subject && (
@@ -390,7 +411,7 @@ export const ClientCommunicationModal: React.FC<ClientCommunicationModalProps> =
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('common:actions.close')}
           </Button>
         </DialogFooter>
       </DialogContent>
