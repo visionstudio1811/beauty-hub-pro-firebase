@@ -17,7 +17,8 @@ import {
   ClipboardList,
   Receipt,
   FileText,
-  Sparkles
+  Sparkles,
+  Palette,
 } from 'lucide-react';
 
 // Import components with named exports
@@ -39,6 +40,9 @@ import { LogoManagement } from '@/components/LogoManagement';
 import { WaiverTemplateEditor } from '@/components/waivers/WaiverTemplateEditor';
 import { InvoiceSettingsEditor } from '@/components/InvoiceSettingsEditor';
 import { InvoiceHistoryViewer } from '@/components/InvoiceHistoryViewer';
+import { LoginBrandingSettings } from '@/components/settings/LoginBrandingSettings';
+import { PaymentIntegration } from '@/components/settings/PaymentIntegration';
+import { ClubMembershipSettings } from '@/components/settings/ClubMembershipSettings';
 
 
 const Settings = () => {
@@ -299,6 +303,42 @@ const Settings = () => {
         return <InvoiceHistoryViewer />;
       case 'acuity':
         return <AcuityIntegration />;
+      case 'payments':
+        return <PaymentIntegration />;
+      case 'club':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                {t('sections.club.title')}
+              </CardTitle>
+              <CardDescription>
+                {t('sections.club.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ClubMembershipSettings />
+            </CardContent>
+          </Card>
+        );
+      case 'login-screen':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                {t('sections.loginBranding.title')}
+              </CardTitle>
+              <CardDescription>
+                {t('sections.loginBranding.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LoginBrandingSettings />
+            </CardContent>
+          </Card>
+        );
       default:
         return null;
     }

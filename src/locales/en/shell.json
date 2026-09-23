@@ -21,11 +21,16 @@
       "agreements": "Agreements of Purchase",
       "invoiceSettings": "Invoice Settings",
       "invoiceHistory": "Invoice History",
+      "payments": "Online Payments",
+      "club": "Club Membership",
+      "loginScreen": "Login Screen",
       "acuity": "Acuity"
     },
     "marketingSections": {
       "overview": "Overview",
       "campaigns": "Campaigns",
+      "offers": "Portal Offers",
+      "feedback": "Client Feedback",
       "integrations": "Integrations"
     },
     "logoutDialog": {

@@ -25,21 +25,32 @@ import {
   where,
 } from 'firebase/firestore';
 import {
+  AlertTriangle,
   CalendarCheck,
+  CheckCircle2,
   Clock,
+  CreditCard,
+  Crown,
+  ExternalLink,
   FileText,
+  Gift,
   Loader2,
   LogOut,
   MapPin,
+  MessageSquare,
   Package,
   Phone,
+  RefreshCw,
   ShoppingBag,
   Sparkles,
+  Star,
+  Tag,
 } from 'lucide-react';
 import { LoginFloralCorner } from '@/components/auth/LoginFloralCorner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { auth, db, functions } from '@/lib/firebase';
 import { LOGIN_HERO_URL } from '@/lib/loginBranding';
+import { validateDate } from '@/lib/timeUtils';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -84,6 +95,13 @@ type PortalOrg = {
   language?: string | null;
   /** ISO currency code from the org's config/businessInfo (defaults to 'USD' server-side). */
   currency?: string | null;
+  login_branding?: {
+    hero_url: string | null;
+    title: string | null;
+    subtitle: string | null;
+    accent: string | null;
+  } | null;
+  payments?: { enabled: boolean; provider: 'stripe' | 'square' | null } | null;
 };
 
 type PortalAccess = {
@@ -97,6 +115,9 @@ type ClientRecord = {
   name: string;
   email?: string;
   phone?: string;
+  club_credit_balance?: number;
+  club_credit_currency?: string;
+  club_membership_status?: string;
 };
 
 type SessionSlot = {
@@ -107,9 +128,11 @@ type SessionSlot = {
 
 type PurchaseRecord = {
   id: string;
+  client_id?: string;
   package_id?: string;
   sessions_remaining?: number;
   sessions_by_treatment?: SessionSlot[];
+  purchase_date?: string;
   expiry_date?: string;
   payment_status?: string;
 };
@@ -120,6 +143,25 @@ type PackageRecord = {
   description?: string;
   treatments?: string[];
   total_sessions?: number;
+  benefits?: string[];
+};
+
+type RenewalRequestStatus =
+  | 'pending'
+  | 'contacted'
+  | 'dismissed'
+  | 'pending_payment'
+  | 'paid'
+  | 'payment_failed'
+  | 'cancelled';
+
+type RenewalRequestRecord = {
+  id: string;
+  purchase_id?: string;
+  package_name?: string;
+  status?: RenewalRequestStatus;
+  created_at?: Parameters<typeof validateDate>[0];
+  new_purchase_id?: string;
 };
 
 type TreatmentRecord = {
@@ -127,6 +169,8 @@ type TreatmentRecord = {
   name: string;
   duration?: number;
   price?: number;
+  member_price?: number;
+  is_active?: boolean;
 };
 
 type AddonRecord = {
@@ -167,6 +211,7 @@ type AppointmentRecord = {
   id: string;
   appointment_date?: string;
   appointment_time?: string;
+  treatment_id?: string;
   treatment_name?: string;
   staff_name?: string;
   status?: string;
@@ -181,9 +226,63 @@ type BookingRequestRecord = {
   staff_response?: string;
 };
 
+type FirestoreDateInput = Parameters<typeof validateDate>[0];
+
+type MembershipPlanRecord = {
+  id: string;
+  name?: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  monthly_credit?: number;
+  benefits?: string[];
+  is_active?: boolean;
+};
+
+type MembershipStatus = 'incomplete' | 'active' | 'past_due' | 'cancelled';
+
+type MembershipRecord = {
+  id: string;
+  plan_id?: string;
+  plan_name?: string;
+  price?: number;
+  currency?: string;
+  monthly_credit?: number;
+  status?: MembershipStatus;
+  current_period_end?: FirestoreDateInput | null;
+  cancel_at_period_end?: boolean;
+  credit_expires_at?: FirestoreDateInput | null;
+  started_at?: FirestoreDateInput | null;
+};
+
+type CreditLedgerEntry = {
+  id: string;
+  type?: 'credit_add' | 'credit_spend' | 'adjustment' | 'refund' | 'expiry';
+  amount?: number;
+  balance_after?: number;
+  currency?: string;
+  description?: string;
+  created_at?: FirestoreDateInput;
+};
+
+type PortalOfferRecord = {
+  id: string;
+  title?: string;
+  body?: string;
+  image_url?: string | null;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  audience?: 'all' | 'members' | 'low_sessions';
+  starts_at?: string | null;
+  ends_at?: string | null;
+  is_active?: boolean;
+  sort_order?: number;
+};
+
 type PortalData = {
   client: ClientRecord | null;
   purchases: PurchaseRecord[];
+  pastPurchases: PurchaseRecord[];
   packages: Record<string, PackageRecord>;
   treatments: Record<string, TreatmentRecord>;
   addons: Record<string, AddonRecord>;
@@ -192,11 +291,18 @@ type PortalData = {
   invoices: InvoiceRecord[];
   appointments: AppointmentRecord[];
   bookingRequests: BookingRequestRecord[];
+  renewalRequests: RenewalRequestRecord[];
+  membershipPlans: MembershipPlanRecord[];
+  memberships: MembershipRecord[];
+  creditLedger: CreditLedgerEntry[];
+  offers: PortalOfferRecord[];
+  memberPriceTreatments: TreatmentRecord[];
 };
 
 const emptyData: PortalData = {
   client: null,
   purchases: [],
+  pastPurchases: [],
   packages: {},
   treatments: {},
   addons: {},
@@ -205,7 +311,99 @@ const emptyData: PortalData = {
   invoices: [],
   appointments: [],
   bookingRequests: [],
+  renewalRequests: [],
+  membershipPlans: [],
+  memberships: [],
+  creditLedger: [],
+  offers: [],
+  memberPriceTreatments: [],
 };
+
+type FeedbackFormState = {
+  rating: number;
+  recommend: number | null;
+  enjoyed: string;
+  improve: string;
+  appointmentId: string;
+  anonymous: boolean;
+};
+
+const EMPTY_FEEDBACK: FeedbackFormState = {
+  rating: 0,
+  recommend: null,
+  enjoyed: '',
+  improve: '',
+  appointmentId: '',
+  anonymous: false,
+};
+
+type FeedbackPayload = {
+  organizationId: string;
+  rating: number;
+  recommend: number | null;
+  enjoyed: string;
+  improve: string;
+  treatmentId: string | null;
+  appointmentId: string | null;
+  anonymous: boolean;
+};
+
+const FEEDBACK_MAX_CHARS = 1000;
+const STAR_SCALE = [1, 2, 3, 4, 5];
+const RECOMMEND_SCALE = Array.from({ length: 11 }, (_, index) => index);
+// Radix Select rejects empty-string item values, so "no specific visit" needs a sentinel.
+const NO_VISIT = '__none__';
+const NON_VISIT_STATUSES = new Set(['cancelled', 'no_show', 'rejected']);
+
+function isoDay(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function appointmentSortKey(appointment: AppointmentRecord) {
+  return `${appointment.appointment_date ?? ''}${appointment.appointment_time ?? ''}`;
+}
+
+const UPCOMING_APPOINTMENT_STATUSES = new Set(['scheduled', 'confirmed']);
+
+// A request in one of these states hides the Renew button for its purchase.
+const BLOCKING_RENEWAL_STATUSES = new Set<string>(['pending', 'pending_payment', 'paid']);
+
+function renewalStateKey(status?: string): 'requested' | 'awaitingPayment' | 'renewed' | null {
+  if (status === 'pending' || status === 'contacted') return 'requested';
+  if (status === 'pending_payment') return 'awaitingPayment';
+  if (status === 'paid') return 'renewed';
+  return null;
+}
+
+function isRenewalEligible(purchase: PurchaseRecord, pkg: PackageRecord | null | undefined, isPast: boolean) {
+  if (isPast) return true;
+  if (purchase.expiry_date && purchase.expiry_date < isoDay(new Date())) return true;
+  const total = pkg?.total_sessions ?? 0;
+  const remaining = purchase.sessions_remaining ?? 0;
+  if (total > 0 && remaining / total <= 0.2) return true;
+  return remaining <= 2;
+}
+
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Inline style for the primary sign-in buttons when the org sets a login accent colour. */
+function accentButtonStyle(accent?: string | null): React.CSSProperties | undefined {
+  const hex = accent?.trim();
+  if (!hex || !HEX_COLOR.test(hex)) return undefined;
+  const full = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
+  const r = parseInt(full.slice(1, 3), 16);
+  const g = parseInt(full.slice(3, 5), 16);
+  const b = parseInt(full.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return { backgroundColor: full, borderColor: full, color: luminance > 0.6 ? '#111111' : '#ffffff' };
+}
+
+function isHttpUrl(value?: string | null): value is string {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
 
 function formatMoney(cents?: number, currency = 'USD') {
   return new Intl.NumberFormat(localeFor(i18n.language), {
@@ -227,6 +425,47 @@ function formatPrice(amount: number, currency = 'USD') {
 function formatDate(value?: string) {
   if (!value) return i18n.t('portal:notScheduled');
   return new Date(`${value}T00:00:00`).toLocaleDateString(localeFor(i18n.language));
+}
+
+/** Firestore Timestamp / Date / ISO → localized date, '' when missing or invalid. */
+function formatTimestampDate(value: FirestoreDateInput | null | undefined) {
+  const date = validateDate(value ?? null);
+  return date ? date.toLocaleDateString(localeFor(i18n.language)) : '';
+}
+
+function formatSignedPrice(amount: number, currency: string) {
+  return `${amount < 0 ? '−' : '+'}${formatPrice(Math.abs(amount), currency)}`;
+}
+
+function ledgerTypeLabel(type?: string) {
+  if (!type) return '';
+  return i18n.t(`portal:club.ledgerType.${type}`, { defaultValue: type });
+}
+
+function cleanBenefits(benefits?: unknown[]): string[] {
+  return (benefits ?? []).filter((b): b is string => typeof b === 'string' && b.trim() !== '');
+}
+
+const MEMBERSHIP_PRIORITY: Record<MembershipStatus, number> = { active: 0, past_due: 1, cancelled: 2, incomplete: 3 };
+
+/** The membership the portal talks about: a live one first, otherwise the most recently started. */
+function pickCurrentMembership(memberships: MembershipRecord[]): MembershipRecord | null {
+  const sorted = [...memberships].sort((a, b) => {
+    const priorityA = MEMBERSHIP_PRIORITY[a.status ?? 'incomplete'] ?? 9;
+    const priorityB = MEMBERSHIP_PRIORITY[b.status ?? 'incomplete'] ?? 9;
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    return (validateDate(b.started_at ?? null)?.getTime() ?? 0) - (validateDate(a.started_at ?? null)?.getTime() ?? 0);
+  });
+  return sorted[0] ?? null;
+}
+
+/** Only http(s), mailto:, tel: and same-origin paths are rendered as offer CTAs (never javascript:). */
+function safeOfferHref(value?: string | null): { href: string; external: boolean } | null {
+  const url = value?.trim();
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return { href: url, external: true };
+  if (/^(mailto:|tel:)/i.test(url) || url.startsWith('/')) return { href: url, external: false };
+  return null;
 }
 
 // Firestore status values stay as-is; map only for display.
@@ -382,8 +621,14 @@ function ClientPortalSignInLayout({
 
   const selectedCountry = PHONE_COUNTRIES.find((c) => c.code === phoneCountry) ?? PHONE_COUNTRIES[1];
 
+  const branding = org.login_branding ?? null;
+  const heroUrl = isHttpUrl(branding?.hero_url) ? branding.hero_url.trim() : LOGIN_HERO_URL;
+  const heroTitle = branding?.title?.trim() || t('signIn.welcomeBack');
+  const heroSubtitle = branding?.subtitle?.trim() || t('signIn.heroText');
+  const accentStyle = accentButtonStyle(branding?.accent);
+
   const heroStyle = {
-    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.28) 40%, rgba(0,0,0,0.55) 100%), url(${LOGIN_HERO_URL})`,
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.28) 40%, rgba(0,0,0,0.55) 100%), url(${heroUrl})`,
   } as const;
 
   return (
@@ -413,9 +658,9 @@ function ClientPortalSignInLayout({
 
           <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
             <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">{t('signIn.eyebrow')}</p>
-            <h2 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{t('signIn.welcomeBack')}</h2>
+            <h2 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{heroTitle}</h2>
             <p className="font-sans text-sm leading-relaxed text-white/85">
-              {t('signIn.heroText')}
+              {heroSubtitle}
             </p>
           </div>
 
@@ -521,7 +766,11 @@ function ClientPortalSignInLayout({
 
                 <Button
                   type="button"
-                  className="h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90"
+                  className={cn(
+                    'h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90',
+                    accentStyle && 'hover:opacity-90',
+                  )}
+                  style={accentStyle}
                   onClick={() => void onSendOtp()}
                   disabled={sendingOtp}
                 >
@@ -549,7 +798,11 @@ function ClientPortalSignInLayout({
                       />
                       <Button
                         type="button"
-                        className="h-12 shrink-0 rounded-lg bg-foreground px-6 text-background hover:bg-foreground/90"
+                        className={cn(
+                          'h-12 shrink-0 rounded-lg bg-foreground px-6 text-background hover:bg-foreground/90',
+                          accentStyle && 'hover:opacity-90',
+                        )}
+                        style={accentStyle}
                         onClick={() => void onVerifyOtp()}
                       >
                         {t('signIn.verify')}
@@ -597,7 +850,20 @@ export default function ClientPortal() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [renewTarget, setRenewTarget] = useState<{ purchase: PurchaseRecord; pkg: PackageRecord | null } | null>(null);
+  const [renewing, setRenewing] = useState(false);
+  const [joinTarget, setJoinTarget] = useState<MembershipPlanRecord | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [cancelMembershipOpen, setCancelMembershipOpen] = useState(false);
+  const [cancellingMembership, setCancellingMembership] = useState(false);
+  const [openingBillingPortal, setOpeningBillingPortal] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState<FeedbackFormState>(EMPTY_FEEDBACK);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const packagesSectionRef = useRef<HTMLDivElement | null>(null);
+  const urlParamsHandledRef = useRef(false);
   const [requestForm, setRequestForm] = useState({
     purchaseId: '',
     treatmentId: '',
@@ -652,6 +918,16 @@ export default function ClientPortal() {
     if (org) setPhoneCountry(defaultPhoneCountry(org));
   }, [org]);
 
+  const orgName = org?.name ?? '';
+  useEffect(() => {
+    if (!orgName) return;
+    const previousTitle = document.title;
+    document.title = orgName;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [orgName]);
+
   useEffect(() => {
     const link = async () => {
       if (!user || !org?.id) return;
@@ -683,17 +959,51 @@ export default function ClientPortal() {
       try {
         const orgRef = doc(db, 'organizations', access.organization_id);
         const clientSnap = await getDoc(doc(orgRef, 'clients', access.client_id));
-        const [purchasesSnap, productsSnap, invoicesSnap, appointmentsSnap, requestsSnap, addonsSnap] = await Promise.all([
+        const optional = <T,>(label: string, promise: Promise<T>) =>
+          promise.catch((error: unknown) => {
+            console.error(`Failed to load ${label}`, error);
+            return null;
+          });
+        const [
+          purchasesSnap,
+          pastPurchasesSnap,
+          productsSnap,
+          invoicesSnap,
+          appointmentsSnap,
+          requestsSnap,
+          addonsSnap,
+          renewalsSnap,
+          plansSnap,
+          membershipsSnap,
+          ledgerSnap,
+          offersSnap,
+          catalogSnap,
+        ] = await Promise.all([
           getDocs(query(collection(orgRef, 'purchases'), where('client_id', '==', access.client_id), where('payment_status', '==', 'active'))),
+          getDocs(query(collection(orgRef, 'purchases'), where('client_id', '==', access.client_id), where('payment_status', 'in', ['completed', 'expired']))),
           getDocs(query(collection(orgRef, 'productAssignments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'invoices'), where('client_id', '==', access.client_id), where('status', '==', 'issued'))),
           getDocs(query(collection(orgRef, 'appointments'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'bookingRequests'), where('client_id', '==', access.client_id))),
           getDocs(query(collection(orgRef, 'addons'), where('is_active', '==', true))),
+          // Renewal state is decorative; a rules/index hiccup here must not take down the whole portal.
+          getDocs(query(collection(orgRef, 'renewalRequests'), where('client_id', '==', access.client_id))).catch((error) => {
+            console.error('Failed to load renewal requests', error);
+            return null;
+          }),
+          // Club, offers and the member price list are additive — same policy as renewals.
+          optional('membership plans', getDocs(query(collection(orgRef, 'membershipPlans'), where('is_active', '==', true)))),
+          optional('memberships', getDocs(query(collection(orgRef, 'memberships'), where('client_id', '==', access.client_id)))),
+          optional('credit ledger', getDocs(query(collection(orgRef, 'creditLedger'), where('client_id', '==', access.client_id)))),
+          optional('portal offers', getDocs(query(collection(orgRef, 'portalOffers'), where('is_active', '==', true)))),
+          optional('treatment catalog', getDocs(query(collection(orgRef, 'treatments'), where('is_active', '==', true)))),
         ]);
 
         const purchases = purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as PurchaseRecord));
-        const packageIds = Array.from(new Set(purchases.map((p) => p.package_id).filter(Boolean) as string[]));
+        const pastPurchases = pastPurchasesSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as PurchaseRecord))
+          .sort((a, b) => `${b.purchase_date ?? ''}${b.expiry_date ?? ''}`.localeCompare(`${a.purchase_date ?? ''}${a.expiry_date ?? ''}`));
+        const packageIds = Array.from(new Set([...purchases, ...pastPurchases].map((p) => p.package_id).filter(Boolean) as string[]));
         const productAssignments = productsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductAssignment));
         const productIds = Array.from(new Set(productAssignments.map((p) => p.product_id).filter(Boolean) as string[]));
 
@@ -726,9 +1036,28 @@ export default function ClientPortal() {
           addonsSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() } as AddonRecord] as const),
         );
 
+        const renewalRequests = (renewalsSnap?.docs ?? [])
+          .map((d) => ({ id: d.id, ...d.data() } as RenewalRequestRecord))
+          .sort((a, b) => (validateDate(b.created_at)?.getTime() ?? 0) - (validateDate(a.created_at)?.getTime() ?? 0));
+
+        const membershipPlans = (plansSnap?.docs ?? [])
+          .map((d) => ({ id: d.id, ...d.data() } as MembershipPlanRecord))
+          .filter((plan) => plan.is_active !== false)
+          .sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+        const memberships = (membershipsSnap?.docs ?? []).map((d) => ({ id: d.id, ...d.data() } as MembershipRecord));
+        const creditLedger = (ledgerSnap?.docs ?? [])
+          .map((d) => ({ id: d.id, ...d.data() } as CreditLedgerEntry))
+          .sort((a, b) => (validateDate(b.created_at)?.getTime() ?? 0) - (validateDate(a.created_at)?.getTime() ?? 0));
+        const offers = (offersSnap?.docs ?? []).map((d) => ({ id: d.id, ...d.data() } as PortalOfferRecord));
+        const memberPriceTreatments = (catalogSnap?.docs ?? [])
+          .map((d) => ({ id: d.id, ...d.data() } as TreatmentRecord))
+          .filter((treatment) => typeof treatment.member_price === 'number' && treatment.member_price >= 0)
+          .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+
         setData({
           client: clientSnap.exists() ? { id: clientSnap.id, ...clientSnap.data() } as ClientRecord : null,
           purchases,
+          pastPurchases,
           packages,
           treatments,
           addons,
@@ -743,6 +1072,12 @@ export default function ClientPortal() {
           bookingRequests: requestsSnap.docs
             .map((d) => ({ id: d.id, ...d.data() } as BookingRequestRecord))
             .reverse(),
+          renewalRequests,
+          membershipPlans,
+          memberships,
+          creditLedger,
+          offers,
+          memberPriceTreatments,
         });
       } catch (error) {
         console.error(error);
@@ -771,6 +1106,71 @@ export default function ClientPortal() {
     }
     return (pkg.treatments ?? []).map((id) => data.treatments[id]).filter(Boolean);
   }, [data.packages, data.treatments, selectedPurchase]);
+
+  const upcomingAppointments = useMemo(() => {
+    const today = isoDay(new Date());
+    return data.appointments
+      .filter((a) => UPCOMING_APPOINTMENT_STATUSES.has(a.status ?? '') && (a.appointment_date ?? '') >= today)
+      .sort((a, b) => appointmentSortKey(a).localeCompare(appointmentSortKey(b)));
+  }, [data.appointments]);
+
+  const pastAppointments = useMemo(() => {
+    const upcomingIds = new Set(upcomingAppointments.map((a) => a.id));
+    return data.appointments
+      .filter((a) => !upcomingIds.has(a.id))
+      .sort((a, b) => appointmentSortKey(b).localeCompare(appointmentSortKey(a)));
+  }, [data.appointments, upcomingAppointments]);
+
+  const nextAppointment = upcomingAppointments[0] ?? null;
+
+  // Latest displayable renewal request per purchase (requests arrive sorted by created_at desc).
+  const renewalByPurchase = useMemo(() => {
+    const map = new Map<string, RenewalRequestRecord>();
+    for (const request of data.renewalRequests) {
+      if (!request.purchase_id || map.has(request.purchase_id)) continue;
+      if (!renewalStateKey(request.status)) continue;
+      map.set(request.purchase_id, request);
+    }
+    return map;
+  }, [data.renewalRequests]);
+
+  const renewalBlocked = (purchaseId: string) =>
+    data.renewalRequests.some((r) => r.purchase_id === purchaseId && BLOCKING_RENEWAL_STATUSES.has(r.status ?? ''));
+
+  const clubEnabled = Boolean(org?.payments?.enabled && org?.payments?.provider === 'stripe');
+  const clubAvailable = clubEnabled && data.membershipPlans.length > 0;
+  const currentMembership = useMemo(() => pickCurrentMembership(data.memberships), [data.memberships]);
+  const membershipStatus = currentMembership?.status ?? null;
+  const isMember = membershipStatus === 'active' || membershipStatus === 'past_due';
+  const showClubTab = data.membershipPlans.length > 0 || (currentMembership !== null && membershipStatus !== 'incomplete');
+  const orgCurrency = org?.currency || 'USD';
+  const clubCurrency = data.client?.club_credit_currency || currentMembership?.currency || orgCurrency;
+  const clubCreditBalance = data.client?.club_credit_balance ?? 0;
+  const currentPlanId = currentMembership?.plan_id ?? null;
+  const currentPlan = currentPlanId ? data.membershipPlans.find((plan) => plan.id === currentPlanId) ?? null : null;
+  const currentPlanBenefits = cleanBenefits(currentPlan?.benefits);
+
+  const visibleOffers = useMemo(() => {
+    const today = isoDay(new Date());
+    const member = data.client?.club_membership_status === 'active';
+    const lowSessions = data.purchases.some((purchase) => (purchase.sessions_remaining ?? 0) <= 2);
+    return data.offers
+      .filter((offer) => offer.is_active !== false)
+      .filter((offer) => !offer.starts_at || offer.starts_at <= today)
+      .filter((offer) => !offer.ends_at || offer.ends_at >= today)
+      .filter((offer) => {
+        if (offer.audience === 'members') return member;
+        if (offer.audience === 'low_sessions') return lowSessions;
+        return true;
+      })
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [data.offers, data.purchases, data.client?.club_membership_status]);
+
+  const feedbackVisits = useMemo(
+    () => pastAppointments.filter((appointment) => !NON_VISIT_STATUSES.has(appointment.status ?? '')).slice(0, 20),
+    [pastAppointments],
+  );
+  const selectedFeedbackVisit = feedbackVisits.find((visit) => visit.id === feedbackForm.appointmentId) ?? null;
 
   const handleGoogleSignIn = async () => {
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
@@ -826,12 +1226,6 @@ export default function ClientPortal() {
       },
       { slotsByDate: Record<string, MergedTimeSlot[]> }
     >(functions, 'getAvailableSlots');
-    const isoDay = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dd}`;
-    };
     fn({
       organizationId: org.id,
       treatmentId: requestForm.treatmentId,
@@ -898,6 +1292,180 @@ export default function ClientPortal() {
       setSubmittingRequest(false);
     }
   };
+
+  const handleConfirmRenew = async () => {
+    if (!org?.id || !renewTarget) return;
+    setRenewing(true);
+    try {
+      if (org.payments?.enabled) {
+        const createCheckout = httpsCallable<
+          { organizationId: string; purchaseId: string },
+          { url: string; renewalRequestId: string }
+        >(functions, 'createRenewalCheckout');
+        const result = await createCheckout({ organizationId: org.id, purchaseId: renewTarget.purchase.id });
+        window.location.assign(result.data.url);
+        return;
+      }
+      const requestRenewal = httpsCallable<
+        { organizationId: string; purchaseId: string; notes?: string },
+        { renewalRequestId: string }
+      >(functions, 'requestPackageRenewal');
+      await requestRenewal({ organizationId: org.id, purchaseId: renewTarget.purchase.id });
+      toast({ title: t('renew.requestSentTitle'), description: t('renew.requestSentText') });
+      setRenewTarget(null);
+      setRefreshKey((value) => value + 1);
+    } catch (error) {
+      console.error(error);
+      toast({ title: t('renew.failedTitle'), description: getErrorMessage(error, t('renew.failedText')), variant: 'destructive' });
+    } finally {
+      setRenewing(false);
+    }
+  };
+
+  const handleConfirmJoin = async () => {
+    if (!org?.id || !joinTarget) return;
+    setJoining(true);
+    try {
+      const createCheckout = httpsCallable<
+        { organizationId: string; planId: string },
+        { url: string; membershipId: string }
+      >(functions, 'createMembershipCheckout');
+      const result = await createCheckout({ organizationId: org.id, planId: joinTarget.id });
+      window.location.assign(result.data.url);
+    } catch (error) {
+      console.error(error);
+      toast({ title: t('club.joinFailedTitle'), description: getErrorMessage(error, t('club.joinFailedText')), variant: 'destructive' });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!org?.id) return;
+    setOpeningBillingPortal(true);
+    try {
+      const createSession = httpsCallable<{ organizationId: string }, { url: string }>(functions, 'createClubBillingPortalSession');
+      const result = await createSession({ organizationId: org.id });
+      window.location.assign(result.data.url);
+    } catch (error) {
+      console.error(error);
+      toast({ title: t('club.billingFailedTitle'), description: getErrorMessage(error, t('club.billingFailedText')), variant: 'destructive' });
+    } finally {
+      setOpeningBillingPortal(false);
+    }
+  };
+
+  const handleConfirmCancelMembership = async () => {
+    if (!org?.id || !currentMembership) return;
+    setCancellingMembership(true);
+    try {
+      const cancelMembership = httpsCallable<
+        { organizationId: string; membershipId: string },
+        { success: boolean; cancel_at_period_end: boolean }
+      >(functions, 'cancelClubMembership');
+      await cancelMembership({ organizationId: org.id, membershipId: currentMembership.id });
+      toast({ title: t('club.cancelledTitle'), description: t('club.cancelledToastText') });
+      setCancelMembershipOpen(false);
+      setRefreshKey((value) => value + 1);
+    } catch (error) {
+      console.error(error);
+      toast({ title: t('club.cancelFailedTitle'), description: getErrorMessage(error, t('club.cancelFailedText')), variant: 'destructive' });
+    } finally {
+      setCancellingMembership(false);
+    }
+  };
+
+  const handleSubmitFeedback = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!org?.id) return;
+    if (feedbackForm.rating < 1 || feedbackForm.rating > 5) {
+      toast({ title: t('feedback.ratingRequiredTitle'), description: t('feedback.ratingRequiredText'), variant: 'destructive' });
+      return;
+    }
+    setSubmittingFeedback(true);
+    try {
+      const submitFeedback = httpsCallable<FeedbackPayload, { success: boolean }>(functions, 'submitClientFeedback');
+      // Anonymous feedback never carries the visit: the appointment alone would identify her.
+      const visit = feedbackForm.anonymous ? null : selectedFeedbackVisit;
+      await submitFeedback({
+        organizationId: org.id,
+        rating: feedbackForm.rating,
+        recommend: feedbackForm.recommend,
+        enjoyed: feedbackForm.enjoyed.trim().slice(0, FEEDBACK_MAX_CHARS),
+        improve: feedbackForm.improve.trim().slice(0, FEEDBACK_MAX_CHARS),
+        treatmentId: visit?.treatment_id ?? null,
+        appointmentId: visit?.id ?? null,
+        anonymous: feedbackForm.anonymous,
+      });
+      setFeedbackSent(true);
+      setFeedbackForm(EMPTY_FEEDBACK);
+    } catch (error) {
+      console.error(error);
+      toast({ title: t('feedback.failedTitle'), description: getErrorMessage(error, t('feedback.failedText')), variant: 'destructive' });
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // Deep links: ?renew=1 focuses the packages area; ?checkout=success|cancel&rr=<id> is the
+  // hosted-checkout return; ?club=success|cancel|return&m=<id> is the club checkout / billing
+  // portal return; ?feedback=1 opens the feedback tab. Handled once the portal is rendered, then
+  // stripped so a reload does not re-toast. The `lang` param (and anything else) is left untouched.
+  const portalReady = Boolean(user && access && !linking && !loadingData);
+  useEffect(() => {
+    if (!portalReady || urlParamsHandledRef.current) return;
+    urlParamsHandledRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const handledKeys = ['renew', 'checkout', 'rr', 'club', 'm', 'feedback'];
+    if (!handledKeys.some((key) => params.has(key))) return;
+    const renew = params.get('renew');
+    const checkout = params.get('checkout');
+    const club = params.get('club');
+    const feedback = params.get('feedback');
+
+    if (checkout === 'success') {
+      toast({ title: t('renew.checkoutSuccessTitle'), description: t('renew.checkoutSuccessText') });
+      setRefreshKey((value) => value + 1);
+    } else if (checkout === 'cancel') {
+      toast({ title: t('renew.checkoutCancelTitle'), description: t('renew.checkoutCancelText') });
+    }
+    if (club === 'success') {
+      toast({ title: t('club.welcomeTitle'), description: t('club.welcomeText') });
+      setActiveTab('club');
+      setRefreshKey((value) => value + 1);
+    } else if (club === 'cancel') {
+      toast({ title: t('club.checkoutCancelTitle'), description: t('club.checkoutCancelText') });
+      setActiveTab('club');
+    } else if (club === 'return') {
+      setActiveTab('club');
+      setRefreshKey((value) => value + 1);
+    }
+    if (feedback === '1') {
+      setActiveTab('feedback');
+    }
+    if (renew === '1') {
+      setActiveTab('overview');
+      window.requestAnimationFrame(() => {
+        const section = packagesSectionRef.current;
+        if (!section) return;
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        section.focus({ preventScroll: true });
+      });
+    }
+
+    handledKeys.forEach((key) => params.delete(key));
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`,
+    );
+  }, [portalReady, toast, t]);
+
+  // The Club trigger is conditional; never leave the tab strip with nothing selected.
+  useEffect(() => {
+    if (portalReady && activeTab === 'club' && !showClubTab) setActiveTab('overview');
+  }, [portalReady, activeTab, showClubTab]);
 
   if (loadingOrg) {
     return <PortalShell org={org}><LoadingState label={t('loading.portal')} /></PortalShell>;
@@ -973,18 +1541,75 @@ export default function ClientPortal() {
         </AlertDialog>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">{t('tabs.plan')}</TabsTrigger>
-          <TabsTrigger value="book">{t('tabs.book')}</TabsTrigger>
-          <TabsTrigger value="history">{t('tabs.visits')}</TabsTrigger>
-          <TabsTrigger value="billing">{t('tabs.billing')}</TabsTrigger>
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5" />
+            {t('nextAppointment.title')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {nextAppointment ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-lg font-semibold">
+                  {t('requests.dateAt', { date: formatDate(nextAppointment.appointment_date), time: nextAppointment.appointment_time ?? '' })}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {nextAppointment.treatment_name || t('visits.fallback')}
+                  {nextAppointment.staff_name && <span> · {t('nextAppointment.with', { staff: nextAppointment.staff_name })}</span>}
+                </div>
+              </div>
+              <Badge variant={statusVariant(nextAppointment.status)} className="self-start sm:self-auto">
+                {statusLabel(nextAppointment.status)}
+              </Badge>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{t('nextAppointment.empty')}</p>
+              <Button onClick={() => setActiveTab('book')}>
+                <Sparkles className="me-2 h-4 w-4" />
+                {t('nextAppointment.bookNow')}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="flex h-auto w-full flex-wrap">
+          <TabsTrigger value="overview" className="flex-1">{t('tabs.plan')}</TabsTrigger>
+          <TabsTrigger value="book" className="flex-1">{t('tabs.book')}</TabsTrigger>
+          <TabsTrigger value="history" className="flex-1">{t('tabs.visits')}</TabsTrigger>
+          <TabsTrigger value="billing" className="flex-1">{t('tabs.billing')}</TabsTrigger>
+          {showClubTab && <TabsTrigger value="club" className="flex-1">{t('tabs.club')}</TabsTrigger>}
+          <TabsTrigger value="feedback" className="flex-1">{t('tabs.feedback')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          {visibleOffers.length > 0 && (
+            <section className="space-y-3" aria-labelledby="portal-offers-heading">
+              <h3 id="portal-offers-heading" className="flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                <Gift className="h-4 w-4" />
+                {t('offers.title')}
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                {visibleOffers.map((offer) => (
+                  <OfferCard key={offer.id} offer={offer} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div ref={packagesSectionRef} tabIndex={-1} className="grid gap-4 outline-none md:grid-cols-2">
             {data.purchases.map((purchase) => {
-              const pkg = purchase.package_id ? data.packages[purchase.package_id] : null;
+              const pkg = purchase.package_id ? data.packages[purchase.package_id] ?? null : null;
+              const total = pkg?.total_sessions ?? 0;
+              const remaining = purchase.sessions_remaining ?? 0;
+              const used = Math.max(0, total - remaining);
+              const benefits = (pkg?.benefits ?? []).filter((b): b is string => typeof b === 'string' && b.trim() !== '');
+              const slots = purchase.sessions_by_treatment ?? [];
+              const includedTreatments = pkg?.treatments ?? [];
               return (
                 <Card key={purchase.id}>
                   <CardHeader>
@@ -995,22 +1620,103 @@ export default function ClientPortal() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">{pkg?.description || t('plan.activePackage')}</p>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{t('plan.sessionsRemaining')}</span>
-                      <Badge>{purchase.sessions_remaining ?? 0}</Badge>
-                    </div>
+                    {benefits.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('plan.whatsIncluded')}</p>
+                        <ul className="list-disc space-y-0.5 ps-5 text-sm">
+                          {benefits.map((benefit, index) => (
+                            <li key={`${index}-${benefit}`}>{benefit}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {total > 0 ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <Badge>{t('plan.sessionsLeftOf', { remaining, total })}</Badge>
+                        <span className="text-xs text-muted-foreground">{t('plan.sessionsUsed', { count: used })}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-sm">
+                        <span>{t('plan.sessionsRemaining')}</span>
+                        <Badge>{remaining}</Badge>
+                      </div>
+                    )}
+                    {slots.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('plan.treatmentsIncluded')}</p>
+                        <ul className="space-y-1 text-sm">
+                          {slots.map((slot) => (
+                            <li key={slot.treatment_id} className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate">{data.treatments[slot.treatment_id]?.name ?? slot.treatment_id}</span>
+                              <span className="shrink-0 text-muted-foreground">
+                                {t('plan.slotRemaining', { remaining: slot.remaining ?? 0, total: slot.total ?? 0 })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : includedTreatments.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('plan.treatmentsIncluded')}</p>
+                        <ul className="list-disc space-y-0.5 ps-5 text-sm">
+                          {includedTreatments.map((id) => (
+                            <li key={id}>{data.treatments[id]?.name ?? id}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     {purchase.expiry_date && (
                       <div className="flex items-center justify-between text-sm">
                         <span>{t('plan.expires')}</span>
                         <span>{formatDate(purchase.expiry_date)}</span>
                       </div>
                     )}
+                    <RenewalControls
+                      request={renewalByPurchase.get(purchase.id) ?? null}
+                      showButton={isRenewalEligible(purchase, pkg, false) && !renewalBlocked(purchase.id)}
+                      onRenew={() => setRenewTarget({ purchase, pkg })}
+                    />
                   </CardContent>
                 </Card>
               );
             })}
             {data.purchases.length === 0 && <EmptyState title={t('plan.emptyTitle')} text={t('plan.emptyText')} />}
           </div>
+
+          {data.pastPurchases.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  {t('pastPackages.title')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-2">
+                {data.pastPurchases.map((purchase) => {
+                  const pkg = purchase.package_id ? data.packages[purchase.package_id] ?? null : null;
+                  return (
+                    <div key={purchase.id} className="space-y-2 rounded-md border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 font-medium">{pkg?.name || t('plan.packageFallback')}</div>
+                        <Badge variant={statusVariant(purchase.payment_status)} className="shrink-0">
+                          {statusLabel(purchase.payment_status)}
+                        </Badge>
+                      </div>
+                      <div className="space-y-0.5 text-sm text-muted-foreground">
+                        {purchase.purchase_date && <div>{t('pastPackages.purchased', { date: formatDate(purchase.purchase_date) })}</div>}
+                        {purchase.expiry_date && <div>{t('pastPackages.validUntil', { date: formatDate(purchase.expiry_date) })}</div>}
+                      </div>
+                      <RenewalControls
+                        request={renewalByPurchase.get(purchase.id) ?? null}
+                        showButton={!renewalBlocked(purchase.id)}
+                        onRenew={() => setRenewTarget({ purchase, pkg })}
+                      />
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -1209,23 +1915,31 @@ export default function ClientPortal() {
           </div>
         </TabsContent>
 
-        <TabsContent value="history">
-          <div className="grid gap-3">
-            {data.appointments.map((appointment) => (
-              <Card key={appointment.id}>
-                <CardContent className="flex items-center justify-between gap-3 p-4">
-                  <div>
-                    <div className="font-medium">{appointment.treatment_name || t('visits.fallback')}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {t('requests.dateAt', { date: formatDate(appointment.appointment_date), time: appointment.appointment_time ?? '' })}
-                    </div>
-                  </div>
-                  <Badge variant={statusVariant(appointment.status)}>{statusLabel(appointment.status)}</Badge>
-                </CardContent>
-              </Card>
-            ))}
-            {data.appointments.length === 0 && <EmptyState title={t('visits.emptyTitle')} text={t('visits.emptyText')} />}
-          </div>
+        <TabsContent value="history" className="space-y-6">
+          {data.appointments.length === 0 ? (
+            <EmptyState title={t('visits.emptyTitle')} text={t('visits.emptyText')} />
+          ) : (
+            <>
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{t('visits.upcoming')}</h3>
+                <div className="grid gap-3">
+                  {upcomingAppointments.map((appointment) => (
+                    <AppointmentRow key={appointment.id} appointment={appointment} />
+                  ))}
+                  {upcomingAppointments.length === 0 && <p className="text-sm text-muted-foreground">{t('visits.noUpcoming')}</p>}
+                </div>
+              </section>
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">{t('visits.past')}</h3>
+                <div className="grid gap-3">
+                  {pastAppointments.map((appointment) => (
+                    <AppointmentRow key={appointment.id} appointment={appointment} />
+                  ))}
+                  {pastAppointments.length === 0 && <p className="text-sm text-muted-foreground">{t('visits.noPast')}</p>}
+                </div>
+              </section>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="billing">
@@ -1253,8 +1967,538 @@ export default function ClientPortal() {
             {data.invoices.length === 0 && <EmptyState title={t('billing.emptyTitle')} text={t('billing.emptyText')} />}
           </div>
         </TabsContent>
+
+        {showClubTab && (
+          <TabsContent value="club" className="space-y-4">
+            {isMember && currentMembership ? (
+              <>
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Crown className="h-5 w-5" />
+                      {t('club.title')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('club.availableCredit')}</p>
+                      <p className="text-3xl font-semibold">
+                        <span className="ltr-inline">{formatPrice(clubCreditBalance, clubCurrency)}</span>
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium">{currentMembership.plan_name || currentPlan?.name || t('club.plan')}</span>
+                      <Badge variant={membershipStatus === 'past_due' ? 'destructive' : 'default'}>
+                        {t(`club.status.${currentMembership.status ?? 'active'}`)}
+                      </Badge>
+                    </div>
+                    {membershipStatus === 'past_due' && (
+                      <div className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                          <div>
+                            <div className="font-medium">{t('club.pastDueTitle')}</div>
+                            <div className="text-muted-foreground">{t('club.pastDueText')}</div>
+                          </div>
+                        </div>
+                        <Button size="sm" className="shrink-0" onClick={() => void handleManageBilling()} disabled={openingBillingPortal}>
+                          {openingBillingPortal && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                          {t('club.manageBilling')}
+                        </Button>
+                      </div>
+                    )}
+                    {currentMembership.current_period_end && (
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span>{currentMembership.cancel_at_period_end ? t('club.endsOn') : t('club.nextBilling')}</span>
+                        <span>{formatTimestampDate(currentMembership.current_period_end) || '—'}</span>
+                      </div>
+                    )}
+                    {currentMembership.cancel_at_period_end && (
+                      <p className="text-sm text-muted-foreground">{t('club.cancelsAtPeriodEnd')}</p>
+                    )}
+                    {currentPlanBenefits.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('club.benefits')}</p>
+                        <ul className="list-disc space-y-0.5 ps-5 text-sm">
+                          {currentPlanBenefits.map((benefit, index) => (
+                            <li key={`${index}-${benefit}`}>{benefit}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button variant="outline" onClick={() => void handleManageBilling()} disabled={openingBillingPortal}>
+                        {openingBillingPortal ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <CreditCard className="me-2 h-4 w-4" />}
+                        {t('club.manageBilling')}
+                      </Button>
+                      {!currentMembership.cancel_at_period_end && (
+                        <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setCancelMembershipOpen(true)}>
+                          {t('club.cancel')}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                <MemberPriceList treatments={data.memberPriceTreatments} currency={orgCurrency} />
+                <CreditHistory entries={data.creditLedger} currency={clubCurrency} />
+              </>
+            ) : (
+              <>
+                {membershipStatus === 'cancelled' && currentMembership && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Crown className="h-5 w-5" />
+                        {t('club.cancelledHeadline')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-medium">{currentMembership.plan_name || t('club.plan')}</span>
+                        <Badge variant="outline">{t('club.status.cancelled')}</Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('club.remainingCredit')}</p>
+                        <p className="text-2xl font-semibold">
+                          <span className="ltr-inline">{formatPrice(clubCreditBalance, clubCurrency)}</span>
+                        </p>
+                        {clubCreditBalance > 0 && formatTimestampDate(currentMembership.credit_expires_at) && (
+                          <p className="text-sm text-muted-foreground">
+                            {t('club.useCreditBy', { date: formatTimestampDate(currentMembership.credit_expires_at) })}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {clubAvailable ? (
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                      {membershipStatus === 'cancelled' ? t('club.rejoin') : t('club.choosePlan')}
+                    </h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {data.membershipPlans.map((plan) => (
+                        <PlanCard key={plan.id} plan={plan} currency={orgCurrency} onJoin={() => setJoinTarget(plan)} />
+                      ))}
+                    </div>
+                  </section>
+                ) : (
+                  <Card>
+                    <CardContent className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
+                      <Crown className="h-5 w-5 shrink-0" />
+                      {t('club.unavailableText')}
+                    </CardContent>
+                  </Card>
+                )}
+                {membershipStatus === 'cancelled' && data.creditLedger.length > 0 && (
+                  <CreditHistory entries={data.creditLedger} currency={clubCurrency} />
+                )}
+              </>
+            )}
+          </TabsContent>
+        )}
+
+        <TabsContent value="feedback">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                {t('feedback.title')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {feedbackSent ? (
+                <div className="flex flex-col items-center gap-3 py-8 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-primary" />
+                  <div className="text-lg font-semibold">{t('feedback.thanksTitle')}</div>
+                  <p className="max-w-md text-sm text-muted-foreground">{t('feedback.thanksText')}</p>
+                  <Button variant="outline" onClick={() => setFeedbackSent(false)}>{t('feedback.sendAnother')}</Button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitFeedback} className="space-y-6">
+                  <p className="text-sm text-muted-foreground">{t('feedback.intro')}</p>
+
+                  <div className="space-y-2">
+                    <Label>{t('feedback.rating')}</Label>
+                    <div className="flex gap-1" role="radiogroup" aria-label={t('feedback.rating')}>
+                      {STAR_SCALE.map((value) => {
+                        const filled = value <= feedbackForm.rating;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={feedbackForm.rating === value}
+                            aria-label={t('feedback.starAria', { stars: value })}
+                            onClick={() => setFeedbackForm((prev) => ({ ...prev, rating: value }))}
+                            className={cn(
+                              'rounded-md p-1 transition-colors hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              filled ? 'text-amber-500' : 'text-muted-foreground/40',
+                            )}
+                          >
+                            <Star className={cn('h-8 w-8', filled && 'fill-current')} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{t('feedback.recommend')}</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RECOMMEND_SCALE.map((value) => {
+                        const selected = feedbackForm.recommend === value;
+                        return (
+                          <Button
+                            key={value}
+                            type="button"
+                            size="sm"
+                            variant={selected ? 'default' : 'outline'}
+                            aria-pressed={selected}
+                            className="h-9 w-9 p-0 tabular-nums"
+                            onClick={() => setFeedbackForm((prev) => ({ ...prev, recommend: prev.recommend === value ? null : value }))}
+                          >
+                            {value}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{t('feedback.notLikely')}</span>
+                      <span>{t('feedback.veryLikely')}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="feedback-enjoyed">{t('feedback.enjoyed')}</Label>
+                      <Textarea
+                        id="feedback-enjoyed"
+                        rows={4}
+                        maxLength={FEEDBACK_MAX_CHARS}
+                        value={feedbackForm.enjoyed}
+                        onChange={(event) => setFeedbackForm((prev) => ({ ...prev, enjoyed: event.target.value.slice(0, FEEDBACK_MAX_CHARS) }))}
+                      />
+                      <p className="text-end text-xs tabular-nums text-muted-foreground">
+                        {t('feedback.charCount', { current: feedbackForm.enjoyed.length, max: FEEDBACK_MAX_CHARS })}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="feedback-improve">{t('feedback.improve')}</Label>
+                      <Textarea
+                        id="feedback-improve"
+                        rows={4}
+                        maxLength={FEEDBACK_MAX_CHARS}
+                        value={feedbackForm.improve}
+                        onChange={(event) => setFeedbackForm((prev) => ({ ...prev, improve: event.target.value.slice(0, FEEDBACK_MAX_CHARS) }))}
+                      />
+                      <p className="text-end text-xs tabular-nums text-muted-foreground">
+                        {t('feedback.charCount', { current: feedbackForm.improve.length, max: FEEDBACK_MAX_CHARS })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!feedbackForm.anonymous && feedbackVisits.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>{t('feedback.visit')}</Label>
+                      <Select
+                        value={feedbackForm.appointmentId || NO_VISIT}
+                        onValueChange={(value) => setFeedbackForm((prev) => ({ ...prev, appointmentId: value === NO_VISIT ? '' : value }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder={t('feedback.anyVisit')} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_VISIT}>{t('feedback.anyVisit')}</SelectItem>
+                          {feedbackVisits.map((visit) => (
+                            <SelectItem key={visit.id} value={visit.id}>
+                              {visit.treatment_name || t('visits.fallback')} · {formatDate(visit.appointment_date)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Switch
+                      id="feedback-anonymous"
+                      checked={feedbackForm.anonymous}
+                      onCheckedChange={(checked) =>
+                        setFeedbackForm((prev) => ({ ...prev, anonymous: checked, appointmentId: checked ? '' : prev.appointmentId }))
+                      }
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="feedback-anonymous" className="cursor-pointer">{t('feedback.anonymous')}</Label>
+                      <p className="text-xs text-muted-foreground">{t('feedback.anonymousHint')}</p>
+                    </div>
+                  </div>
+
+                  <Button type="submit" disabled={submittingFeedback}>
+                    {submittingFeedback && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                    {t('feedback.submit')}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <AlertDialog open={renewTarget !== null} onOpenChange={(open) => { if (!open && !renewing) setRenewTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('renew.confirmTitle', { package: renewTarget?.pkg?.name || t('plan.packageFallback') })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {org.payments?.enabled ? t('renew.confirmCheckout') : t('renew.confirmRequest')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={renewing}>{t('common:actions.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={renewing}
+              onClick={(event) => {
+                // Keep the dialog open while the callable runs; it closes itself on success.
+                event.preventDefault();
+                void handleConfirmRenew();
+              }}
+            >
+              {renewing && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {org.payments?.enabled ? t('renew.continueToPayment') : t('renew.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={joinTarget !== null} onOpenChange={(open) => { if (!open && !joining) setJoinTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('club.joinConfirmTitle', { plan: joinTarget?.name || t('club.plan') })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('club.joinConfirmText', { price: formatPrice(joinTarget?.price ?? 0, joinTarget?.currency || orgCurrency) })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={joining}>{t('common:actions.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={joining}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmJoin();
+              }}
+            >
+              {joining && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {t('club.continueToPayment')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={cancelMembershipOpen} onOpenChange={(open) => { if (!cancellingMembership) setCancelMembershipOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('club.cancelConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('club.cancelConfirmText')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancellingMembership}>{t('club.keep')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancellingMembership}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmCancelMembership();
+              }}
+            >
+              {cancellingMembership && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {t('club.cancelConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PortalShell>
+  );
+}
+
+function OfferCard({ offer }: { offer: PortalOfferRecord }) {
+  const { t } = useTranslation('portal');
+  const link = safeOfferHref(offer.cta_url);
+  const image = isHttpUrl(offer.image_url) ? offer.image_url.trim() : null;
+  return (
+    <Card className="overflow-hidden">
+      {image && <img src={image} alt="" loading="lazy" className="h-40 w-full object-cover" />}
+      <CardContent className="space-y-2 p-4">
+        {offer.title && <div className="font-medium">{offer.title}</div>}
+        {offer.body && <p className="whitespace-pre-line text-sm text-muted-foreground">{offer.body}</p>}
+        {link && (
+          <Button asChild size="sm" variant="outline">
+            <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noopener noreferrer' : undefined}>
+              {offer.cta_label?.trim() || t('offers.learnMore')}
+              {link.external && <ExternalLink className="ms-2 h-3.5 w-3.5" />}
+            </a>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlanCard({ plan, currency, onJoin }: { plan: MembershipPlanRecord; currency: string; onJoin: () => void }) {
+  const { t } = useTranslation('portal');
+  const planCurrency = plan.currency || currency;
+  const benefits = cleanBenefits(plan.benefits);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Crown className="h-5 w-5" />
+          {plan.name || t('club.plan')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold ltr-inline">{formatPrice(plan.price ?? 0, planCurrency)}</span>
+          <span className="text-sm text-muted-foreground">{t('club.perMonth')}</span>
+        </div>
+        {(plan.monthly_credit ?? 0) > 0 && (
+          <p className="text-sm font-medium">{t('club.monthlyCredit', { credit: formatPrice(plan.monthly_credit ?? 0, planCurrency) })}</p>
+        )}
+        {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
+        {benefits.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('club.benefits')}</p>
+            <ul className="list-disc space-y-0.5 ps-5 text-sm">
+              {benefits.map((benefit, index) => (
+                <li key={`${index}-${benefit}`}>{benefit}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <Button type="button" className="w-full" onClick={onJoin}>
+          {t('club.join')}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MemberPriceList({ treatments, currency }: { treatments: TreatmentRecord[]; currency: string }) {
+  const { t } = useTranslation('portal');
+  if (treatments.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Tag className="h-5 w-5" />
+          {t('club.memberPrices')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y">
+          {treatments.map((treatment) => {
+            const memberPrice = treatment.member_price ?? 0;
+            const regular = typeof treatment.price === 'number' && treatment.price > memberPrice ? treatment.price : null;
+            return (
+              <li key={treatment.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="min-w-0 truncate">{treatment.name}</span>
+                <span className="flex shrink-0 items-baseline gap-2">
+                  {regular !== null && (
+                    <span className="text-muted-foreground line-through ltr-inline">{formatPrice(regular, currency)}</span>
+                  )}
+                  <span className="font-semibold ltr-inline">{formatPrice(memberPrice, currency)}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreditHistory({ entries, currency }: { entries: CreditLedgerEntry[]; currency: string }) {
+  const { t } = useTranslation('portal');
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          {t('club.history')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('club.historyEmpty')}</p>
+        ) : (
+          <ul className="divide-y">
+            {entries.map((entry) => {
+              const amount = entry.amount ?? 0;
+              const entryCurrency = entry.currency || currency;
+              return (
+                <li key={entry.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{entry.description || ledgerTypeLabel(entry.type)}</div>
+                    <div className="text-xs text-muted-foreground">{formatTimestampDate(entry.created_at) || '—'}</div>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <div className={cn('font-semibold ltr-inline', amount < 0 && 'text-muted-foreground')}>
+                      {formatSignedPrice(amount, entryCurrency)}
+                    </div>
+                    {typeof entry.balance_after === 'number' && (
+                      <div className="text-xs text-muted-foreground">
+                        {t('club.balanceAfter', { balance: formatPrice(entry.balance_after, entryCurrency) })}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AppointmentRow({ appointment }: { appointment: AppointmentRecord }) {
+  const { t } = useTranslation('portal');
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between gap-3 p-4">
+        <div className="min-w-0">
+          <div className="font-medium">{appointment.treatment_name || t('visits.fallback')}</div>
+          <div className="text-sm text-muted-foreground">
+            {t('requests.dateAt', { date: formatDate(appointment.appointment_date), time: appointment.appointment_time ?? '' })}
+            {appointment.staff_name && <span> · {t('nextAppointment.with', { staff: appointment.staff_name })}</span>}
+          </div>
+        </div>
+        <Badge variant={statusVariant(appointment.status)} className="shrink-0">{statusLabel(appointment.status)}</Badge>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RenewalControls({
+  request,
+  showButton,
+  onRenew,
+}: {
+  request: RenewalRequestRecord | null;
+  showButton: boolean;
+  onRenew: () => void;
+}) {
+  const { t } = useTranslation('portal');
+  const stateKey = renewalStateKey(request?.status);
+  if (!stateKey && !showButton) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+      {stateKey && <Badge variant="secondary">{t(`renew.state.${stateKey}`)}</Badge>}
+      {showButton && (
+        <Button type="button" size="sm" variant="outline" className="ms-auto" onClick={onRenew}>
+          <RefreshCw className="me-2 h-4 w-4" />
+          {t('renew.button')}
+        </Button>
+      )}
+    </div>
   );
 }
 

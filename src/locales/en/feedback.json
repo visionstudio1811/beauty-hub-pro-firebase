@@ -1,0 +1,50 @@
+{
+  "inbox": {
+    "title": "Help Us Improve",
+    "description": "What clients tell you from the client portal after their visits: ratings, recommendation scores and free-text answers, including anonymous ones.",
+    "adminOnly": "Only administrators can view client feedback.",
+    "loading": "Loading feedback...",
+    "loadFailed": "Could not load client feedback",
+    "empty": "No feedback yet. Activate the \"Appointment Completed\" automation to invite clients to share feedback after each visit.",
+    "noMatches": "No feedback matches the current filters.",
+    "kpis": {
+      "responses": "Responses (30 days)",
+      "loadedTotal": "Loaded in total: {{n}}",
+      "avgRating": "Average rating (30 days)",
+      "outOfFive": "out of 5",
+      "vsPrevious": "vs. previous 30 days",
+      "noPrevious": "No earlier responses to compare",
+      "nps": "Net Promoter Score",
+      "scoredResponses": "Scored responses: {{n}}",
+      "npsHint": "Promoters (9–10) minus detractors (0–6)",
+      "npsEmpty": "No recommendation scores yet"
+    },
+    "byTreatment": {
+      "title": "By treatment",
+      "treatment": "Treatment",
+      "avgRating": "Avg. rating",
+      "responses": "Responses",
+      "empty": "No treatment-specific feedback yet."
+    },
+    "filters": {
+      "who": "Show",
+      "all": "All feedback",
+      "named": "Named only",
+      "anonymous": "Anonymous only",
+      "minRating": "Minimum rating",
+      "anyRating": "Any rating",
+      "minStars": "{{n}}+ stars"
+    },
+    "row": {
+      "anonymous": "Anonymous",
+      "clientFallback": "Client",
+      "unknownTreatment": "Unspecified treatment",
+      "recommend": "Would recommend: {{score}}/10",
+      "noRecommend": "No recommendation score",
+      "enjoyed": "What they enjoyed",
+      "improve": "What could be better",
+      "noAnswer": "No answer",
+      "ratingAria": "{{rating}} out of 5 stars"
+    }
+  }
+}

@@ -26,7 +26,8 @@
     "Credit Card": "Credit Card",
     "Check": "Check",
     "Venmo": "Venmo",
-    "Other": "Other"
+    "Other": "Other",
+    "club_credit": "Club credit"
   },
   "themes": {
     "classic": { "label": "Classic", "tagline": "Minimal black & white — timeless" },
@@ -291,6 +292,14 @@
       "generatedDesc": "{{number}} is ready.",
       "generateFailed": "Failed to generate invoice",
       "dailyLimit": "Daily invoice limit reached for this organization."
+    },
+    "clubCredit": {
+      "balance": "Balance: {{balance}}",
+      "willDebit": "{{total}} will be deducted from the client's Club credit balance.",
+      "insufficient": "Club credit balance ({{balance}}) is lower than the invoice total ({{total}}). Choose another payment method or reduce the total.",
+      "insufficientShort": "Insufficient Club credit",
+      "memberPriceTag": "Member price",
+      "memberPriceHint": "Member: {{price}}"
     },
     "itemFallback": "Item",
     "businessFallback": "Business"

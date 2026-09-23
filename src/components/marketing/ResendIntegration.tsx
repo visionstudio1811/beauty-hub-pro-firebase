@@ -22,6 +22,13 @@ interface ResendIntegrationProps {
   onUpdate: () => void;
 }
 
+const DEFAULT_LOW_SESSIONS_THRESHOLD = 2;
+
+const normalizeThreshold = (value: unknown): number => {
+  const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_LOW_SESSIONS_THRESHOLD;
+};
+
 export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integration, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -37,6 +44,15 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
 
   const hasSecret = Boolean(integration?.has_secret);
   const secretLast4 = integration?.secret_last4 as string | undefined;
+
+  const savedLowSessions = (integration?.email_automations?.low_sessions ?? {}) as {
+    is_active?: boolean;
+    sessions_threshold?: number;
+  };
+  const [lowSessions, setLowSessions] = useState({
+    isActive: savedLowSessions.is_active !== false,
+    threshold: normalizeThreshold(savedLowSessions.sessions_threshold),
+  });
 
   const handleSave = async () => {
     if (!currentOrganization?.id) return;
@@ -56,6 +72,13 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
           provider: 'resend',
           configuration: configData,
           is_enabled: config.isEnabled,
+          // Nested merge: sibling automations saved from the template designer are kept.
+          email_automations: {
+            low_sessions: {
+              is_active: lowSessions.isActive,
+              sessions_threshold: normalizeThreshold(lowSessions.threshold),
+            },
+          },
           status: 'disconnected',
           updated_at: new Date().toISOString(),
           updated_at_ts: serverTimestamp(),
@@ -195,6 +218,44 @@ export const ResendIntegration: React.FC<ResendIntegrationProps> = ({ integratio
               onCheckedChange={(checked) => setConfig({ ...config, isEnabled: checked })}
             />
             <Label htmlFor="enabled">{t('resend.enableLabel')}</Label>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="lowSessionsActive" className="font-medium">
+                    {t('resend.automations.lowSessions.title')}
+                  </Label>
+                  {lowSessions.isActive && <Badge variant="default">{t('common:labels.active')}</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('resend.automations.lowSessions.description')}
+                </p>
+              </div>
+              <Switch
+                id="lowSessionsActive"
+                checked={lowSessions.isActive}
+                onCheckedChange={(checked) => setLowSessions((s) => ({ ...s, isActive: checked }))}
+              />
+            </div>
+            {lowSessions.isActive && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="lowSessionsThreshold" className="text-xs whitespace-nowrap">
+                  {t('resend.automations.lowSessions.threshold')}
+                </Label>
+                <Input
+                  id="lowSessionsThreshold"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={lowSessions.threshold}
+                  onChange={(e) => setLowSessions((s) => ({ ...s, threshold: parseInt(e.target.value, 10) || 0 }))}
+                  className="w-20 h-8"
+                />
+                <span className="text-xs text-muted-foreground">{t('resend.automations.lowSessions.thresholdHelp')}</span>
+              </div>
+            )}
           </div>
         </div>
 

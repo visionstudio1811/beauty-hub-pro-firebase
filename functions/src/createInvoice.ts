@@ -31,6 +31,8 @@ const STRINGS = defineStrings({
     err_addon_price: 'Invalid unit price for add-on line "{{name}}"',
     err_totals_invalid: 'Computed invoice totals are invalid',
     err_client_not_found: 'Client not found',
+    err_insufficient_credit: 'Club credit balance ({{balance}}) is lower than the invoice total ({{total}})',
+    err_credit_zero_total: 'Club credit cannot be used for a zero-amount invoice',
   },
   he: {
     err_client_required: 'יש לבחור לקוח עבור חשבונית עצמאית',
@@ -49,6 +51,8 @@ const STRINGS = defineStrings({
     err_addon_price: 'מחיר יחידה לא תקין בשורת התוסף "{{name}}"',
     err_totals_invalid: 'סכומי החשבונית שחושבו אינם תקינים',
     err_client_not_found: 'הלקוח לא נמצא',
+    err_insufficient_credit: 'יתרת קרדיט המועדון ({{balance}}) נמוכה מסכום החשבונית ({{total}})',
+    err_credit_zero_total: 'לא ניתן להשתמש בקרדיט המועדון לחשבונית בסכום אפס',
   },
 });
 
@@ -516,6 +520,13 @@ export const createInvoice = onCall(async (request) => {
   const invoiceRef = orgRef.collection('invoices').doc();
   const counterRef = orgRef.collection('config').doc('invoiceCounter');
 
+  const payClubCredit = payment_method === 'club_credit';
+  if (payClubCredit && totalCents <= 0) {
+    throw new HttpsError('failed-precondition', t('err_credit_zero_total'));
+  }
+  const clientRef = orgRef.collection('clients').doc(resolvedClientId);
+  const creditEntryRef = orgRef.collection('creditLedger').doc(`invoice_${invoiceRef.id}`);
+
   // Atomic: authoritative dedup check + read/increment counter + write the
   // invoice together. Firestore requires all reads before writes in a
   // transaction, so we run the dedup query and the counter read first, then the
@@ -539,6 +550,27 @@ export const createInvoice = onCall(async (request) => {
     const next = counterSnap.exists
       ? Number((counterSnap.data() as any).next_number ?? 1)
       : 1;
+
+    // Club credit: read the live balance inside the transaction so two concurrent
+    // invoices can't both spend the same credit. Reads must precede writes.
+    let creditBalanceAfter: number | null = null;
+    let creditCurrency = currency;
+    if (payClubCredit) {
+      const [creditClientSnap, creditEntrySnap] = await Promise.all([tx.get(clientRef), tx.get(creditEntryRef)]);
+      if (creditEntrySnap.exists) {
+        throw new HttpsError('failed-precondition', t('err_totals_invalid'));
+      }
+      const balance = Number(creditClientSnap.data()?.club_credit_balance ?? 0);
+      const totalMajor = totalCents / 100;
+      if (Math.round(balance * 100) < totalCents) {
+        throw new HttpsError('failed-precondition', t('err_insufficient_credit', {
+          balance: balance.toFixed(2),
+          total: totalMajor.toFixed(2),
+        }));
+      }
+      creditBalanceAfter = Math.round((balance - totalMajor) * 100) / 100;
+      creditCurrency = String(creditClientSnap.data()?.club_credit_currency || currency);
+    }
 
     tx.set(
       counterRef,
@@ -570,9 +602,32 @@ export const createInvoice = onCall(async (request) => {
       pdf_storage_path: null,
       status: 'issued',
       payment_method: payment_method ?? '',
+      club_credit_applied_cents: payClubCredit ? totalCents : 0,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       created_by: request.auth!.uid,
     });
+
+    if (payClubCredit && creditBalanceAfter !== null) {
+      tx.set(creditEntryRef, {
+        organization_id: organizationId,
+        client_id: resolvedClientId,
+        membership_id: null,
+        type: 'credit_spend',
+        amount: -(totalCents / 100),
+        balance_after: creditBalanceAfter,
+        currency: creditCurrency,
+        description: `Invoice ${invoiceNumber}`,
+        ref_type: 'invoice',
+        ref_id: invoiceRef.id,
+        created_by: request.auth!.uid,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.update(clientRef, {
+        club_credit_balance: creditBalanceAfter,
+        club_credit_currency: creditCurrency,
+        club_credit_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
     return { reused: false as const, next };
   });

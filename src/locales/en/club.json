@@ -1,0 +1,146 @@
+{
+  "settings": {
+    "title": "Club Membership",
+    "description": "A recurring monthly membership that gives clients a credit balance to spend on treatments and products, plus member pricing on selected treatments.",
+    "stripeNotice": {
+      "title": "Billed through Stripe",
+      "body": "Club plans are charged monthly via Stripe. Connect Stripe under Settings → Online Payments before publishing a plan — plans without a connected Stripe account can't be sold from the client portal.",
+      "link": "Open Online Payments"
+    },
+    "readOnly": "Only admins can create or edit Club plans.",
+    "plans": {
+      "title": "Plans",
+      "description": "Each plan bills a fixed monthly price and tops up the member's credit every cycle.",
+      "add": "Add plan",
+      "loading": "Loading plans…",
+      "empty": "No Club plans yet.",
+      "emptyHint": "Create your first plan to start enrolling members.",
+      "perMonth": "{{price}} / month",
+      "monthlyCredit": "{{credit}} credit each month",
+      "active": "Active",
+      "inactive": "Inactive",
+      "stripeConnected": "Connected to Stripe",
+      "stripeNotConnected": "Not yet synced to Stripe",
+      "benefits_one": "{{count}} benefit",
+      "benefits_other": "{{count}} benefits",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "deleteHint": "Plans already synced to Stripe can only be deactivated."
+    },
+    "form": {
+      "createTitle": "New Club plan",
+      "editTitle": "Edit Club plan",
+      "description": "Members see the name, description and benefits in the client portal.",
+      "name": "Plan name *",
+      "namePlaceholder": "e.g. Glow Club",
+      "planDescription": "Description",
+      "planDescriptionPlaceholder": "Short pitch shown to clients",
+      "price": "Monthly price ({{currency}}) *",
+      "monthlyCredit": "Monthly credit ({{currency}})",
+      "monthlyCreditHelp": "Credit added to the member's balance every billing cycle. Defaults to the monthly price.",
+      "benefits": "Benefits",
+      "benefitsPlaceholder": "One benefit per line, e.g.\nMember pricing on all facials\nPriority booking",
+      "benefitsHelp": "One line per benefit. Shown as a bullet list in the portal.",
+      "active": "Plan is active",
+      "activeHelp": "Inactive plans are hidden from the client portal. Existing members keep their membership.",
+      "create": "Create plan",
+      "save": "Save changes"
+    },
+    "deleteDialog": {
+      "title": "Delete \"{{name}}\"?",
+      "description": "This permanently removes the plan. Existing memberships keep their own snapshot of the plan name and price.",
+      "confirm": "Delete plan"
+    },
+    "toasts": {
+      "loadFailed": "Couldn't load Club plans.",
+      "nameRequired": "Enter a plan name.",
+      "priceInvalid": "Enter a monthly price greater than zero.",
+      "creditInvalid": "Monthly credit must be zero or more.",
+      "created": "Plan created",
+      "updated": "Plan updated",
+      "activated": "Plan activated",
+      "deactivated": "Plan deactivated",
+      "deleted": "Plan deleted",
+      "saveFailed": "Couldn't save the plan.",
+      "deleteFailed": "Couldn't delete the plan."
+    }
+  },
+  "panel": {
+    "tabLabel": "Club",
+    "title": "Club membership",
+    "loading": "Loading Club details…",
+    "noMembership": "This client is not a Club member.",
+    "noMembershipHint": "Clients join the Club from the client portal. A credit balance can still be adjusted manually.",
+    "status": {
+      "incomplete": "Incomplete",
+      "active": "Active",
+      "past_due": "Past due",
+      "cancelled": "Cancelled"
+    },
+    "fields": {
+      "plan": "Plan",
+      "price": "Monthly price",
+      "monthlyCredit": "Monthly credit",
+      "nextBilling": "Next billing",
+      "memberSince": "Member since",
+      "cancelledOn": "Cancelled on",
+      "creditExpires": "Credit expires"
+    },
+    "cancelsAtPeriodEnd": "Cancels at period end",
+    "creditBalance": "Credit balance",
+    "adjustCredit": "Adjust credit",
+    "cancelMembership": "Cancel membership",
+    "ledger": {
+      "title": "Credit history",
+      "description": "Most recent 50 entries.",
+      "loading": "Loading history…",
+      "empty": "No credit activity yet.",
+      "columns": {
+        "date": "Date",
+        "type": "Type",
+        "description": "Description",
+        "amount": "Amount",
+        "balanceAfter": "Balance after"
+      },
+      "types": {
+        "credit_add": "Credit added",
+        "credit_spend": "Credit spent",
+        "adjustment": "Adjustment",
+        "refund": "Refund",
+        "expiry": "Expired"
+      }
+    },
+    "adjustDialog": {
+      "title": "Adjust Club credit",
+      "description": "Add or remove credit from this client's balance. Use a negative amount to deduct.",
+      "amount": "Amount ({{currency}}) *",
+      "amountPlaceholder": "e.g. 50 or -25",
+      "amountHelp": "Positive adds credit, negative deducts.",
+      "reason": "Reason *",
+      "reasonPlaceholder": "e.g. Goodwill credit for rescheduled appointment",
+      "currentBalance": "Current balance: {{balance}}",
+      "newBalance": "New balance: {{balance}}",
+      "submit": "Apply adjustment",
+      "submitting": "Applying…"
+    },
+    "cancelDialog": {
+      "title": "Cancel Club membership?",
+      "description": "The membership stays active until the end of the current billing period, then stops renewing. Remaining credit is kept until it expires.",
+      "confirm": "Cancel membership",
+      "cancelling": "Cancelling…",
+      "keep": "Keep membership"
+    },
+    "toasts": {
+      "loadFailed": "Couldn't load Club details.",
+      "amountInvalid": "Enter a non-zero amount.",
+      "reasonRequired": "Enter a reason for the adjustment.",
+      "adjusted": "Credit adjusted",
+      "adjustedDesc": "New balance: {{balance}}.",
+      "adjustFailed": "Couldn't adjust credit.",
+      "cancelled": "Membership cancelled",
+      "cancelledPeriodEnd": "It will end at the close of the current billing period.",
+      "cancelledNow": "The membership has been cancelled.",
+      "cancelFailed": "Couldn't cancel the membership."
+    }
+  }
+}

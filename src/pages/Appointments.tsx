@@ -8,6 +8,7 @@ import AppointmentSection from '../components/dashboard/AppointmentSection';
 import AppointmentsHeader from '../components/appointments/AppointmentsHeader';
 import AppointmentsStats from '../components/appointments/AppointmentsStats';
 import { BookingRequestsPanel } from '@/components/appointments/BookingRequestsPanel';
+import { RenewalRequestsPanel } from '@/components/appointments/RenewalRequestsPanel';
 import { AppointmentCalendarGrid } from '@/components/calendar/AppointmentCalendarGrid';
 import { useAppointmentStatus } from '../hooks/useAppointmentStatus';
 import { useSupabaseAppointments, SupabaseAppointment } from '@/hooks/useSupabaseAppointments';
@@ -196,6 +197,8 @@ const Appointments = () => {
       />
 
       <BookingRequestsPanel />
+
+      <RenewalRequestsPanel />
 
       {/* Filters */}
       <AppointmentFilters 

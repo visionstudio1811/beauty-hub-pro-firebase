@@ -8,6 +8,7 @@ export interface Treatment {
   price: number;
   duration: number;
   description: string;
+  member_price?: number;
 }
 
 interface TreatmentContextType {

@@ -21,11 +21,16 @@
       "agreements": "הסכמי רכישה",
       "invoiceSettings": "הגדרות חשבוניות",
       "invoiceHistory": "היסטוריית חשבוניות",
+      "payments": "תשלומים אונליין",
+      "club": "מועדון חברות",
+      "loginScreen": "מסך התחברות",
       "acuity": "Acuity"
     },
     "marketingSections": {
       "overview": "סקירה",
       "campaigns": "קמפיינים",
+      "offers": "מבצעים בפורטל",
+      "feedback": "משוב לקוחות",
       "integrations": "אינטגרציות"
     },
     "logoutDialog": {

@@ -66,6 +66,7 @@
       "hasMembership": "בעל/ת מנוי",
       "smsOptOut": "הסרה מדיוור SMS",
       "emailOptOut": "הסרה מדיוור באימייל",
+      "portalLinked": "מחובר/ת לאזור האישי",
       "stats": {
         "status": "סטטוס:",
         "totalVisits": "סה\"כ ביקורים: {{count}}",
@@ -137,6 +138,12 @@
       "contactOptions": "אפשרויות יצירת קשר",
       "call": "חיוג",
       "email": "אימייל",
+      "portalLink": {
+        "button": "שליחת קישור לאזור האישי",
+        "sending": "שולח…",
+        "viaSms": "ב-SMS",
+        "viaEmail": "באימייל"
+      },
       "clearHistory": "מחיקת כל ההיסטוריה",
       "clearHistoryDescription": "פעולה זו תמחק לצמיתות את כל היסטוריית התורים והרכישות של הלקוח/ה. לא ניתן לבטל פעולה זו.",
       "clearHistoryConfirm": "מחיקת היסטוריה"
@@ -231,12 +238,23 @@
       "invoiceSent": "החשבונית נשלחה",
       "invoiceSentDescription": "נשלחה באימייל אל {{email}}.",
       "sendFailed": "השליחה נכשלה",
-      "sendFailedDescription": "לא ניתן היה לשלוח את החשבונית באימייל."
+      "sendFailedDescription": "לא ניתן היה לשלוח את החשבונית באימייל.",
+      "portalLinkSent": "הקישור לאזור האישי נשלח",
+      "portalLinkSentDescription": "נשלח אל {{to}}.",
+      "portalLinkFailedDescription": "לא ניתן היה לשלוח את הקישור לאזור האישי.",
+      "portalLinkUnavailable": "הקישור לאזור האישי אינו זמין",
+      "portalLinkUnavailableDescription": "לארגון זה לא הוגדרו דומיין או מזהה (slug) לאזור האישי."
     },
     "invoiceEmail": {
       "subject": "החשבונית שלך {{number}}",
       "greetingFallback": "לקוח/ה יקר/ה",
       "body": "שלום {{name}},\n\nמצורפת החשבונית שלך.\n\nמספר חשבונית: {{number}}\nסה\"כ: {{total}}\n\nלצפייה / הורדה של החשבונית:\n{{url}}\n\nתודה!"
+    },
+    "portalLink": {
+      "subject": "האזור האישי שלך ב{{org}}",
+      "greetingFallback": "לקוח/ה יקר/ה",
+      "smsBody": "שלום {{name}}, ל{{org}} יש עכשיו אזור אישי שבו אפשר לראות את החבילות שלך ולקבוע תורים: {{url}}",
+      "emailBody": "שלום {{name}}, ל{{org}} יש עכשיו אזור אישי שבו אפשר לצפות בחבילות שלך, לעקוב אחרי המפגשים שנותרו ולקבוע תורים. לכניסה לאזור האישי: {{url}} — יש להתחבר עם כתובת האימייל או מספר הטלפון הרשומים אצלנו. נתראה בקרוב!"
     }
   },
   "legacy": {

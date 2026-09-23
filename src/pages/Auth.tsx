@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { browserLocalPersistence, browserSessionPersistence, setPersistence } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +11,15 @@ import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginFloralCorner } from '@/components/auth/LoginFloralCorner';
-import { auth } from '@/lib/firebase';
-import { LOGIN_HERO_URL } from '@/lib/loginBranding';
+import { auth, functions } from '@/lib/firebase';
+import {
+  LOGIN_HERO_URL,
+  accentButtonStyle,
+  heroBackgroundImage,
+  isWhiteLabelHost,
+  sanitizeLoginBranding,
+  type LoginBranding,
+} from '@/lib/loginBranding';
 import { Wordmark } from '@/components/public-site/Wordmark';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -38,8 +46,25 @@ const GoogleIcon = () => (
   </svg>
 );
 
+interface HostBranding {
+  name: string;
+  logoUrl: string | null;
+  branding: LoginBranding;
+}
+
+interface PortalOrgPayload {
+  organization?: {
+    name?: unknown;
+    logo_url?: unknown;
+    login_branding?: unknown;
+  };
+}
+
 export default function Auth() {
   const { t } = useTranslation('shell');
+  const whiteLabel = useMemo(() => isWhiteLabelHost(window.location.hostname), []);
+  const [hostBranding, setHostBranding] = useState<HostBranding | null>(null);
+  const [brandingPending, setBrandingPending] = useState(whiteLabel);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,6 +80,34 @@ export default function Auth() {
       navigate('/');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    if (!whiteLabel) return;
+    let cancelled = false;
+    const previousTitle = document.title;
+    const resolveHostBranding = async () => {
+      try {
+        const getOrg = httpsCallable<{ host: string }, PortalOrgPayload>(functions, 'getClientPortalOrg');
+        const result = await getOrg({ host: window.location.hostname });
+        if (cancelled) return;
+        const org = result.data?.organization;
+        if (!org) return;
+        const name = typeof org.name === 'string' ? org.name.trim() : '';
+        const logoUrl = typeof org.logo_url === 'string' && org.logo_url.trim() ? org.logo_url.trim() : null;
+        setHostBranding({ name, logoUrl, branding: sanitizeLoginBranding(org.login_branding) });
+        if (name) document.title = name;
+      } catch {
+        return;
+      } finally {
+        if (!cancelled) setBrandingPending(false);
+      }
+    };
+    resolveHostBranding();
+    return () => {
+      cancelled = true;
+      document.title = previousTitle;
+    };
+  }, [whiteLabel]);
 
   const applyPersistence = async () => {
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
@@ -107,9 +160,15 @@ export default function Auth() {
     }
   };
 
-  const heroStyle = {
-    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.28) 40%, rgba(0,0,0,0.55) 100%), url(${LOGIN_HERO_URL})`,
-  } as const;
+  const branding = hostBranding?.branding ?? null;
+  const customHero = Boolean(branding?.hero_url);
+  const heroStyle = brandingPending
+    ? undefined
+    : { backgroundImage: heroBackgroundImage(branding?.hero_url ?? LOGIN_HERO_URL) };
+  const heading = branding?.title ?? t('auth.welcomeBack');
+  const tagline = branding?.subtitle ?? t('auth.tagline');
+  const submitStyle = accentButtonStyle(branding?.accent);
+  const showPlatformBrand = !whiteLabel || (!brandingPending && !hostBranding);
 
   return (
     <div className="gc-site flex min-h-screen flex-col items-center justify-center bg-cream p-0 sm:p-6 md:p-8">
@@ -124,18 +183,34 @@ export default function Auth() {
           style={heroStyle}
         >
           <div className="pointer-events-none absolute inset-0 bg-black/20 lg:rounded-s-2xl" aria-hidden />
-          <div className="relative z-10">
-            <Wordmark className="text-4xl text-white drop-shadow-md" />
-            <p className="mt-2 font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/85">{t('auth.staffWorkspace')}</p>
+          <div className="relative z-10 min-h-[4.5rem]">
+            {showPlatformBrand ? (
+              <Wordmark className="text-4xl text-white drop-shadow-md" />
+            ) : hostBranding ? (
+              hostBranding.logoUrl ? (
+                <img
+                  src={hostBranding.logoUrl}
+                  alt={hostBranding.name}
+                  className="h-14 w-auto max-w-[220px] rounded-md bg-white/95 object-contain p-1.5 shadow-md"
+                />
+              ) : (
+                <span className="font-display text-4xl font-semibold text-white drop-shadow-md">{hostBranding.name}</span>
+              )
+            ) : null}
+            {!brandingPending && (
+              <p className="mt-2 font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/85">{t('auth.staffWorkspace')}</p>
+            )}
           </div>
 
-          <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
-            <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">{t('auth.crmSignIn')}</p>
-            <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{t('auth.welcomeBack')}</h1>
-            <p className="font-sans text-sm leading-relaxed text-white/85">
-              {t('auth.tagline')}
-            </p>
-          </div>
+          {!brandingPending && (
+            <div className="relative z-10 mt-8 max-w-md space-y-4 lg:mt-0">
+              <p className="font-sans text-xs font-medium uppercase tracking-[0.35em] text-white/80">{t('auth.crmSignIn')}</p>
+              <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">{heading}</h1>
+              <p className="font-sans text-sm leading-relaxed text-white/85">
+                {tagline}
+              </p>
+            </div>
+          )}
 
           <p className="relative z-10 mt-10 font-sans text-sm text-white/75 lg:mt-12">
             {t('auth.secureAccess')}
@@ -143,7 +218,9 @@ export default function Auth() {
         </div>
 
         <div className="relative flex flex-1 flex-col justify-center bg-[rgb(var(--c-cream2))] px-6 py-10 sm:px-10 lg:w-1/2 lg:rounded-e-2xl lg:px-12 lg:py-14">
-          <LoginFloralCorner className="absolute end-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 rtl:-translate-x-4 sm:h-64 sm:w-64" />
+          {!customHero && (
+            <LoginFloralCorner className="absolute end-0 top-0 h-56 w-56 -translate-y-2 translate-x-4 rtl:-translate-x-4 sm:h-64 sm:w-64" />
+          )}
 
           <div className="absolute start-4 top-4 z-20 sm:start-6 sm:top-6">
             <LanguageSwitcher variant="full" persist />
@@ -236,7 +313,11 @@ export default function Auth() {
 
                 <Button
                   type="submit"
-                  className="h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90"
+                  className={cn(
+                    'h-12 w-full rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90',
+                    submitStyle && 'hover:opacity-90',
+                  )}
+                  style={submitStyle}
                   disabled={isLoading || googleLoading}
                 >
                   {isLoading ? t('auth.signingIn') : t('auth.signIn')}

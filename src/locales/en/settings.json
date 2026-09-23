@@ -63,6 +63,14 @@
     "agreements": {
       "title": "Agreement of Purchase Templates",
       "description": "Templates sent automatically after a package is assigned to a client. Build the template once with package blocks (Package Name, Price, Sessions, Purchase Date, Expiry) and standard blocks (text, signature, etc.) — purchase + client fields prefill from the linked purchase."
+    },
+    "loginBranding": {
+      "title": "Login Screen Branding",
+      "description": "Design the sign-in screen your team and clients see on your own domain — hero image, welcome text, and accent color."
+    },
+    "club": {
+      "title": "Club Membership",
+      "description": "Monthly membership plans: clients pay a recurring fee and receive credit to spend on treatments and products."
     }
   },
   "mobileTabs": {
@@ -139,6 +147,55 @@
       "removedDescription": "Your logo has been removed.",
       "removeFailedTitle": "Failed to remove logo",
       "removeFailedDescription": "Please try again."
+    }
+  },
+  "loginBranding": {
+    "domainNote": "Shown on your own CRM domain (for example crm.yourbrand.com) — on both the staff sign-in and the client portal. On app.beautyhubpro.com the standard screen stays.",
+    "loading": "Loading login branding...",
+    "hero": {
+      "label": "Hero image",
+      "hint": "Wide photo, at least 1600×1000 px. JPG, PNG or WebP up to 5MB.",
+      "dragAndDrop": "Drag and drop a hero image here",
+      "browseFiles": "Browse Files",
+      "change": "Change Image",
+      "remove": "Remove Image",
+      "uploading": "Uploading...",
+      "alt": "Login hero image",
+      "usingDefault": "No custom image yet — the default spa photo is shown until you upload one."
+    },
+    "fields": {
+      "title": "Welcome title",
+      "subtitle": "Subtitle",
+      "accent": "Accent color",
+      "accentHint": "Applied to the sign-in button. Leave empty to keep the default.",
+      "accentPlaceholder": "#C9A24E",
+      "pickColor": "Pick a color",
+      "clearAccent": "Use default"
+    },
+    "preview": {
+      "label": "Live preview",
+      "hint": "How the sign-in screen will look on your domain."
+    },
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "toasts": {
+      "loadFailed": "Could not load login branding.",
+      "invalidTypeTitle": "Invalid file type",
+      "invalidTypeDescription": "Please select an image file (JPG, PNG, WebP).",
+      "tooLargeTitle": "File too large",
+      "tooLargeDescription": "Please select an image smaller than 5MB.",
+      "noOrgTitle": "No organization",
+      "noOrgDescription": "Cannot save branding without an active organization.",
+      "uploadedTitle": "Image uploaded",
+      "uploadedDescription": "Click Save Changes to publish it on your login screen.",
+      "uploadFailedTitle": "Upload failed",
+      "uploadFailedDescription": "Could not upload the image. Please try again.",
+      "invalidAccentTitle": "Invalid color",
+      "invalidAccentDescription": "Enter a hex color such as #C9A24E.",
+      "savedTitle": "Login branding saved",
+      "savedDescription": "Your custom sign-in screen is live on your domain.",
+      "saveFailedTitle": "Save failed",
+      "saveFailedDescription": "Could not save login branding. Please try again."
     }
   },
   "schedulerLinks": {

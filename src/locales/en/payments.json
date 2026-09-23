@@ -1,0 +1,107 @@
+{
+  "title": "Online Payments",
+  "description": "Let clients renew their packages online from the client portal. Connect Stripe or Square, then paste the webhook URL into the provider's dashboard.",
+  "badges": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "enable": {
+    "label": "Enable online payments",
+    "hint": "When on, clients can pay online to renew a package from the client portal. A new purchase is created automatically when the payment succeeds."
+  },
+  "provider": {
+    "label": "Provider",
+    "placeholder": "Choose a provider",
+    "stripe": "Stripe",
+    "square": "Square"
+  },
+  "mode": {
+    "label": "Mode",
+    "test": "Test",
+    "live": "Live",
+    "hint": "Test mode uses Stripe test keys or the Square sandbox. Switch to Live only with live keys."
+  },
+  "stripe": {
+    "title": "Stripe settings",
+    "publishableKey": "Publishable key",
+    "publishableKeyPlaceholder": "pk_live_... or pk_test_...",
+    "secretKey": "Secret key",
+    "secretKeyPlaceholder": "sk_live_... or sk_test_...",
+    "webhookSecret": "Webhook signing secret",
+    "webhookSecretPlaceholder": "whsec_...",
+    "dashboard": "Stripe dashboard"
+  },
+  "square": {
+    "title": "Square settings",
+    "environment": "Environment",
+    "sandbox": "Sandbox",
+    "production": "Production",
+    "locationId": "Location ID",
+    "locationIdPlaceholder": "L1ABC23DEF456",
+    "accessToken": "Access token",
+    "accessTokenPlaceholder": "EAAA...",
+    "webhookSignatureKey": "Webhook signature key",
+    "webhookSignatureKeyPlaceholder": "Paste the signature key from your Square webhook subscription",
+    "dashboard": "Square developer dashboard"
+  },
+  "secrets": {
+    "savedPlaceholder": "••••{{last4}} (saved)",
+    "savedNoLast4": "•••• (saved)",
+    "leaveBlank": "Leave blank to keep the saved value.",
+    "writeOnly": "Secrets are stored write-only and are never shown again."
+  },
+  "webhooks": {
+    "title": "Webhook URLs",
+    "description": "Each provider notifies this app when a payment completes. Copy the URL for your provider into its dashboard.",
+    "stripeLabel": "Stripe webhook URL",
+    "stripeHint": "Paste this in your Stripe dashboard under Developers → Webhooks and subscribe to checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and checkout.session.expired. Then save the signing secret above.",
+    "squareLabel": "Square webhook URL",
+    "squareHint": "Paste this as the Notification URL of a webhook subscription in your Square developer dashboard, subscribe to payment.updated, then save the subscription's signature key above.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copiedDescription": "Webhook URL copied to the clipboard.",
+    "copyFailed": "Could not copy. Select the URL and copy it manually."
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving...",
+    "test": "Test connection",
+    "testing": "Testing..."
+  },
+  "toasts": {
+    "loadFailed": "Could not load payment settings",
+    "noOrg": "No organization selected",
+    "selectProvider": "Choose a payment provider before enabling online payments",
+    "stripeSecretRequired": "Save a Stripe secret key before enabling online payments",
+    "squareTokenRequired": "Save a Square access token before enabling online payments",
+    "squareLocationRequired": "Enter your Square location ID before enabling online payments",
+    "saved": "Payment settings saved",
+    "savedDescription": "Run a connection test to confirm the keys work.",
+    "saveFailed": "Could not save payment settings",
+    "testOk": "Connection successful",
+    "testFailed": "Connection failed",
+    "testFailedGeneric": "The provider rejected the credentials"
+  },
+  "test": {
+    "stripeSummary": "Stripe connected ({{mode}} mode). Available balance: {{balance}}",
+    "squareSummary": "Square location \"{{name}}\" ({{status}}, {{currency}}) found in {{environment}}",
+    "liveMode": "live",
+    "testMode": "test",
+    "noBalance": "none"
+  },
+  "setup": {
+    "title": "Setup",
+    "stripe": {
+      "step1": "Open your Stripe account and copy the publishable and secret keys from Developers → API keys.",
+      "step2": "Add a webhook endpoint with the Stripe webhook URL above and select the checkout.session events.",
+      "step3": "Copy the endpoint's signing secret (whsec_...) into the webhook signing secret field.",
+      "step4": "Save, run the connection test, then turn on online payments."
+    },
+    "square": {
+      "step1": "In the Square developer dashboard create an application and copy its access token (sandbox or production).",
+      "step2": "Copy the location ID of the location that should receive payments.",
+      "step3": "Add a webhook subscription with the Square webhook URL above, subscribe to payment.updated, and copy its signature key.",
+      "step4": "Save, run the connection test, then turn on online payments."
+    }
+  }
+}

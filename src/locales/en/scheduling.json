@@ -18,6 +18,9 @@
       "namePlaceholder": "Enter treatment name",
       "price": "Price ($)",
       "pricePlaceholder": "0",
+      "memberPrice": "Member price (Club)",
+      "memberPricePlaceholder": "Same as price",
+      "memberPriceHelp": "Charged to active Club members instead of the regular price. Leave blank for no member discount.",
       "duration": "Duration (min) *",
       "durationPlaceholder": "60",
       "category": "Category",
@@ -52,7 +55,8 @@
     },
     "card": {
       "colorAria": "Color {{color}}",
-      "minutes": "{{count}} min"
+      "minutes": "{{count}} min",
+      "memberPrice": "Club: {{price}}"
     }
   },
   "dropdownData": {

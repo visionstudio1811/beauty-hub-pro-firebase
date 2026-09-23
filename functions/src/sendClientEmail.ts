@@ -105,6 +105,10 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
+// `message` is escaped by the caller and then given real <br> line breaks, so it
+// must not be escaped a second time here. Every other value is escaped on injection.
+const RAW_HTML_TEMPLATE_KEYS = new Set(['message']);
+
 function renderTemplate(html: string, variables: Record<string, string>): string {
   let rendered = html;
 
@@ -122,8 +126,8 @@ function renderTemplate(html: string, variables: Record<string, string>): string
 
   for (const [key, value] of Object.entries(variables)) {
     const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    // Escape all variable values before injection to prevent HTML injection
-    rendered = rendered.replace(regex, escapeHtml(String(value ?? '')));
+    const str = String(value ?? '');
+    rendered = rendered.replace(regex, RAW_HTML_TEMPLATE_KEYS.has(key) ? str : escapeHtml(str));
   }
 
   // Remove any remaining unresolved placeholders
@@ -236,7 +240,7 @@ export const sendClientEmail = onCall(
         Object.entries(templateSettings).map(([k, v]) => [k, String(v ?? '')])
       ),
       subject,
-      message: message.replace(/\n/g, '<br>'),
+      message: '',
       client_name: clientName,
       organization_name: String(orgData.name || fromName),
       organization_phone: String(orgData.phone || ''),
@@ -253,6 +257,9 @@ export const sendClientEmail = onCall(
         Object.entries(variables).map(([k, v]) => [k, String(v ?? '')])
       ),
     };
+
+    // Set after the `variables` spread so a caller can't smuggle raw HTML in as `message`.
+    templateVariables.message = escapeHtml(message).replace(/\n/g, '<br>');
 
     const emailHtml = renderTemplate(templateHtml, templateVariables);
 

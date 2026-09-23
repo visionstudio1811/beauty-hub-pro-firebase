@@ -12,6 +12,7 @@ const initialState = (): PackageFormData => ({
   product_items: [],
   price: 0,
   validity_months: 12,
+  benefits: [],
 });
 
 export const usePackageForm = () => {
@@ -47,6 +48,7 @@ export const usePackageForm = () => {
       product_items: Array.isArray(pkg.product_items) ? pkg.product_items.map(i => ({ product_id: i.product_id, quantity: i.quantity, price: i.price })) : [],
       price: pkg.price,
       validity_months: pkg.validity_months,
+      benefits: pkg.benefits ?? [],
     });
   };
 

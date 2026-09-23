@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
@@ -97,6 +98,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
         price: Number(formData.price),
         validity_months: Number(formData.validity_months),
         total_sessions: totalSessions,
+        benefits: (formData.benefits ?? []).map(b => b.trim()).filter(Boolean),
       };
 
       if (onSave) {
@@ -109,6 +111,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
           product_items: payload.product_items,
           price: payload.price,
           validity_months: payload.validity_months,
+          benefits: payload.benefits,
         });
       } else {
         await addPackage({
@@ -120,6 +123,7 @@ export const PackageForm: React.FC<PackageFormProps> = ({
           price: payload.price,
           total_sessions: payload.total_sessions,
           validity_months: payload.validity_months,
+          benefits: payload.benefits,
           is_active: true,
         });
       }
@@ -180,6 +184,21 @@ export const PackageForm: React.FC<PackageFormProps> = ({
               disabled={isSubmitting}
               className="w-full mt-1 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">{t('packageForm.fields.benefits')}</label>
+            <Textarea
+              value={(formData.benefits ?? []).join('\n')}
+              // Only split here; trimming/dropping empties on every keystroke would swallow
+              // the trailing newline (and spaces) the user just typed. Normalized at submit.
+              onChange={(e) => setFormData({ ...formData, benefits: e.target.value.split('\n') })}
+              placeholder={t('packageForm.fields.benefitsPlaceholder')}
+              rows={3}
+              disabled={isSubmitting}
+              className="w-full mt-1 text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-1">{t('packageForm.fields.benefitsHint')}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3">

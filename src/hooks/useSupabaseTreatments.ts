@@ -28,6 +28,8 @@ export interface Treatment {
   description?: string;
   duration: number;
   price?: number;
+  // Price for active Club members. null/absent = no member price.
+  member_price?: number | null;
   category?: string;
   color?: string;
   is_active: boolean;
@@ -67,6 +69,7 @@ const docToTreatment = (id: string, data: any): Treatment => ({
   description: data.description ?? undefined,
   duration: data.duration ?? 60,
   price: data.price ?? undefined,
+  member_price: typeof data.member_price === 'number' && Number.isFinite(data.member_price) ? data.member_price : undefined,
   category: data.category ?? undefined,
   color: typeof data.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : undefined,
   is_active: data.is_active ?? data.isActive ?? true,

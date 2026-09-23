@@ -45,7 +45,10 @@
       "totalSessions": "Total sessions:",
       "includedProducts": "Included Products",
       "optional": "optional",
-      "qtyPlaceholder": "Qty"
+      "qtyPlaceholder": "Qty",
+      "benefits": "Benefits / perks (one per line)",
+      "benefitsPlaceholder": "10% off products\nFree birthday facial",
+      "benefitsHint": "Shown to clients in their portal as a simple list. Informational only — no pricing logic."
     },
     "loadingTreatments": "Loading treatments...",
     "noTreatments": "No treatments available. Please add treatments first in the Settings page.",

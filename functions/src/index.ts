@@ -42,7 +42,22 @@ export {
   linkClientPortalAccount,
   createClientBookingRequest,
   updateClientBookingRequest,
+  requestPackageRenewal,
+  updateRenewalRequestStatus,
 } from './clientPortal';
+export { notifyOnRenewalRequest } from './notifyOnRenewalRequest';
+export { createRenewalCheckout, savePaymentSecret, testPaymentConnection } from './payments/callables';
+export { stripeWebhook, squareWebhook } from './payments/webhooks';
+export {
+  createMembershipCheckout,
+  cancelClubMembership,
+  createClubBillingPortalSession,
+  adjustClubCredit,
+} from './club/callables';
+export { clubCreditExpiry } from './club/expiry';
+export { submitClientFeedback } from './feedback/submitClientFeedback';
+export { appointmentCompletedAutomation } from './feedback/appointmentCompletedAutomation';
+export { lowSessionsRenewalNudge } from './retention/lowSessionsNudge';
 export { welcomeEmailOnPurchase } from './welcomeEmailOnPurchase';
 export { birthdayEmails } from './birthdayEmails';
 export { inactiveClientEmails } from './inactiveClientEmails';

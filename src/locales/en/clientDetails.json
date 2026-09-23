@@ -66,6 +66,7 @@
       "hasMembership": "Has Membership",
       "smsOptOut": "Opted out of SMS marketing",
       "emailOptOut": "Opted out of email marketing",
+      "portalLinked": "Portal linked",
       "stats": {
         "status": "Status:",
         "totalVisits": "Total Visits: {{count}}",
@@ -136,6 +137,12 @@
       "contactOptions": "Contact Options",
       "call": "Call",
       "email": "Email",
+      "portalLink": {
+        "button": "Send portal link",
+        "sending": "Sending…",
+        "viaSms": "Via SMS",
+        "viaEmail": "Via email"
+      },
       "clearHistory": "Clear All History",
       "clearHistoryDescription": "This will permanently delete all appointment and purchase history for this client. This action cannot be undone.",
       "clearHistoryConfirm": "Clear History"
@@ -230,12 +237,23 @@
       "invoiceSent": "Invoice sent",
       "invoiceSentDescription": "Emailed to {{email}}.",
       "sendFailed": "Failed to send",
-      "sendFailedDescription": "Could not send invoice email."
+      "sendFailedDescription": "Could not send invoice email.",
+      "portalLinkSent": "Portal link sent",
+      "portalLinkSentDescription": "Sent to {{to}}.",
+      "portalLinkFailedDescription": "Could not send the portal link.",
+      "portalLinkUnavailable": "Portal link unavailable",
+      "portalLinkUnavailableDescription": "This organization has no portal domain or slug configured."
     },
     "invoiceEmail": {
       "subject": "Your Invoice {{number}}",
       "greetingFallback": "there",
       "body": "Hi {{name}},\n\nPlease find your invoice below.\n\nInvoice #: {{number}}\nTotal: {{total}}\n\nView / Download your invoice:\n{{url}}\n\nThank you!"
+    },
+    "portalLink": {
+      "subject": "Your client portal at {{org}}",
+      "greetingFallback": "there",
+      "smsBody": "Hi {{name}}, {{org}} now has a client portal where you can see your packages and book appointments: {{url}}",
+      "emailBody": "Hi {{name}}, {{org}} now has a client portal where you can view your packages, track your remaining sessions and book appointments. Open your client portal: {{url}} — sign in with the email address or phone number we have on file. See you soon!"
     }
   },
   "legacy": {

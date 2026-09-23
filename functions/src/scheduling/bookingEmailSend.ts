@@ -8,6 +8,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { consumeRateLimit } from '../rateLimit';
 import { loadSecret } from '../lib/integrationSecrets';
+import { portalUrlForOrg } from '../lib/portalUrl';
 import {
   AppLanguage,
   DEFAULT_LANGUAGE,
@@ -350,6 +351,7 @@ export async function renderAndSend(args: RenderAndSendArgs): Promise<void> {
     sender_name: ctx.fromName,
     from_email: ctx.fromEmail,
     cta_url: '',
+    portal_url: portalUrlForOrg(ctx.orgData),
     date: vars.DATE,
     datetime: `${vars.DATE} ${vars.TIME}`,
     treatment: vars.TREATMENT,

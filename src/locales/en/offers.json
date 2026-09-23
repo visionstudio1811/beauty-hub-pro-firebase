@@ -1,0 +1,86 @@
+{
+  "title": "Portal offers & announcements",
+  "description": "Promotions and announcements shown to clients in the client portal.",
+  "adminOnly": "Only administrators can manage portal offers.",
+  "newOffer": "New offer",
+  "empty": "No offers yet. Create one to promote a package, product, or event in the client portal.",
+  "untitled": "Untitled offer",
+  "audience": {
+    "label": "Audience",
+    "all": "All clients",
+    "members": "Members",
+    "low_sessions": "Low sessions",
+    "help": {
+      "all": "Shown to every signed-in portal client.",
+      "members": "Only clients with an active package.",
+      "low_sessions": "Only clients whose active package is almost used up."
+    }
+  },
+  "status": {
+    "live": "Live",
+    "scheduled": "Scheduled",
+    "ended": "Ended",
+    "inactive": "Inactive"
+  },
+  "window": {
+    "from": "From {{date}}",
+    "until": "Until {{date}}",
+    "range": "{{from}} – {{to}}",
+    "always": "No date limits"
+  },
+  "sortOrder": "Order {{n}}",
+  "dialog": {
+    "createTitle": "New offer",
+    "editTitle": "Edit offer",
+    "description": "This is what clients will see in the portal."
+  },
+  "fields": {
+    "title": "Title",
+    "titlePlaceholder": "e.g. 20% off your next package",
+    "body": "Details",
+    "bodyPlaceholder": "Describe the offer or announcement…",
+    "bodyCount": "{{used}} / {{max}} characters",
+    "image": "Image",
+    "imageHint": "PNG, JPG or WebP up to 5MB",
+    "uploadImage": "Upload image",
+    "replaceImage": "Replace image",
+    "removeImage": "Remove image",
+    "imageAlt": "Offer image",
+    "ctaLabel": "Button label",
+    "ctaLabelPlaceholder": "e.g. Book now",
+    "ctaUrl": "Button link",
+    "ctaHint": "Optional. Links must start with https://.",
+    "startsAt": "Start date",
+    "endsAt": "End date",
+    "datesHint": "Leave empty to show the offer without date limits.",
+    "sortOrder": "Sort order",
+    "sortOrderHint": "Lower numbers appear first.",
+    "active": "Active",
+    "activeHint": "Inactive offers are hidden from clients."
+  },
+  "validation": {
+    "titleRequired": "Title is required.",
+    "titleTooLong": "The title must be {{max}} characters or fewer.",
+    "bodyTooLong": "Details must be {{max}} characters or fewer.",
+    "ctaUrlHttps": "The button link must start with https://.",
+    "ctaUrlInvalid": "The button link is not a valid URL.",
+    "ctaBoth": "Enter both a button label and a link, or leave both empty.",
+    "dateOrder": "The end date must be on or after the start date."
+  },
+  "toasts": {
+    "loadError": "Could not load offers",
+    "created": "Offer created",
+    "updated": "Offer updated",
+    "deleted": "Offer deleted",
+    "saveError": "Could not save the offer",
+    "deleteError": "Could not delete the offer",
+    "toggleError": "Could not update the offer",
+    "invalidImage": "Please choose an image file",
+    "imageTooLarge": "Images must be smaller than 5MB",
+    "uploadFailed": "Image upload failed"
+  },
+  "delete": {
+    "title": "Delete this offer?",
+    "description": "\"{{title}}\" will be removed from the client portal. This cannot be undone."
+  }
+}

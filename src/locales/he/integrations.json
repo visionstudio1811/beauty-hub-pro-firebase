@@ -143,6 +143,14 @@
     "fromNameLabel": "שם השולח",
     "fromNamePlaceholder": "שם העסק שלכם",
     "enableLabel": "הפעלת דוא\"ל דרך Resend",
+    "automations": {
+      "lowSessions": {
+        "title": "תזכורת חידוש כשנותרו מעט טיפולים",
+        "description": "שליחת דוא\"ל ללקוחות (וגם SMS כאשר ספק SMS מופעל) ברגע שבחבילה פעילה נותרו רק מעט טיפולים, עם קישור לחידוש מפורטל הלקוחות. נשמר יחד עם ההגדרות שלמעלה.",
+        "threshold": "התראה כאשר נותרו",
+        "thresholdHelp": "טיפולים או פחות"
+      }
+    },
     "steps": {
       "createAccount": "צרו חשבון Resend ב-<a>resend.com</a>",
       "verifyDomain": "אמתו את הדומיין שלכם בלוח הבקרה של Resend",

@@ -86,6 +86,22 @@
       ]
     },
     {
+      "collectionGroup": "creditLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "client_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "memberships",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "credit_expires_at", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "productAssignments",
       "queryScope": "COLLECTION",
       "fields": [

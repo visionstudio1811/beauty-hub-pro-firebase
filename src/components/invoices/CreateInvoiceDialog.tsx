@@ -42,6 +42,8 @@ interface CatalogItem {
   brand?: string;
   category?: string;
   duration?: number;
+  // Treatments only: price for active Club members (null = none).
+  member_price?: number | null;
 }
 
 interface LineRow {
@@ -88,6 +90,16 @@ interface BusinessInfoSnapshot {
 const PAYMENT_METHODS = [
   'Zelle', 'Cherry', 'Affirm', 'Cash', 'Credit Card', 'Check', 'Venmo', 'Other',
 ];
+// Only offered when the selected client has a positive Club credit balance;
+// createInvoice debits the cached balance atomically and rejects shortfalls.
+const CLUB_CREDIT_METHOD = 'club_credit';
+
+interface ClubClientInfo {
+  clientId: string;
+  balance: number;
+  currency: string | null;
+  status: 'active' | 'past_due' | 'cancelled' | null;
+}
 
 let lineCounter = 0;
 const newRow = (defaults: Partial<LineRow> = {}): LineRow => ({
@@ -134,6 +146,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
   const [building, setBuilding] = useState(false);
+  const [clubInfo, setClubInfo] = useState<ClubClientInfo | null>(null);
   // Idempotency key for the createInvoice call. Kept in a ref (not state) and
   // regenerated at the START of each issue attempt so a second, distinct issue
   // never reuses the first invoice's number/PDF. A retry of the *same* failed
@@ -228,6 +241,47 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     return () => { cancelled = true; };
   }, [isOpen, currentOrganization?.id, currentOrganization?.name]);
 
+  // The in-memory client list whitelists fields, so the Club cache lives only
+  // on the Firestore doc — read it directly whenever the selected client changes.
+  useEffect(() => {
+    if (!isOpen || !currentOrganization?.id || !clientId) {
+      setClubInfo(null);
+      return;
+    }
+    let cancelled = false;
+    const orgId = currentOrganization.id;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'organizations', orgId, 'clients', clientId));
+        if (cancelled) return;
+        const data: Record<string, unknown> = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
+        const rawStatus = data.club_membership_status;
+        setClubInfo({
+          clientId,
+          balance: typeof data.club_credit_balance === 'number' && Number.isFinite(data.club_credit_balance)
+            ? data.club_credit_balance
+            : 0,
+          currency: typeof data.club_credit_currency === 'string' && data.club_credit_currency
+            ? data.club_credit_currency
+            : null,
+          status: rawStatus === 'active' || rawStatus === 'past_due' || rawStatus === 'cancelled' ? rawStatus : null,
+        });
+      } catch (err) {
+        console.error('Failed to load client club info', err);
+        if (!cancelled) setClubInfo({ clientId, balance: 0, currency: null, status: null });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, currentOrganization?.id, clientId]);
+
+  // Drop a stale Club-credit selection once we know the current client can't use it.
+  useEffect(() => {
+    if (paymentMethod !== CLUB_CREDIT_METHOD) return;
+    if (clubInfo && clubInfo.clientId === clientId && clubInfo.balance <= 0) {
+      setPaymentMethod('');
+    }
+  }, [paymentMethod, clubInfo, clientId]);
+
   // Revoke any outstanding object URL when the dialog closes / unmounts.
   useEffect(() => {
     return () => {
@@ -286,6 +340,9 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                 price: Number(data.price || 0),
                 category: data.category || undefined,
                 duration: Number(data.duration || 0) || undefined,
+                member_price: typeof data.member_price === 'number' && Number.isFinite(data.member_price)
+                  ? data.member_price
+                  : null,
               } as CatalogItem;
             })
             .sort(sortByName),
@@ -359,14 +416,21 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     updateRow(uid, { kind, item_id: '', unit_price: 0 });
   };
 
+  const isClubMember = clubInfo?.clientId === clientId && clubInfo?.status === 'active';
+
+  // Member price applies only to treatment rows for an active Club member.
+  const memberPriceFor = (kind: LineKind, item: CatalogItem | undefined): number | null =>
+    kind === 'treatment' && isClubMember && typeof item?.member_price === 'number' ? item.member_price : null;
+
   const handleItemChange = (uid: string, itemId: string) => {
     const row = rows.find(r => r.uid === uid);
     const map = row ? mapForKind(row.kind) : productMap;
     const item = map.get(itemId);
+    const memberPrice = row ? memberPriceFor(row.kind, item) : null;
     updateRow(uid, {
       item_id: itemId,
-      // Prefill catalog price; user can still edit.
-      unit_price: item ? item.price : 0,
+      // Prefill catalog (or member) price; user can still edit.
+      unit_price: item ? (memberPrice ?? item.price) : 0,
     });
   };
 
@@ -380,6 +444,17 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
     const cents = Math.round((r.unit_price || 0) * 100) * (r.quantity || 0);
     return sum + cents;
   }, 0);
+
+  // Same tax math as buildPreviewInvoice so the edit-mode Club-credit check
+  // matches what the preview (and the server) will charge.
+  const estimatedTotalCents =
+    subtotalCents + Math.round((subtotalCents * (businessInfo?.tax_rate ?? 0)) / 100);
+  const clubBalanceCents =
+    clubInfo && clubInfo.clientId === clientId && clubInfo.balance > 0 ? Math.round(clubInfo.balance * 100) : 0;
+  const clubCreditAvailable = clubBalanceCents > 0;
+  const clubChargeCents = mode === 'preview' && previewInvoice ? previewInvoice.total_cents : estimatedTotalCents;
+  const clubCreditSelected = paymentMethod === CLUB_CREDIT_METHOD;
+  const clubCreditInsufficient = clubCreditSelected && clubChargeCents > clubBalanceCents;
 
   const validateForSubmit = (): boolean => {
     if (!clientId) {
@@ -551,6 +626,17 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
   const handleIssue = async () => {
     if (!currentOrganization?.id) return;
     if (!validateForSubmit()) return;
+    if (clubCreditInsufficient) {
+      toast({
+        title: t('createDialog.clubCredit.insufficientShort'),
+        description: t('createDialog.clubCredit.insufficient', {
+          balance: formatClubMoney(clubBalanceCents / 100),
+          total: formatClubMoney(clubChargeCents / 100),
+        }),
+        variant: 'destructive',
+      });
+      return;
+    }
     const validRows = rows.filter(r => r.item_id && r.quantity > 0 && r.unit_price >= 0);
 
     const productItems = validRows
@@ -698,6 +784,23 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
 
   const paymentMethodLabel = (m: string) => t(`paymentMethods.${m}`, { defaultValue: m });
 
+  const clubCurrency = clubInfo?.currency || currencyCode;
+  const formatClubMoney = (amount: number) => {
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: clubCurrency }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)} ${clubCurrency}`;
+    }
+  };
+  const clubCreditHint = clubCreditSelected
+    ? clubCreditInsufficient
+      ? t('createDialog.clubCredit.insufficient', {
+          balance: formatClubMoney(clubBalanceCents / 100),
+          total: formatClubMoney(clubChargeCents / 100),
+        })
+      : t('createDialog.clubCredit.willDebit', { total: formatClubMoney(clubChargeCents / 100) })
+    : null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={mode === 'preview' ? 'max-w-5xl max-h-[90vh] overflow-y-auto' : 'max-w-3xl max-h-[90vh] overflow-y-auto'}>
@@ -816,6 +919,11 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                   {t('createDialog.preview.paymentMethod')} <span className="text-foreground">{paymentMethodLabel(previewInvoice.payment_method)}</span>
                 </div>
               )}
+              {clubCreditHint && (
+                <p className={`text-xs ${clubCreditInsufficient ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {clubCreditHint}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {t('createDialog.preview.finalizedNote')}
               </p>
@@ -886,7 +994,10 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                 const placeholder = t(`createDialog.form.choose.${row.kind}`);
                 // Human-readable handle for this row's a11y labels — the chosen
                 // item name when set, otherwise a 1-based row number.
-                const rowItemName = mapForKind(row.kind).get(row.item_id)?.name ?? t('createDialog.form.lineFallback', { index: rowIndex + 1 });
+                const rowItem = mapForKind(row.kind).get(row.item_id);
+                const rowItemName = rowItem?.name ?? t('createDialog.form.lineFallback', { index: rowIndex + 1 });
+                const rowMemberPrice = memberPriceFor(row.kind, rowItem);
+                const memberPriceApplied = rowMemberPrice !== null && row.unit_price === rowMemberPrice;
                 return (
                   <div key={row.uid} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 md:col-span-2">
@@ -920,6 +1031,9 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                                     <span dir="ltr" className="ltr-inline">{formatPrice(item.price)}</span>
                                     {item.brand ? ` · ${item.brand}` : ''}
                                     {item.duration ? ` · ${t('createDialog.form.minutes', { count: item.duration })}` : ''}
+                                    {memberPriceFor(row.kind, item) !== null
+                                      ? ` · ${t('createDialog.clubCredit.memberPriceHint', { price: formatPrice(memberPriceFor(row.kind, item) as number) })}`
+                                      : ''}
                                   </span>
                                 </div>
                               </SelectItem>
@@ -938,7 +1052,7 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         aria-label={t('createDialog.form.aria.quantity', { item: rowItemName })}
                       />
                     </div>
-                    <div className="col-span-6 md:col-span-3">
+                    <div className="col-span-6 md:col-span-3 space-y-1">
                       <Input
                         type="number"
                         min="0"
@@ -948,6 +1062,11 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                         placeholder={t('createDialog.form.pricePlaceholder')}
                         aria-label={t('createDialog.form.aria.unitPrice', { item: rowItemName })}
                       />
+                      {memberPriceApplied && (
+                        <Badge variant="outline" className="text-[10px] font-normal border-amber-300 bg-amber-50 text-amber-800">
+                          {t('createDialog.clubCredit.memberPriceTag')}
+                        </Badge>
+                      )}
                     </div>
                     <div className="col-span-2 md:col-span-1 flex justify-end">
                       <Button
@@ -979,8 +1098,21 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                   {PAYMENT_METHODS.map(m => (
                     <SelectItem key={m} value={m}>{paymentMethodLabel(m)}</SelectItem>
                   ))}
+                  {clubCreditAvailable && (
+                    <SelectItem value={CLUB_CREDIT_METHOD}>
+                      {paymentMethodLabel(CLUB_CREDIT_METHOD)}
+                      <span className="ms-2 text-xs text-muted-foreground">
+                        {t('createDialog.clubCredit.balance', { balance: formatClubMoney(clubBalanceCents / 100) })}
+                      </span>
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {clubCreditHint && (
+                <p className={`mt-1 text-xs ${clubCreditInsufficient ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {clubCreditHint}
+                </p>
+              )}
             </div>
             <div className="flex items-end">
               <div className="text-end ms-auto">
@@ -1014,7 +1146,11 @@ export const CreateInvoiceDialog: React.FC<CreateInvoiceDialogProps> = ({
                 <Save className="h-4 w-4 me-1" />
                 {savingDraft ? t('createDialog.footer.saving') : currentDraftId ? t('createDialog.footer.updateDraft') : t('createDialog.footer.saveAsDraft')}
               </Button>
-              <Button onClick={handleIssue} disabled={submitting}>
+              <Button
+                onClick={handleIssue}
+                disabled={submitting || clubCreditInsufficient}
+                title={clubCreditInsufficient ? t('createDialog.clubCredit.insufficientShort') : undefined}
+              >
                 <Receipt className="h-4 w-4 me-1" />
                 {submitting ? t('createDialog.footer.issuing') : t('createDialog.footer.issueInvoice')}
               </Button>

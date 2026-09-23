@@ -45,7 +45,10 @@
       "totalSessions": "סה\"כ מפגשים:",
       "includedProducts": "מוצרים כלולים",
       "optional": "אופציונלי",
-      "qtyPlaceholder": "כמות"
+      "qtyPlaceholder": "כמות",
+      "benefits": "הטבות / יתרונות (אחת בכל שורה)",
+      "benefitsPlaceholder": "10% הנחה על מוצרים\nטיפול פנים חינם ביום ההולדת",
+      "benefitsHint": "מוצג ללקוחות בפורטל כרשימה פשוטה. למידע בלבד — ללא השפעה על המחיר."
     },
     "loadingTreatments": "טוען טיפולים...",
     "noTreatments": "אין טיפולים זמינים. יש להוסיף טיפולים תחילה בעמוד ההגדרות.",

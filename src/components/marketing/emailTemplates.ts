@@ -42,6 +42,7 @@ const STRINGS = defineStrings({
     preheader: 'A note from {{organization_name}}.',
     footer_reason: "You're receiving this because you're a valued client of {{organization_name}}.",
     signature_default: 'With warmth',
+    portal_link: 'Open your client portal',
 
     welcome_eyebrow: 'Welcome',
     welcome_title: 'Thank you for joining us',
@@ -131,6 +132,7 @@ const STRINGS = defineStrings({
     preheader: 'הודעה מ{{organization_name}}.',
     footer_reason: 'קיבלת הודעה זו מכיוון שאת/ה לקוח/ה יקר/ה של {{organization_name}}.',
     signature_default: 'בחום',
+    portal_link: 'לאזור האישי שלך',
 
     welcome_eyebrow: 'ברוכים הבאים',
     welcome_title: 'תודה שהצטרפת אלינו',
@@ -413,6 +415,25 @@ function signoffBlock(signoff: string, name = '{{sender_name}}'): string {
       </tr>`;
 }
 
+// Callers must wrap this in {{#if portal_url}}: senders that build their own
+// merge vars (not via sendOrgEmail) don't supply portal_url, and an unguarded
+// link would render with an empty href.
+function portalLinkParagraph(c: Ctx, marginTop: number): string {
+  return `          <p style="margin: ${marginTop}px 0 0 0; font-family: ${FONT_SANS}; font-size: 13px; line-height: 20px; color: {{secondary_text}}; text-align: center;">
+            <a href="{{portal_url}}" style="color: {{primary_color}}; text-decoration: underline;">${c.t('portal_link')}</a>
+          </p>`;
+}
+
+function portalLinkRow(c: Ctx, bottomPadding: number): string {
+  return `      {{#if portal_url}}
+      <tr>
+        <td class="px" style="padding: 0 40px ${bottomPadding}px 40px;">
+${portalLinkParagraph(c, 0)}
+        </td>
+      </tr>
+      {{/if}}`;
+}
+
 function welcomeBody(c: Ctx): string {
   const { t } = c;
   return `${heroBlock(c, t('welcome_eyebrow'), t('welcome_title'), t('welcome_intro'), 30, 40)}
@@ -435,6 +456,9 @@ function welcomeBody(c: Ctx): string {
       <tr>
         <td align="center" style="padding: 0 40px 40px 40px;">
 ${ctaButton(t('welcome_cta'))}
+          {{#if portal_url}}
+${portalLinkParagraph(c, 16)}
+          {{/if}}
         </td>
       </tr>
 ${signoffBlock(t('welcome_signoff'))}`;
@@ -729,6 +753,7 @@ ${detailRow(c, t('label_with'), '{{staff}}')}
   return `${heroBlock(c, t('confirmation_eyebrow'), t('confirmation_title'), t('confirmation_intro'))}
 ${detailsCard(c, '{{treatment}}', rows)}
 ${noteRow(t('reschedule_note'), 24)}
+${portalLinkRow(c, 24)}
 ${signoffBlock(t('confirmation_signoff'))}`;
 }
 

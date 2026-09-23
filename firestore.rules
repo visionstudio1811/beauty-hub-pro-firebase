@@ -445,6 +445,69 @@ service cloud.firestore {
         allow create, update, delete: if false; // Cloud Functions only
       }
 
+      // Package-renewal requests from the client portal. A portal client reads
+      // only her own; staff read all. Every write goes through Cloud Functions
+      // (requestPackageRenewal, createRenewalCheckout, updateRenewalRequestStatus,
+      // payment webhooks).
+      match /renewalRequests/{requestId} {
+        allow read: if (belongsToOrg(orgId) && isReception())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
+        allow create, update, delete: if false; // Cloud Functions only
+      }
+
+      // Online-payment provider settings (Stripe / Square). The config doc holds
+      // non-secret fields only; API keys live in the write-only `secret` subdoc.
+      match /paymentSettings/{docId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if false;
+
+        match /secret/{secretId} {
+          allow read, write: if false; // Cloud Functions only
+        }
+      }
+
+      // Processed payment-webhook event ids (replay protection) — Cloud Functions only.
+      match /paymentEvents/{eventId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow write: if false;
+      }
+
+      // Club membership plans: staff read, portal clients read (to join), admins manage.
+      match /membershipPlans/{planId} {
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
+      // Club memberships + credit ledger: written only by Cloud Functions
+      // (Stripe webhooks, createInvoice/voidInvoice, adjustClubCredit).
+      match /memberships/{membershipId} {
+        allow read: if (belongsToOrg(orgId) && isReception())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
+        allow create, update, delete: if false;
+      }
+
+      match /creditLedger/{entryId} {
+        allow read: if (belongsToOrg(orgId) && isReception())
+                    || (hasClientPortalAccess(orgId) && resource.data.client_id == portalClientId(orgId));
+        allow create, update, delete: if false;
+      }
+
+      // Client feedback ("Help us improve"). Written only by submitClientFeedback so
+      // anonymous submissions can never carry identity; admins read the inbox.
+      match /clientFeedback/{feedbackId} {
+        allow read: if belongsToOrg(orgId) && isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      // Portal offers / announcements: admins manage; portal clients and staff read.
+      match /portalOffers/{offerId} {
+        allow read: if (belongsToOrg(orgId) && isBeautician()) || hasClientPortalAccess(orgId);
+        allow create, update: if belongsToOrg(orgId) && isAdmin();
+        allow delete: if belongsToOrg(orgId) && isAdmin();
+      }
+
       // Rate limiters — Cloud Functions only
       match /rateLimits/{docId} {
         allow read: if false;

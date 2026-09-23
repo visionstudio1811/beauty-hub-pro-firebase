@@ -11,6 +11,7 @@ import {
   orgEmailLanguage,
 } from './lib/orgEmail';
 import { defineStrings, makeT, localeFor } from './lib/i18n';
+import { portalUrlForOrg } from './lib/portalUrl';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -157,6 +158,7 @@ export const packageExpiryNotifications = onSchedule(
               expiry_date: formattedExpiry,
               sessions_remaining: String(purchase.sessions_remaining ?? 0),
               renewal_discount: '',
+              cta_url: `${portalUrlForOrg(orgData)}?renew=1`,
             },
             clientId: purchase.client_id,
             automationKey: 'package_renewal',

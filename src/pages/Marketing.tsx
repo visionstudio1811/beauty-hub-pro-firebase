@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MarketingIntegrations } from '@/components/marketing/MarketingIntegrations';
+import { FeedbackInbox } from '@/components/marketing/FeedbackInbox';
+import { PortalOffersManager } from '@/components/marketing/PortalOffersManager';
 import { CampaignCreationModal } from '@/components/marketing/CampaignCreationModal';
 import { AutomationCreationModal } from '@/components/marketing/AutomationCreationModal';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -541,6 +543,8 @@ const Marketing = () => {
           </Card>
         </div>}
 
+        {activeSection === 'offers' && <PortalOffersManager />}
+        {activeSection === 'feedback' && <FeedbackInbox />}
         {activeSection === 'integrations' && <MarketingIntegrations />}
       </div>
 

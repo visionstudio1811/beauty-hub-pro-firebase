@@ -6,6 +6,7 @@ import { resolveProvider, sendSms, ensureOptOutSuffix, SmsProvider } from './lib
 import { reconfirmFooter } from './lib/appointmentConfirm';
 import { buildAppointmentButtons, injectBeforeBodyEnd } from './lib/appointmentEmailButtons';
 import { loadSecret } from './lib/integrationSecrets';
+import { portalUrlForOrg } from './lib/portalUrl';
 import {
   AppLanguage,
   DEFAULT_LANGUAGE,
@@ -354,6 +355,7 @@ export const appointmentScheduledNotification = onDocumentCreated(
               sender_name: fromName,
               from_email: fromEmail,
               cta_url: '',
+              portal_url: portalUrlForOrg(orgData),
               date: vars.DATE,
               datetime: `${vars.DATE} ${vars.TIME}`,
               treatment: vars.TREATMENT,

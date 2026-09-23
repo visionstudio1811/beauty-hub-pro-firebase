@@ -89,6 +89,7 @@ export const TreatmentManagement: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     price: '',
+    member_price: '',
     duration: '',
     description: '',
     category: '',
@@ -137,7 +138,7 @@ export const TreatmentManagement: React.FC = () => {
 
   const resetForm = () => {
     setFormData({
-      name: '', price: '', duration: '', description: '', category: '', color: '',
+      name: '', price: '', member_price: '', duration: '', description: '', category: '', color: '',
       staff_ids: [],
       buffer_before_minutes: '', buffer_after_minutes: '',
       advance_min_hours: '', advance_max_days: '',
@@ -157,6 +158,7 @@ export const TreatmentManagement: React.FC = () => {
     setFormData({
       name: treatment.name,
       price: treatment.price?.toString() || '',
+      member_price: typeof treatment.member_price === 'number' ? treatment.member_price.toString() : '',
       duration: treatment.duration.toString(),
       description: treatment.description || '',
       category: treatment.category || '',
@@ -188,9 +190,16 @@ export const TreatmentManagement: React.FC = () => {
         return Number.isFinite(n) && n >= 0 ? n : undefined;
       };
 
+      const parsedMemberPrice = parseFloat(formData.member_price);
       const treatmentData = {
         name: formData.name,
         price: formData.price ? parseFloat(formData.price) : undefined,
+        // Blank clears the member price. null (not undefined) so updateDoc
+        // actually removes a previously saved value.
+        member_price:
+          formData.member_price.trim() !== '' && Number.isFinite(parsedMemberPrice) && parsedMemberPrice >= 0
+            ? parsedMemberPrice
+            : null,
         duration: parseInt(formData.duration),
         description: formData.description || undefined,
         category: formData.category || undefined,
@@ -294,6 +303,22 @@ export const TreatmentManagement: React.FC = () => {
                       placeholder={t('treatmentManagement.fields.pricePlaceholder')}
                       className="w-full text-sm"
                     />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="member_price" className="text-sm">{t('treatmentManagement.fields.memberPrice')}</Label>
+                    <Input
+                      id="member_price"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={formData.member_price}
+                      onChange={(e) => setFormData({ ...formData, member_price: e.target.value })}
+                      placeholder={t('treatmentManagement.fields.memberPricePlaceholder')}
+                      className="w-full text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t('treatmentManagement.fields.memberPriceHelp')}
+                    </p>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="duration" className="text-sm">{t('treatmentManagement.fields.duration')}</Label>
@@ -641,6 +666,11 @@ export const TreatmentManagement: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {treatment.price && <Badge variant="secondary" className="text-xs">{formatPrice(treatment.price)}</Badge>}
+                  {typeof treatment.member_price === 'number' && (
+                    <Badge variant="outline" className="text-xs border-amber-300 bg-amber-50 text-amber-800">
+                      {t('treatmentManagement.card.memberPrice', { price: formatPrice(treatment.member_price) })}
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="text-xs">{t('treatmentManagement.card.minutes', { count: treatment.duration })}</Badge>
                   {treatment.category && <Badge variant="outline" className="text-xs">{treatment.category}</Badge>}
                 </div>

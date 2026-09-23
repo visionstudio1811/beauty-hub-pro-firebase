@@ -26,7 +26,8 @@
     "Credit Card": "כרטיס אשראי",
     "Check": "צ'ק",
     "Venmo": "Venmo",
-    "Other": "אחר"
+    "Other": "אחר",
+    "club_credit": "קרדיט מועדון"
   },
   "themes": {
     "classic": { "label": "קלאסי", "tagline": "מינימליסטי בשחור-לבן — על-זמני" },
@@ -292,6 +293,14 @@
       "generatedDesc": "{{number}} מוכנה.",
       "generateFailed": "הפקת החשבונית נכשלה",
       "dailyLimit": "הארגון הגיע למכסת החשבוניות היומית."
+    },
+    "clubCredit": {
+      "balance": "יתרה: {{balance}}",
+      "willDebit": "{{total}} ינוכו מיתרת קרדיט המועדון של הלקוח.",
+      "insufficient": "יתרת קרדיט המועדון ({{balance}}) נמוכה מסכום החשבונית ({{total}}). בחרו אמצעי תשלום אחר או הקטינו את הסכום.",
+      "insufficientShort": "אין מספיק קרדיט מועדון",
+      "memberPriceTag": "מחיר חברים",
+      "memberPriceHint": "חברים: {{price}}"
     },
     "itemFallback": "פריט",
     "businessFallback": "עסק"

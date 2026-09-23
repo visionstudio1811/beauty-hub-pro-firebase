@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import { loadSecret } from './integrationSecrets';
+import { portalUrlForOrg } from './portalUrl';
 import {
   AppLanguage,
   DEFAULT_LANGUAGE,
@@ -37,7 +38,8 @@ export type AutomationKey =
   | 'inactive'
   | 'package_renewal'
   | 'appointment_reminder'
-  | 'appointment_reminder_sms';
+  | 'appointment_reminder_sms'
+  | 'low_sessions';
 
 export interface AutomationConfig {
   is_active?: boolean;
@@ -50,6 +52,8 @@ export interface AutomationConfig {
   sms_enabled?: boolean;
   /** Reminder SMS body (supports [NAME]/[DATE]/[TIME]/… tokens). */
   sms_body?: string;
+  /** Low-sessions nudge: fire when an active purchase drops to this many sessions or fewer (default 2). */
+  sessions_threshold?: number;
 }
 
 export interface OrgEmailContext {
@@ -127,6 +131,10 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
+// `message` is escaped by sendOrgEmail and then given real <br> line breaks, so it
+// must not be escaped a second time here. Every other value is escaped on injection.
+const RAW_HTML_TEMPLATE_KEYS = new Set(['message']);
+
 /** Renders a Handlebars-lite template — supports {{var}}, {{#if x}}A{{/if}}, {{#if x}}A{{else}}B{{/if}}. */
 export function renderTemplate(html: string, variables: Record<string, string>): string {
   let rendered = html;
@@ -142,7 +150,8 @@ export function renderTemplate(html: string, variables: Record<string, string>):
 
   for (const [key, value] of Object.entries(variables)) {
     const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    rendered = rendered.replace(regex, escapeHtml(String(value ?? '')));
+    const str = String(value ?? '');
+    rendered = rendered.replace(regex, RAW_HTML_TEMPLATE_KEYS.has(key) ? str : escapeHtml(str));
   }
 
   rendered = rendered.replace(/\{\{[^}]*\}\}/g, '');
@@ -221,10 +230,14 @@ export async function sendOrgEmail(opts: SendOrgEmailOptions): Promise<{ message
     sender_name: ctx.fromName,
     from_email: ctx.fromEmail,
     cta_url: '',
+    portal_url: portalUrlForOrg(ctx.orgData),
     date: new Date().toLocaleDateString(locale, { timeZone: orgTimezone }),
     datetime: new Date().toLocaleString(locale, { timeZone: orgTimezone }),
     ...Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, String(v ?? '')])),
   };
+
+  // Set after the `variables` spread so callers can't pass raw HTML as `message`.
+  mergeVars.message = escapeHtml(String(variables.message ?? '')).replace(/\n/g, '<br>');
 
   let html = renderTemplate(templateHtml, mergeVars);
   if (appendHtml) {

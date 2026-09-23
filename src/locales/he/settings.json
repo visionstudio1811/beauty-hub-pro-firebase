@@ -63,6 +63,14 @@
     "agreements": {
       "title": "תבניות הסכמי רכישה",
       "description": "תבניות שנשלחות אוטומטית לאחר שיוך חבילה ללקוח. בונים את התבנית פעם אחת עם בלוקים של חבילה (שם החבילה, מחיר, מפגשים, תאריך רכישה, תוקף) ובלוקים רגילים (טקסט, חתימה וכו׳) – שדות הרכישה והלקוח מתמלאים אוטומטית מהרכישה המקושרת."
+    },
+    "loginBranding": {
+      "title": "מיתוג מסך הכניסה",
+      "description": "עצבו את מסך הכניסה שהצוות והלקוחות רואים בדומיין שלכם — תמונת רקע, טקסט קבלת פנים וצבע הדגשה."
+    },
+    "club": {
+      "title": "מועדון חברות",
+      "description": "תוכניות מנוי חודשיות: הלקוחות משלמים תשלום קבוע ומקבלים קרדיט לשימוש בטיפולים ובמוצרים."
     }
   },
   "mobileTabs": {
@@ -139,6 +147,55 @@
       "removedDescription": "הלוגו הוסר בהצלחה.",
       "removeFailedTitle": "הסרת הלוגו נכשלה",
       "removeFailedDescription": "נסו שוב."
+    }
+  },
+  "loginBranding": {
+    "domainNote": "מוצג בדומיין ה-CRM שלכם (למשל crm.yourbrand.com) — גם במסך הכניסה לצוות וגם בפורטל הלקוחות. בכתובת app.beautyhubpro.com נשאר המסך הסטנדרטי.",
+    "loading": "טוען את מיתוג מסך הכניסה...",
+    "hero": {
+      "label": "תמונת רקע",
+      "hint": "תמונה רחבה, לפחות 1600×1000 פיקסלים. JPG, PNG או WebP עד 5MB.",
+      "dragAndDrop": "גררו לכאן תמונת רקע",
+      "browseFiles": "בחירת קובץ",
+      "change": "החלפת תמונה",
+      "remove": "הסרת תמונה",
+      "uploading": "מעלה...",
+      "alt": "תמונת הרקע של מסך הכניסה",
+      "usingDefault": "עדיין אין תמונה מותאמת — עד שתעלו אחת תוצג תמונת הספא שבברירת המחדל."
+    },
+    "fields": {
+      "title": "כותרת קבלת הפנים",
+      "subtitle": "כותרת משנה",
+      "accent": "צבע הדגשה",
+      "accentHint": "מוחל על כפתור ההתחברות. השאירו ריק כדי לשמור על ברירת המחדל.",
+      "accentPlaceholder": "#C9A24E",
+      "pickColor": "בחירת צבע",
+      "clearAccent": "ברירת מחדל"
+    },
+    "preview": {
+      "label": "תצוגה מקדימה",
+      "hint": "כך ייראה מסך הכניסה בדומיין שלכם."
+    },
+    "save": "שמירת שינויים",
+    "saving": "שומר...",
+    "toasts": {
+      "loadFailed": "לא ניתן לטעון את מיתוג מסך הכניסה.",
+      "invalidTypeTitle": "סוג קובץ לא נתמך",
+      "invalidTypeDescription": "יש לבחור קובץ תמונה (JPG, PNG, WebP).",
+      "tooLargeTitle": "הקובץ גדול מדי",
+      "tooLargeDescription": "יש לבחור תמונה בגודל של עד 5MB.",
+      "noOrgTitle": "אין ארגון פעיל",
+      "noOrgDescription": "לא ניתן לשמור מיתוג ללא ארגון פעיל.",
+      "uploadedTitle": "התמונה הועלתה",
+      "uploadedDescription": "לחצו על שמירת שינויים כדי לפרסם אותה במסך הכניסה.",
+      "uploadFailedTitle": "ההעלאה נכשלה",
+      "uploadFailedDescription": "לא ניתן להעלות את התמונה. נסו שוב.",
+      "invalidAccentTitle": "צבע לא תקין",
+      "invalidAccentDescription": "יש להזין צבע בפורמט hex, למשל ‎#C9A24E.",
+      "savedTitle": "מיתוג מסך הכניסה נשמר",
+      "savedDescription": "מסך הכניסה המותאם שלכם פעיל כעת בדומיין שלכם.",
+      "saveFailedTitle": "השמירה נכשלה",
+      "saveFailedDescription": "לא ניתן לשמור את מיתוג מסך הכניסה. נסו שוב."
     }
   },
   "schedulerLinks": {

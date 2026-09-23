@@ -7,7 +7,7 @@ import {
   LogOut, ChevronRight, ChevronDown,
   Package, ShoppingBag, Tag, Clock, FileSignature,
   ClipboardList, Receipt, FileText, Zap, TrendingUp, Sparkles,
-  CalendarDays, Link as LinkIcon,
+  CalendarDays, Link as LinkIcon, Palette, CreditCard,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -50,11 +50,16 @@ const SETTINGS_SECTIONS = [
   { id: 'invoice-settings', labelKey: 'sidebar.settingsSections.invoiceSettings', icon: Receipt },
   { id: 'invoice-history',  labelKey: 'sidebar.settingsSections.invoiceHistory',  icon: FileText },
   { id: 'acuity',           labelKey: 'sidebar.settingsSections.acuity',          icon: Zap },
+  { id: 'payments',         labelKey: 'sidebar.settingsSections.payments',        icon: CreditCard },
+  { id: 'club',             labelKey: 'sidebar.settingsSections.club',            icon: Sparkles },
+  { id: 'login-screen',     labelKey: 'sidebar.settingsSections.loginScreen',     icon: Palette },
 ];
 
 const MARKETING_SECTIONS = [
   { id: 'overview',      labelKey: 'sidebar.marketingSections.overview',     icon: LayoutDashboard },
   { id: 'campaigns',     labelKey: 'sidebar.marketingSections.campaigns',    icon: Mail },
+  { id: 'offers',        labelKey: 'sidebar.marketingSections.offers',       icon: Tag },
+  { id: 'feedback',      labelKey: 'sidebar.marketingSections.feedback',     icon: TrendingUp },
   { id: 'integrations',  labelKey: 'sidebar.marketingSections.integrations', icon: Settings },
 ];
 

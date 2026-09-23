@@ -1,0 +1,107 @@
+{
+  "title": "תשלומים מקוונים",
+  "description": "אפשרו ללקוחות לחדש חבילות באופן מקוון מפורטל הלקוחות. חברו את Stripe או Square, ואז הדביקו את כתובת ה-Webhook בלוח הבקרה של הספק.",
+  "badges": {
+    "enabled": "פעיל",
+    "disabled": "כבוי"
+  },
+  "enable": {
+    "label": "הפעלת תשלומים מקוונים",
+    "hint": "כשהאפשרות פעילה, לקוחות יכולים לשלם באופן מקוון כדי לחדש חבילה מפורטל הלקוחות. רכישה חדשה נוצרת אוטומטית כשהתשלום מצליח."
+  },
+  "provider": {
+    "label": "ספק",
+    "placeholder": "בחרו ספק",
+    "stripe": "Stripe",
+    "square": "Square"
+  },
+  "mode": {
+    "label": "מצב",
+    "test": "בדיקה",
+    "live": "חי",
+    "hint": "מצב בדיקה משתמש במפתחות הבדיקה של Stripe או בסביבת ה-Sandbox של Square. עברו למצב חי רק עם מפתחות חיים."
+  },
+  "stripe": {
+    "title": "הגדרות Stripe",
+    "publishableKey": "מפתח ציבורי (Publishable key)",
+    "publishableKeyPlaceholder": "pk_live_... או pk_test_...",
+    "secretKey": "מפתח סודי (Secret key)",
+    "secretKeyPlaceholder": "sk_live_... או sk_test_...",
+    "webhookSecret": "סוד חתימת ה-Webhook",
+    "webhookSecretPlaceholder": "whsec_...",
+    "dashboard": "לוח הבקרה של Stripe"
+  },
+  "square": {
+    "title": "הגדרות Square",
+    "environment": "סביבה",
+    "sandbox": "Sandbox",
+    "production": "Production",
+    "locationId": "מזהה מיקום (Location ID)",
+    "locationIdPlaceholder": "L1ABC23DEF456",
+    "accessToken": "Access token",
+    "accessTokenPlaceholder": "EAAA...",
+    "webhookSignatureKey": "מפתח חתימת ה-Webhook",
+    "webhookSignatureKeyPlaceholder": "הדביקו את מפתח החתימה ממנוי ה-Webhook שלכם ב-Square",
+    "dashboard": "לוח המפתחים של Square"
+  },
+  "secrets": {
+    "savedPlaceholder": "••••{{last4}} (שמור)",
+    "savedNoLast4": "•••• (שמור)",
+    "leaveBlank": "השאירו ריק כדי לשמור על הערך הקיים.",
+    "writeOnly": "הסודות נשמרים לכתיבה בלבד ולא יוצגו שוב."
+  },
+  "webhooks": {
+    "title": "כתובות Webhook",
+    "description": "כל ספק מעדכן את המערכת כשתשלום מושלם. העתיקו את הכתובת של הספק שלכם ללוח הבקרה שלו.",
+    "stripeLabel": "כתובת ה-Webhook של Stripe",
+    "stripeHint": "הדביקו כתובת זו בלוח הבקרה של Stripe תחת Developers ← Webhooks, והירשמו לאירועים checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed ו-checkout.session.expired. לאחר מכן שמרו למעלה את סוד החתימה.",
+    "squareLabel": "כתובת ה-Webhook של Square",
+    "squareHint": "הדביקו כתובת זו כ-Notification URL של מנוי Webhook בלוח המפתחים של Square, הירשמו לאירוע payment.updated, ואז שמרו למעלה את מפתח החתימה של המנוי.",
+    "copy": "העתקה",
+    "copied": "הועתק",
+    "copiedDescription": "כתובת ה-Webhook הועתקה ללוח.",
+    "copyFailed": "ההעתקה נכשלה. סמנו את הכתובת והעתיקו אותה ידנית."
+  },
+  "actions": {
+    "save": "שמירה",
+    "saving": "שומר...",
+    "test": "בדיקת חיבור",
+    "testing": "בודק..."
+  },
+  "toasts": {
+    "loadFailed": "לא ניתן לטעון את הגדרות התשלום",
+    "noOrg": "לא נבחר ארגון",
+    "selectProvider": "בחרו ספק תשלומים לפני הפעלת תשלומים מקוונים",
+    "stripeSecretRequired": "שמרו מפתח סודי של Stripe לפני הפעלת תשלומים מקוונים",
+    "squareTokenRequired": "שמרו Access token של Square לפני הפעלת תשלומים מקוונים",
+    "squareLocationRequired": "הזינו את מזהה המיקום של Square לפני הפעלת תשלומים מקוונים",
+    "saved": "הגדרות התשלום נשמרו",
+    "savedDescription": "הריצו בדיקת חיבור כדי לוודא שהמפתחות תקינים.",
+    "saveFailed": "לא ניתן לשמור את הגדרות התשלום",
+    "testOk": "החיבור הצליח",
+    "testFailed": "החיבור נכשל",
+    "testFailedGeneric": "הספק דחה את פרטי הגישה"
+  },
+  "test": {
+    "stripeSummary": "Stripe מחובר (מצב {{mode}}). יתרה זמינה: {{balance}}",
+    "squareSummary": "המיקום \"{{name}}\" ב-Square ({{status}}, {{currency}}) נמצא בסביבת {{environment}}",
+    "liveMode": "חי",
+    "testMode": "בדיקה",
+    "noBalance": "אין"
+  },
+  "setup": {
+    "title": "הגדרה",
+    "stripe": {
+      "step1": "פתחו את חשבון Stripe שלכם והעתיקו את המפתח הציבורי והמפתח הסודי מ-Developers ← API keys.",
+      "step2": "הוסיפו נקודת קצה ל-Webhook עם כתובת ה-Webhook של Stripe שלמעלה ובחרו את אירועי checkout.session.",
+      "step3": "העתיקו את סוד החתימה של נקודת הקצה (whsec_...) לשדה סוד חתימת ה-Webhook.",
+      "step4": "שמרו, הריצו בדיקת חיבור, ואז הפעילו תשלומים מקוונים."
+    },
+    "square": {
+      "step1": "בלוח המפתחים של Square צרו אפליקציה והעתיקו את ה-Access token שלה (Sandbox או Production).",
+      "step2": "העתיקו את מזהה המיקום של המיקום שאמור לקבל את התשלומים.",
+      "step3": "הוסיפו מנוי Webhook עם כתובת ה-Webhook של Square שלמעלה, הירשמו ל-payment.updated והעתיקו את מפתח החתימה שלו.",
+      "step4": "שמרו, הריצו בדיקת חיבור, ואז הפעילו תשלומים מקוונים."
+    }
+  }
+}

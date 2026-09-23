@@ -94,11 +94,52 @@ export const voidInvoice = onCall(async (request) => {
   }
 
   const voidedAt = admin.firestore.Timestamp.now();
-  await invoiceRef.update({
+  const voidFields = {
     status: 'void',
     voided_at: voidedAt,
     voided_by: request.auth.uid,
-  });
+  };
+
+  const creditAppliedCents = Number(invoice.club_credit_applied_cents ?? 0);
+  if (invoice.payment_method === 'club_credit' && creditAppliedCents > 0 && invoice.client_id) {
+    // Refund the club credit atomically with the void; the ledger id makes it idempotent.
+    const orgRef = db.collection('organizations').doc(organizationId);
+    const clientRef = orgRef.collection('clients').doc(String(invoice.client_id));
+    const entryRef = orgRef.collection('creditLedger').doc(`void_${invoiceId}`);
+    const uid = request.auth.uid;
+    await db.runTransaction(async (tx) => {
+      const [invSnap, clientSnap, entrySnap] = await Promise.all([
+        tx.get(invoiceRef), tx.get(clientRef), tx.get(entryRef),
+      ]);
+      if (invSnap.data()?.status === 'void') return;
+      tx.update(invoiceRef, voidFields);
+      if (entrySnap.exists || !clientSnap.exists) return;
+      const amount = creditAppliedCents / 100;
+      const balanceAfter = Math.round(((Number(clientSnap.data()?.club_credit_balance ?? 0)) + amount) * 100) / 100;
+      const currency = String(invoice.currency || clientSnap.data()?.club_credit_currency || 'USD');
+      tx.set(entryRef, {
+        organization_id: organizationId,
+        client_id: String(invoice.client_id),
+        membership_id: null,
+        type: 'refund',
+        amount,
+        balance_after: balanceAfter,
+        currency,
+        description: `Refund: voided invoice ${invoice.invoice_number ?? invoiceId}`,
+        ref_type: 'invoice',
+        ref_id: invoiceId,
+        created_by: uid,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.update(clientRef, {
+        club_credit_balance: balanceAfter,
+        club_credit_currency: currency,
+        club_credit_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+  } else {
+    await invoiceRef.update(voidFields);
+  }
 
   const updated = await invoiceRef.get();
   return { invoice: { id: invoiceRef.id, ...updated.data() } };

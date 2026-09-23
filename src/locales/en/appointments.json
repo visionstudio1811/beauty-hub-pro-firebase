@@ -191,6 +191,45 @@
     "bookAppointment": "Book appointment",
     "rejectRequest": "Reject request"
   },
+  "renewalRequests": {
+    "title": "Package renewal requests",
+    "tryAgain": "Please try again.",
+    "loadFailed": "Renewal requests failed to load",
+    "updateFailed": "Could not update request",
+    "clientFallback": "Client",
+    "packageFallback": "Package",
+    "status": {
+      "pending": "Renewal requested",
+      "pendingPayment": "Awaiting online payment",
+      "paid": "Paid online — new package created"
+    },
+    "sessionsAtRequest": "{{remaining}} of {{total}} sessions left at request",
+    "validUntil": "Package valid until {{date}}",
+    "notes": "Notes: {{notes}}",
+    "requested": "Requested {{relative}} ({{date}})",
+    "paidLine": "Paid {{amount}} via {{provider}} · {{date}}",
+    "paidLineNoProvider": "Paid {{amount}} · {{date}}",
+    "invoiceHint": "You can issue the invoice from the client's card.",
+    "awaitingPaymentHint": "The client is completing payment online. This request updates automatically.",
+    "markContacted": "Mark contacted",
+    "markHandled": "Mark handled",
+    "dismiss": "Dismiss",
+    "contactedTitle": "Marked as contacted",
+    "contactedDescription": "The request was removed from this list.",
+    "handledTitle": "Marked as handled",
+    "handledDescription": "The paid renewal was removed from this list.",
+    "dismissedTitle": "Request dismissed",
+    "dismissedDescription": "The request was removed from this list.",
+    "confirmDismissTitle": "Dismiss renewal request?",
+    "confirmDismissDescription": "Dismiss the renewal request from {{client}} for {{packageName}}? It will be removed from this list.",
+    "thisClient": "this client",
+    "thePackage": "the package",
+    "dismissRequest": "Dismiss request",
+    "providers": {
+      "stripe": "Stripe",
+      "square": "Square"
+    }
+  },
   "calendar": {
     "views": {
       "day": "Day",

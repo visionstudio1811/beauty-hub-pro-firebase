@@ -191,6 +191,45 @@
     "bookAppointment": "קביעת תור",
     "rejectRequest": "דחיית הבקשה"
   },
+  "renewalRequests": {
+    "title": "בקשות לחידוש חבילה",
+    "tryAgain": "נסו שוב.",
+    "loadFailed": "טעינת בקשות החידוש נכשלה",
+    "updateFailed": "לא ניתן לעדכן את הבקשה",
+    "clientFallback": "לקוח/ה",
+    "packageFallback": "חבילה",
+    "status": {
+      "pending": "התקבלה בקשת חידוש",
+      "pendingPayment": "ממתין לתשלום מקוון",
+      "paid": "שולם אונליין — נוצרה חבילה חדשה"
+    },
+    "sessionsAtRequest": "בעת הבקשה נותרו {{remaining}} מתוך {{total}} מפגשים",
+    "validUntil": "תוקף החבילה עד {{date}}",
+    "notes": "הערות: {{notes}}",
+    "requested": "הבקשה נשלחה {{relative}} ({{date}})",
+    "paidLine": "שולם {{amount}} דרך {{provider}} · {{date}}",
+    "paidLineNoProvider": "שולם {{amount}} · {{date}}",
+    "invoiceHint": "ניתן להפיק את החשבונית מכרטיס הלקוח/ה.",
+    "awaitingPaymentHint": "הלקוח/ה משלים/ה את התשלום אונליין. הבקשה תתעדכן אוטומטית.",
+    "markContacted": "סימון שנוצר קשר",
+    "markHandled": "סימון כטופל",
+    "dismiss": "דחייה",
+    "contactedTitle": "סומן שנוצר קשר",
+    "contactedDescription": "הבקשה הוסרה מהרשימה.",
+    "handledTitle": "סומן כטופל",
+    "handledDescription": "בקשת החידוש ששולמה הוסרה מהרשימה.",
+    "dismissedTitle": "הבקשה נדחתה",
+    "dismissedDescription": "הבקשה הוסרה מהרשימה.",
+    "confirmDismissTitle": "לדחות את בקשת החידוש?",
+    "confirmDismissDescription": "לדחות את בקשת החידוש של {{client}} לחבילה {{packageName}}? הבקשה תוסר מהרשימה.",
+    "thisClient": "הלקוח/ה",
+    "thePackage": "החבילה",
+    "dismissRequest": "דחיית הבקשה",
+    "providers": {
+      "stripe": "Stripe",
+      "square": "Square"
+    }
+  },
   "calendar": {
     "views": {
       "day": "יום",

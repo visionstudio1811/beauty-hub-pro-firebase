@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
-import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download, CalendarIcon } from 'lucide-react';
+import { User, Package, ShoppingBag, Calendar, Plus, Edit, Trash2, MessageSquare, Phone, Mail, Settings, FileSignature, History, ClipboardList, Receipt, Download, CalendarIcon, Link2, CheckCircle2, Crown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation, Trans } from 'react-i18next';
 import i18n from '@/i18n';
@@ -52,6 +53,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ClientWaiversTab } from '@/components/waivers/ClientWaiversTab';
 import { MembershipHistoryTab } from '@/components/clients/MembershipHistoryTab';
+import { ClubMembershipPanel } from '@/components/clients/ClubMembershipPanel';
 import { buildInvoicePdf } from '@/lib/invoicePdf';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useSupabaseTreatments } from '@/hooks/useSupabaseTreatments';
@@ -134,6 +136,19 @@ interface EnhancedClientDetailsModalProps {
   // Called after a save originating inside this modal (e.g. Log Past
   // Treatment) so the parent page can refresh aggregate stats too.
   onAppointmentSaved?: () => void;
+}
+
+const PORTAL_HOST_FIELDS = ['crm_domain', 'custom_domain', 'domain'] as const;
+
+function portalUrlFromOrg(org: Record<string, unknown>): string | null {
+  const hosts: unknown[] = [
+    ...PORTAL_HOST_FIELDS.map((field) => org[field]),
+    Array.isArray(org.portal_domains) ? org.portal_domains[0] : undefined,
+  ];
+  const host = hosts.find((h): h is string => typeof h === 'string' && h.trim() !== '');
+  if (host) return `https://${host.trim().toLowerCase()}/client`;
+  const slug = typeof org.slug === 'string' ? org.slug.trim() : '';
+  return slug ? `https://beautyhubpro.com/client/${encodeURIComponent(slug)}` : null;
 }
 
 export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProps> = ({
@@ -232,6 +247,8 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     | null
   >(null);
   const [productInvoiceOpen, setProductInvoiceOpen] = useState(false);
+  const [sendingPortalLink, setSendingPortalLink] = useState<'sms' | 'email' | null>(null);
+  const [portalLinkedAt, setPortalLinkedAt] = useState<unknown>(null);
 
   // Update form data when client changes
   useEffect(() => {
@@ -264,6 +281,25 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
       refetchProducts();
     }
   }, [isOpen, client?.id, refetchPackages, refetchProducts]);
+
+  // Both client-list mappers whitelist fields, so portal_linked_at only
+  // arrives on the prop once they pass it through; until then read the doc.
+  useEffect(() => {
+    if (!isOpen || !client || !currentOrganization?.id) return;
+    const fromProp = (client as { portal_linked_at?: unknown }).portal_linked_at;
+    setPortalLinkedAt(fromProp ?? null);
+    if (fromProp) return;
+    let cancelled = false;
+    getDoc(doc(db, 'organizations', currentOrganization.id, 'clients', client.id))
+      .then((snap) => {
+        if (!cancelled) setPortalLinkedAt(snap.data()?.portal_linked_at ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, client?.id, currentOrganization?.id]);
 
   // Refetch lists whenever the parent signals an external save (e.g. a
   // booking from AppointmentFormModal). Without this the appointments tab
@@ -807,6 +843,71 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     }
   };
 
+  const resolvePortalUrl = async (): Promise<string | null> => {
+    if (!currentOrganization) return null;
+    // docToOrganization drops the white-label domain fields, so merge the raw org doc on top.
+    let orgDoc: Record<string, unknown> = {};
+    try {
+      orgDoc = (await getDoc(doc(db, 'organizations', currentOrganization.id))).data() ?? {};
+    } catch {
+      orgDoc = {};
+    }
+    return portalUrlFromOrg({ ...(currentOrganization as unknown as Record<string, unknown>), ...orgDoc });
+  };
+
+  const handleSendPortalLink = async (channel: 'sms' | 'email') => {
+    if (!client || !currentOrganization?.id) return;
+    const to = channel === 'sms' ? client.phone : client.email;
+    if (!to) return;
+    setSendingPortalLink(channel);
+    try {
+      const url = await resolvePortalUrl();
+      if (!url) {
+        toast({
+          title: t('enhanced.toasts.portalLinkUnavailable'),
+          description: t('enhanced.toasts.portalLinkUnavailableDescription'),
+          variant: 'destructive',
+        });
+        return;
+      }
+      const clientT = i18n.getFixedT(currentOrganization.language ?? 'en', 'clientDetails');
+      const vars = {
+        name: (client.name || '').split(' ')[0] || clientT('enhanced.portalLink.greetingFallback'),
+        org: currentOrganization.name,
+        url,
+      };
+      if (channel === 'sms') {
+        await httpsCallable(functions, 'sendClientSms')({
+          to,
+          message: clientT('enhanced.portalLink.smsBody', vars),
+          clientId: client.id,
+          organizationId: currentOrganization.id,
+        });
+      } else {
+        await httpsCallable(functions, 'sendClientEmail')({
+          to,
+          subject: clientT('enhanced.portalLink.subject', vars),
+          message: clientT('enhanced.portalLink.emailBody', vars),
+          clientId: client.id,
+          organizationId: currentOrganization.id,
+          variables: { cta_url: url },
+        });
+      }
+      toast({
+        title: t('enhanced.toasts.portalLinkSent'),
+        description: t('enhanced.toasts.portalLinkSentDescription', { to }),
+      });
+    } catch (err: any) {
+      toast({
+        title: t('enhanced.toasts.sendFailed'),
+        description: err?.message ?? t('enhanced.toasts.portalLinkFailedDescription'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingPortalLink(null);
+    }
+  };
+
   const formatCents = (cents: number, currency: string) => {
     try {
       return new Intl.NumberFormat(locale, {
@@ -838,6 +939,7 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
     { value: 'appointments', label: t('enhanced.tabs.appointments', { count: appointments.length }), icon: Calendar },
     { value: 'packages', label: t('enhanced.tabs.packages', { count: purchases.length }), icon: Package },
     { value: 'membership', label: t('enhanced.tabs.membership'), icon: History },
+    { value: 'club', label: t('club:panel.tabLabel'), icon: Crown },
     { value: 'actions', label: t('enhanced.tabs.actions'), icon: Settings },
     { value: 'documents', label: t('enhanced.tabs.waivers'), icon: FileSignature },
     { value: 'intake', label: t('enhanced.tabs.intake'), icon: ClipboardList },
@@ -858,6 +960,12 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
             <DialogTitle className="flex items-center space-x-2 rtl:space-x-reverse">
               <User className="h-5 w-5" />
               <span>{isEditing ? t('enhanced.title.edit') : t('enhanced.title.view')}</span>
+              {Boolean(portalLinkedAt) && (
+                <Badge variant="outline" className="gap-1 font-normal border-emerald-300 bg-emerald-50 text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {t('enhanced.details.portalLinked')}
+                </Badge>
+              )}
             </DialogTitle>
             <DialogDescription>
               {isEditing ? t('enhanced.description.edit') : t('enhanced.description.view')}
@@ -1493,6 +1601,10 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                 <MembershipHistoryTab client={client} />
               )}
 
+              {activeTab === 'club' && (
+                <ClubMembershipPanel client={client} />
+              )}
+
               {activeTab === 'actions' && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1549,6 +1661,27 @@ export const EnhancedClientDetailsModal: React.FC<EnhancedClientDetailsModalProp
                         </Button>
                       )}
                       
+                      {(client.phone || client.email) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button className="w-full" size="lg" variant="outline" disabled={sendingPortalLink !== null}>
+                              <Link2 className="h-4 w-4 me-2" />
+                              {sendingPortalLink ? t('enhanced.actions.portalLink.sending') : t('enhanced.actions.portalLink.button')}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                            <DropdownMenuItem disabled={!client.phone} onSelect={() => handleSendPortalLink('sms')}>
+                              <MessageSquare className="h-4 w-4 me-2" />
+                              <span className="truncate">{t('enhanced.actions.portalLink.viaSms')} <span dir="ltr">{client.phone}</span></span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={!client.email} onSelect={() => handleSendPortalLink('email')}>
+                              <Mail className="h-4 w-4 me-2" />
+                              <span className="truncate">{t('enhanced.actions.portalLink.viaEmail')} <span dir="ltr">{client.email}</span></span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="lg" className="w-full">

@@ -17,4 +17,5 @@ export interface PackageFormData {
   product_items: ProductItem[];
   price: number;
   validity_months: number;
+  benefits?: string[];
 }

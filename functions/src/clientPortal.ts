@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
+import { consumeRateLimit } from './rateLimit';
 import {
   formatDateForDisplay,
   formatTimeForDisplay,
@@ -72,6 +73,12 @@ const STRINGS = defineStrings({
     err_time_format: 'Time must be HH:mm',
     err_field_required: '{{field}} is required',
     err_action_invalid: 'action must be approve or reject',
+    // Renewal requests
+    err_package_not_found: 'Package not found',
+    err_renewal_pending_exists: 'A renewal request for this package is already open',
+    err_renewal_not_found: 'Renewal request not found',
+    err_renewal_already_reviewed: 'Renewal request has already been handled',
+    err_renewal_action_invalid: 'action must be contacted or dismissed',
   },
   he: {
     visitor_fallback: 'לקוח/ה יקר/ה',
@@ -108,6 +115,11 @@ const STRINGS = defineStrings({
     err_time_format: 'השעה חייבת להיות בפורמט HH:mm',
     err_field_required: 'השדה {{field}} הוא שדה חובה',
     err_action_invalid: 'הפעולה חייבת להיות approve או reject',
+    err_package_not_found: 'החבילה לא נמצאה',
+    err_renewal_pending_exists: 'כבר קיימת בקשת חידוש פתוחה לחבילה זו',
+    err_renewal_not_found: 'בקשת החידוש לא נמצאה',
+    err_renewal_already_reviewed: 'בקשת החידוש כבר טופלה',
+    err_renewal_action_invalid: 'הפעולה חייבת להיות contacted או dismissed',
   },
 });
 
@@ -512,10 +524,19 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
   }
 
   const org = snap.docs[0].data();
-  // Portal users can't read config/businessInfo under the rules, so surface the
-  // org's invoice currency here for add-on price display (same source createInvoice uses).
-  const businessInfoSnap = await snap.docs[0].ref.collection('config').doc('businessInfo').get();
+  // Portal users can't read config/businessInfo or paymentSettings under the rules,
+  // so surface the invoice currency and the online-payments toggle here.
+  const [businessInfoSnap, paymentSnap] = await Promise.all([
+    snap.docs[0].ref.collection('config').doc('businessInfo').get(),
+    snap.docs[0].ref.collection('paymentSettings').doc('config').get(),
+  ]);
   const businessCurrency = businessInfoSnap.data()?.currency;
+  const payment = paymentSnap.data() ?? {};
+  const paymentProvider = payment.provider === 'stripe' || payment.provider === 'square' ? payment.provider : null;
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const branding = org.login_branding && typeof org.login_branding === 'object'
+    ? (org.login_branding as Record<string, unknown>)
+    : null;
   return {
     organization: {
       id: snap.docs[0].id,
@@ -529,6 +550,18 @@ export const getClientPortalOrg = onCall({ enforceAppCheck: false }, async (requ
       // Portal renders in the org's language (admins set it in Settings).
       language: normalizeLanguage(org.language),
       currency: typeof businessCurrency === 'string' && businessCurrency.trim() ? businessCurrency.trim() : 'USD',
+      login_branding: branding
+        ? {
+            hero_url: str(branding.hero_url),
+            title: str(branding.title),
+            subtitle: str(branding.subtitle),
+            accent: str(branding.accent),
+          }
+        : null,
+      payments: {
+        enabled: payment.is_enabled === true && paymentProvider !== null,
+        provider: paymentProvider,
+      },
     },
   };
 });
@@ -649,6 +682,8 @@ export const linkClientPortalAccount = onCall(async (request) => {
       updated_at: now,
     }, { merge: true });
 
+  await clientDoc.ref.set({ portal_linked_at: now }, { merge: true });
+
   return {
     access: {
       organization_id: orgId,
@@ -765,6 +800,129 @@ export const createClientBookingRequest = onCall(async (request) => {
   });
 
   return { bookingRequestId: requestRef.id };
+});
+
+const OPEN_RENEWAL_STATUSES = ['pending', 'pending_payment', 'paid'];
+
+export const requestPackageRenewal = onCall(async (request) => {
+  if (!request.auth) throw UNAUTHENTICATED();
+  const t = await resolveT(request.data?.organizationId);
+
+  const orgId = assertString(request.data?.organizationId, 'organizationId', t);
+  const purchaseId = assertString(request.data?.purchaseId, 'purchaseId', t);
+  const notes = typeof request.data?.notes === 'string'
+    ? request.data.notes.trim().slice(0, 1000)
+    : '';
+
+  const access = await getPortalAccess(request.auth.uid, orgId, t);
+  const orgRef = db.collection('organizations').doc(orgId);
+  const [clientSnap, purchaseSnap, businessInfoSnap] = await Promise.all([
+    orgRef.collection('clients').doc(access.client_id).get(),
+    orgRef.collection('purchases').doc(purchaseId).get(),
+    orgRef.collection('config').doc('businessInfo').get(),
+  ]);
+
+  if (!clientSnap.exists) {
+    throw new HttpsError('not-found', t('err_client_not_found'));
+  }
+  if (!purchaseSnap.exists) {
+    throw new HttpsError('not-found', t('err_purchase_not_found'));
+  }
+  const purchase = purchaseSnap.data()!;
+  if (purchase.client_id !== access.client_id) {
+    throw new HttpsError('permission-denied', t('err_purchase_not_owned'));
+  }
+
+  const pkgSnap = purchase.package_id
+    ? await orgRef.collection('packages').doc(purchase.package_id).get()
+    : null;
+  const pkg = pkgSnap?.exists ? pkgSnap.data()! : null;
+
+  const existing = await orgRef.collection('renewalRequests')
+    .where('purchase_id', '==', purchaseId)
+    .get();
+  if (existing.docs.some((d) => OPEN_RENEWAL_STATUSES.includes(String(d.data().status)))) {
+    throw new HttpsError('failed-precondition', t('err_renewal_pending_exists'));
+  }
+
+  await consumeRateLimit(orgId, 'requestPackageRenewal', 200);
+
+  const slots = Array.isArray(purchase.sessions_by_treatment)
+    ? purchase.sessions_by_treatment as Array<{ total?: number }>
+    : [];
+  const slotTotal = slots.reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+  const currency = businessInfoSnap.data()?.currency;
+  const client = clientSnap.data()!;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  const requestRef = await orgRef.collection('renewalRequests').add({
+    organization_id: orgId,
+    client_id: access.client_id,
+    client_name: client.name ?? '',
+    client_email: client.email ?? '',
+    client_phone: client.phone ?? '',
+    purchase_id: purchaseId,
+    package_id: purchase.package_id ?? null,
+    package_name: pkg?.name ?? '',
+    package_price: Number(pkg?.price ?? purchase.total_amount ?? 0),
+    currency: typeof currency === 'string' && currency.trim() ? currency.trim().toUpperCase() : 'USD',
+    sessions_remaining_at_request: Number(purchase.sessions_remaining ?? 0),
+    total_sessions_at_request: Number(pkg?.total_sessions ?? slotTotal ?? 0),
+    expiry_date_at_request: purchase.expiry_date ?? null,
+    notes,
+    status: 'pending',
+    source: 'client_portal',
+    payment_provider: null,
+    created_by_uid: request.auth.uid,
+    created_at: now,
+    updated_at: now,
+  });
+
+  return { renewalRequestId: requestRef.id };
+});
+
+export const updateRenewalRequestStatus = onCall(async (request) => {
+  if (!request.auth) throw UNAUTHENTICATED();
+  const t = await resolveT(request.data?.organizationId);
+
+  const orgId = assertString(request.data?.organizationId, 'organizationId', t);
+  const renewalRequestId = assertString(request.data?.renewalRequestId, 'renewalRequestId', t);
+  const action = request.data?.action;
+  if (action !== 'contacted' && action !== 'dismissed') {
+    throw new HttpsError('invalid-argument', t('err_renewal_action_invalid'));
+  }
+
+  const user = await getStaffUser(request.auth.uid, orgId, t);
+  const requestRef = db.collection('organizations').doc(orgId).collection('renewalRequests').doc(renewalRequestId);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const reviewer = {
+    reviewed_by: request.auth.uid,
+    reviewed_by_name: String(user.fullName ?? user.name ?? ''),
+    reviewed_at: now,
+    updated_at: now,
+  };
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(requestRef);
+    if (!snap.exists) {
+      throw new HttpsError('not-found', t('err_renewal_not_found'));
+    }
+    const data = snap.data()!;
+    if (data.status === 'paid') {
+      // A paid renewal already created the new package; staff only mark it handled.
+      if (data.reviewed_at) {
+        throw new HttpsError('failed-precondition', t('err_renewal_already_reviewed'));
+      }
+      tx.update(requestRef, reviewer);
+      return;
+    }
+    if (data.status !== 'pending') {
+      throw new HttpsError('failed-precondition', t('err_renewal_already_reviewed'));
+    }
+    tx.update(requestRef, { status: action, ...reviewer });
+  });
+
+  return { success: true };
 });
 
 export const updateClientBookingRequest = onCall(

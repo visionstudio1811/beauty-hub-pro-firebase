@@ -18,6 +18,9 @@
       "namePlaceholder": "הזנת שם הטיפול",
       "price": "מחיר ($)",
       "pricePlaceholder": "0",
+      "memberPrice": "מחיר לחברי מועדון",
+      "memberPricePlaceholder": "כמו המחיר הרגיל",
+      "memberPriceHelp": "נגבה מחברי מועדון פעילים במקום המחיר הרגיל. השאירו ריק אם אין הנחת חברים.",
       "duration": "משך (דק') *",
       "durationPlaceholder": "60",
       "category": "קטגוריה",
@@ -52,7 +55,8 @@
     },
     "card": {
       "colorAria": "צבע {{color}}",
-      "minutes": "{{count}} דק'"
+      "minutes": "{{count}} דק'",
+      "memberPrice": "מועדון: {{price}}"
     }
   },
   "dropdownData": {

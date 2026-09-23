@@ -143,6 +143,14 @@
     "fromNameLabel": "From Name",
     "fromNamePlaceholder": "Your Business Name",
     "enableLabel": "Enable Resend Email",
+    "automations": {
+      "lowSessions": {
+        "title": "Low-sessions renewal nudge",
+        "description": "Email clients (and text them when an SMS provider is enabled) as soon as an active package drops to only a few treatments left, with a link to renew from the client portal. Saved with the configuration above.",
+        "threshold": "Notify at",
+        "thresholdHelp": "treatments remaining or fewer"
+      }
+    },
     "steps": {
       "createAccount": "Create a Resend account at <a>resend.com</a>",
       "verifyDomain": "Verify your domain in the Resend dashboard",

@@ -29,6 +29,7 @@ export interface Package {
   is_active: boolean;
   is_custom?: boolean;
   client_id?: string | null;
+  benefits?: string[];
   created_at: string;
 }
 
@@ -67,6 +68,7 @@ const docToPackage = (id: string, data: any): Package => ({
   is_active: data.is_active ?? true,
   is_custom: data.is_custom ?? false,
   client_id: data.client_id ?? null,
+  benefits: Array.isArray(data.benefits) ? data.benefits.filter((b: unknown) => typeof b === 'string') : undefined,
   created_at: data.created_at?.toDate?.()?.toISOString() ?? new Date().toISOString(),
 });
 
@@ -162,6 +164,7 @@ export const PackageProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (packageData.product_items && packageData.product_items.length > 0) payload.product_items = packageData.product_items;
       if (packageData.is_custom) payload.is_custom = true;
       if (packageData.client_id) payload.client_id = packageData.client_id;
+      if (packageData.benefits?.length) payload.benefits = packageData.benefits;
 
       const docRef = await addDoc(
         collection(db, 'organizations', currentOrganization.id, 'packages'),
