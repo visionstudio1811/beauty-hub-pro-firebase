@@ -354,7 +354,20 @@
         "not_found_in_acuity": "No longer in Acuity",
         "ambiguous_client": "Several CRM clients match this person"
       },
-      "selectRow": "Select {{name}}, {{when}}"
+      "selectRow": "Select {{name}}, {{when}}",
+      "searchLabel": "Search",
+      "clientFilter": {
+        "label": "Client",
+        "all": "All clients ({{n}})",
+        "inCrm": "In CRM ({{n}})",
+        "new": "New client, not in CRM ({{n}})",
+        "ambiguous": "Several CRM matches ({{n}})"
+      },
+      "treatmentFilter": {
+        "label": "CRM treatment",
+        "all": "All treatments ({{n}})",
+        "notLinked": "Not linked to a CRM treatment ({{n}})"
+      }
     },
     "mapping": {
       "title": "Treatment & staff mapping",

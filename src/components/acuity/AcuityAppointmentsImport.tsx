@@ -40,7 +40,15 @@ import {
 } from './importShared';
 
 type Filter = 'all' | 'notImported' | 'imported';
+type ClientFilter = 'all' | 'inCrm' | 'new' | 'ambiguous';
 const ALL = 'all';
+const NOT_LINKED = '__none__';
+
+/** Which client bucket a row falls in: matched in the CRM, a new card on import, or ambiguous. */
+function clientKind(row: AcuityAppointmentRow): Exclude<ClientFilter, 'all'> {
+  if (row.crmClient) return 'inCrm';
+  return row.clientAmbiguous ? 'ambiguous' : 'new';
+}
 
 interface Props {
   organizationId: string;
@@ -93,6 +101,8 @@ export const AcuityAppointmentsImport: React.FC<Props> = ({ organizationId, conf
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
+  const [treatmentFilter, setTreatmentFilter] = useState<string>(ALL);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [createMissingClients, setCreateMissingClients] = useState(true);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -133,14 +143,49 @@ export const AcuityAppointmentsImport: React.FC<Props> = ({ organizationId, conf
     return { all: list.length, imported, notImported: list.length - imported };
   }, [rows]);
 
+  const clientCounts = useMemo(() => {
+    const out = { all: 0, inCrm: 0, new: 0, ambiguous: 0 };
+    for (const r of rows ?? []) {
+      out.all++;
+      out[clientKind(r)]++;
+    }
+    return out;
+  }, [rows]);
+
+  // CRM treatments present in the loaded list (after mapping), so many Acuity
+  // services that map to one treatment filter together.
+  const treatmentOptions = useMemo(() => {
+    const linked = new Map<string, { value: string; name: string; n: number }>();
+    let unlinked = 0;
+    for (const r of rows ?? []) {
+      if (!r.treatment.id) {
+        unlinked++;
+        continue;
+      }
+      const option = linked.get(r.treatment.id) ?? { value: r.treatment.id, name: r.treatment.name, n: 0 };
+      option.n++;
+      linked.set(r.treatment.id, option);
+    }
+    return { linked: [...linked.values()].sort((a, b) => a.name.localeCompare(b.name)), unlinked };
+  }, [rows]);
+  // A treatment that's no longer in the list (new load, mapping change) falls back to "all".
+  const activeTreatment =
+    (treatmentFilter === NOT_LINKED && treatmentOptions.unlinked > 0) ||
+    treatmentOptions.linked.some((o) => o.value === treatmentFilter)
+      ? treatmentFilter
+      : ALL;
+
   const filtered = useMemo(
     () =>
       (rows ?? []).filter(
         (r) =>
           (filter === 'all' || (filter === 'imported' ? Boolean(r.imported) : !r.imported)) &&
+          (clientFilter === 'all' || clientKind(r) === clientFilter) &&
+          (activeTreatment === ALL ||
+            (activeTreatment === NOT_LINKED ? !r.treatment.id : r.treatment.id === activeTreatment)) &&
           matchesQuery(r, query.trim()),
       ),
-    [rows, filter, query],
+    [rows, filter, clientFilter, activeTreatment, query],
   );
   const { page, pages, visible, setPage } = usePaged(filtered);
   const filteredIds = useMemo(() => filtered.map((r) => r.id), [filtered]);
@@ -415,7 +460,7 @@ export const AcuityAppointmentsImport: React.FC<Props> = ({ organizationId, conf
             busy={savingMapping || !configId || !meta || Boolean(progress)}
           />
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
             <FilterChips<Filter>
               value={filter}
               onChange={(key) => {
@@ -428,16 +473,71 @@ export const AcuityAppointmentsImport: React.FC<Props> = ({ organizationId, conf
                 { key: 'imported', label: t('acuity.appointments.filters.imported', { n: counts.imported }) },
               ]}
             />
-            <Input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder={t('acuity.appointments.filterPlaceholder')}
-              aria-label={t('acuity.appointments.filterPlaceholder')}
-              className="lg:max-w-xs"
-            />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label htmlFor="acuity-client-filter">{t('acuity.appointments.clientFilter.label')}</Label>
+                <Select
+                  value={clientFilter}
+                  onValueChange={(value) => {
+                    setClientFilter(value as ClientFilter);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger id="acuity-client-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('acuity.appointments.clientFilter.all', { n: clientCounts.all })}</SelectItem>
+                    <SelectItem value="inCrm">{t('acuity.appointments.clientFilter.inCrm', { n: clientCounts.inCrm })}</SelectItem>
+                    <SelectItem value="new">{t('acuity.appointments.clientFilter.new', { n: clientCounts.new })}</SelectItem>
+                    {clientCounts.ambiguous > 0 && (
+                      <SelectItem value="ambiguous">
+                        {t('acuity.appointments.clientFilter.ambiguous', { n: clientCounts.ambiguous })}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="acuity-treatment-filter">{t('acuity.appointments.treatmentFilter.label')}</Label>
+                <Select
+                  value={activeTreatment}
+                  onValueChange={(value) => {
+                    setTreatmentFilter(value);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger id="acuity-treatment-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>{t('acuity.appointments.treatmentFilter.all', { n: clientCounts.all })}</SelectItem>
+                    {treatmentOptions.linked.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <bdi>{option.name}</bdi> ({option.n})
+                      </SelectItem>
+                    ))}
+                    {treatmentOptions.unlinked > 0 && (
+                      <SelectItem value={NOT_LINKED}>
+                        {t('acuity.appointments.treatmentFilter.notLinked', { n: treatmentOptions.unlinked })}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="acuity-appointment-search">{t('acuity.appointments.searchLabel')}</Label>
+                <Input
+                  id="acuity-appointment-search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder={t('acuity.appointments.filterPlaceholder')}
+                />
+              </div>
+            </div>
           </div>
 
           <Table>

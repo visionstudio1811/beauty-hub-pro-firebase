@@ -354,7 +354,20 @@
         "not_found_in_acuity": "כבר לא קיים ב-Acuity",
         "ambiguous_client": "כמה לקוחות ב-CRM תואמים לאדם הזה"
       },
-      "selectRow": "בחירת {{name}}, {{when}}"
+      "selectRow": "בחירת {{name}}, {{when}}",
+      "searchLabel": "חיפוש",
+      "clientFilter": {
+        "label": "לקוח",
+        "all": "כל הלקוחות ({{n}})",
+        "inCrm": "קיים ב-CRM ({{n}})",
+        "new": "לקוח חדש, לא ב-CRM ({{n}})",
+        "ambiguous": "כמה התאמות ב-CRM ({{n}})"
+      },
+      "treatmentFilter": {
+        "label": "טיפול ב-CRM",
+        "all": "כל הטיפולים ({{n}})",
+        "notLinked": "לא מקושר לטיפול ב-CRM ({{n}})"
+      }
     },
     "mapping": {
       "title": "מיפוי טיפולים ואנשי צוות",
