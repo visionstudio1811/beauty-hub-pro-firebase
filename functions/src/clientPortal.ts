@@ -17,6 +17,7 @@ import {
   orgLanguageFromData,
   Translator,
 } from './lib/i18n';
+import { AcuityApiError, acuityRequest, getAcuityConfig, loadAcuityCredentials, orgTimeZone, wallClockToIso } from './lib/acuity';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -303,18 +304,6 @@ async function getPortalAccess(uid: string, orgId: string, t: T): Promise<Portal
   return accessSnap.data() as PortalAccess;
 }
 
-async function getAcuityConfig(orgId: string) {
-  const snap = await db
-    .collection('organizations')
-    .doc(orgId)
-    .collection('acuitySyncConfig')
-    .limit(1)
-    .get();
-
-  if (snap.empty) return null;
-  return { id: snap.docs[0].id, data: snap.docs[0].data() };
-}
-
 async function assertPurchaseCanBook(
   orgRef: admin.firestore.DocumentReference,
   purchaseId: string,
@@ -428,9 +417,9 @@ async function createAcuityAppointment(
     return { status: 'skipped', reason: 'Acuity sync is disabled' };
   }
 
-  const acuityUserId = process.env.ACUITY_API_USER_ID;
-  const acuityApiKey = process.env.ACUITY_API_KEY;
-  if (!acuityUserId || !acuityApiKey) {
+  // The org's own Acuity account — never a shared/global one.
+  const creds = await loadAcuityCredentials(config);
+  if (!creds) {
     return { status: 'failed', reason: 'Acuity API credentials are not configured' };
   }
 
@@ -443,31 +432,31 @@ async function createAcuityAppointment(
     return { status: 'failed', reason: 'Missing Acuity treatment or staff calendar mapping' };
   }
 
-  const credentials = Buffer.from(`${acuityUserId}:${acuityApiKey}`).toString('base64');
-  const response = await fetch('https://acuityscheduling.com/api/v1/appointments', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      appointmentTypeID: appointmentTypeId,
-      calendarID: calendarId,
-      datetime: `${appointment.appointment_date}T${appointment.appointment_time}:00`,
-      firstName: String(appointment.client_name ?? '').split(' ')[0] || appointment.client_name,
-      lastName: String(appointment.client_name ?? '').split(' ').slice(1).join(' '),
-      email: appointment.client_email,
-      phone: appointment.client_phone,
-      notes: appointment.notes,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    return { status: 'failed', reason: `Acuity API error: ${response.status} ${errorText}` };
+  let created: { id?: number | string };
+  try {
+    created = await acuityRequest<{ id?: number | string }>(creds, 'appointments', {
+      method: 'POST',
+      body: {
+        appointmentTypeID: appointmentTypeId,
+        calendarID: calendarId,
+        // Explicit offset: Acuity reads an offset-less time in the *calendar's*
+        // timezone, which can differ from the org's.
+        datetime: wallClockToIso(
+          String(appointment.appointment_date),
+          String(appointment.appointment_time),
+          await orgTimeZone(orgId),
+        ),
+        firstName: String(appointment.client_name ?? '').split(' ')[0] || appointment.client_name,
+        lastName: String(appointment.client_name ?? '').split(' ').slice(1).join(' '),
+        email: appointment.client_email,
+        phone: appointment.client_phone,
+        notes: appointment.notes,
+      },
+    });
+  } catch (err) {
+    const reason = err instanceof AcuityApiError ? err.message : `Acuity request failed: ${String(err)}`;
+    return { status: 'failed', reason };
   }
-
-  const created = await response.json() as { id?: number | string };
   await db
     .collection('organizations')
     .doc(orgId)
@@ -926,7 +915,6 @@ export const updateRenewalRequestStatus = onCall(async (request) => {
 });
 
 export const updateClientBookingRequest = onCall(
-  { secrets: ['ACUITY_API_USER_ID', 'ACUITY_API_KEY'] },
   async (request) => {
     if (!request.auth) throw UNAUTHENTICATED();
     const t = await resolveT(request.data?.organizationId);

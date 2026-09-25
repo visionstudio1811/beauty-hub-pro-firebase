@@ -182,51 +182,223 @@
     }
   },
   "acuity": {
-    "title": "אינטגרציה עם Acuity Scheduling",
-    "subtitle": "חיבור מערכת Beauty Hub Pro שלכם ל-Acuity Scheduling לניהול חלק של תורים ולקוחות.",
+    "title": "Acuity Scheduling",
+    "subtitle": "חברו את חשבון Acuity שלכם ובחרו בדיוק אילו לקוחות ותורים להעביר ל-CRM.",
     "loadFailed": "טעינת הגדרות Acuity נכשלה",
     "invalidMappingJson": "JSON מיפוי לא תקין",
     "invalidMappingJsonDescription": "בדקו את מיפוי Acuity של פורטל הלקוחות לפני השמירה.",
-    "savedDescription": "הגדרות Acuity נשמרו בהצלחה",
+    "savedDescription": "הגדרות Acuity נשמרו",
     "saveFailed": "שמירת הגדרות Acuity נכשלה",
-    "clientSyncFailed": "סנכרון הלקוחות נכשל",
-    "fullSyncFailed": "הסנכרון המלא נכשל",
-    "appointmentsSyncFailed": "סנכרון התורים נכשל",
-    "syncedClients_one": "סונכרן לקוח אחד",
-    "syncedClients_two": "סונכרנו שני לקוחות",
-    "syncedClients_other": "סונכרנו {{count}} לקוחות",
-    "fullSyncCompleted": "הסנכרון המלא הושלם: {{clients}} לקוחות, {{appointments}} תורים",
-    "syncComplete": "הסנכרון הושלם",
-    "syncFailed": "הסנכרון נכשל",
-    "syncFailedDescription": "הסנכרון עם Acuity נכשל",
-    "configuration": {
-      "title": "הגדרות",
-      "description": "הגדרת פרטי הגישה ל-API של Acuity Scheduling והעדפות הסנכרון.",
+    "connection": {
+      "title": "חיבור",
+      "description": "ב-Acuity, עברו אל Integrations ← API כדי למצוא את מזהה המשתמש ואת מפתח ה-API. המפתח נשמר בצורה מאובטחת ואי אפשר לקרוא אותו בחזרה.",
       "userIdLabel": "מזהה משתמש ב-Acuity",
-      "userIdPlaceholder": "הזינו את מזהה המשתמש שלכם ב-Acuity",
-      "apiKeyPlaceholder": "הזינו את מפתח ה-API שלכם ב-Acuity",
-      "webhookSecretLabel": "סוד Webhook (אופציונלי)",
-      "webhookSecretPlaceholder": "הזינו סוד webhook לאבטחה",
-      "enableSync": "הפעלת סנכרון Acuity",
-      "mappingLabel": "מיפוי הזמנות מפורטל הלקוחות",
-      "mappingPlaceholder": "{\"treatments\":{\"crmTreatmentId\":{\"appointmentTypeID\":123}},\"staff_calendars\":{\"crmStaffId\":456}}",
-      "mappingHelp": "מיפוי מזהי טיפולים ב-CRM למזהי סוגי תורים ב-Acuity, ומזהי אנשי צוות ב-CRM למזהי יומנים ב-Acuity, עבור בקשות לקוחות מאושרות."
+      "userIdPlaceholder": "לדוגמה 12345678",
+      "apiKeyPlaceholder": "הדביקו את מפתח ה-API של Acuity",
+      "saveAndTest": "שמירה ובדיקת חיבור",
+      "test": "בדיקת חיבור",
+      "openApiSettings": "פתיחת הגדרות ה-API ב-Acuity",
+      "connectedTo": "מחובר ל-{{name}}",
+      "savedNotTested": "פרטי הגישה נשמרו. בדקו את החיבור כדי לוודא שהם עובדים.",
+      "notConnected": "עדיין לא מחובר.",
+      "connectedToast": "החיבור ל-Acuity הצליח",
+      "userIdRequired": "הזינו את מזהה המשתמש ב-Acuity",
+      "apiKeyRequired": "הזינו את מפתח ה-API של Acuity",
+      "failed": "החיבור ל-Acuity נכשל",
+      "lastTestFailed": "בדיקת החיבור נכשלה: {{message}}"
     },
-    "webhook": {
-      "title": "הגדרות Webhook",
-      "description": "הגדירו webhooks בחשבון Acuity שלכם כדי לקבל עדכונים בזמן אמת.",
-      "addUrl": "הוסיפו את כתובת ה-webhook הזו לחשבון Acuity Scheduling שלכם:",
-      "openSettings": "פתיחת הגדרות Webhooks ב-Acuity"
+    "import": {
+      "title": "ייבוא מ-Acuity",
+      "description": "עיינו בחשבון ה-Acuity שלכם וסמנו בדיוק אילו לקוחות ותורים להעביר ל-CRM. שום דבר לא מיובא עד שתלחצו על ייבוא.",
+      "connectFirst": "שמרו למעלה את פרטי הגישה ל-Acuity כדי להתחיל לייבא.",
+      "tabs": {
+        "clients": "לקוחות",
+        "appointments": "תורים"
+      },
+      "filterPlaceholder": "סינון לפי שם, אימייל או טלפון",
+      "reload": "טעינה מחדש",
+      "selectAll": "בחירת הכול",
+      "selected_one": "נבחר {{count}}",
+      "selected_two": "נבחרו {{count}}",
+      "selected_other": "נבחרו {{count}}",
+      "clearSelection": "ניקוי הבחירה",
+      "importSelected_one": "ייבוא הפריט שנבחר",
+      "importSelected_two": "ייבוא {{count}} הפריטים שנבחרו",
+      "importSelected_other": "ייבוא {{count}} הפריטים שנבחרו",
+      "importing": "מייבא {{done}} מתוך {{total}}…",
+      "importDone": "הייבוא הסתיים",
+      "importFailed": "הייבוא נכשל",
+      "loadFailed": "הטעינה מ-Acuity נכשלה",
+      "noResults": "אין תוצאות מתאימות.",
+      "previous": "הקודם",
+      "next": "הבא",
+      "pageOf": "עמוד {{page}} מתוך {{pages}}",
+      "summary": {
+        "created_one": "חדש אחד",
+        "created_two": "{{count}} חדשים",
+        "created_other": "{{count}} חדשים",
+        "linked_one": "אחד קושר לרשומה קיימת",
+        "linked_two": "{{count}} קושרו לרשומות קיימות",
+        "linked_other": "{{count}} קושרו לרשומות קיימות",
+        "updated_one": "אחד עודכן",
+        "updated_two": "{{count}} עודכנו",
+        "updated_other": "{{count}} עודכנו",
+        "skipped_one": "אחד דולג",
+        "skipped_two": "{{count}} דולגו",
+        "skipped_other": "{{count}} דולגו",
+        "errors_one": "אחד נכשל",
+        "errors_two": "{{count}} נכשלו",
+        "errors_other": "{{count}} נכשלו",
+        "nothing": "לא יובא דבר"
+      },
+      "outcome": {
+        "created": "יובא",
+        "linked": "קושר לרשומה קיימת",
+        "updated": "עודכן",
+        "skipped": "דולג",
+        "error": "נכשל"
+      },
+      "partial": "נעצר אחרי {{done}} מתוך {{total}}.",
+      "confirmTitle_one": "לייבא רשומה אחת מ-Acuity?",
+      "confirmTitle_two": "לייבא {{count}} רשומות מ-Acuity?",
+      "confirmTitle_other": "לייבא {{count}} רשומות מ-Acuity?",
+      "confirmDescription": "הן יתווספו ל-CRM. לקוחות שכבר קיימים ב-CRM יקושרו ולא ייווצרו פעמיים, ואף אחד לא יקבל הודעה."
+    },
+    "clients": {
+      "intro": "טענו את רשימת הלקוחות מ-Acuity וסמנו את הלקוחות שתרצו ב-CRM. לקוחות שכבר קיימים ב-CRM מזוהים לפי אימייל, או לפי טלפון ושם, ולא נוצרים פעמיים.",
+      "load": "טעינת לקוחות מ-Acuity",
+      "searchAcuity": "חיפוש ב-Acuity",
+      "truncated": "מוצגים {{n}} הלקוחות הראשונים. הקלידו שם או מספר טלפון ולחצו על 'חיפוש ב-Acuity' כדי למצוא לקוחות נוספים.",
+      "filters": {
+        "all": "הכול ({{n}})",
+        "new": "לא ב-CRM ({{n}})",
+        "inCrm": "כבר ב-CRM ({{n}})"
+      },
+      "columns": {
+        "name": "שם",
+        "email": "אימייל",
+        "phone": "טלפון",
+        "crm": "CRM"
+      },
+      "status": {
+        "new": "חדש",
+        "inCrm": "קיים ב-CRM",
+        "linked": "מקושר",
+        "byEmail": "זוהה לפי אימייל",
+        "byPhone": "זוהה לפי טלפון",
+        "similar": "שם דומה ב-CRM: {{name}}",
+        "ambiguous": "כמה התאמות ב-CRM",
+        "samePhone": "אותו טלפון כמו {{name}} ב-CRM (לא מקושר אוטומטית)"
+      },
+      "importHelp": "לקוחות חדשים נוצרים ב-CRM. לקוח שכבר קיים ב-CRM (אותו אימייל, או אותו טלפון ואותו שם) מקושר, ורק שדות ריקים אצלו מתמלאים. שום הודעה לא נשלחת ללקוחות.",
+      "skipReasons": {
+        "missing_name": "אין שם ב-Acuity",
+        "missing_contact": "אין אימייל או טלפון ב-Acuity",
+        "ambiguous_match": "כמה לקוחות ב-CRM תואמים. קשרו ידנית."
+      },
+      "searchResults": "מוצגות תוצאות מ-Acuity עבור \"{{term}}\".",
+      "showAll": "הצגת כל הלקוחות",
+      "unnamed": "לקוח ללא שם",
+      "selectRow": "בחירת {{name}}"
+    },
+    "appointments": {
+      "from": "מתאריך",
+      "to": "עד תאריך",
+      "presets": {
+        "next30": "30 הימים הקרובים",
+        "past30": "30 הימים האחרונים",
+        "past90": "90 הימים האחרונים"
+      },
+      "calendar": "יומן",
+      "service": "שירות",
+      "any": "הכול",
+      "includeCanceled": "כולל תורים שבוטלו",
+      "load": "טעינת תורים",
+      "invalidRange": "בחרו טווח תאריכים תקין",
+      "truncated": "מוצגים {{n}} התורים הראשונים. צמצמו את טווח התאריכים כדי לראות את השאר.",
+      "filters": {
+        "all": "הכול ({{n}})",
+        "notImported": "לא יובאו ({{n}})",
+        "imported": "יובאו ({{n}})"
+      },
+      "filterPlaceholder": "סינון לפי לקוח, שירות, אימייל או טלפון",
+      "columns": {
+        "when": "תאריך ושעה",
+        "client": "לקוח",
+        "service": "שירות",
+        "calendar": "יומן",
+        "status": "סטטוס"
+      },
+      "minutes": "{{value}} דק׳",
+      "status": {
+        "imported": "יובא",
+        "canceled": "בוטל",
+        "past": "עבר",
+        "upcoming": "עתידי",
+        "inCrm": "קיים ב-CRM",
+        "newClient": "לקוח חדש",
+        "ambiguous": "כמה התאמות ב-CRM",
+        "willLink": "תואם לתור שכבר קיים ב-CRM. הוא יקושר ולא ישוכפל.",
+        "sameDay": "ללקוח כבר יש תור ב-CRM באותו יום בשעה {{time}}"
+      },
+      "linkedTo": "← {{name}}",
+      "notLinked": "לא מקושר לטיפול ב-CRM",
+      "createMissingClients": "יצירת לקוחות שעדיין לא קיימים ב-CRM",
+      "importHelp": "תורים שעברו מיובאים כתורים שהושלמו, ותורים עתידיים כתורים מתוכננים. הלקוחות לא מקבלים הודעה. ייבוא חוזר של תור מעדכן שינויים שנעשו ב-Acuity, ושינויים שנעשו ב-CRM נשמרים.",
+      "skipReasons": {
+        "invalid_datetime": "Acuity שלחה תאריך לא תקין",
+        "not_imported": "לא יובא",
+        "canceled": "בוטל ב-Acuity",
+        "client_not_in_crm": "הלקוח לא קיים ב-CRM",
+        "missing_client_details": "אין שם, אימייל או טלפון ב-Acuity",
+        "not_found_in_acuity": "כבר לא קיים ב-Acuity",
+        "ambiguous_client": "כמה לקוחות ב-CRM תואמים לאדם הזה"
+      },
+      "selectRow": "בחירת {{name}}, {{when}}"
+    },
+    "mapping": {
+      "title": "מיפוי טיפולים ואנשי צוות",
+      "description": "בחרו לאיזה טיפול ב-CRM (ולאיזה איש צוות) יהפוך כל סוג תור (וכל יומן) ב-Acuity. נשמר מיד ומשמש לייבואים הבאים ול-webhooks.",
+      "acuityType": "סוג תור ב-Acuity",
+      "crmTreatment": "טיפול ב-CRM",
+      "acuityCalendar": "יומן ב-Acuity",
+      "crmStaff": "איש צוות ב-CRM",
+      "notLinked": "ללא קישור (שמירת השם מ-Acuity)",
+      "auto": "הותאם אוטומטית",
+      "saved": "המיפוי נשמר",
+      "saveFailed": "שמירת המיפוי נכשלה",
+      "selectFor": "התאמה ב-CRM עבור {{name}}"
+    },
+    "automation": {
+      "title": "סנכרון אוטומטי",
+      "description": "עדכון שוטף של ה-CRM באמצעות webhooks מ-Acuity.",
+      "enable": "הפעלת סנכרון אוטומטי",
+      "enableHelp": "כשהאפשרות פעילה, webhooks מ-Acuity מעדכנים תורים שיובאו (דחיות וביטולים), והזמנות מאושרות מפורטל הלקוחות נשלחות ל-Acuity.",
+      "newBookingsLabel": "הזמנות חדשות שנקבעות ב-Acuity",
+      "modes": {
+        "off": "לא לייבא אותן, אבחר ידנית",
+        "existing_clients": "לייבא רק עבור לקוחות שכבר קיימים ב-CRM",
+        "all": "לייבא את כולן (כולל יצירת לקוחות חדשים)"
+      },
+      "webhookUrl": "כתובת ה-Webhook",
+      "copy": "העתקה",
+      "copied": "כתובת ה-Webhook הועתקה",
+      "webhookHelp": "ב-Acuity, פתחו את Integrations ← Webhooks והדביקו את הכתובת הזו עבור אירועי התורים. Acuity חותמת על ה-webhooks עם מפתח ה-API שלכם, כך שאין צורך בסוד נפרד.",
+      "openWebhookSettings": "פתיחת הגדרות ה-Webhooks ב-Acuity",
+      "advanced": "מיפוי הזמנות מפורטל הלקוחות (מתקדם)",
+      "mappingPlaceholder": "{\"treatments\":{\"crmTreatmentId\":{\"appointmentTypeID\":123}},\"staff_calendars\":{\"crmStaffId\":456}}",
+      "mappingHelp": "מיפוי מזהי טיפולים ב-CRM למזהי סוגי תורים ב-Acuity, ומזהי אנשי צוות ב-CRM למזהי יומנים ב-Acuity, עבור בקשות לקוחות מאושרות.",
+      "connectFirst": "חברו את חשבון Acuity למעלה לפני שינוי ההגדרות האלה."
     },
     "sync": {
       "title": "סטטוס סנכרון",
-      "description": "מעקב ושליטה על הסנכרון עם Acuity.",
-      "syncedClients": "לקוחות מסונכרנים",
-      "syncedAppointments": "תורים מסונכרנים",
-      "lastSync": "סנכרון אחרון: {{date}}",
-      "fullSync": "סנכרון מלא",
-      "syncClients": "סנכרון לקוחות",
-      "syncAppointments": "סנכרון תורים"
+      "description": "מה הגיע ל-CRM מ-Acuity עד עכשיו.",
+      "syncedClients": "לקוחות מקושרים ל-Acuity",
+      "syncedAppointments": "תורים מ-Acuity",
+      "lastImport": "ייבוא אחרון: {{date}}"
+    },
+    "errors": {
+      "generic": "משהו השתבש. נסו שוב."
     }
   }
 }

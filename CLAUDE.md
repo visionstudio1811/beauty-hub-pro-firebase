@@ -57,6 +57,8 @@ npx firebase-tools@latest deploy --only firestore:indexes
 npx firebase-tools@latest emulators:start                # Run all emulators locally
 ```
 
+In the Functions emulator, `admin.firestore.FieldValue` / `.Timestamp` are **undefined**: the emulator proxies `firebase-admin` and hands back `admin.firestore` as a bound function without its statics. Production is fine, but any code path you want to exercise locally should `import { FieldValue, Timestamp } from 'firebase-admin/firestore'` (the Acuity code and `rateLimit.ts` already do).
+
 **After editing `firestore.rules` or `firestore.indexes.json`, always deploy.** The repo state is not the deployed state — a rules file that's only on disk grants nothing, and a new multi-field query will fail until its index is deployed and built.
 
 ---
@@ -118,11 +120,11 @@ VITE_FIREBASE_APP_ID=
 Cloud Function secrets (set once via CLI, stored in Secret Manager):
 ```bash
 firebase functions:secrets:set RESEND_API_KEY       # sendWaiver, sendClientEmail, notifyOrgOnWaiverSigned
-firebase functions:secrets:set ACUITY_API_USER_ID   # acuitySync
-firebase functions:secrets:set ACUITY_API_KEY       # acuitySync
 ```
 
-Per-org credentials (Twilio SMS creds, org-specific Resend API keys, Acuity webhook secret) live in each org's `marketingIntegrations` or `acuitySyncConfig` subcollection, not Secret Manager. Rules restrict read/write to org admins.
+`ACUITY_API_USER_ID` / `ACUITY_API_KEY` still exist in Secret Manager but nothing reads them any more — Acuity credentials are per org (below). Never reintroduce a global Acuity fallback: it would let one spa's CRM read another spa's Acuity account.
+
+Per-org credentials (Twilio SMS creds, org-specific Resend API keys, Acuity API credentials) live in each org's `marketingIntegrations` or `acuitySyncConfig` subcollection, not Secret Manager. API keys are write-only: they sit in a `secret/value` subdoc that only the Admin SDK can read.
 
 ---
 
@@ -154,7 +156,12 @@ organizations/{orgId}                ← org document
   /marketingAutomations/{id}
   /campaignRecipients/{id}
   /marketingIntegrations/{id}        ← stores Resend/Twilio API keys (admin-only, get-only, no list)
-  /acuitySyncConfig/{id}             ← includes per-org Acuity `webhook_secret`
+  /acuitySyncConfig/{id}             ← one doc per org (new ones use id `main`): acuity_user_id, has_api_key/api_key_last4,
+                                        sync_enabled, webhook_import_mode, acuity_import_mappings, client_portal_acuity_mappings.
+                                        Browser may update only the sync-settings fields; created/credentials by acuitySync CF
+    /secret/value                    ← Acuity API key (+ legacy webhook secret); no rule → Admin SDK only
+  /acuityTombstones/{acuityId}       ← CF-only: canceled bookings not in the CRM (blocks stale webhook creates)
+  /processedWebhooks/appt_{acuityId} ← CF-only: last applied Acuity state per appointment (webhook dedupe)
   /bookingRequests/{id}              ← client portal booking requests (CF-only create/update)
   /acuitySyncLogs/{id}
   /rateLimits/{action_YYYYMMDD}      ← Cloud-Function-only per-org daily counters
@@ -295,8 +302,8 @@ Callable functions receive a `CallableRequest` — access data via `request.data
 | `sendClientEmail` | `onCall` | Send email via Resend; per-org daily rate limit |
 | `sendWaiver` | `onCall` | Send waiver/intake/agreement link via SMS/email/device; issues a 30-day TTL token; per-org daily rate limit. Accepts optional `purchaseId` — when present, snapshots `packageName`, `packagePrice`, `packageSessions`, `purchaseDate`, `expiryDate` onto the `clientWaivers` doc so the agreement form prefills package info. |
 | `notifyOrgOnWaiverSigned` | `onDocumentUpdated` | Firestore trigger: emails org admins the signed PDF + photos. Also **backfills empty client card fields** (name, email, phone, address, city, date_of_birth, gender, referral_source) from the signed form's signer fields + answer-by-label matching. Never overwrites non-empty fields. Runs for all kinds (waiver, intake, agreement). |
-| `acuitySync` | `onCall` | Manual Acuity Scheduling sync |
-| `acuityWebhook` | `onRequest` | Acuity webhook receiver (HMAC-verified with per-org `webhook_secret`) |
+| `acuitySync` | `onCall` | Admin-only Acuity bridge (Settings → Acuity): `save_credentials` / `test_connection` (per-org, write-only key), `list_meta`, `list_clients`, `list_appointments`, and `import_clients` / `import_appointments` for the rows the admin selected. There is no "sync everything" action. |
+| `acuityWebhook` | `onRequest` | Acuity webhook receiver. HMAC-verified with the org's own Acuity API key (Acuity signs with it). Fetches the appointment by id, always refreshes already-imported ones, and imports new bookings per `webhook_import_mode` (`off` / `existing_clients` / `all`). |
 | `packageExpiryNotifications` | scheduled | Periodic reminders for expiring packages |
 | `createInvoice` | `onCall` | Admin-only invoice generation; atomic counter + frozen snapshots + computed totals; idempotent per `purchase_id`; rate-limited 100/day |
 | `voidInvoice` | `onCall` | Admin-only; flips an issued invoice's status to `void` and stamps `voided_at` / `voided_by`. Idempotent via `failed-precondition` on an already-voided invoice; rate-limited 50/day. Invoice numbers never reused. |
@@ -401,6 +408,19 @@ Drafts deliberately exclude `invoice_number`, `issued_at`, totals, and snapshots
 
 The "Open" button on each match closes the Add modal and opens the existing client's details via `onOpenExistingClient` (wired through `ClientsModals.tsx` and `Clients.tsx` to `handleViewDetails`). Submit is never hard-blocked — the dedup is advisory; a confirm dialog appears for red-level matches but staff can always choose "Add Anyway".
 
+### Acuity import — selective, never "sync everything"
+
+Settings → Acuity (`src/components/AcuityIntegration.tsx` + `src/components/acuity/`) lets an admin load Acuity clients or appointments (date range, calendar, appointment type) and import only the ticked rows. The shared server logic is `functions/src/lib/acuity.ts`, used by `acuitySync`, `acuityWebhook` and the client-portal push.
+
+- **Client matching** (`ClientIndex.lookup`) runs against one projected read of the org's clients, because stored emails and phones aren't normalized. Email is the identity. A phone number (last 9 digits) links only with the **same name** and no conflicting email, since households share numbers. Anything matching several clients is never auto-linked. Linking only fills empty fields, and **never fills an email from a phone match**: `linkClientPortalAccount` links portal accounts by email, so a relative's email on the wrong card would expose that card.
+- **Imported appointments** get the doc id `acuity_{acuityId}` and always carry `acuity_appointment_id`, which makes `appointmentScheduledNotification` skip the client confirmation. CRM reminders are *not* skipped (orgs may rely on them). Writes run in a transaction with `acuity_fetched_at_ms`, so an older Acuity read never overwrites a newer one. The same transaction adopts a same-client/same-slot CRM appointment instead of duplicating it.
+- **Updates merge, they don't overwrite**: `acuity_seen` stores what Acuity said last time. Date, time, duration and cancellation change only when Acuity changed them, so CRM edits (add-on minutes, a CRM-side cancellation) survive. Treatment and staff follow Acuity while they still equal `acuity_mapped_*`, and staff changes win after that.
+- **Status**: on create, past → `completed` (`no-show` if Acuity's `noShow` flag or a label says so), canceled → `cancelled`, else `scheduled`. An update never moves an appointment to `completed`, because that transition fires the feedback automation, and a cancel from Acuity never downgrades a CRM `completed`/`no-show`.
+- **Webhook**: static Acuity webhooks send bare actions (`scheduled`, `rescheduled`, `canceled`, `changed`), and the API form uses `appointment.*`, so accept both. Only `scheduled` creates, per `webhook_import_mode`, so a staff-deleted or earlier-skipped booking isn't recreated by later events. A canceled booking that isn't in the CRM leaves an `acuityTombstones/{id}` so a slower stale "scheduled" can't create a ghost. `processedWebhooks/appt_{id}` drops only an exact repeat of the last applied state.
+- **Times** come from Acuity's `datetime` (with offset) converted to the org timezone. Acuity's `date`/`time` fields are display strings ("July 2, 2013", "10:15am"), so never store those.
+- **Treatment/staff**: `acuity_import_mappings.{appointment_types,calendars}[acuityId] = crmId` (empty string = keep the Acuity name), then the inverted client-portal mapping, then an exact name match (case/spacing-insensitive). Unmatched types keep the Acuity name with `treatment_id: null`.
+- Acuity's `GET /clients` has no pagination (only `search`), and `GET /appointments` returns 100 by default, so always pass `max`. Webhooks carry only `action` + `id` (+ calendar/type ids), and the handler must fetch `appointments/{id}`.
+
 ### Field naming — snake_case vs camelCase
 The codebase has two naming conventions, left over from the Supabase → Firebase migration. Honor the convention already used by the collection; do not mix.
 
@@ -440,10 +460,11 @@ These were hardened in the 2026-04-21 audit pass. Do not weaken any of them with
 - **Tenant-subcollection writes are split** `create` / `update` / `delete`. Clients, purchases, communications, membership history are *never* hard-deletable. Prefer soft-delete via `deleted_at` for clients.
 - **`waiverTokens`**: `allow get: true / list: false`. Tokens are not enumerable. They carry `expiresAt` (30 days); both the client and rules check it. Unauthenticated signing of a `clientWaivers` doc requires a valid, pending, unexpired `waiverTokens` entry whose `waiverId` + `organizationId` match the path. Do not loosen this — it is the only thing stopping arbitrary orgId/waiverId enumeration on the public form.
 - **`marketingIntegrations`**: `get` only, `list` denied. These docs store third-party API keys (Twilio, Resend). Never add a list query.
+- **`acuitySyncConfig`**: `create`/`delete: false`, and `update` is limited by `affectedKeys().hasOnly([...])` to the sync settings (`sync_enabled`, `webhook_import_mode`, `client_portal_acuity_mappings`, `acuity_import_mappings`, `updated_at`). Credentials, account info and the doc itself are written only by the `acuitySync` Cloud Function, after it verifies them with Acuity. Never let the browser write a key field again, because the old `api_key_encrypted` / `webhook_secret` plaintext fields were readable by every admin.
 - **`auditLogs`, `acuitySyncLogs`, `campaignRecipients`, `rateLimits`**: `allow write: if false`. These are written exclusively via the Admin SDK.
 - **Storage `waivers/`**: size + MIME enforced in `storage.rules`. PDFs only on the top-level path; images under `/{token}/photos/`. Default deny elsewhere.
 - **Callable functions**: always check `request.auth`, load the caller's `users/{uid}`, verify `organizationId` + role, then call `consumeRateLimit(org, action, limit)` before side-effects that cost money (SMS/email/external API).
-- **Webhook endpoints** (`acuityWebhook`): HMAC-verify the signature with `crypto.timingSafeEqual` **before** processing payload. Each org must configure its own `webhook_secret` in `acuitySyncConfig`.
+- **Webhook endpoints** (`acuityWebhook`): HMAC-verify the signature with `crypto.timingSafeEqual` **before** processing payload. The secret is the org's own Acuity API key (write-only, see above) — that is what Acuity signs with; a legacy `webhook_secret` on the config doc is also accepted. The URL must carry `?org={orgId}`, and there is never a cross-org or global fallback.
 - **Invoices**: `create: false` (CF-only), `delete: false` (audit trail), `update` allows admins to set **only** `pdf_url` + `pdf_storage_path` and only while `pdf_url` is currently `null`. All monetary fields + snapshots are frozen at issue time. Invoice numbers are per-org sequential (`INV-00001`), managed by `createInvoice`. Gaps are expected (voided invoices don't renumber).
 - **`invoiceDrafts`**: admin-only CRUD; create requires `created_by == request.auth.uid`. No invoice number is assigned to drafts — they're pre-issue scratch state that gets deleted when the user clicks "Issue Invoice". Drafts do NOT bypass the immutability guarantees of `invoices/{id}` — issue still goes through `createInvoice`.
 - **`config/invoiceCounter`**: `write: if false` at rule level (via `configId != 'invoiceCounter'` exclusion in the general config rule). Only the `createInvoice` Admin-SDK Cloud Function may increment it.

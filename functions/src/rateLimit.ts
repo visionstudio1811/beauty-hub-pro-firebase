@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { defineStrings, getOrgLanguage, makeT, type AppLanguage } from './lib/i18n';
 
@@ -94,15 +95,15 @@ export async function consumeRateLimit(
     if (snap.exists) {
       tx.update(ref, {
         count: current + 1,
-        lastAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastAt: FieldValue.serverTimestamp(),
       });
     } else {
       tx.set(ref, {
         action,
         count: 1,
         limit,
-        firstAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastAt: admin.firestore.FieldValue.serverTimestamp(),
+        firstAt: FieldValue.serverTimestamp(),
+        lastAt: FieldValue.serverTimestamp(),
       });
     }
   });

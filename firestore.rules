@@ -421,8 +421,17 @@ service cloud.firestore {
 
       match /acuitySyncConfig/{docId} {
         allow read: if belongsToOrg(orgId) && isAdmin();
-        allow create, update: if belongsToOrg(orgId) && isAdmin();
-        allow delete: if belongsToOrg(orgId) && isAdmin();
+        // Created by the acuitySync Cloud Function on first connect. Credentials
+        // and connection state are server-managed (the API key lives in the
+        // Admin-SDK-only /secret subdoc, which no rule matches); the browser may
+        // only change sync settings.
+        allow create: if false;
+        allow update: if belongsToOrg(orgId) && isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'sync_enabled', 'webhook_import_mode', 'client_portal_acuity_mappings',
+            'acuity_import_mappings', 'updated_at'
+          ]);
+        allow delete: if false;
       }
 
       match /acuitySyncLogs/{logId} {

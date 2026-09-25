@@ -182,51 +182,223 @@
     }
   },
   "acuity": {
-    "title": "Acuity Scheduling Integration",
-    "subtitle": "Connect your Beauty Hub Pro system with Acuity Scheduling for seamless appointment and client management.",
+    "title": "Acuity Scheduling",
+    "subtitle": "Connect your Acuity account, then choose exactly which clients and appointments to bring into the CRM.",
     "loadFailed": "Failed to load Acuity configuration",
     "invalidMappingJson": "Invalid mapping JSON",
     "invalidMappingJsonDescription": "Check the client portal Acuity mapping before saving.",
-    "savedDescription": "Acuity configuration saved successfully",
-    "saveFailed": "Failed to save Acuity configuration",
-    "clientSyncFailed": "Client sync failed",
-    "fullSyncFailed": "Full sync failed",
-    "appointmentsSyncFailed": "Appointments sync failed",
-    "syncedClients_one": "Synced {{count}} client",
-    "syncedClients_two": "Synced {{count}} clients",
-    "syncedClients_other": "Synced {{count}} clients",
-    "fullSyncCompleted": "Full sync completed: {{clients}} clients, {{appointments}} appointments",
-    "syncComplete": "Sync Complete",
-    "syncFailed": "Sync Failed",
-    "syncFailedDescription": "Failed to sync with Acuity",
-    "configuration": {
-      "title": "Configuration",
-      "description": "Set up your Acuity Scheduling API credentials and sync preferences.",
+    "savedDescription": "Acuity settings saved",
+    "saveFailed": "Failed to save Acuity settings",
+    "connection": {
+      "title": "Connection",
+      "description": "In Acuity, go to Integrations → API to find your User ID and API key. The key is stored securely and can't be read back.",
       "userIdLabel": "Acuity User ID",
-      "userIdPlaceholder": "Enter your Acuity User ID",
-      "apiKeyPlaceholder": "Enter your Acuity API Key",
-      "webhookSecretLabel": "Webhook Secret (Optional)",
-      "webhookSecretPlaceholder": "Enter webhook secret for security",
-      "enableSync": "Enable Acuity Sync",
-      "mappingLabel": "Client Portal Booking Mapping",
-      "mappingPlaceholder": "{\"treatments\":{\"crmTreatmentId\":{\"appointmentTypeID\":123}},\"staff_calendars\":{\"crmStaffId\":456}}",
-      "mappingHelp": "Map CRM treatment IDs to Acuity appointment type IDs and CRM staff IDs to Acuity calendar IDs for approved client requests."
+      "userIdPlaceholder": "e.g. 12345678",
+      "apiKeyPlaceholder": "Paste your Acuity API key",
+      "saveAndTest": "Save & test connection",
+      "test": "Test connection",
+      "openApiSettings": "Open Acuity API settings",
+      "connectedTo": "Connected to {{name}}",
+      "savedNotTested": "Credentials saved. Test the connection to confirm they work.",
+      "notConnected": "Not connected yet.",
+      "connectedToast": "Connected to Acuity",
+      "userIdRequired": "Enter your Acuity User ID",
+      "apiKeyRequired": "Enter your Acuity API key",
+      "failed": "Couldn't connect to Acuity",
+      "lastTestFailed": "Connection test failed: {{message}}"
     },
-    "webhook": {
-      "title": "Webhook Configuration",
-      "description": "Set up webhooks in your Acuity account to receive real-time updates.",
-      "addUrl": "Add this webhook URL to your Acuity Scheduling account:",
-      "openSettings": "Open Acuity Webhooks Settings"
+    "import": {
+      "title": "Import from Acuity",
+      "description": "Browse your Acuity account and tick exactly which clients and appointments to bring into the CRM. Nothing is imported until you click Import.",
+      "connectFirst": "Save your Acuity credentials above to start importing.",
+      "tabs": {
+        "clients": "Clients",
+        "appointments": "Appointments"
+      },
+      "filterPlaceholder": "Filter by name, email or phone",
+      "reload": "Reload",
+      "selectAll": "Select all",
+      "selected_one": "{{count}} selected",
+      "selected_two": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clearSelection": "Clear selection",
+      "importSelected_one": "Import {{count}} selected",
+      "importSelected_two": "Import {{count}} selected",
+      "importSelected_other": "Import {{count}} selected",
+      "importing": "Importing {{done}} of {{total}}…",
+      "importDone": "Import finished",
+      "importFailed": "Import failed",
+      "loadFailed": "Couldn't load from Acuity",
+      "noResults": "Nothing matches.",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {{page}} of {{pages}}",
+      "summary": {
+        "created_one": "{{count}} new",
+        "created_two": "{{count}} new",
+        "created_other": "{{count}} new",
+        "linked_one": "{{count}} linked to existing",
+        "linked_two": "{{count}} linked to existing",
+        "linked_other": "{{count}} linked to existing",
+        "updated_one": "{{count}} updated",
+        "updated_two": "{{count}} updated",
+        "updated_other": "{{count}} updated",
+        "skipped_one": "{{count}} skipped",
+        "skipped_two": "{{count}} skipped",
+        "skipped_other": "{{count}} skipped",
+        "errors_one": "{{count}} failed",
+        "errors_two": "{{count}} failed",
+        "errors_other": "{{count}} failed",
+        "nothing": "Nothing was imported"
+      },
+      "outcome": {
+        "created": "Imported",
+        "linked": "Linked to existing",
+        "updated": "Updated",
+        "skipped": "Skipped",
+        "error": "Failed"
+      },
+      "partial": "Stopped after {{done}} of {{total}}.",
+      "confirmTitle_one": "Import {{count}} record from Acuity?",
+      "confirmTitle_two": "Import {{count}} records from Acuity?",
+      "confirmTitle_other": "Import {{count}} records from Acuity?",
+      "confirmDescription": "They'll be added to the CRM. Clients already in the CRM are linked, not duplicated, and nobody is notified."
+    },
+    "clients": {
+      "intro": "Load your Acuity client list, then tick the clients you want in the CRM. Clients already in the CRM are matched by email, or by phone and name, and are never duplicated.",
+      "load": "Load clients from Acuity",
+      "searchAcuity": "Search Acuity",
+      "truncated": "Showing the first {{n}} clients. Type a name or phone number and click Search Acuity to find others.",
+      "filters": {
+        "all": "All ({{n}})",
+        "new": "Not in CRM ({{n}})",
+        "inCrm": "Already in CRM ({{n}})"
+      },
+      "columns": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "crm": "CRM"
+      },
+      "status": {
+        "new": "New",
+        "inCrm": "In CRM",
+        "linked": "Linked",
+        "byEmail": "Matched by email",
+        "byPhone": "Matched by phone",
+        "similar": "Similar name in CRM: {{name}}",
+        "ambiguous": "Several CRM matches",
+        "samePhone": "Same phone as {{name}} in the CRM (not linked automatically)"
+      },
+      "importHelp": "New clients are created in the CRM. A client already in the CRM (same email, or same phone and name) is linked, and only their empty fields are filled in. Nothing is sent to your clients.",
+      "skipReasons": {
+        "missing_name": "No name in Acuity",
+        "missing_contact": "No email or phone in Acuity",
+        "ambiguous_match": "Several CRM clients match. Link it by hand."
+      },
+      "searchResults": "Showing Acuity results for \"{{term}}\".",
+      "showAll": "Show all clients",
+      "unnamed": "Unnamed client",
+      "selectRow": "Select {{name}}"
+    },
+    "appointments": {
+      "from": "From",
+      "to": "To",
+      "presets": {
+        "next30": "Next 30 days",
+        "past30": "Past 30 days",
+        "past90": "Past 90 days"
+      },
+      "calendar": "Calendar",
+      "service": "Service",
+      "any": "All",
+      "includeCanceled": "Include canceled",
+      "load": "Load appointments",
+      "invalidRange": "Choose a valid date range",
+      "truncated": "Showing the first {{n}} appointments. Narrow the date range to see the rest.",
+      "filters": {
+        "all": "All ({{n}})",
+        "notImported": "Not imported ({{n}})",
+        "imported": "Imported ({{n}})"
+      },
+      "filterPlaceholder": "Filter by client, service, email or phone",
+      "columns": {
+        "when": "Date & time",
+        "client": "Client",
+        "service": "Service",
+        "calendar": "Calendar",
+        "status": "Status"
+      },
+      "minutes": "{{value}} min",
+      "status": {
+        "imported": "Imported",
+        "canceled": "Canceled",
+        "past": "Past",
+        "upcoming": "Upcoming",
+        "inCrm": "In CRM",
+        "newClient": "New client",
+        "ambiguous": "Several CRM matches",
+        "willLink": "Matches an appointment already in the CRM. It will be linked, not duplicated.",
+        "sameDay": "This client already has a CRM appointment that day at {{time}}"
+      },
+      "linkedTo": "→ {{name}}",
+      "notLinked": "Not linked to a CRM treatment",
+      "createMissingClients": "Create clients that aren't in the CRM yet",
+      "importHelp": "Past appointments are imported as completed and upcoming ones as scheduled. Clients are not notified. Importing an appointment again picks up changes made in Acuity; edits made in the CRM are kept.",
+      "skipReasons": {
+        "invalid_datetime": "Acuity sent an invalid date",
+        "not_imported": "Not imported",
+        "canceled": "Canceled in Acuity",
+        "client_not_in_crm": "Client isn't in the CRM",
+        "missing_client_details": "No name, email or phone in Acuity",
+        "not_found_in_acuity": "No longer in Acuity",
+        "ambiguous_client": "Several CRM clients match this person"
+      },
+      "selectRow": "Select {{name}}, {{when}}"
+    },
+    "mapping": {
+      "title": "Treatment & staff mapping",
+      "description": "Choose which CRM treatment (and staff member) each Acuity appointment type (and calendar) becomes. Saved right away and used for future imports and webhooks.",
+      "acuityType": "Acuity appointment type",
+      "crmTreatment": "CRM treatment",
+      "acuityCalendar": "Acuity calendar",
+      "crmStaff": "CRM staff member",
+      "notLinked": "Don't link (keep the Acuity name)",
+      "auto": "Matched automatically",
+      "saved": "Mapping saved",
+      "saveFailed": "Couldn't save the mapping",
+      "selectFor": "CRM match for {{name}}"
+    },
+    "automation": {
+      "title": "Automatic sync",
+      "description": "Keep the CRM up to date through Acuity webhooks.",
+      "enable": "Enable automatic sync",
+      "enableHelp": "When on, Acuity webhooks keep imported appointments up to date (reschedules and cancellations), and approved client-portal bookings are sent to Acuity.",
+      "newBookingsLabel": "New bookings made in Acuity",
+      "modes": {
+        "off": "Don't import them. I'll choose manually",
+        "existing_clients": "Import only for clients already in the CRM",
+        "all": "Import all of them (creates new clients)"
+      },
+      "webhookUrl": "Webhook URL",
+      "copy": "Copy",
+      "copied": "Webhook URL copied",
+      "webhookHelp": "In Acuity, open Integrations → Webhooks and paste this URL for the appointment events. Acuity signs webhooks with your API key, so there's no separate secret to set up.",
+      "openWebhookSettings": "Open Acuity webhook settings",
+      "advanced": "Client portal booking mapping (advanced)",
+      "mappingPlaceholder": "{\"treatments\":{\"crmTreatmentId\":{\"appointmentTypeID\":123}},\"staff_calendars\":{\"crmStaffId\":456}}",
+      "mappingHelp": "Map CRM treatment IDs to Acuity appointment type IDs and CRM staff IDs to Acuity calendar IDs for approved client requests.",
+      "connectFirst": "Connect your Acuity account above before changing these settings."
     },
     "sync": {
-      "title": "Sync Status",
-      "description": "Monitor and control your Acuity synchronization.",
-      "syncedClients": "Synced Clients",
-      "syncedAppointments": "Synced Appointments",
-      "lastSync": "Last sync: {{date}}",
-      "fullSync": "Full Sync",
-      "syncClients": "Sync Clients",
-      "syncAppointments": "Sync Appointments"
+      "title": "Sync status",
+      "description": "What has come into the CRM from Acuity so far.",
+      "syncedClients": "Clients linked to Acuity",
+      "syncedAppointments": "Appointments from Acuity",
+      "lastImport": "Last import: {{date}}"
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again."
     }
   }
 }
