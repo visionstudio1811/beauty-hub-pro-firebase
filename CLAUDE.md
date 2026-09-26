@@ -546,3 +546,7 @@ These cannot be done via CLI and must be completed in the [Firebase Console](htt
 2. **Add authorized domains** → Authentication → Settings → Authorized domains (add production domain)
 3. **Firestore location** — set to `us-central1` during init
 4. **Storage** — enabled; bucket is `beauty-hub-pro-app.firebasestorage.app`. Rules are managed via `storage.rules` in the repo.
+5. **Cross-service Storage rules** — the admin-only upload rules (logo, branding, offers, treatment photos, product images) call `firestore.get(users/{uid})`. That only works if the Storage service agent has `roles/firebaserules.firestoreServiceAgent`; without it every such browser upload fails with `storage/unauthorized` even for real admins. Granted on 2026-09-26 (it had been missing, so these uploads never worked):
+   ```bash
+   gcloud projects add-iam-policy-binding beauty-hub-pro-app --member="serviceAccount:service-1065190177889@gcp-sa-firebasestorage.iam.gserviceaccount.com" --role="roles/firebaserules.firestoreServiceAgent"
+   ```

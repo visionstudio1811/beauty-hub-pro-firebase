@@ -236,7 +236,14 @@ export const TreatmentManagement: React.FC = () => {
       setFormData(f => ({ ...f, image_url: url, image_storage_path: path }));
     } catch (error) {
       console.error('Treatment image upload failed', error);
-      toast({ title: t('treatmentManagement.image.uploadFailed'), variant: 'destructive' });
+      // Show the Storage error code (e.g. storage/unauthorized) so a failure
+      // can be diagnosed from a screenshot.
+      const code = (error as { code?: unknown })?.code;
+      toast({
+        title: t('treatmentManagement.image.uploadFailed'),
+        description: typeof code === 'string' ? code : undefined,
+        variant: 'destructive',
+      });
     } finally {
       setUploadingImage(false);
     }
