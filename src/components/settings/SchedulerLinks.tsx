@@ -41,7 +41,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Link as LinkIcon, Copy, Plus, Trash2, Code2, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Link as LinkIcon, Copy, Plus, Trash2, Code2, X, Pencil, ExternalLink } from 'lucide-react';
 
 interface SchedulerLink {
   id: string;       // The token
@@ -72,6 +73,25 @@ const buildBookingUrl = (token: string, crmDomain?: string | null): string => {
   return `https://${crmDomain ?? 'beautyhubpro.com'}/book/${token}`;
 };
 
+// Expiration choices in the create/edit dialog. 'keep' (edit only) leaves the
+// current expiration untouched; the others are measured from today.
+type ExpiryChoice = 'keep' | 'never' | '30' | '90' | '180' | '365';
+const EXPIRY_DAY_CHOICES = ['30', '90', '180', '365'] as const;
+
+interface LinkForm {
+  treatmentId: string;   // 'any' = visitor picks
+  label: string;
+  expiry: ExpiryChoice;
+  isActive: boolean;
+}
+
+const EMPTY_FORM: LinkForm = { treatmentId: 'any', label: '', expiry: 'never', isActive: true };
+
+const expiryToIso = (choice: ExpiryChoice): string | null =>
+  choice === 'never' || choice === 'keep'
+    ? null
+    : new Date(Date.now() + parseInt(choice, 10) * 24 * 60 * 60 * 1000).toISOString();
+
 const buildIframeSnippet = (url: string): string =>
   `<iframe src="${url}" width="100%" height="800" style="border:0;" loading="lazy" allow="payment"></iframe>`;
 
@@ -84,14 +104,12 @@ export const SchedulerLinks: React.FC = () => {
   const { toast } = useToast();
   const [links, setLinks] = useState<SchedulerLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  // The link being edited; null while creating a new one.
+  const [editing, setEditing] = useState<SchedulerLink | null>(null);
   const [embedFor, setEmbedFor] = useState<{ url: string; snippet: string } | null>(null);
-  const [form, setForm] = useState<{
-    treatmentId: string;
-    label: string;
-    expiresDays: string;
-  }>({ treatmentId: 'any', label: '', expiresDays: '90' });
+  const [form, setForm] = useState<LinkForm>(EMPTY_FORM);
 
   useEffect(() => {
     if (!currentOrganization?.id) return;
@@ -135,12 +153,27 @@ export const SchedulerLinks: React.FC = () => {
     p => p.is_active && (p.role === 'staff' || p.role === 'admin' || p.role === 'beautician'),
   );
 
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (link: SchedulerLink) => {
+    setEditing(link);
+    setForm({
+      treatmentId: link.treatment_id ?? 'any',
+      label: link.label ?? '',
+      expiry: 'keep',
+      isActive: link.is_active,
+    });
+    setDialogOpen(true);
+  };
+
   const handleCreate = async () => {
     if (!currentOrganization?.id) return;
-    setCreating(true);
+    setSaving(true);
     try {
-      const days = Math.max(1, Math.min(365, parseInt(form.expiresDays, 10) || 90));
-      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
       const fn = httpsCallable<
         {
           organizationId: string;
@@ -148,26 +181,62 @@ export const SchedulerLinks: React.FC = () => {
           staffId?: string | null;
           label?: string;
           expiresAtIso?: string;
+          neverExpires?: boolean;
         },
         { token: string; url: string }
       >(functions, 'createSchedulerLink');
+      const expiresAtIso = expiryToIso(form.expiry);
       const result = await fn({
         organizationId: currentOrganization.id,
         treatmentId: form.treatmentId === 'any' ? null : form.treatmentId,
         staffId: null,
         label: form.label.trim() || undefined,
-        expiresAtIso: expiresAt,
+        ...(expiresAtIso ? { expiresAtIso } : { neverExpires: true }),
       });
       toast({ title: t('schedulerLinks.toasts.createdTitle'), description: t('schedulerLinks.toasts.createdDescription') });
-      setCreateOpen(false);
-      setForm({ treatmentId: 'any', label: '', expiresDays: '90' });
+      setDialogOpen(false);
+      setForm(EMPTY_FORM);
       // Surface embed dialog so the admin can copy + paste right away
       setEmbedFor({ url: result.data.url, snippet: buildIframeSnippet(result.data.url) });
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('schedulerLinks.toasts.createFailedDescription');
       toast({ title: t('schedulerLinks.toasts.createFailedTitle'), description: msg, variant: 'destructive' });
     } finally {
-      setCreating(false);
+      setSaving(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!currentOrganization?.id || !editing) return;
+    setSaving(true);
+    try {
+      const fn = httpsCallable<
+        {
+          organizationId: string;
+          token: string;
+          treatmentId: string | null;
+          label: string | null;
+          expiresAtIso?: string | null;
+          isActive: boolean;
+        },
+        { success: boolean }
+      >(functions, 'updateSchedulerLink');
+      await fn({
+        organizationId: currentOrganization.id,
+        token: editing.id,
+        treatmentId: form.treatmentId === 'any' ? null : form.treatmentId,
+        label: form.label.trim() || null,
+        ...(form.expiry === 'keep' ? {} : { expiresAtIso: expiryToIso(form.expiry) }),
+        isActive: form.isActive,
+      });
+      toast({ title: t('schedulerLinks.toasts.updatedTitle') });
+      setDialogOpen(false);
+      setEditing(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('schedulerLinks.toasts.updateFailedDescription');
+      toast({ title: t('schedulerLinks.toasts.updateFailedTitle'), description: msg, variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -221,7 +290,7 @@ export const SchedulerLinks: React.FC = () => {
               {t('schedulerLinks.description')}
             </CardDescription>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4 me-1" /> {t('schedulerLinks.createLink')}
           </Button>
         </div>
@@ -274,13 +343,27 @@ export const SchedulerLinks: React.FC = () => {
                       {url}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {t('schedulerLinks.createdExpires', {
-                        created: formatDate(tsToDate(link.created_at), locale),
-                        expires: formatDate(tsToDate(link.expires_at), locale),
-                      })}
+                      {link.expires_at
+                        ? t('schedulerLinks.createdExpires', {
+                            created: formatDate(tsToDate(link.created_at), locale),
+                            expires: formatDate(tsToDate(link.expires_at), locale),
+                          })
+                        : t('schedulerLinks.createdNeverExpires', {
+                            created: formatDate(tsToDate(link.created_at), locale),
+                          })}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(link)}>
+                      <Pencil className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.edit')}
+                    </Button>
+                    {link.is_active && !expired && (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3 me-1" /> {t('schedulerLinks.actions.open')}
+                        </a>
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -325,17 +408,25 @@ export const SchedulerLinks: React.FC = () => {
         )}
       </CardContent>
 
-      {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      {/* Create / edit dialog */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={open => {
+          setDialogOpen(open);
+          if (!open) setEditing(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('schedulerLinks.createDialog.title')}</DialogTitle>
+            <DialogTitle>
+              {editing ? t('schedulerLinks.editDialog.title') : t('schedulerLinks.createDialog.title')}
+            </DialogTitle>
             <DialogDescription>
-              {t('schedulerLinks.createDialog.description')}
+              {editing ? t('schedulerLinks.editDialog.description') : t('schedulerLinks.createDialog.description')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
               <Label className="text-sm">{t('schedulerLinks.createDialog.treatment')}</Label>
               <Select value={form.treatmentId} onValueChange={v => setForm({ ...form, treatmentId: v })}>
                 <SelectTrigger>
@@ -343,13 +434,17 @@ export const SchedulerLinks: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="any">{t('schedulerLinks.createDialog.anyTreatmentOption')}</SelectItem>
-                  {treatments.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  {treatments.map(tr => (
+                    <SelectItem key={tr.id} value={tr.id}>{tr.name}</SelectItem>
                   ))}
+                  {/* Keep a link's current treatment selectable even if it was since deactivated. */}
+                  {form.treatmentId !== 'any' && !treatments.some(tr => tr.id === form.treatmentId) && (
+                    <SelectItem value={form.treatmentId}>{t('schedulerLinks.editDialog.removedTreatment')}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label className="text-sm">{t('schedulerLinks.createDialog.label')}</Label>
               <Input
                 value={form.label}
@@ -358,24 +453,54 @@ export const SchedulerLinks: React.FC = () => {
                 maxLength={80}
               />
             </div>
-            <div>
-              <Label className="text-sm">{t('schedulerLinks.createDialog.expiresIn')}</Label>
-              <Input
-                type="number"
-                min={1}
-                max={365}
-                value={form.expiresDays}
-                onChange={e => setForm({ ...form, expiresDays: e.target.value })}
-              />
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t('schedulerLinks.linkForm.expiration')}</Label>
+              <Select value={form.expiry} onValueChange={v => setForm({ ...form, expiry: v as ExpiryChoice })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {editing && (
+                    <SelectItem value="keep">
+                      {editing.expires_at
+                        ? t('schedulerLinks.linkForm.keepCurrent', { date: formatDate(tsToDate(editing.expires_at), locale) })
+                        : t('schedulerLinks.linkForm.keepCurrentNever')}
+                    </SelectItem>
+                  )}
+                  <SelectItem value="never">{t('schedulerLinks.linkForm.never')}</SelectItem>
+                  {EXPIRY_DAY_CHOICES.map(days => (
+                    <SelectItem key={days} value={days}>{t('schedulerLinks.linkForm.daysFromToday', { days })}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            {editing && (
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <Switch
+                  checked={form.isActive}
+                  onCheckedChange={v => setForm({ ...form, isActive: v })}
+                  aria-label={t('schedulerLinks.linkForm.active')}
+                />
+                <div>
+                  <Label className="text-sm">{t('schedulerLinks.linkForm.active')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('schedulerLinks.linkForm.activeHelp')}</p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               {t('common:actions.cancel')}
             </Button>
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? t('schedulerLinks.createDialog.creating') : t('schedulerLinks.createLink')}
-            </Button>
+            {editing ? (
+              <Button onClick={handleUpdate} disabled={saving}>
+                {saving ? t('schedulerLinks.linkForm.saving') : t('schedulerLinks.linkForm.save')}
+              </Button>
+            ) : (
+              <Button onClick={handleCreate} disabled={saving}>
+                {saving ? t('schedulerLinks.createDialog.creating') : t('schedulerLinks.createLink')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

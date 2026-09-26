@@ -39,6 +39,20 @@
       "description": "Description",
       "descriptionPlaceholder": "Brief description of the treatment"
     },
+    "image": {
+      "sectionTitle": "Booking page",
+      "sectionHelp": "Clients see this photo and description when they book this treatment from a scheduler link.",
+      "label": "Photo",
+      "upload": "Upload a photo",
+      "uploading": "Uploading…",
+      "hint": "PNG, JPG or WebP, up to 5 MB. Landscape photos look best.",
+      "replace": "Replace",
+      "remove": "Remove",
+      "alt": "Treatment photo",
+      "invalid": "Please choose an image file.",
+      "tooLarge": "The image must be smaller than 5 MB.",
+      "uploadFailed": "Could not upload the photo. Please try again."
+    },
     "scheduling": {
       "title": "Scheduling",
       "bufferBefore": "Buffer before (min)",

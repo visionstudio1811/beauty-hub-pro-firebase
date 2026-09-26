@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { applyFavicon } from '@/components/LogoManagement';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
@@ -39,6 +39,27 @@ import { DropdownDataProvider } from '@/contexts/DropdownDataContext';
 import { PackageProvider } from '@/contexts/PackageContext';
 import { SchedulingConfigProvider } from '@/contexts/SchedulingConfigContext';
 
+// firebase.json lets only /book/** be framed (the scheduler-link embed). If
+// this page was opened inside a frame on a booking link, render nothing for
+// any other route, so an in-frame client-side navigation can never put a CRM
+// or portal screen inside someone else's site. Frames that didn't start on a
+// booking link are already blocked by the server headers, so dev tools that
+// preview the app in an iframe are unaffected.
+const openedFramedOnBookingLink = (() => {
+  try {
+    return window.self !== window.top && window.location.pathname.startsWith('/book/');
+  } catch {
+    // Reading window.top threw, which only happens inside a cross-origin frame.
+    return window.location.pathname.startsWith('/book/');
+  }
+})();
+
+const FramedRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { pathname } = useLocation();
+  if (openedFramedOnBookingLink && !pathname.startsWith('/book/')) return null;
+  return <>{children}</>;
+};
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +89,7 @@ function App() {
               <BusinessHoursProvider>
                     <PackageProvider>
                       <SchedulingConfigProvider>
+                          <FramedRouteGuard>
                           <Routes>
                             {/* Public routes */}
                             <Route path="/" element={<Index />} />
@@ -120,6 +142,7 @@ function App() {
                             
                             <Route path="*" element={<NotFound />} />
                           </Routes>
+                          </FramedRouteGuard>
                           <Toaster />
                       </SchedulingConfigProvider>
                     </PackageProvider>

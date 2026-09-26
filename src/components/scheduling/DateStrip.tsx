@@ -43,7 +43,7 @@ export const DateStrip: React.FC<DateStripProps> = ({
             className={
               'shrink-0 w-16 rounded-md border p-2 text-center transition-colors ' +
               (isSelected
-                ? 'border-purple-600 bg-purple-50 text-purple-700'
+                ? 'border-primary bg-accent text-foreground ring-1 ring-primary'
                 : enabled
                 ? 'border-input hover:bg-accent'
                 : 'border-input opacity-40 cursor-not-allowed')

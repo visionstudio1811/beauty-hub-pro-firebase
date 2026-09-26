@@ -62,6 +62,28 @@ const STRINGS = defineStrings({
 /** Language for errors thrown before the org is known: request.data.lang ?? 'en'. */
 const requestLanguage = (lang: unknown): AppLanguage | null => (isAppLanguage(lang) ? lang : null);
 
+interface PublicTreatment {
+  id: string;
+  name: string;
+  duration: number;
+  price?: number;
+  staff_ids?: string[];
+  description: string | null;
+  image_url: string | null;
+  category: string | null;
+  color: string | null;
+}
+
+const DESCRIPTION_MAX = 2000;
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+/** Only https URLs reach the public page (it renders them as <img src>). */
+const httpsUrlOrNull = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return /^https:\/\/[^\s"'()\\]+$/i.test(trimmed) ? trimmed : null;
+};
+
 interface ResolveRequest {
   token: string;
   lang?: string;                 // Visitor's active UI language ('en' | 'he')
@@ -126,19 +148,26 @@ export const resolveSchedulerLink = onCall(async (request) => {
   const lang = orgLanguageFromData(orgData);
   const tr = makeT(STRINGS, requestLanguage(requestedLang) ?? lang);
 
-  // Treatments
-  let treatmentsList: Array<{ id: string; name: string; duration: number; price?: number; staff_ids?: string[] }> = [];
+  // Treatments. Only the public-facing catalog fields go out: never
+  // member_price, buffers or availability windows.
+  const toPublicTreatment = (id: string, t: FirebaseFirestore.DocumentData): PublicTreatment => ({
+    id,
+    name: t.name ?? tr('treatmentFallback'),
+    duration: typeof t.duration === 'number' ? t.duration : 60,
+    price: typeof t.price === 'number' ? t.price : undefined,
+    staff_ids: Array.isArray(t.staff_ids) ? t.staff_ids : undefined,
+    description: typeof t.description === 'string' && t.description.trim()
+      ? t.description.trim().slice(0, DESCRIPTION_MAX)
+      : null,
+    image_url: httpsUrlOrNull(t.image_url),
+    category: typeof t.category === 'string' && t.category.trim() ? t.category.trim() : null,
+    color: typeof t.color === 'string' && HEX_COLOR.test(t.color) ? t.color : null,
+  });
+  let treatmentsList: PublicTreatment[] = [];
   if (scopedTreatmentId) {
     const tSnap = await db.collection('organizations').doc(orgId).collection('treatments').doc(scopedTreatmentId).get();
     if (tSnap.exists && tSnap.data()?.is_active !== false) {
-      const t = tSnap.data() ?? {};
-      treatmentsList = [{
-        id: tSnap.id,
-        name: t.name ?? tr('treatmentFallback'),
-        duration: typeof t.duration === 'number' ? t.duration : 60,
-        price: typeof t.price === 'number' ? t.price : undefined,
-        staff_ids: Array.isArray(t.staff_ids) ? t.staff_ids : undefined,
-      }];
+      treatmentsList = [toPublicTreatment(tSnap.id, tSnap.data() ?? {})];
     }
   } else {
     const tSnap = await db
@@ -147,16 +176,9 @@ export const resolveSchedulerLink = onCall(async (request) => {
       .collection('treatments')
       .where('is_active', '==', true)
       .get();
-    treatmentsList = tSnap.docs.map(d => {
-      const t = d.data();
-      return {
-        id: d.id,
-        name: t.name ?? tr('treatmentFallback'),
-        duration: typeof t.duration === 'number' ? t.duration : 60,
-        price: typeof t.price === 'number' ? t.price : undefined,
-        staff_ids: Array.isArray(t.staff_ids) ? t.staff_ids : undefined,
-      };
-    });
+    treatmentsList = tSnap.docs
+      .map(d => toPublicTreatment(d.id, d.data()))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Staff (used when treatment doesn't pre-scope staff and the visitor needs to pick)
@@ -183,6 +205,9 @@ export const resolveSchedulerLink = onCall(async (request) => {
       }));
   }
 
+  const branding = orgData.login_branding && typeof orgData.login_branding === 'object'
+    ? (orgData.login_branding as Record<string, unknown>)
+    : {};
   return {
     organization: {
       id: orgId,
@@ -192,11 +217,19 @@ export const resolveSchedulerLink = onCall(async (request) => {
       // Org display language ('en' | 'he'); PublicBookingPage reads it from
       // organization.language ?? business_info.language.
       language: lang,
+      // Brand accent from Settings → Login Branding; the booking page tints
+      // its selected states and buttons with it.
+      accent: typeof branding.accent === 'string' && /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(branding.accent.trim())
+        ? branding.accent.trim()
+        : null,
     },
     business_info: {
       name: businessInfo.name ?? orgData.name ?? null,
       address: businessInfo.address ?? null,
       phone: businessInfo.phone ?? null,
+      currency: typeof businessInfo.currency === 'string' && /^[A-Za-z]{3}$/.test(businessInfo.currency.trim())
+        ? businessInfo.currency.trim().toUpperCase()
+        : 'USD',
       slot_interval_minutes: typeof businessInfo.slot_interval_minutes === 'number'
         ? businessInfo.slot_interval_minutes
         : null,

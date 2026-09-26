@@ -25,7 +25,12 @@ export interface TreatmentAvailabilityWindow {
 export interface Treatment {
   id: string;
   name: string;
-  description?: string;
+  // null clears a saved description (updateDoc drops undefined fields).
+  description?: string | null;
+  // Photo shown on public booking links. Stored at
+  // organizations/{orgId}/treatments/ in Storage.
+  image_url?: string | null;
+  image_storage_path?: string | null;
   duration: number;
   price?: number;
   // Price for active Club members. null/absent = no member price.
@@ -67,6 +72,8 @@ const docToTreatment = (id: string, data: any): Treatment => ({
   id,
   name: data.name || '',
   description: data.description ?? undefined,
+  image_url: typeof data.image_url === 'string' && data.image_url ? data.image_url : null,
+  image_storage_path: typeof data.image_storage_path === 'string' && data.image_storage_path ? data.image_storage_path : null,
   duration: data.duration ?? 60,
   price: data.price ?? undefined,
   member_price: typeof data.member_price === 'number' && Number.isFinite(data.member_price) ? data.member_price : undefined,

@@ -211,12 +211,15 @@
       "active": "פעיל"
     },
     "createdExpires": "נוצר {{created}} · תוקף עד {{expires}}",
+    "createdNeverExpires": "נוצר {{created}} · ללא תפוגה",
     "actions": {
       "url": "כתובת",
       "embed": "הטמעה",
       "revoke": "ביטול קישור",
       "delete": "מחיקה",
-      "copy": "העתקה"
+      "copy": "העתקה",
+      "edit": "עריכה",
+      "open": "פתיחה"
     },
     "confirmRevoke": "לבטל את הקישור? הכתובת הציבורית תפסיק לעבוד מיד.",
     "confirmDelete": "למחוק את הקישור לצמיתות? לא ניתן לבטל פעולה זו – הכתובת תיעלם לתמיד.",
@@ -235,7 +238,10 @@
       "urlCopied": "הכתובת הועתקה",
       "snippetCopied": "קוד ההטמעה הועתק",
       "copyFailedTitle": "ההעתקה נכשלה",
-      "copyFailedDescription": "יש לסמן ולהעתיק ידנית"
+      "copyFailedDescription": "יש לסמן ולהעתיק ידנית",
+      "updatedTitle": "הקישור עודכן",
+      "updateFailedTitle": "העדכון נכשל",
+      "updateFailedDescription": "לא ניתן לעדכן את הקישור"
     },
     "createDialog": {
       "title": "יצירת קישור להזמנת תור",
@@ -253,6 +259,22 @@
       "publicUrl": "כתובת ציבורית",
       "embedSnippet": "קוד הטמעה (iframe)",
       "embedHint": "הדביקו קוד זה ב-HTML של כל דף אינטרנט כדי להטמיע את רכיב הזמנת התורים."
+    },
+    "editDialog": {
+      "title": "עריכת קישור לקביעת תור",
+      "description": "השינויים חלים על אותה כתובת, כך שכל מי שכבר קיבל את הקישור יראה אותם מיד.",
+      "removedTreatment": "טיפול שהוסר"
+    },
+    "linkForm": {
+      "expiration": "תפוגה",
+      "never": "ללא תפוגה",
+      "daysFromToday": "{{days}} ימים מהיום",
+      "keepCurrent": "ללא שינוי (פג ב-{{date}})",
+      "keepCurrentNever": "ללא שינוי (ללא תפוגה)",
+      "active": "הקישור פעיל",
+      "activeHelp": "כבו כדי להפסיק לקבל בקשות חדשות בלי למחוק את הקישור. אפשר להפעיל שוב בכל עת.",
+      "save": "שמירת שינויים",
+      "saving": "שומר…"
     }
   },
   "userManagement": {

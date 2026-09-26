@@ -54,7 +54,7 @@ export const TimeGrid: React.FC<TimeGridProps> = ({ slots, selectedTime, onSelec
                 className={
                   'rounded-md border px-3 py-1.5 text-sm transition-colors ' +
                   (selectedTime === s.time
-                    ? 'border-purple-600 bg-purple-50 text-purple-700'
+                    ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-input hover:bg-accent')
                 }
                 dir="ltr"

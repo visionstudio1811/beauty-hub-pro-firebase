@@ -25,6 +25,7 @@ const STRINGS = defineStrings({
     org_token_required: 'organizationId and token are required',
     link_not_found: 'Link not found',
     active_must_revoke: 'Active links must be revoked before deletion.',
+    invalid_expiry: 'Invalid expiration date',
   },
   he: {
     user_not_found: 'המשתמש לא נמצא',
@@ -36,6 +37,7 @@ const STRINGS = defineStrings({
     org_token_required: 'נדרשים מזהה ארגון (organizationId) וטוקן',
     link_not_found: 'הקישור לא נמצא',
     active_must_revoke: 'יש לבטל קישורים פעילים לפני מחיקתם.',
+    invalid_expiry: 'תאריך התפוגה אינו תקין',
   },
 });
 
@@ -47,7 +49,20 @@ interface CreateRequest {
   staffId?: string | null;
   label?: string;
   expiresAtIso?: string;            // ISO timestamp; default = +90 days
+  neverExpires?: boolean;           // true = no expiration (expires_at: null)
 }
+
+interface UpdateRequest {
+  organizationId: string;
+  token: string;
+  // Each field is optional; only the ones present are changed.
+  treatmentId?: string | null;      // null = any treatment (visitor picks)
+  label?: string | null;
+  expiresAtIso?: string | null;     // null = never expires
+  isActive?: boolean;
+}
+
+const TOKEN_FORMAT = /^[a-f0-9]{32}$/;
 
 const DEFAULT_TTL_DAYS = 90;
 
@@ -114,9 +129,11 @@ export const createSchedulerLink = onCall(async (request) => {
 
   const token = randomBytes(16).toString('hex');     // 32 hex chars
   const now = admin.firestore.Timestamp.now();
-  const expiresAt = data.expiresAtIso
-    ? admin.firestore.Timestamp.fromDate(new Date(data.expiresAtIso))
-    : admin.firestore.Timestamp.fromMillis(now.toMillis() + DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = data.neverExpires === true
+    ? null
+    : data.expiresAtIso
+      ? admin.firestore.Timestamp.fromDate(new Date(data.expiresAtIso))
+      : admin.firestore.Timestamp.fromMillis(now.toMillis() + DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000);
 
   // Top-level public-lookup doc (visitor calls resolveSchedulerLink with the token)
   const publicDoc = {
@@ -157,6 +174,84 @@ export const createSchedulerLink = onCall(async (request) => {
   const url = `${host}/book/${token}`;
 
   return { token, url };
+});
+
+/**
+ * Edits an existing link in place: treatment scope, label, expiration and
+ * active state. The token (and so the URL) never changes, so links already
+ * shared or embedded pick up the change immediately. Setting isActive back to
+ * true re-enables a revoked link. Staff scope is left as created.
+ */
+export const updateSchedulerLink = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+
+  const data = (request.data ?? {}) as UpdateRequest;
+  const t = await resolveT(request.auth.uid);
+  if (!data.organizationId || typeof data.token !== 'string' || !TOKEN_FORMAT.test(data.token)) {
+    throw new HttpsError('invalid-argument', t('org_token_required'));
+  }
+
+  await assertAdmin(request.auth.uid, data.organizationId, t);
+  await consumeRateLimit(data.organizationId, 'updateSchedulerLink', 200);
+
+  const linkRef = db
+    .collection('organizations')
+    .doc(data.organizationId)
+    .collection('schedulerLinks')
+    .doc(data.token);
+  const publicRef = db.collection('schedulerLinkTokens').doc(data.token);
+  const [linkSnap, publicSnap] = await Promise.all([linkRef.get(), publicRef.get()]);
+  // Both halves must exist and the public token must belong to this org.
+  if (!linkSnap.exists || !publicSnap.exists || publicSnap.data()?.organization_id !== data.organizationId) {
+    throw new HttpsError('not-found', t('link_not_found'));
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const mirrorUpdate: Record<string, unknown> = { updated_at: now };
+  const publicUpdate: Record<string, unknown> = {};
+
+  if ('treatmentId' in data) {
+    const treatmentId = typeof data.treatmentId === 'string' && data.treatmentId ? data.treatmentId : null;
+    if (treatmentId) {
+      const tSnap = await db
+        .collection('organizations')
+        .doc(data.organizationId)
+        .collection('treatments')
+        .doc(treatmentId)
+        .get();
+      if (!tSnap.exists) throw new HttpsError('not-found', t('treatment_not_found'));
+    }
+    mirrorUpdate.treatment_id = treatmentId;
+    publicUpdate.treatment_id = treatmentId;
+  }
+
+  if ('label' in data) {
+    mirrorUpdate.label = typeof data.label === 'string' && data.label.trim() ? data.label.trim().slice(0, 80) : null;
+  }
+
+  if ('expiresAtIso' in data) {
+    let expiresAt: admin.firestore.Timestamp | null = null;
+    if (data.expiresAtIso !== null) {
+      const parsed = new Date(String(data.expiresAtIso));
+      if (Number.isNaN(parsed.getTime())) throw new HttpsError('invalid-argument', t('invalid_expiry'));
+      expiresAt = admin.firestore.Timestamp.fromDate(parsed);
+    }
+    mirrorUpdate.expires_at = expiresAt;
+    publicUpdate.expires_at = expiresAt;
+  }
+
+  if (typeof data.isActive === 'boolean') {
+    mirrorUpdate.is_active = data.isActive;
+    mirrorUpdate.revoked_at = data.isActive ? null : now;
+    publicUpdate.is_active = data.isActive;
+  }
+
+  const batch = db.batch();
+  batch.update(linkRef, mirrorUpdate);
+  if (Object.keys(publicUpdate).length > 0) batch.update(publicRef, publicUpdate);
+  await batch.commit();
+
+  return { success: true };
 });
 
 export const revokeSchedulerLink = onCall(async (request) => {

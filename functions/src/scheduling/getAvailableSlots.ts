@@ -79,7 +79,9 @@ interface GetAvailableSlotsRequest {
   lang?: string;
 }
 
-const MAX_DATE_RANGE_DAYS = 14;
+// 42 = a full 6-week month grid, so the public booking calendar can load a
+// whole month in one call (one rate-limit unit instead of three).
+const MAX_DATE_RANGE_DAYS = 42;
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -144,7 +146,8 @@ export const getAvailableSlots = onCall(async (request) => {
     }
     resolvedOrgId = tokenData.organization_id;
     // Token-scoped treatment/staff take precedence; otherwise accept from request.
-    resolvedTreatmentId = tokenData.treatment_id ?? resolvedTreatmentId ?? '';
+    resolvedTreatmentId =
+      tokenData.treatment_id || (typeof data.treatmentId === 'string' ? data.treatmentId : '');
     if (tokenData.staff_id) resolvedStaffId = tokenData.staff_id;
     if (!resolvedOrgId || !resolvedTreatmentId) {
       throw new HttpsError('invalid-argument', t('errTreatmentUnscoped'));

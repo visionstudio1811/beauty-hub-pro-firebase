@@ -469,6 +469,7 @@ These were hardened in the 2026-04-21 audit pass. Do not weaken any of them with
 - **`invoiceDrafts`**: admin-only CRUD; create requires `created_by == request.auth.uid`. No invoice number is assigned to drafts — they're pre-issue scratch state that gets deleted when the user clicks "Issue Invoice". Drafts do NOT bypass the immutability guarantees of `invoices/{id}` — issue still goes through `createInvoice`.
 - **`config/invoiceCounter`**: `write: if false` at rule level (via `configId != 'invoiceCounter'` exclusion in the general config rule). Only the `createInvoice` Admin-SDK Cloud Function may increment it.
 - **Storage `invoices/{orgId}/`**: admin-only read + write, PDFs only, 5MB cap.
+- **Framing (clickjacking)**: only `/book/**` (the public scheduler-link page) may be framed, so spas can embed it. In `firebase.json` headers, `X-Frame-Options: DENY` + `frame-ancestors 'none'` live in a `regex` block that matches every path *not* starting with `/book/` (RE2 has no lookahead, hence the nested `(?:[^b].*|b(?:[^o].*|…))` pattern), and `/book/**` gets `frame-ancestors 'self' https:`. No two blocks set the same header on a path, so Hosting's merge order doesn't matter. Keep it that way: don't put frame headers back on `**`, and never add another path to the frameable set without discussion. In the SPA, `FramedRouteGuard` (`src/App.tsx`) renders nothing for non-`/book/` routes when the page was opened framed on a booking link, so in-frame client-side navigation can't reach CRM or portal screens.
 
 ### Logo storage
 
@@ -518,6 +519,10 @@ One Firebase Hosting site (`beauty-hub-pro-app`) serves every domain. The React 
 The host check lives in `src/pages/Index.tsx`: `app.beautyhubpro.com` and any `crm.*` host skip `PublicHome` to prevent marketing-brand leak on white-label domains. All white-label client domains MUST follow the `crm.<brand>.com` convention so this check keeps working.
 
 Every domain serves the exact same React app against the same Firestore data — the white-label effect is purely the URL bar + the hostname-gated Index behavior.
+
+### Caching after deploys
+
+Hosting header rules match the **requested** path, not the rewrite target, so the `/index.html` no-cache rule never reached deep links like `/admin/settings` or `/book/{token}`; browsers kept those for an hour after a deploy and showed the old app. The `"regex": "^/[^.]*$"` block in `firebase.json` now sends `no-cache, no-store, must-revalidate` for every extension-less path (all SPA routes). Files with an extension (hashed `/assets/*`, fonts, images) keep Hosting's default caching. When adding a Cache-Control rule, don't overlap that regex or you'll send the header twice.
 
 ### Adding a new white-label client domain
 

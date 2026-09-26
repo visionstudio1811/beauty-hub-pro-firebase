@@ -211,12 +211,15 @@
       "active": "Active"
     },
     "createdExpires": "Created {{created}} · Expires {{expires}}",
+    "createdNeverExpires": "Created {{created}} · Never expires",
     "actions": {
       "url": "URL",
       "embed": "Embed",
       "revoke": "Revoke",
       "delete": "Delete",
-      "copy": "Copy"
+      "copy": "Copy",
+      "edit": "Edit",
+      "open": "Open"
     },
     "confirmRevoke": "Revoke this link? The public URL will stop working immediately.",
     "confirmDelete": "Permanently delete this link? This cannot be undone — the URL will be gone for good.",
@@ -235,7 +238,10 @@
       "urlCopied": "URL copied",
       "snippetCopied": "Snippet copied",
       "copyFailedTitle": "Copy failed",
-      "copyFailedDescription": "Select and copy manually"
+      "copyFailedDescription": "Select and copy manually",
+      "updatedTitle": "Link updated",
+      "updateFailedTitle": "Update failed",
+      "updateFailedDescription": "Failed to update link"
     },
     "createDialog": {
       "title": "Create Scheduler Link",
@@ -253,6 +259,22 @@
       "publicUrl": "Public URL",
       "embedSnippet": "Embed snippet (iframe)",
       "embedHint": "Paste this into any web page's HTML to embed the booking widget."
+    },
+    "editDialog": {
+      "title": "Edit Scheduler Link",
+      "description": "Changes apply to the same URL, so anyone who already has the link sees them right away.",
+      "removedTreatment": "Removed treatment"
+    },
+    "linkForm": {
+      "expiration": "Expiration",
+      "never": "Never expires",
+      "daysFromToday": "{{days}} days from today",
+      "keepCurrent": "Keep current (expires {{date}})",
+      "keepCurrentNever": "Keep current (never expires)",
+      "active": "Link is active",
+      "activeHelp": "Turn off to stop new booking requests without deleting the link. Turn back on any time.",
+      "save": "Save changes",
+      "saving": "Saving…"
     }
   },
   "userManagement": {

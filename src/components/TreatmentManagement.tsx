@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,13 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Edit, Trash, Settings, Clock } from 'lucide-react';
+import { Plus, Edit, Trash, Settings, Clock, Image as ImageIcon, Loader2, Upload, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseTreatments, Treatment, TreatmentAvailabilityWindow } from '@/hooks/useSupabaseTreatments';
 import { useSupabaseProfiles } from '@/hooks/useSupabaseProfiles';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '@/i18n/LanguageProvider';
@@ -47,6 +48,22 @@ interface DayRow {
 }
 
 const defaultDayRow = (): DayRow => ({ enabled: true, start_time: '10:00', end_time: '18:00' });
+
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+const deleteImageQuietly = async (path: string) => {
+  try {
+    await deleteObject(storageRef(storage, path));
+  } catch {
+    /* already gone, or no permission: nothing to clean up */
+  }
+};
 
 const availabilityToRows = (availability: TreatmentAvailabilityWindow[] | undefined): DayRow[] => {
   // Returns 7 rows (Mon..Sun). Days not present in `availability` start as
@@ -92,6 +109,8 @@ export const TreatmentManagement: React.FC = () => {
     member_price: '',
     duration: '',
     description: '',
+    image_url: null as string | null,
+    image_storage_path: null as string | null,
     category: '',
     color: '',
     staff_ids: [] as string[],
@@ -105,6 +124,12 @@ export const TreatmentManagement: React.FC = () => {
     day_rows: Array.from({ length: 7 }, defaultDayRow) as DayRow[],
   });
   const { toast } = useToast();
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // The photo already saved on the treatment being edited. Any other path in
+  // formData is an upload from this dialog session that must be cleaned up
+  // if the dialog closes without saving.
+  const savedImagePath = editingTreatment?.image_storage_path ?? null;
 
   // Staff who can perform treatments — staff/admin/beautician roles.
   const eligibleStaff = profiles.filter(
@@ -139,6 +164,7 @@ export const TreatmentManagement: React.FC = () => {
   const resetForm = () => {
     setFormData({
       name: '', price: '', member_price: '', duration: '', description: '', category: '', color: '',
+      image_url: null, image_storage_path: null,
       staff_ids: [],
       buffer_before_minutes: '', buffer_after_minutes: '',
       advance_min_hours: '', advance_max_days: '',
@@ -161,6 +187,8 @@ export const TreatmentManagement: React.FC = () => {
       member_price: typeof treatment.member_price === 'number' ? treatment.member_price.toString() : '',
       duration: treatment.duration.toString(),
       description: treatment.description || '',
+      image_url: treatment.image_url ?? null,
+      image_storage_path: treatment.image_storage_path ?? null,
       category: treatment.category || '',
       color: treatment.color || '',
       staff_ids: treatment.staff_ids ?? [],
@@ -172,6 +200,53 @@ export const TreatmentManagement: React.FC = () => {
       day_rows: availabilityToRows(treatment.availability),
     });
     setIsDialogOpen(true);
+  };
+
+  const discardUnsavedImage = () => {
+    if (formData.image_storage_path && formData.image_storage_path !== savedImagePath) {
+      void deleteImageQuietly(formData.image_storage_path);
+    }
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) discardUnsavedImage();
+    setIsDialogOpen(open);
+  };
+
+  const handleImageUpload = async (file: File) => {
+    const orgId = currentOrganization?.id;
+    if (!orgId) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: t('treatmentManagement.image.invalid'), variant: 'destructive' });
+      return;
+    }
+    if (file.size >= IMAGE_MAX_BYTES) {
+      toast({ title: t('treatmentManagement.image.tooLarge'), variant: 'destructive' });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const ext = EXTENSION_BY_MIME[file.type] ?? 'jpg';
+      const path = `organizations/${orgId}/treatments/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file, { contentType: file.type });
+      const url = await getDownloadURL(fileRef);
+      const previous = formData.image_storage_path;
+      if (previous && previous !== savedImagePath) void deleteImageQuietly(previous);
+      setFormData(f => ({ ...f, image_url: url, image_storage_path: path }));
+    } catch (error) {
+      console.error('Treatment image upload failed', error);
+      toast({ title: t('treatmentManagement.image.uploadFailed'), variant: 'destructive' });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (formData.image_storage_path && formData.image_storage_path !== savedImagePath) {
+      void deleteImageQuietly(formData.image_storage_path);
+    }
+    setFormData(f => ({ ...f, image_url: null, image_storage_path: null }));
   };
 
   const handleSave = async () => {
@@ -201,7 +276,11 @@ export const TreatmentManagement: React.FC = () => {
             ? parsedMemberPrice
             : null,
         duration: parseInt(formData.duration),
-        description: formData.description || undefined,
+        // null (not undefined) so clearing the field removes it from the
+        // public booking page too.
+        description: formData.description.trim() || null,
+        image_url: formData.image_url,
+        image_storage_path: formData.image_storage_path,
         category: formData.category || undefined,
         color: formData.color || undefined,
         is_active: true,
@@ -223,6 +302,9 @@ export const TreatmentManagement: React.FC = () => {
 
       if (editingTreatment) {
         await updateTreatment(editingTreatment.id, treatmentData);
+        if (savedImagePath && savedImagePath !== treatmentData.image_storage_path) {
+          void deleteImageQuietly(savedImagePath);
+        }
       } else {
         await addTreatment(treatmentData);
       }
@@ -262,14 +344,14 @@ export const TreatmentManagement: React.FC = () => {
             <Settings className="h-5 w-5 text-purple-600 flex-shrink-0" />
             <CardTitle className="text-lg truncate">{t('treatmentManagement.title')}</CardTitle>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
               <Button size="sm" onClick={openAddDialog} className="w-full sm:w-auto shrink-0">
                 <Plus className="h-4 w-4 me-2" />
                 {t('treatmentManagement.addTreatment')}
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-base">
                   {editingTreatment ? t('treatmentManagement.editTreatment') : t('treatmentManagement.addNewTreatment')}
@@ -281,78 +363,165 @@ export const TreatmentManagement: React.FC = () => {
                   }
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-6 py-4">
+                {/* Photo beside the basics; both show on public booking links. */}
+                <div className="grid gap-5 sm:grid-cols-[220px_minmax(0,1fr)]">
+                  <div className="grid gap-2 content-start">
+                    <Label className="text-sm">{t('treatmentManagement.image.label')}</Label>
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (file) void handleImageUpload(file);
+                        }}
+                      />
+                      {formData.image_url ? (
+                        <div className="space-y-2">
+                          <div className="overflow-hidden rounded-md border bg-muted">
+                            <img
+                              src={formData.image_url}
+                              alt={t('treatmentManagement.image.alt')}
+                              className="w-full aspect-[4/3] object-cover"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-xs"
+                              disabled={uploadingImage}
+                              onClick={() => imageInputRef.current?.click()}
+                            >
+                              {uploadingImage
+                                ? <Loader2 className="h-3.5 w-3.5 me-1 animate-spin" />
+                                : <Upload className="h-3.5 w-3.5 me-1" />}
+                              {t('treatmentManagement.image.replace')}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 text-xs text-red-600 hover:text-red-700"
+                              disabled={uploadingImage}
+                              onClick={handleRemoveImage}
+                            >
+                              <X className="h-3.5 w-3.5 me-1" />
+                              {t('treatmentManagement.image.remove')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={uploadingImage}
+                          onClick={() => imageInputRef.current?.click()}
+                          className="w-full aspect-[4/3] flex flex-col items-center justify-center rounded-md border-2 border-dashed border-input bg-background px-4 text-center hover:bg-accent transition-colors disabled:opacity-60"
+                        >
+                          {uploadingImage ? (
+                            <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-muted-foreground" />
+                          ) : (
+                            <ImageIcon className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                          )}
+                          <p className="text-sm font-medium">
+                            {uploadingImage ? t('treatmentManagement.image.uploading') : t('treatmentManagement.image.upload')}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">{t('treatmentManagement.image.hint')}</p>
+                        </button>
+                      )}
+                    <p className="text-xs text-muted-foreground">{t('treatmentManagement.image.sectionHelp')}</p>
+                  </div>
+                  <div className="grid gap-4 content-start">
+                    <div className="grid gap-2">
+                      <Label htmlFor="name" className="text-sm">{t('treatmentManagement.fields.name')}</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder={t('treatmentManagement.fields.namePlaceholder')}
+                        className="w-full text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="price" className="text-sm">{t('treatmentManagement.fields.price')}</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          value={formData.price}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                          placeholder={t('treatmentManagement.fields.pricePlaceholder')}
+                          className="w-full text-sm"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="duration" className="text-sm">{t('treatmentManagement.fields.duration')}</Label>
+                        <Input
+                          id="duration"
+                          type="number"
+                          value={formData.duration}
+                          onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                          placeholder={t('treatmentManagement.fields.durationPlaceholder')}
+                          className="w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="member_price" className="text-sm">{t('treatmentManagement.fields.memberPrice')}</Label>
+                      <Input
+                        id="member_price"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={formData.member_price}
+                        onChange={(e) => setFormData({ ...formData, member_price: e.target.value })}
+                        placeholder={t('treatmentManagement.fields.memberPricePlaceholder')}
+                        className="w-full text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t('treatmentManagement.fields.memberPriceHelp')}
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="category" className="text-sm">{t('treatmentManagement.fields.category')}</Label>
+                      <Select
+                        value={formData.category || '__none__'}
+                        onValueChange={(v) => setFormData({ ...formData, category: v === '__none__' ? '' : v })}
+                      >
+                        <SelectTrigger id="category" className="w-full text-sm">
+                          <SelectValue placeholder={t('treatmentManagement.fields.categoryPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">{t('treatmentManagement.fields.categoryNone')}</SelectItem>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {categories.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {t('treatmentManagement.fields.categoryTip')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid gap-2">
-                  <Label htmlFor="name" className="text-sm">{t('treatmentManagement.fields.name')}</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder={t('treatmentManagement.fields.namePlaceholder')}
-                    className="w-full text-sm"
+                  <Label htmlFor="description" className="text-sm">{t('treatmentManagement.fields.description')}</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder={t('treatmentManagement.fields.descriptionPlaceholder')}
+                    rows={4}
+                    maxLength={2000}
+                    className="w-full resize-y text-sm"
                   />
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="grid gap-2">
-                    <Label htmlFor="price" className="text-sm">{t('treatmentManagement.fields.price')}</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder={t('treatmentManagement.fields.pricePlaceholder')}
-                      className="w-full text-sm"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="member_price" className="text-sm">{t('treatmentManagement.fields.memberPrice')}</Label>
-                    <Input
-                      id="member_price"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={formData.member_price}
-                      onChange={(e) => setFormData({ ...formData, member_price: e.target.value })}
-                      placeholder={t('treatmentManagement.fields.memberPricePlaceholder')}
-                      className="w-full text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t('treatmentManagement.fields.memberPriceHelp')}
-                    </p>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="duration" className="text-sm">{t('treatmentManagement.fields.duration')}</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                      placeholder={t('treatmentManagement.fields.durationPlaceholder')}
-                      className="w-full text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="category" className="text-sm">{t('treatmentManagement.fields.category')}</Label>
-                  <Select
-                    value={formData.category || '__none__'}
-                    onValueChange={(v) => setFormData({ ...formData, category: v === '__none__' ? '' : v })}
-                  >
-                    <SelectTrigger id="category" className="w-full text-sm">
-                      <SelectValue placeholder={t('treatmentManagement.fields.categoryPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t('treatmentManagement.fields.categoryNone')}</SelectItem>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {t('treatmentManagement.fields.categoryTip')}
-                    </p>
-                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="color" className="text-sm">{t('treatmentManagement.fields.color')}</Label>
@@ -620,24 +789,12 @@ export const TreatmentManagement: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="description" className="text-sm">{t('treatmentManagement.fields.description')}</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder={t('treatmentManagement.fields.descriptionPlaceholder')}
-                    rows={3}
-                    className="w-full resize-none text-sm"
-                  />
-                </div>
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto text-sm">
+                <Button variant="outline" onClick={() => handleDialogOpenChange(false)} className="w-full sm:w-auto text-sm">
                   {t('common:actions.cancel')}
                 </Button>
-                <Button onClick={handleSave} className="w-full sm:w-auto text-sm">
+                <Button onClick={handleSave} disabled={uploadingImage} className="w-full sm:w-auto text-sm">
                   {editingTreatment ? t('treatmentManagement.updateTreatment') : t('treatmentManagement.addTreatment')}
                 </Button>
               </DialogFooter>
@@ -652,31 +809,40 @@ export const TreatmentManagement: React.FC = () => {
         <div className="space-y-3">
           {treatments.map((treatment) => (
             <div key={treatment.id} className="p-3 border rounded-lg space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {treatment.color && (
-                    <span
-                      className="h-3 w-3 rounded-full border border-border shrink-0"
-                      style={{ backgroundColor: treatment.color }}
-                      aria-label={t('treatmentManagement.card.colorAria', { color: treatment.color })}
-                      title={treatment.color}
-                    />
-                  )}
-                  <h4 className="font-medium text-sm break-words">{treatment.name}</h4>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {treatment.price && <Badge variant="secondary" className="text-xs">{formatPrice(treatment.price)}</Badge>}
-                  {typeof treatment.member_price === 'number' && (
-                    <Badge variant="outline" className="text-xs border-amber-300 bg-amber-50 text-amber-800">
-                      {t('treatmentManagement.card.memberPrice', { price: formatPrice(treatment.member_price) })}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-xs">{t('treatmentManagement.card.minutes', { count: treatment.duration })}</Badge>
-                  {treatment.category && <Badge variant="outline" className="text-xs">{treatment.category}</Badge>}
-                </div>
-                {treatment.description && (
-                  <p className="text-xs text-muted-foreground break-words">{treatment.description}</p>
+              <div className="flex gap-3">
+                {treatment.image_url && (
+                  <img
+                    src={treatment.image_url}
+                    alt=""
+                    className="h-16 w-16 rounded-md object-cover shrink-0 border"
+                  />
                 )}
+                <div className="space-y-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {treatment.color && (
+                      <span
+                        className="h-3 w-3 rounded-full border border-border shrink-0"
+                        style={{ backgroundColor: treatment.color }}
+                        aria-label={t('treatmentManagement.card.colorAria', { color: treatment.color })}
+                        title={treatment.color}
+                      />
+                    )}
+                    <h4 className="font-medium text-sm break-words">{treatment.name}</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {treatment.price && <Badge variant="secondary" className="text-xs">{formatPrice(treatment.price)}</Badge>}
+                    {typeof treatment.member_price === 'number' && (
+                      <Badge variant="outline" className="text-xs border-amber-300 bg-amber-50 text-amber-800">
+                        {t('treatmentManagement.card.memberPrice', { price: formatPrice(treatment.member_price) })}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">{t('treatmentManagement.card.minutes', { count: treatment.duration })}</Badge>
+                    {treatment.category && <Badge variant="outline" className="text-xs">{treatment.category}</Badge>}
+                  </div>
+                  {treatment.description && (
+                    <p className="text-xs text-muted-foreground break-words line-clamp-3">{treatment.description}</p>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex gap-2">
